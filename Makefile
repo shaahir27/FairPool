@@ -85,9 +85,12 @@ sdk:
 
 secrets:
 	@if [ ! -f .gitleaks.toml ]; then echo "SKIP: gitleaks config (T00A02)"; exit 0; fi; \
-	if command -v $(GITLEAKS) >/dev/null 2>&1; then $(GITLEAKS) git --redact; \
-	elif [ -x "$$LOCALAPPDATA/Microsoft/WinGet/Links/gitleaks.exe" ]; then "$$LOCALAPPDATA/Microsoft/WinGet/Links/gitleaks.exe" git --redact; \
-	else echo "gitleaks not found: winget install Gitleaks.Gitleaks"; exit 1; fi
+	GITLEAKS_BIN="$(GITLEAKS)"; \
+	if ! command -v "$$GITLEAKS_BIN" >/dev/null 2>&1; then \
+		GITLEAKS_BIN="$$(find "$$LOCALAPPDATA/Microsoft/WinGet/Packages" -maxdepth 2 -name gitleaks.exe -print -quit 2>/dev/null)"; \
+	fi; \
+	if [ -z "$$GITLEAKS_BIN" ]; then echo "gitleaks not found: winget install Gitleaks.Gitleaks"; exit 1; fi; \
+	"$$GITLEAKS_BIN" git --redact
 
 verify: lint typecheck test imports docs-check openapi-check secrets
 
