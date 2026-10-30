@@ -1,0 +1,176 @@
+services:
+  - type: web
+    name: fairpool-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: oregon
+    dockerfilePath: ./deploy/Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: common
+      - fromGroup: paypal
+      - fromGroup: ai
+      - fromGroup: search
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fairpool-db
+          property: connectionString
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: HMAC_KEY
+        sync: false
+      - key: RECEIPT_SIGNING_KEY
+        sync: false
+      - key: ADDRESS_ENCRYPTION_KEY
+        sync: false
+      - key: VAULT_TOKEN_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: SINGLE_SELLER_EMAIL
+        sync: false
+      - key: SINGLE_SELLER_MERCHANT_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELASTICSEARCH_URL
+        sync: false
+      - key: ELASTICSEARCH_API_KEY
+        sync: false
+      - key: ELASTIC_INFERENCE_ID
+        sync: false
+
+  - type: worker
+    name: fairpool-worker
+    runtime: docker
+    plan: 0.5c-512mb
+    region: oregon
+    dockerfilePath: ./deploy/Dockerfile.worker
+    dockerContext: .
+    envVars:
+      - fromGroup: common
+      - fromGroup: paypal
+      - fromGroup: ai
+      - fromGroup: search
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fairpool-db
+          property: connectionString
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: HMAC_KEY
+        sync: false
+      - key: RECEIPT_SIGNING_KEY
+        sync: false
+      - key: ADDRESS_ENCRYPTION_KEY
+        sync: false
+      - key: VAULT_TOKEN_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: SINGLE_SELLER_EMAIL
+        sync: false
+      - key: SINGLE_SELLER_MERCHANT_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELASTICSEARCH_URL
+        sync: false
+      - key: ELASTICSEARCH_API_KEY
+        sync: false
+      - key: ELASTIC_INFERENCE_ID
+        sync: false
+
+  - type: web
+    name: fairpool-frontend
+    runtime: static
+    buildCommand: "echo 'Placeholder frontend: T01B03 replaces deploy/frontend-placeholder'"
+    staticPublishPath: ./deploy/frontend-placeholder
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: fairpool-db
+    databaseName: fairpool
+    user: fairpool
+    plan: 0.5c-1g
+    region: oregon
+    postgresMajorVersion: "16"
+
+envVarGroups:
+  - name: common
+    envVars:
+      - key: APP_ENV
+        value: render
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PAYMENT_ROUTER
+        value: single_seller
+      - key: PAYMENT_MODE
+        value: vault_charge
+      - key: BID_PRICING_MODE
+        value: flat_delivered
+      - key: PAYPAL_PAYLOAD_LEVEL
+        value: "0"
+      - key: TIMING_PROFILE
+        value: demo
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+
+  - name: paypal
+    envVars:
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CHECKOUT_BASE
+        value: https://www.sandbox.paypal.com
+      - key: PAYPAL_APPROVAL_UI
+        value: sdk_popup
+      - key: PAYPAL_SDK_AUTH
+        value: client_id
+      - key: ALLOWED_PAYER_COUNTRIES
+        value: US
+      - key: PLATFORM_FEE_ENABLED
+        value: "false"
+
+  - name: ai
+    envVars:
+      - key: AI_ENABLED
+        value: "true"
+      - key: AI_MODEL_PARSE
+        value: claude-sonnet-5-5
+      - key: AI_MODEL_SIM
+        value: claude-haiku-5-5
+
+  - name: search
+    envVars:
+      - key: SEARCH_BACKEND
+        value: postgres
+      - key: ELASTIC_INDEX_PREFIX
+        value: fairpool
+      - key: SIMILARITY_CHECK_ENABLED
+        value: "true"

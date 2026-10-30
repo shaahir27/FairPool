@@ -1,0 +1,5 @@
+# Single-operator Phase 0. Replace only if the team grows.
+* @shaahir27
+/docs/contracts/** /docs/decisions.md @shaahir27
+/backend/src/fairpool/config.py /backend/src/fairpool/ports.py /backend/src/fairpool/wiring.py @shaahir27
+/README.md @shaahir27

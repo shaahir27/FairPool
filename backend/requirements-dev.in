@@ -1,0 +1,11 @@
+-r requirements.in
+pytest
+pytest-asyncio
+pytest-cov
+hypothesis
+respx
+ruff
+mypy
+pre-commit
+pip-tools
+pyyaml

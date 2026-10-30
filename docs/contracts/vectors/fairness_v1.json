@@ -1,0 +1,304 @@
+{
+  "canonical_json_cases": [
+    {
+      "input": {
+        "b": 1,
+        "a": {
+          "d": [
+            3,
+            2,
+            1
+          ],
+          "c": "é"
+        }
+      },
+      "output": "{\"a\":{\"c\":\"é\",\"d\":[3,2,1]},\"b\":1}"
+    }
+  ],
+  "entries": [
+    {
+      "entry_id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "salt_hex": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "canonical_request": {
+        "v": 1,
+        "pool_id": "11111111-1111-4111-8111-111111111111",
+        "product_key": "monitor-27-4k",
+        "variant": "black",
+        "condition": "NEW",
+        "quantity": 1,
+        "currency": "USD",
+        "delivery": {
+          "zone_id": "US-EAST",
+          "region": "NY",
+          "country": "US"
+        },
+        "required_by": "2026-11-30",
+        "max_total_cents": 60000,
+        "firm": [],
+        "preferences": [
+          "matte screen"
+        ]
+      },
+      "request_hash": "685b54eb6d798b0cd21b036bf91f48b9537f050c805010a2280f0b109e6d6274",
+      "commitment": "ab508caff3761d81380971529b810b462c30bbd3f1d1287bb05bc407d77b7535",
+      "rank_hash": "ee6590db9fd6f078d360e5693f39b175fd3d4a21ce88fa5613ca38e3a16107bc"
+    },
+    {
+      "entry_id": "aaaaaaaa-0000-4000-8000-000000000002",
+      "salt_hex": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "canonical_request": {
+        "v": 1,
+        "pool_id": "11111111-1111-4111-8111-111111111111",
+        "product_key": "monitor-27-4k",
+        "variant": "black",
+        "condition": "NEW",
+        "quantity": 1,
+        "currency": "USD",
+        "delivery": {
+          "zone_id": "US-EAST",
+          "region": "NY",
+          "country": "US"
+        },
+        "required_by": "2026-11-30",
+        "max_total_cents": 55000,
+        "firm": [],
+        "preferences": [
+          "matte screen"
+        ]
+      },
+      "request_hash": "b7a5588b30002ff43f8f233cc815cbb97d780e1022ea9744b56ac74472738502",
+      "commitment": "ddefeb5e9d32e97241b2f8bcb53776279ef075cb210c67ea58d3c8b4183a525c",
+      "rank_hash": "b006a803f5973b7124e28e532c4fde18678418c276153b16c19833d66b029140"
+    },
+    {
+      "entry_id": "aaaaaaaa-0000-4000-8000-000000000003",
+      "salt_hex": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "canonical_request": {
+        "v": 1,
+        "pool_id": "11111111-1111-4111-8111-111111111111",
+        "product_key": "monitor-27-4k",
+        "variant": "black",
+        "condition": "NEW",
+        "quantity": 1,
+        "currency": "USD",
+        "delivery": {
+          "zone_id": "US-EAST",
+          "region": "NY",
+          "country": "US"
+        },
+        "required_by": "2026-11-30",
+        "max_total_cents": 52000,
+        "firm": [],
+        "preferences": [
+          "matte screen"
+        ]
+      },
+      "request_hash": "d3af22e92e1491b7c3a0f700153202eac879fda778d9896759bfd98b4d285b9a",
+      "commitment": "20d784195e2adcf318f50f4df423105eb5623200c6b89e8e02c2da86caf50bc0",
+      "rank_hash": "4c7f4fa580203eaa1879dcd2f148d441f0a32538d762f92b47a2581f396bbb2c"
+    },
+    {
+      "entry_id": "aaaaaaaa-0000-4000-8000-000000000004",
+      "salt_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "canonical_request": {
+        "v": 1,
+        "pool_id": "11111111-1111-4111-8111-111111111111",
+        "product_key": "monitor-27-4k",
+        "variant": "black",
+        "condition": "NEW",
+        "quantity": 1,
+        "currency": "USD",
+        "delivery": {
+          "zone_id": "US-EAST",
+          "region": "NY",
+          "country": "US"
+        },
+        "required_by": "2026-11-30",
+        "max_total_cents": 61000,
+        "firm": [],
+        "preferences": [
+          "matte screen"
+        ]
+      },
+      "request_hash": "fba5c9d701c2a4ad725ad92a4b032adcc8a985ab97537ebf4063bbca6ae1404a",
+      "commitment": "4c9ee769428b7699bf339c329363a72c4d8fd8da4a71f4ec3bf47e420c8986ca",
+      "rank_hash": "c9e2064264f052117ffe4f51aeec97e21f589469ca9e675d529635ac0a12ee4a"
+    },
+    {
+      "entry_id": "aaaaaaaa-0000-4000-8000-000000000005",
+      "salt_hex": "abababababababababababababababababababababababababababababababab",
+      "canonical_request": {
+        "v": 1,
+        "pool_id": "11111111-1111-4111-8111-111111111111",
+        "product_key": "monitor-27-4k",
+        "variant": "black",
+        "condition": "NEW",
+        "quantity": 1,
+        "currency": "USD",
+        "delivery": {
+          "zone_id": "US-EAST",
+          "region": "NY",
+          "country": "US"
+        },
+        "required_by": "2026-11-30",
+        "max_total_cents": 49900,
+        "firm": [],
+        "preferences": [
+          "matte screen"
+        ]
+      },
+      "request_hash": "6d62301c38d1c74c25dab068d741a758989cf527f0fa06622253e87f2b130009",
+      "commitment": "a495226fc07c96a13f9595f76e0144c93ee93edfe4bb8575462288d33ebf9e59",
+      "rank_hash": "1d5cbe298952ee9afe3546eb44b78f7b815033905c3552b3dfb275207af53d10"
+    }
+  ],
+  "sorted_commitments": [
+    "20d784195e2adcf318f50f4df423105eb5623200c6b89e8e02c2da86caf50bc0",
+    "4c9ee769428b7699bf339c329363a72c4d8fd8da4a71f4ec3bf47e420c8986ca",
+    "a495226fc07c96a13f9595f76e0144c93ee93edfe4bb8575462288d33ebf9e59",
+    "ab508caff3761d81380971529b810b462c30bbd3f1d1287bb05bc407d77b7535",
+    "ddefeb5e9d32e97241b2f8bcb53776279ef075cb210c67ea58d3c8b4183a525c"
+  ],
+  "merkle_root": "ca574eaff1e4cdf6dfa40d4d7b2a7bd84926b127b4d798e90d87c01eee445c3e",
+  "inclusion_proof": {
+    "commitment": "a495226fc07c96a13f9595f76e0144c93ee93edfe4bb8575462288d33ebf9e59",
+    "steps": [
+      {
+        "side": "R",
+        "hash": "72210cb1c1d66181940c01c3a28699ff345dec25f8cef274a40de86b6662ce09"
+      },
+      {
+        "side": "L",
+        "hash": "d1932a9b5676199c0cb64d6c8d968a30e3da43ca9f2029ebb87c21096bbbdefe"
+      },
+      {
+        "side": "R",
+        "hash": "889c9a61b34e3c94df91ce6ba16a0f9bf123af65bc332ab902006a9d106676e4"
+      }
+    ]
+  },
+  "seed_hex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+  "order": [
+    "aaaaaaaa-0000-4000-8000-000000000005",
+    "aaaaaaaa-0000-4000-8000-000000000003",
+    "aaaaaaaa-0000-4000-8000-000000000002",
+    "aaaaaaaa-0000-4000-8000-000000000004",
+    "aaaaaaaa-0000-4000-8000-000000000001"
+  ],
+  "demo_seed": "b6f9f12be5df830c569c4eeca9cbfeb74057cdc26f0d9665012858088276fd73",
+  "receipt": {
+    "private_key_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+    "public_key_b64url": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
+    "payload": {
+      "v": 1,
+      "pool_id": "11111111-1111-4111-8111-111111111111",
+      "entry_id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "commitment": "ab508caff3761d81380971529b810b462c30bbd3f1d1287bb05bc407d77b7535",
+      "received_at": "2026-10-28T10:00:00.123456Z"
+    },
+    "payload_canonical": "{\"commitment\":\"ab508caff3761d81380971529b810b462c30bbd3f1d1287bb05bc407d77b7535\",\"entry_id\":\"aaaaaaaa-0000-4000-8000-000000000001\",\"pool_id\":\"11111111-1111-4111-8111-111111111111\",\"received_at\":\"2026-10-28T10:00:00.123456Z\",\"v\":1}",
+    "signature_b64url": "Tjqf-MnxwB8iVV2VcL6RgFffMKAZ-iNLiXFbWYTjGSHrFZ40IYZ7e4ZxZHYxEF85I_5VMei3lCY4YKJZ5DO1BA"
+  },
+  "audit_chain": [
+    {
+      "row": {
+        "actor": "system",
+        "action": "pool.publish",
+        "subject_type": "pool",
+        "subject_id": "11111111-1111-4111-8111-111111111111",
+        "payload": {
+          "rules_hash": "abababababababababababababababababababababababababababababababab"
+        },
+        "created_at": "2026-10-21T09:00:00.000000Z"
+      },
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "hash": "06489c7b00cfa11ea25cafbf2c2eb10af2cad065fb9023d257bd9d0d643a7778"
+    },
+    {
+      "row": {
+        "actor": "system",
+        "action": "pool.close",
+        "subject_type": "pool",
+        "subject_id": "11111111-1111-4111-8111-111111111111",
+        "payload": {
+          "entries_root": "ca574eaff1e4cdf6dfa40d4d7b2a7bd84926b127b4d798e90d87c01eee445c3e"
+        },
+        "created_at": "2026-10-28T10:30:00.000000Z"
+      },
+      "prev_hash": "06489c7b00cfa11ea25cafbf2c2eb10af2cad065fb9023d257bd9d0d643a7778",
+      "hash": "9a671712f4292313e51744da7da4995275b6a07983e942e12b80f98e7d593921"
+    }
+  ],
+  "money": {
+    "tax_cases": [
+      {
+        "item_cents": 49900,
+        "rate_bps": 875,
+        "tax_cents": 4366
+      },
+      {
+        "item_cents": 1999,
+        "rate_bps": 825,
+        "tax_cents": 165
+      },
+      {
+        "item_cents": 10000,
+        "rate_bps": 0,
+        "tax_cents": 0
+      }
+    ],
+    "mean_cases": [
+      {
+        "values": [
+          50000,
+          50001
+        ],
+        "mean_cents": 50001
+      },
+      {
+        "values": [
+          50000,
+          50002,
+          50003
+        ],
+        "mean_cents": 50002
+      }
+    ]
+  },
+  "tiebreak": {
+    "lot_id": "22222222-2222-4222-8222-222222222222",
+    "lot_seed": "d7c7e68520f5df75608308ac532f372be5de37d7ef1b0fb29db105ce17d87b84",
+    "merchant_a": "33333333-3333-4333-8333-333333333331",
+    "tiebreak_a": "8e7a67bfee83e6ccb37c015a9a521c8d4c3d386c763f9d0e27250edbcac441db",
+    "merchant_b": "33333333-3333-4333-8333-333333333332",
+    "tiebreak_b": "a53d49fed389a9ec82e95c78ad1f6284e41c1a98d77e9c2fcedc8e22951dee3d"
+  },
+  "tier_case": {
+    "caps_cents": [
+      60000,
+      55000,
+      52000,
+      61000,
+      49900
+    ],
+    "shipping_cents": 1500,
+    "tax_rate_bps": 875,
+    "tiers": [
+      {
+        "min_qty": 1,
+        "item_price_cents": 50000,
+        "total_cents": 55875,
+        "n_can_accept": 2,
+        "applies": true
+      },
+      {
+        "min_qty": 3,
+        "item_price_cents": 47000,
+        "total_cents": 52613,
+        "n_can_accept": 3,
+        "applies": true
+      }
+    ],
+    "chosen_tier_index": 1
+  }
+}

@@ -1,0 +1,16 @@
+title = "FairPool gitleaks configuration"
+
+[extend]
+useDefault = true
+
+# Only the published fairness test key, the spike template and the mock-fixture test files are allowed.
+# Deliberately narrow: no per-rule, regex or commit allowlists.
+[[allowlists]]
+description = "Published test vectors and the spike template contain non-live test values."
+paths = [
+  '''docs/contracts/vectors/fairness_v1\.json''',
+  '''tools/spike_check\.env\.example''',
+  '''tools/spike_check_tests/test_branches\.py''',
+  '''tools/spike_check_tests/test_end_to_end\.py''',
+  '''tools/spike_check_tests/test_modes\.py''',
+]

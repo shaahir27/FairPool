@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fairpool"
+version = "0.1.0"
+description = "FairPool backend"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "pydantic",
+  "pydantic-settings",
+  "sqlalchemy[asyncio]",
+  "alembic",
+  "httpx",
+  "cryptography",
+  "argon2-cffi",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "hypothesis",
+  "respx",
+  "ruff",
+  "mypy",
+  "pre-commit",
+  "pip-tools",
+  "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra"
+markers = [
+  "property: hypothesis property tests",
+  "integration: Postgres-backed integration tests",
+  "sandbox: non-interactive PayPal Sandbox contract tests",
+  "sandbox_interactive: Sandbox tests needing human approval",
+  "faults: fault-injection tests",
+  "concurrency: concurrency tests",
+  "ai_eval: tests using the real AI model",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.coverage.run]
+source = ["fairpool.domain"]
