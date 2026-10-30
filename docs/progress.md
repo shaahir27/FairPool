@@ -256,7 +256,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | 2026-10-30 | Codex is the agent platform: `AGENTS.md` plus `.codex/skills/graphify`; no `CLAUDE.md`. The graph is rebuilt with `graphify extract .` and committed. | owner | progress.md, scaffold section 9 |
 | 2026-10-30 | The host guard lives in `config.py` so PH0 has no adapter dependency; T02A01 reuses it. | owner | progress.md |
 | 2026-10-30 | CI fixes: build tools pinned in the hashed locks, CSV tuple envs decoded by a validator, gitleaks CLI in CI, and compose `--env-file .env`. All nine checks pass. | owner | progress.md, .github/workflows/ci.yml |
-| 2026-10-30 | Graphify semantic extraction failed with the configured Gemini key; the committed graph is the AST-only update (1485 nodes / 2443 edges) and excludes `.env`. A later `graphify label` refreshes names when a valid key is set. | owner | progress.md, graphify-out/GRAPH_REPORT.md |
+| 2026-10-30 | Graphify semantic extraction failed with the configured Gemini key; the committed graph is the AST-only update (1487 nodes / 2447 edges) and excludes `.env`. A later `graphify label` refreshes names when a valid key is set. | owner | progress.md, graphify-out/GRAPH_REPORT.md |
 
 ## Defects from rehearsals
 
@@ -271,4 +271,4 @@ Devpost text draft, video link and the final checklist result are recorded here 
 
 One line per member per day: date, member, what merged, what is next.
 
-- 2026-10-30, owner: T00A01 to T00B01 committed on `phase-0`; S1/S7 consolidated; graph rebuilt; PR #1 merged at 77143f0; CI run 41077235819 green; `contracts-v1` tagged. Next: owner rotation/plugin versions, then IG-0.
+- 2026-10-30, owner: T00A01 to T00B01 committed on `phase-0`; S1/S7 consolidated; graph rebuilt; PR #1 merged at 77143f0; final main dbff14c; CI run 41077876412 green; `contracts-v1` tagged; graph refreshed to 1487 nodes / 2447 edges. Next: owner rotation/plugin versions, then IG-0.
