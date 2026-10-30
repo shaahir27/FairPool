@@ -7,8 +7,9 @@ app factory itself stays environment-free for tests.
 
 from fairpool.api.app import create_app
 from fairpool.config import get_settings
+from fairpool.db.migrations import make_readiness_probe
 from fairpool.logging import configure_logging
 
 settings = get_settings()
 configure_logging(settings.log_level)
-app = create_app(settings)
+app = create_app(settings, readiness_probe=make_readiness_probe())

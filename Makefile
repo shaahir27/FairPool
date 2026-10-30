@@ -36,7 +36,12 @@ setup:
 	fi
 	@$(PIP) install --no-deps -e backend
 	@$(PY) -m pre_commit install
-	@echo "SKIP: frontend dependencies (frontend/ appears in T01B03)"
+	@if [ -f frontend/package.json ]; then \
+		node -e "const major=+process.version.slice(1).split('.')[0]; if (major < 20) { console.error('Node >= 20 is required'); process.exit(1); }"; \
+		cd frontend && npm ci; \
+	else \
+		echo "SKIP: frontend dependencies (frontend/ appears in T01B03)"; \
+	fi
 
 lock:
 	@$(PIP) install pip-tools
@@ -58,6 +63,7 @@ test:
 	else \
 		$(PY) -m pytest backend/tests -m "not sandbox and not sandbox_interactive and not faults and not ai_eval"; \
 	fi
+	@if [ -f frontend/package.json ]; then cd frontend && npm test; else echo "SKIP: frontend tests (T01B03)"; fi
 
 test-sandbox:
 	@$(PY) -m pytest backend/tests/contract_sandbox -m sandbox
@@ -95,16 +101,24 @@ secrets:
 verify: lint typecheck test imports docs-check openapi-check secrets
 
 gate-check: verify
-	@echo "IT-0 manual checks: tags, spike records, plugin versions, secrets rotation, graph outputs"
+	@if [ "$(GATE)" = "ig-1" ]; then \
+		$(PY) -m alembic -c backend/alembic.ini upgrade head; \
+		$(PY) -m alembic -c backend/alembic.ini check; \
+		cd frontend && npm run build && cd ..; \
+		echo "IT-1 manual: hosted /health + /ready, webhook POST + stored row, contract tests, port fakes, S2 O1/O2, S6"; \
+	else \
+		echo "IT-0 manual checks: tags, spike records, plugin versions, secrets rotation, graph outputs"; \
+	fi
 
 dev:
 	@docker compose --env-file .env -f deploy/docker-compose.yml up --build
 
 migrate:
-	@$(PY) -m alembic upgrade head
+	@$(PY) -m alembic -c backend/alembic.ini upgrade head
 
 db-reset:
-	@echo "SKIP: database reset starts at T01A01"
+	@$(PY) -m alembic -c backend/alembic.ini downgrade base
+	@$(PY) -m alembic -c backend/alembic.ini upgrade head
 
 search-reindex:
 	@echo "SKIP: search indexing starts at T03B02"

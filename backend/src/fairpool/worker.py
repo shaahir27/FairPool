@@ -1,23 +1,27 @@
-"""Worker entrypoint (T00A03): polling loop, JSON logs, graceful shutdown.
+"""Worker entrypoint (T00A03, async job runner T01A02).
 
-There is no job queue until T01A02; `run` accepts an empty handler registry and
-waits on the stop event. Handlers will be registered by kind then.
+The queue-backed runner claims jobs from Postgres and runs registered
+handlers; the registry is empty until the engine phases add handlers.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import signal
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from types import FrameType
 
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
 from fairpool.config import get_settings
+from fairpool.db.session import get_engine
+from fairpool.infra.jobs import JobHandler, JobRunner, PostgresJobQueue
 from fairpool.logging import configure_logging
 
 logger = logging.getLogger("fairpool.worker")
-
-JobHandler = Callable[[], None]
 
 
 def install_signal_handlers(stop_event: threading.Event) -> None:
@@ -35,24 +39,27 @@ def install_signal_handlers(stop_event: threading.Event) -> None:
             logger.debug("worker.signal_unsupported name=%s", signum)
 
 
-def run(
+async def run_worker(
     handlers: Mapping[str, JobHandler] | None = None,
     stop_event: threading.Event | None = None,
     *,
+    worker_id: str | None = None,
     poll_interval_s: float = 1.0,
 ) -> None:
-    """Poll until stopped. The registry is empty until the job queue lands."""
-    registry = dict(handlers or {})
     stop = stop_event if stop_event is not None else threading.Event()
-    logger.info("worker.started handlers=%d", len(registry))
+    engine = get_engine()
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    runner = JobRunner(
+        PostgresJobQueue(),
+        factory,
+        handlers or {},
+        worker_id=worker_id or f"worker-{os.getpid()}",
+        poll_interval_s=poll_interval_s,
+    )
     try:
-        while not stop.is_set():
-            logger.debug("worker.poll handlers=%d", len(registry))
-            stop.wait(poll_interval_s)
-    except KeyboardInterrupt:
-        stop.set()
+        await runner.run_forever(stop)
     finally:
-        logger.info("worker.stopped")
+        await engine.dispose()
 
 
 def main() -> None:
@@ -60,7 +67,7 @@ def main() -> None:
     configure_logging(settings.log_level)
     stop_event = threading.Event()
     install_signal_handlers(stop_event)
-    run({}, stop_event)
+    asyncio.run(run_worker({}, stop_event))
 
 
 if __name__ == "__main__":

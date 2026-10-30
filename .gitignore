@@ -30,9 +30,7 @@ build/
 # Generated or transient artifacts
 *.zip
 tools/sandbox_tests/*.json
-graphify-out/.graphify_*
-graphify-out/cache/
-graphify-out/2026-*/
-graphify-out/manifest.json
+graphify-out/
+spike_out/
 .codex/hooks.json
 .agents

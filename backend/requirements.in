@@ -3,6 +3,7 @@ uvicorn
 pydantic
 pydantic-settings
 sqlalchemy[asyncio]
+asyncpg
 alembic
 httpx
 cryptography

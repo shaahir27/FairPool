@@ -105,8 +105,11 @@ services:
   - type: web
     name: fairpool-frontend
     runtime: static
-    buildCommand: "echo 'Placeholder frontend: T01B03 replaces deploy/frontend-placeholder'"
-    staticPublishPath: ./deploy/frontend-placeholder
+    buildCommand: "cd frontend && npm ci && npm run build"
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
     routes:
       - type: rewrite
         source: /*
@@ -139,6 +142,10 @@ envVarGroups:
         value: demo
       - key: RATE_LIMIT_ENABLED
         value: "true"
+      - key: WEBHOOKS_ENABLED
+        value: "false"
+      - key: BEACON_MODE
+        value: demo
 
   - name: paypal
     envVars:
@@ -160,7 +167,7 @@ envVarGroups:
   - name: ai
     envVars:
       - key: AI_ENABLED
-        value: "true"
+        value: "false"
       - key: AI_MODEL_PARSE
         value: claude-sonnet-5-5
       - key: AI_MODEL_SIM

@@ -22,6 +22,10 @@ services:
       dockerfile: deploy/Dockerfile.api
     env_file:
       - ../.env
+    environment:
+      # The host .env points at 127.0.0.1 for host-side Alembic/tests; inside
+      # the compose network the database is the `db` service.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
       db:
         condition: service_healthy
@@ -46,6 +50,8 @@ services:
       dockerfile: deploy/Dockerfile.worker
     env_file:
       - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
       db:
         condition: service_healthy
