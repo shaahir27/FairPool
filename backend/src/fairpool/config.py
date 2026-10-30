@@ -56,6 +56,9 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        # Comma-separated tuple fields must reach the validators as strings;
+        # pydantic-settings would otherwise JSON-decode them first.
+        enable_decoding=False,
     )
 
     app_env: Literal["local", "test", "render"] = "local"

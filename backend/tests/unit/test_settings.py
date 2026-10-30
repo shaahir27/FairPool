@@ -105,6 +105,24 @@ def test_contract_has_sixty_variables() -> None:
     assert len(Settings.model_fields) == 60
 
 
+def test_csv_env_values_are_parsed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: CI exports CORS_ORIGINS as a plain comma-separated string."""
+    monkeypatch.setenv("CORS_ORIGINS", "http://localhost:5173, http://127.0.0.1:5173")
+    monkeypatch.setenv("ALLOWED_PAYER_COUNTRIES", "us, ca")
+    kwargs: dict[str, Any] = {}
+    for name, field in Settings.model_fields.items():
+        if field.is_required():
+            continue
+        kwargs[name] = field.get_default(call_default_factory=True)
+    kwargs.update(BASE_VALUES)
+    kwargs.update(CONDITIONAL_SAFE)
+    kwargs.pop("cors_origins", None)
+    kwargs.pop("allowed_payer_countries", None)
+    settings = Settings(_env_file=None, **kwargs)  # type: ignore[call-arg]
+    assert settings.cors_origins == ("http://localhost:5173", "http://127.0.0.1:5173")
+    assert settings.allowed_payer_countries == ("US", "CA")
+
+
 def test_field_names_match_contract_exactly() -> None:
     contract = {name.lower() for name in contract_defaults()}
     assert set(Settings.model_fields) == contract
