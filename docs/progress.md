@@ -21,7 +21,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | Gate | Status | Tagged by | Notes |
 |---|---|---|---|
-| IG-0 | TODO | not yet | local checks green; owner rotation, CI compose and tags pending |
+| IG-0 | TODO | not yet | CI green (run 41077235819); contracts-v1 tagged; owner rotation and plugin versions pending |
 | IG-1 | TODO | not yet | |
 | IG-2 | TODO | not yet | |
 | IG-3 | TODO | not yet | |
@@ -43,11 +43,11 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T00A01 | A | S | DONE | phase-0 | Repository bootstrap |
 | T00A02 | A | S | IN PROGRESS | phase-0 | Secrets hygiene (code done; owner rotation pending) |
 | T00A03 | A | S | DONE | phase-0 | API and worker skeleton, settings, host guard |
-| T00A04 | A | S | IN PROGRESS | phase-0 | Containers, CI and repo tools (local Docker pending; CI compose) |
+| T00A04 | A | S | DONE | phase-0 | Containers, CI and repo tools (CI compose green) |
 | T00B01 | B | L | DONE | phase-0 | Pure domain library with shared vectors |
 | T00B02 | B | S | DONE | phase-0 | Spike S1 Log in with PayPal |
 | T00B03 | B | S | DONE | phase-0 | Spike S7 payee-email routing |
-| T00X01 | AB | M | IN PROGRESS | phase-0 | Contract review and freeze |
+| T00X01 | AB | M | DONE | phase-0 | Contract review and freeze (contracts-v1 tagged) |
 
 ### PH1: Data, platform and shell foundations
 
@@ -230,7 +230,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Date | From | Request | Status |
 |---|---|---|---|
 | 2026-10-30 | owner | Rotate the Sandbox REST secret, change the buyer password and disable unused NVP/SOAP credentials (T00A02). Record only completion, never values. | OPEN |
-| 2026-10-30 | owner | Install Docker Desktop and GitHub CLI; the winget elevation prompts were cancelled, so local `docker compose` and `gh pr` are unavailable. | OPEN |
+| 2026-10-30 | owner | GitHub CLI is installed and authenticated; Docker Desktop is still absent locally, but the CI compose job passed. Install Docker only for local compose. | DONE |
 | 2026-10-30 | owner | Install the APIMatic ContextMatic and PayPal AI Toolkit plugins in the coding agent and record versions (FR-IG-09). | OPEN |
 
 ## Requests between members
@@ -242,6 +242,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 
 | Date | Member | Task | Blocker | Resolution |
 |---|---|---|---|---|
+| 2026-10-30 | owner | T00A02 / IG-0 | PayPal credential rotation, buyer-password change, NVP/SOAP disablement and the two coding-agent plugin versions are human-only and not yet recorded. | pending owner |
 
 ## Decisions log
 
@@ -254,6 +255,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | 2026-10-30 | gitleaks allowlists the fairness vectors and three mock-fixture spike test files by exact path; no broad allowlist. | owner | .gitleaks.toml, progress.md |
 | 2026-10-30 | Codex is the agent platform: `AGENTS.md` plus `.codex/skills/graphify`; no `CLAUDE.md`. The graph is rebuilt with `graphify extract .` and committed. | owner | progress.md, scaffold section 9 |
 | 2026-10-30 | The host guard lives in `config.py` so PH0 has no adapter dependency; T02A01 reuses it. | owner | progress.md |
+| 2026-10-30 | CI fixes: build tools pinned in the hashed locks, CSV tuple envs decoded by a validator, gitleaks CLI in CI, and compose `--env-file .env`. All nine checks pass. | owner | progress.md, .github/workflows/ci.yml |
 | 2026-10-30 | Graphify semantic extraction failed with the configured Gemini key; the committed graph is the AST-only update (1485 nodes / 2443 edges) and excludes `.env`. A later `graphify label` refreshes names when a valid key is set. | owner | progress.md, graphify-out/GRAPH_REPORT.md |
 
 ## Defects from rehearsals
@@ -269,4 +271,4 @@ Devpost text draft, video link and the final checklist result are recorded here 
 
 One line per member per day: date, member, what merged, what is next.
 
-- 2026-10-30, owner: T00A01 to T00B01 committed on `phase-0`; S1/S7 consolidated; next: freeze, CI, owner rotation, graph rebuild and merge.
+- 2026-10-30, owner: T00A01 to T00B01 committed on `phase-0`; S1/S7 consolidated; graph rebuilt; PR #1 merged at 77143f0; CI run 41077235819 green; `contracts-v1` tagged. Next: owner rotation/plugin versions, then IG-0.
