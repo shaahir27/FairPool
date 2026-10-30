@@ -349,16 +349,18 @@ Current local count: **287 backend tests** and **14 frontend tests**. The fairne
 
 ## Deployment
 
-The production blueprint is [deploy/render.yaml](deploy/render.yaml):
+The blueprint is [deploy/render.yaml](deploy/render.yaml). The Phase 1 skeleton is configured on Render's **free** tier:
 
-- a Docker web service for the API, a background worker and a managed PostgreSQL 16 database;
-- a static frontend built from `frontend/`;
+- a free Docker web service for the API;
+- a free static frontend built from `frontend/`;
+- a free PostgreSQL 16 database;
 - public HTTPS on 443 for the webhook listener and the SDK domain;
-- every secret set in the Render dashboard, never in the file.
+- every secret set in the Render dashboard, never in the file;
+- **no background worker in the free skeleton.**
 
-Per [docs/decisions.md](docs/decisions.md) BD-05, the demo uses paid instances. Free web services sleep, workers have no free type, and free Postgres expires after 30 days, which would break timers, webhooks and the job queue before judging ends.
+Free-tier limits: the web service sleeps after 15 minutes idle, there is no free background worker, and free Postgres expires about 30 days after creation. That is enough to verify the hosted `/health`, `/ready` and webhook stub, but not for the live demo. The worker and paid web/Postgres instances must be restored before **2026-11-20** per [docs/decisions.md](docs/decisions.md) BD-05, and before the free Postgres expires.
 
-**Current deployment status:** the hosted skeleton is not recorded yet. The owner must create the Blueprint, enter the secrets, run the migration once against the external database URL, and set `PUBLIC_BASE_URL`, `FRONTEND_BASE_URL` and `CORS_ORIGINS`. The hosted URL will be recorded in [docs/progress.md](docs/progress.md) when that is done.
+**Current deployment status:** the hosted skeleton URL is not recorded yet. The owner must create the Blueprint, enter the secrets, run the migration once against the external database URL, and set `PUBLIC_BASE_URL`, `FRONTEND_BASE_URL` and `CORS_ORIGINS`. The hosted URL will be recorded in [docs/progress.md](docs/progress.md) when that is done.
 
 ---
 

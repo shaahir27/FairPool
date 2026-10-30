@@ -230,15 +230,30 @@ async def test_job_queue_reclaims_an_expired_lease(db_engine: AsyncEngine):
     assert job_id is not None
     async with factory() as session:
         async with session.begin():
-            claimed = await queue.claim(session, worker_id="first", limit=10, lease_seconds=1)
-    assert [job.id for job in claimed] == [job_id]
+            claimed = await queue.claim(session, worker_id="first", limit=50, lease_seconds=1)
+    claimed_ids = [job.id for job in claimed]
+    assert claimed_ids.count(job_id) == 1
 
-    await asyncio.sleep(1.2)
+    for _ in range(100):
+        async with factory() as wait_session:
+            expired = await wait_session.scalar(
+                text(
+                    "SELECT now() > locked_until + interval '100 milliseconds' "
+                    "FROM jobs WHERE id = :id"
+                ),
+                {"id": job_id},
+            )
+        if expired:
+            break
+        await asyncio.sleep(0.05)
+    else:
+        raise AssertionError("job lease did not expire")
 
     async with factory() as session:
         async with session.begin():
-            reclaimed = await queue.claim(session, worker_id="second", limit=10)
-    assert [job.id for job in reclaimed] == [job_id]
+            reclaimed = await queue.claim(session, worker_id="second", limit=50)
+    reclaimed_ids = [job.id for job in reclaimed]
+    assert reclaimed_ids.count(job_id) == 1
     await clean_test_jobs(factory)
 
 

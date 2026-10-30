@@ -21,6 +21,7 @@ htmlcov/
 node_modules/
 dist/
 build/
+.vite/
 
 # Local databases and logs
 *.db

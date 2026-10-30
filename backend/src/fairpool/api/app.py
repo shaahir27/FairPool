@@ -1,4 +1,4 @@
-"""FastAPI application factory (T00A03).
+"""FastAPI application factory (T00A03, route surface T01B01).
 
 `create_app()` never loads settings by itself; the composition root (main.py,
 tests) passes a `Settings` instance when one is needed. That keeps imports
@@ -15,7 +15,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from fairpool.api.errors import REQUEST_ID_HEADER, register_exception_handlers
-from fairpool.api.routers import health
+from fairpool.api.merchant_api.app import app as merchant_api_app
+from fairpool.api.routers import (
+    admin_ops,
+    admin_pools,
+    admin_sim,
+    agent,
+    auth,
+    checkout,
+    entries,
+    health,
+    intake,
+    merchant,
+    merchant_fulfillment,
+    merchant_keys,
+    paypal_login,
+    pools,
+    public,
+    webhooks,
+)
 from fairpool.api.routers.health import ReadinessProbe
 from fairpool.config import (
     SANDBOX_API_HOST,
@@ -24,6 +42,24 @@ from fairpool.config import (
     assert_sandbox_host,
 )
 from fairpool.logging import request_id
+
+ROUTERS = (
+    auth,
+    paypal_login,
+    pools,
+    intake,
+    entries,
+    public,
+    merchant,
+    merchant_keys,
+    agent,
+    admin_pools,
+    admin_sim,
+    checkout,
+    webhooks,
+    admin_ops,
+    merchant_fulfillment,
+)
 
 
 async def add_request_id(
@@ -66,4 +102,8 @@ def create_app(
     app.middleware("http")(add_request_id)
     register_exception_handlers(app)
     app.include_router(health.router)
+    for module in ROUTERS:
+        app.include_router(module.router)
+    if settings is None or settings.merchant_api_enabled:
+        app.mount("/merchant-api/v1", merchant_api_app)
     return app

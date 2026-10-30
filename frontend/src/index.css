@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Restrained premium light palette. Every colour is a token; components use
+ * the Tailwind theme names (canvas, surface, ink, muted, line, accent, warn)
+ * and never a one-off value.
+ */
+:root {
+  --color-canvas: 247 246 242;
+  --color-surface: 255 255 255;
+  --color-ink: 26 34 38;
+  --color-muted: 100 110 115;
+  --color-line: 226 224 217;
+  --color-accent: 15 92 84;
+  --color-accent-strong: 9 68 62;
+  --color-accent-soft: 229 241 238;
+  --color-warn: 138 86 20;
+  --color-warn-soft: 250 243 227;
+}
+
+@layer base {
+  html {
+    @apply bg-canvas;
+  }
+
+  body {
+    @apply min-h-screen bg-canvas font-sans text-ink antialiased;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  ::selection {
+    @apply bg-accent-soft text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
+  }
+}
