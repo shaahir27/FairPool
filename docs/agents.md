@@ -69,6 +69,59 @@ If two sources conflict, **stop**. Do not pick one. Follow the uncertainty proto
 
 The coding agent environment(s) install these before PH1 (task T00A01 verifies): the APIMatic ContextMatic plugin for PayPal (version-aware PayPal Server SDK context; use it to check field names and endpoints) and the PayPal AI Toolkit plugin (best-practice skills, doctor and explain-error commands). They reduce guessing, but **verified facts V1 to V13 and the recorded spike results override them**, and we use raw REST, not the Server SDK, in the adapter. Using the ContextMatic plugin also earns the hackathon's APIMatic perk, so mention it in the README (task T09X01).
 
+### 4a.1 Per-agent setup (Oct 30, 2026)
+
+ContextMatic is the one dev-time PayPal context server that works through MCP on every agent below. The PayPal AI Toolkit plugin is official only for Claude Code, Codex and Cursor. Do **not** add its write-capable MCP server to an agent that can act on this repository.
+
+| Agent | ContextMatic | PayPal AI Toolkit | Graphify |
+|---|---|---|---|
+| Codex | Add the TOML block below to `.codex/config.toml` | `codex plugin marketplace add paypal/AI-Toolkit`; `codex plugin add paypal@paypal-ai-toolkit`; then `/paypal:setup`, `/paypal:doctor`, `/paypal:explain-error` | Already project-local in `.codex/skills/graphify` |
+| Qoder | Settings -> MCP Servers -> + Add; paste the JSON below; verify with `qoder mcp list` and `/mcp reload` | Not officially supported. Do not add the write-capable PayPal MCP; use ContextMatic plus this file | `graphify agents install --project` |
+| Antigravity | Edit `~/.gemini/config/mcp_config.json` with the JSON below | Not officially supported. Same restriction | `graphify install --platform antigravity --project` |
+
+Codex ContextMatic block:
+
+```toml
+[mcp_servers.apimatic-contextmatic]
+type = "streamable_http"
+url = "https://chatbotapi.apimatic.io/mcp/plugins"
+headers = { "X-Apimatic-Mcp-Client" = "Codex" }
+```
+
+Qoder JSON (Settings -> MCP Servers -> + Add):
+
+```json
+{
+  "mcpServers": {
+    "apimatic-contextmatic": {
+      "type": "sse",
+      "url": "https://chatbotapi.apimatic.io/mcp/plugins"
+    }
+  }
+}
+```
+
+Antigravity JSON (global `~/.gemini/config/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "apimatic-contextmatic": {
+      "serverUrl": "https://chatbotapi.apimatic.io/mcp/plugins",
+      "headers": { "X-Apimatic-Mcp-Client": "Antigravity" },
+      "timeoutSeconds": 600
+    }
+  }
+}
+```
+
+Rules for every agent:
+
+- Use PayPal Sandbox credentials only; the AI Toolkit reads its sandbox access-token environment variable.
+- No AI-callable tool may create orders, authorize, capture, void, refund or charge (I1, I2, INT-5). The backend never runs the PayPal MCP server or the Agent Toolkit.
+- Verified facts V1 to V13 and the recorded spike results override any plugin output; the adapter uses raw REST.
+- Qoder and Antigravity: if PayPal read-only inspection is needed, use the local `@paypal/mcp` read-tool subset in `docs/contracts/paypal-adapter.md` section 13, never the write-capable server.
+
 ## 5. PayPal handling rules (from the checklist and sandbox report)
 
 - Start at payload ladder level 0 (exactly the payload verified in V2 and V3). Enable higher levels only up to `PAYPAL_PAYLOAD_LEVEL`.
