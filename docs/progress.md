@@ -13,15 +13,15 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | Daily sync time (IST) | not applicable (solo operator) |
 | Member A name and handle | solo operator @shaahir27 (both workstreams) |
 | Member B name and handle | solo operator @shaahir27 (both workstreams) |
-| ContextMatic plugin version (A, B) | not yet recorded |
-| PayPal AI Toolkit plugin version (A, B) | not yet recorded |
-| Current phase and gate | PH0, IG-0 |
+| ContextMatic plugin version (A, B) | Qoder: remote MCP ready (5 tools, 2026-10-30); Codex: .codex/config.toml staged; Antigravity: mcp_config.json present; no local version string |
+| PayPal AI Toolkit plugin version (A, B) | Codex: paypal@paypal-ai-toolkit 1.2.0, installed and enabled (2026-10-30); Qoder/Antigravity: not supported — do not add the write-capable MCP |
+| Current phase and gate | PH1, IG-1 |
 
 ## Gates
 
 | Gate | Status | Tagged by | Notes |
 |---|---|---|---|
-| IG-0 | TODO | not yet | CI green (run 41077235819); contracts-v1 tagged; owner rotation and plugin versions pending |
+| IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | TODO | not yet | |
 | IG-2 | TODO | not yet | |
 | IG-3 | TODO | not yet | |
@@ -41,9 +41,9 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
 | T00A01 | A | S | DONE | phase-0 | Repository bootstrap |
-| T00A02 | A | S | IN PROGRESS | phase-0 | Secrets hygiene (code done; owner rotation pending) |
+| T00A02 | A | S | DONE | phase-0 | Secrets hygiene (REST secret rotated twice; buyer password changed; NVP/SOAP disabled/none present; exposed dev-time token removed 2026-10-30) |
 | T00A03 | A | S | DONE | phase-0 | API and worker skeleton, settings, host guard |
-| T00A04 | A | S | DONE | phase-0 | Containers, CI and repo tools (CI compose green) |
+| T00A04 | A | S | DONE | phase-0 | Containers, CI and repo tools (CI and local Docker compose green) |
 | T00B01 | B | L | DONE | phase-0 | Pure domain library with shared vectors |
 | T00B02 | B | S | DONE | phase-0 | Spike S1 Log in with PayPal |
 | T00B03 | B | S | DONE | phase-0 | Spike S7 payee-email routing |
@@ -229,9 +229,10 @@ Record planned versus actual days per phase and member at each gate. The plan is
 
 | Date | From | Request | Status |
 |---|---|---|---|
-| 2026-10-30 | owner | Rotate the Sandbox REST secret, change the buyer password and disable unused NVP/SOAP credentials (T00A02). Record only completion, never values. | OPEN |
+| 2026-10-30 | owner | REST secret rotated again after the dev-time token exposure; buyer password changed; NVP/SOAP disabled or none present; Codex chat deleted. Recorded as complete 2026-10-30 without values. | DONE |
 | 2026-10-30 | owner | GitHub CLI is installed and authenticated; Docker Desktop is still absent locally, but the CI compose job passed. Install Docker only for local compose. | DONE |
-| 2026-10-30 | owner | Install the APIMatic ContextMatic and PayPal AI Toolkit plugins in the coding agent and record versions (FR-IG-09). | OPEN |
+| 2026-10-30 | owner | Keep the repository private until the final submission QA (T10A02/T11X01); make it public before the Nov 12 deadline and verify logged-out access (FR-HK-01). | DEFERRED to T10A02/T11X01 |
+| 2026-10-30 | owner | Qoder ContextMatic ready; Codex PayPal AI Toolkit 1.2.0 installed with skills loaded; live SSE MCP unavailable in Codex 0.164.0 (recorded, not a gate blocker); Antigravity ContextMatic config present. | DONE |
 
 ## Requests between members
 
@@ -242,7 +243,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 
 | Date | Member | Task | Blocker | Resolution |
 |---|---|---|---|---|
-| 2026-10-30 | owner | T00A02 / IG-0 | PayPal credential rotation, buyer-password change, NVP/SOAP disablement and the two coding-agent plugin versions are human-only and not yet recorded. | pending owner |
+| 2026-10-30 | owner | T00A02 / IG-0 | Closed 2026-10-30: security steps complete; IG-0 tagged; Codex PayPal 1.2.0 skills recorded; live MCP unavailable in Codex 0.164.0; public visibility deferred to submission QA. | closed |
 
 ## Decisions log
 
@@ -258,6 +259,12 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | 2026-10-30 | CI fixes: build tools pinned in the hashed locks, CSV tuple envs decoded by a validator, gitleaks CLI in CI, and compose `--env-file .env`. All nine checks pass. | owner | progress.md, .github/workflows/ci.yml |
 | 2026-10-30 | Graphify semantic extraction failed with the configured Gemini key; the committed graph is the AST-only update (1487 nodes / 2447 edges) and excludes `.env`. A later `graphify label` refreshes names when a valid key is set. | owner | progress.md, graphify-out/GRAPH_REPORT.md |
 
+| 2026-10-30 | Qoder ContextMatic uses HTTP transport (SSE failed at runtime); status ready with 5 tools. | owner | progress.md, .mcp.json |
+| 2026-10-30 | Local Docker stack verified (API health 200, DB extensions, worker, frontend); containers run from source with PYTHONPATH and pip retries. | owner | progress.md, deploy/Dockerfile.api, deploy/Dockerfile.worker |
+
+| 2026-10-30 | Codex 0.164.0 loads the PayPal plugin skills but not its SSE MCP tools; the plugin version is recorded and live MCP is optional, not a PH0 blocker. | owner | progress.md, docs/agents.md |
+| 2026-10-30 | Exposed dev-time PayPal access token removed from Codex config; Sandbox client secret rotated again; no value recorded. | owner | progress.md |
+
 ## Defects from rehearsals
 
 | ID | Found in | Description | Owner | Status |
@@ -271,4 +278,4 @@ Devpost text draft, video link and the final checklist result are recorded here 
 
 One line per member per day: date, member, what merged, what is next.
 
-- 2026-10-30, owner: T00A01 to T00B01 committed on `phase-0`; S1/S7 consolidated; graph rebuilt; PR #1 merged at 77143f0; final main dbff14c; CI run 41077876412 green; `contracts-v1` tagged; graph refreshed to 1487 nodes / 2447 edges. Next: owner rotation/plugin versions, then IG-0.
+- 2026-10-30, owner: T00A02 complete; all PH0 tasks DONE; IG-0 tagged; Codex PayPal 1.2.0 skills recorded; Docker stack healthy; repo stays private until T10A02/T11X01. Next: PH1.

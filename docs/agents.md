@@ -67,7 +67,7 @@ If two sources conflict, **stop**. Do not pick one. Follow the uncertainty proto
 
 ## 4a. Development-time agent tooling
 
-The coding agent environment(s) install these before PH1 (task T00A01 verifies): the APIMatic ContextMatic plugin for PayPal (version-aware PayPal Server SDK context; use it to check field names and endpoints) and the PayPal AI Toolkit plugin (best-practice skills, doctor and explain-error commands). They reduce guessing, but **verified facts V1 to V13 and the recorded spike results override them**, and we use raw REST, not the Server SDK, in the adapter. Using the ContextMatic plugin also earns the hackathon's APIMatic perk, so mention it in the README (task T09X01).
+The coding agent environment(s) install these before PH1 (task T00A01 verifies): the APIMatic ContextMatic plugin for PayPal (version-aware PayPal Server SDK context; use it to check field names and endpoints) and the PayPal AI Toolkit plugin (best-practice skills, doctor and explain-error commands). They reduce guessing, but **verified facts V1 to V13 and the recorded spike results override them**, and we use raw REST, not the Server SDK, in the adapter. Using the ContextMatic plugin also earns the hackathon's APIMatic perk, so mention it in the README (task T09X01). The PayPal AI Toolkit slash commands (`/paypal:setup`, `/paypal:doctor`, `/paypal:explain-error`) are available in Claude Code and Cursor only; in Codex, ask for the same task in natural language after setting the sandbox token.
 
 ### 4a.1 Per-agent setup (Oct 30, 2026)
 
@@ -75,7 +75,7 @@ ContextMatic is the one dev-time PayPal context server that works through MCP on
 
 | Agent | ContextMatic | PayPal AI Toolkit | Graphify |
 |---|---|---|---|
-| Codex | Add the TOML block below to `.codex/config.toml` | `codex plugin marketplace add paypal/AI-Toolkit`; `codex plugin add paypal@paypal-ai-toolkit`; then `/paypal:setup`, `/paypal:doctor`, `/paypal:explain-error` | Already project-local in `.codex/skills/graphify` |
+| Codex | Add the TOML block below to `.codex/config.toml`; run `codex mcp login apimatic-contextmatic` if Codex asks for OAuth | `codex plugin marketplace add paypal/AI-Toolkit`; `codex plugin add paypal@paypal-ai-toolkit`; use the plugin skills through natural language. Codex 0.164.0 loads the skills but not the plugin's SSE MCP tools, so live PayPal MCP is optional and not a PH0 blocker | Already project-local in `.codex/skills/graphify` |
 | Qoder | Settings -> MCP Servers -> + Add; paste the JSON below; verify with `qoder mcp list` and `/mcp reload` | Not officially supported. Do not add the write-capable PayPal MCP; use ContextMatic plus this file | `graphify agents install --project` |
 | Antigravity | Edit `~/.gemini/config/mcp_config.json` with the JSON below | Not officially supported. Same restriction | `graphify install --platform antigravity --project` |
 
@@ -83,10 +83,10 @@ Codex ContextMatic block:
 
 ```toml
 [mcp_servers.apimatic-contextmatic]
-type = "streamable_http"
 url = "https://chatbotapi.apimatic.io/mcp/plugins"
-headers = { "X-Apimatic-Mcp-Client" = "Codex" }
 ```
+
+Codex may ask for OAuth; run `codex mcp login apimatic-contextmatic` if it does.
 
 Qoder JSON (Settings -> MCP Servers -> + Add):
 

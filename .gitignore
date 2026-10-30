@@ -35,3 +35,4 @@ graphify-out/cache/
 graphify-out/2026-*/
 graphify-out/manifest.json
 .codex/hooks.json
+.agents
