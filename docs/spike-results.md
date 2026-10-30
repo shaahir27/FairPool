@@ -58,13 +58,17 @@ Run by the owner's local agent against the PayPal Sandbox only, USD 1.00 per tes
 3. Order **creation** succeeds for another payee email, but creation proves nothing about approval or authorization. That is the open question spike S7 answers.
 4. No change to payload ladder expectations: level 4 (assertion and platform fee) is unavailable.
 
-## S7: payee-email routing to a second sandbox business account (G11). PENDING
+## S7: payee-email routing to a second sandbox business account (G11). RECORDED Oct 28, 2026
 
 Added after S3. See `docs/spikes.md`. Decision rule: if approve, authorize and void succeed for an order whose payee is the second business account by email alone, the owner decides whether the demo uses `PAYMENT_ROUTER=payee_email` (labelled sandbox-only). If it fails, `single_seller` stays.
 
-## S1: Log in with PayPal (G1, G2). PENDING
+**Result (RECORDED Oct 28, 2026).** The separately selected seller could receive captures, but void and refund returned `PERMISSION_DENIED`. Partner Referrals returned 403. `payee_email` is rejected; `PAYMENT_ROUTER=single_seller` is final. No further PayPal calls are needed for PH0.
+
+## S1: Log in with PayPal (G1, G2). RECORDED Oct 28, 2026
 
 Record: scope accepted yes or no; account ID present in userinfo yes or no; equal to the approved order's payer_id yes or no. Then set `DEDUPE_MODE`.
+
+**Result (RECORDED Oct 28, 2026).** The account-attributes scope was rejected with `invalid_scope`; `openid` only worked (code and token exchange 200, userinfo 200 with `sub` and `user_id`). The raw userinfo `user_id` and the checkout `payer_id` differ, so no prefix stripping is used. `DEDUPE_MODE=two_keys`. Limits: this does not prove one human per account and does not prove cross-app portability.
 
 ## S4: payload ladder (G8). PENDING
 
