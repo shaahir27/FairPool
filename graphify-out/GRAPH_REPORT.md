@@ -1,17 +1,17 @@
 # Graph Report - FairPool  (2026-10-30)
 
 ## Corpus Check
-- 111 files · ~132,608 words
+- 111 files · ~132,874 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 22 file(s) not represented in the graph (top: (none) 12, .toml 2, .in 2)
 
 ## Summary
-- 1485 nodes · 2443 edges · 124 communities (81 shown, 43 thin omitted)
-- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 113 edges (avg confidence: 0.91)
+- 1487 nodes · 2447 edges · 124 communities (81 shown, 43 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 114 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7605b83a`
+- Built from commit: `707f6d63`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,7 +20,7 @@
 - now_s
 - run_s10
 - create_app
-- builtins / http_server / mcp_server_fastmcp
+- test_end_to_end.py
 - tools_fairpool_spike_check_http / tools_fairpool_spike_check_http_init / tools_fairpool_spike_check_http_request
 - logging.py
 - pytest
@@ -29,7 +29,6 @@
 - tools_spike_check_tests_mock_services_beacon / tools_spike_check_tests_mock_services_drand / tools_spike_check_tests_mock_services_drand_do_get
 - tools_fairpool_spike_check_webhooklistener / tools_fairpool_spike_check_webhooklistener_init / tools_fairpool_spike_check_webhooklistener_init_do_get
 - test_fairness_vectors.py
-- tools_fairpool_spike_check_s13server_init / tools_fairpool_spike_check_s13server_init_do_get / tools_fairpool_spike_check_s13server_init_do_post
 - FairPool: Group Buying Where Merchants Compete for the Group
 - check_imports.py
 - fairpool_spike_check.py
@@ -49,7 +48,7 @@
 - 3. Payload shapes (key endpoints)
 - hashing.py
 - money.py
-- Contract: PayPal adapter
+- test_branches.py
 - sha256_hex
 - Spike results
 - FairPool: System Design and Solution Architecture (v1)
@@ -59,7 +58,7 @@
 - Tables
 - Scaffold
 - test_pt05_tiers.py
-- Audit report, Oct 27, 2026
+- McpStdio
 - PH8: Fulfillment, verification, merchant console and simulation (gate IG-8)
 - 11. Layer 8: Checkout and PayPal orchestration (idea sections 6 and 7)
 - test_pt07_transitions.py
@@ -77,7 +76,7 @@
 - PH2: Core engines I: PayPal gateway, ledger, identity, catalog, AI adapter (gate IG-2)
 - PH6: Money completion and auction to checkout (gate IG-6)
 - 10. Layer 7: Merchant and auction engine (idea section 5)
-- Decisions
+- test_validate_docs.py
 - PH0: Bootstrap and contract freeze (gate IG-0)
 - PH10: Rehearsals and release candidate (gate IG-10)
 - PH1: Data, platform and shell foundations (gate IG-1)
@@ -99,9 +98,9 @@
 - 3. Evidence base from your two MD files
 - 5. Layer 2: Data model
 - 6. Layer 3: State machines
-- test_defaults_match_contract
+- Contract: configuration, errors and reason codes
 - 20. Build plan
-- Http
+- test_get_settings_is_cached
 - AGENTS.md
 - fairpool
 
@@ -115,7 +114,7 @@
 7. `create_app()` - 23 edges
 8. `run_s10()` - 20 edges
 9. `Implementation plan` - 20 edges
-10. `Settings` - 18 edges
+10. `Settings` - 19 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Contract: configuration, errors and reason codes` --references--> `Settings`  [INFERRED]
@@ -124,10 +123,10 @@
   docs/contracts/state-machines.md → backend/src/fairpool/domain/errors.py
 - `5. Ranking and lots` --references--> `rank_hash()`  [INFERRED]
   docs/contracts/fairness-and-hashing.md → backend/src/fairpool/domain/hashing.py
-- `Rule` --references--> `tax_cents()`  [INFERRED]
-  docs/contracts/flat-delivered-bids.md → backend/src/fairpool/domain/money.py
-- `7. Rules hash and award hash` --references--> `beacon()`  [INFERRED]
-  docs/contracts/fairness-and-hashing.md → tools/spike_check_tests/mock_services.py
+- `Public audit` --references--> `rules_hash()`  [INFERRED]
+  docs/contracts/api.md → backend/src/fairpool/domain/hashing.py
+- `Public audit` --references--> `award_hash()`  [INFERRED]
+  docs/contracts/api.md → backend/src/fairpool/domain/hashing.py
 
 ## Import Cycles
 - None detected.
@@ -136,27 +135,27 @@
 
 ### Community 0 - "Ctx"
 Cohesion: 0.12
-Nodes (26): approval_checks(), ask(), ask_yes(), authorize_flow(), cleanup(), cmd_run(), confirm_stage(), create_and_approve() (+18 more)
+Nodes (23): approval_checks(), ask(), ask_yes(), authorize_flow(), cleanup(), cmd_run(), confirm_stage(), create_and_approve() (+15 more)
 
 ### Community 1 - "now_s"
-Cohesion: 0.21
-Nodes (7): bls_verify_quicknet(), link_of(), now_s(), round_at_or_after(), run_s6_beacon(), wait_for_approval(), webhook_evaluate()
+Cohesion: 0.16
+Nodes (12): bls_verify_quicknet(), link_of(), load_env_file(), log(), now_s(), poll_capture(), round_at_or_after(), run_s13() (+4 more)
 
 ### Community 2 - "run_s10"
-Cohesion: 0.15
-Nodes (8): classify_tools(), mcp_reply_ok(), McpError, McpHttp, McpSse, run_s10(), run_s9(), tool_text()
+Cohesion: 0.13
+Nodes (9): classify_tools(), discover_paypal_mcp_permissions(), mcp_reply_ok(), McpError, McpHttp, McpSse, run_s10(), run_s9() (+1 more)
 
 ### Community 3 - "create_app"
 Cohesion: 0.05
-Nodes (26): add_request_id(), create_app(), current_request_id(), error_response(), http_exception_handler(), register_exception_handlers(), unhandled_exception_handler(), validation_exception_handler() (+18 more)
+Nodes (27): add_request_id(), create_app(), current_request_id(), error_response(), http_exception_handler(), register_exception_handlers(), unhandled_exception_handler(), validation_exception_handler() (+19 more)
 
-### Community 4 - "builtins / http_server / mcp_server_fastmcp"
-Cohesion: 0.08
-Nodes (13): key_uuid(), parse_keys(), deliver(), post(), err(), start(), State, serve() (+5 more)
+### Community 4 - "test_end_to_end.py"
+Cohesion: 0.16
+Nodes (6): start(), State, serve(), fake_open(), http_post(), sim_page()
 
 ### Community 5 - "tools_fairpool_spike_check_http / tools_fairpool_spike_check_http_init / tools_fairpool_spike_check_http_request"
-Cohesion: 0.21
-Nodes (3): PayPal, poll_capture(), Resp
+Cohesion: 0.09
+Nodes (17): 10. Demo mock toggles, 11. Sandbox contract tests, 12. JavaScript SDK v6 server obligations (INT-7), 14. Never, 1. Host guard, 2. Types and ports, 3. Idempotency keys, 4. Call catalogue (+9 more)
 
 ### Community 6 - "logging.py"
 Cohesion: 0.05
@@ -167,8 +166,16 @@ Cohesion: 0.16
 Nodes (22): env_example_names(), make_settings(), test_ai_enabled_requires_anthropic_key(), test_cors_origins_parse_as_a_tuple(), test_country_list_is_uppercase_iso2_tuple(), test_drand_requires_url_and_chain_hash(), test_each_literal_rejects_an_invalid_value(), test_effective_defaults_and_redirect_derivation() (+14 more)
 
 ### Community 8 - "export_merchant_openapi.py"
-Cohesion: 0.07
-Nodes (13): _run(), test_broken_fixture_fails_with_nonzero_exit(), test_real_docs_have_zero_errors(), _check(), _contract_operation_ids(), ExportError, _find_merchant_spec(), _generated_operations() (+5 more)
+Cohesion: 0.10
+Nodes (10): _check(), _contract_operation_ids(), ExportError, _find_merchant_spec(), _generated_operations(), _load_app(), main(), dfs() (+2 more)
+
+### Community 9 - "tools_spike_check_tests_mock_paypal_deliver / tools_spike_check_tests_mock_paypal_deliver_post / tools_spike_check_tests_mock_paypal_err"
+Cohesion: 0.21
+Nodes (4): deliver(), post(), err(), H
+
+### Community 11 - "tools_fairpool_spike_check_webhooklistener / tools_fairpool_spike_check_webhooklistener_init / tools_fairpool_spike_check_webhooklistener_init_do_get"
+Cohesion: 0.22
+Nodes (3): webhook_setup(), WebhookListener, do_POST()
 
 ### Community 12 - "test_fairness_vectors.py"
 Cohesion: 0.07
@@ -179,12 +186,12 @@ Cohesion: 0.06
 Nodes (34): 10. Integrations, 11. Claims, 12. Scope, 13. Demonstration, 14. Open decisions and open questions, 15. Revision notes, 1. At a glance, 2.1 Buyers cannot reach volume prices alone (+26 more)
 
 ### Community 15 - "check_imports.py"
-Cohesion: 0.12
-Nodes (25): 1. Environment variables, 2. Timing profiles, 3. Rate limits, 4. Error codes, 5. Reason codes, Contract: configuration, errors and reason codes, _check_import(), _decorator_strings() (+17 more)
+Cohesion: 0.18
+Nodes (19): _check_import(), _decorator_strings(), _frontend_area(), _group(), _import_targets(), _is_ai_run_target(), _is_area_index(), _is_under() (+11 more)
 
 ### Community 16 - "fairpool_spike_check.py"
-Cohesion: 0.11
-Nodes (17): camel(), cmd_check_env(), cmd_list(), discover_paypal_mcp_permissions(), env_missing(), ForbiddenHost, guard_paypal_hosts(), load_env_file() (+9 more)
+Cohesion: 0.12
+Nodes (17): camel(), cmd_check_env(), cmd_list(), env_missing(), ForbiddenHost, guard_paypal_hosts(), load_openapi(), main() (+9 more)
 
 ### Community 17 - "IllegalTransition"
 Cohesion: 0.10
@@ -223,16 +230,16 @@ Cohesion: 0.12
 Nodes (12): _enum_values(), _job_kinds(), _table_rows(), test_every_unlisted_pair_raises(), test_job_and_ledger_effects_name_known_kinds(), test_states_equal_db_schema_enum(), test_states_initial_and_terminal_match_yaml(), test_transitions_match_yaml() (+4 more)
 
 ### Community 26 - "McpStdio"
-Cohesion: 0.12
-Nodes (4): McpStdio, Recorder, Redactor, Row
+Cohesion: 0.20
+Nodes (3): Recorder, Redactor, Row
 
 ### Community 27 - "Settings"
 Cohesion: 0.13
-Nodes (5): Settings, contract_defaults(), test_contract_has_sixty_variables(), test_field_names_match_contract_exactly(), test_get_settings_is_cached()
+Nodes (7): Settings, contract_defaults(), expected_default(), plain(), test_contract_has_sixty_variables(), test_defaults_match_contract(), test_field_names_match_contract_exactly()
 
 ### Community 28 - "domain/errors.py"
-Cohesion: 0.16
-Nodes (10): MoneyError, _half_up(), test_mean_matches_round_half_up_and_stays_within_bounds(), test_money_rejects_booleans_and_negatives(), test_money_rejects_floats(), test_parse_rejects_malformed_strings(), test_parse_rejects_non_strings(), test_paypal_string_round_trips() (+2 more)
+Cohesion: 0.19
+Nodes (9): _half_up(), test_mean_matches_round_half_up_and_stays_within_bounds(), test_money_rejects_booleans_and_negatives(), test_money_rejects_floats(), test_parse_rejects_malformed_strings(), test_parse_rejects_non_strings(), test_paypal_string_round_trips(), test_tax_matches_round_half_up() (+1 more)
 
 ### Community 29 - "HashingError"
 Cohesion: 0.16
@@ -248,15 +255,11 @@ Nodes (8): _b64url(), _b64url_decode(), bid_receipt_payload(), ed25519_public_ke
 
 ### Community 32 - "money.py"
 Cohesion: 0.13
-Nodes (9): _as_cents(), mean_total_cents(), parse_paypal_string(), tax_cents(), to_paypal_string(), total_cents(), Flat delivered bids (BID_PRICING_MODE=flat_delivered), Rule (+1 more)
-
-### Community 33 - "Contract: PayPal adapter"
-Cohesion: 0.12
-Nodes (14): 10. Demo mock toggles, 11. Sandbox contract tests, 12. JavaScript SDK v6 server obligations (INT-7), 14. Never, 1. Host guard, 2. Types and ports, 3. Idempotency keys, 4. Call catalogue (+6 more)
+Nodes (10): MoneyError, _as_cents(), mean_total_cents(), parse_paypal_string(), tax_cents(), to_paypal_string(), total_cents(), Flat delivered bids (BID_PRICING_MODE=flat_delivered) (+2 more)
 
 ### Community 34 - "sha256_hex"
-Cohesion: 0.13
-Nodes (10): bid_receipt_hash(), commitment(), demo_seed(), lot_seed(), rank_hash(), request_hash(), sha256_hex(), tiebreak_hash() (+2 more)
+Cohesion: 0.15
+Nodes (9): commitment(), demo_seed(), lot_seed(), rank_hash(), request_hash(), sha256_hex(), tiebreak_hash(), 5. Ranking and lots (+1 more)
 
 ### Community 35 - "Spike results"
 Cohesion: 0.12
@@ -267,12 +270,12 @@ Cohesion: 0.12
 Nodes (15): 0. How to read this document, 14.1 Isolation by pool mode, 14.2 What it produces, 14. Layer 11: Synthetic rehearsal engine, 15. Layer 12: Experience layer, 16. Layer 13: Security, privacy and compliance, 18. Cross-component impact matrix, 19. Failure-mode catalogue (+7 more)
 
 ### Community 37 - "Spikes"
-Cohesion: 0.13
-Nodes (14): S11: APIMatic SDK and portal generation (G15), INT-4, S12: PayPal shipment tracking (G16), INT-8, S13: JavaScript SDK v6 approval (G17), INT-7, S1: Log in with PayPal (G1, G2), S2: authorization capture (G3). RECORDED, S3: second seller (G4, G9). RECORDED, S4: payload ladder (G8), S5: webhooks (G5) (+6 more)
+Cohesion: 0.05
+Nodes (33): 1. Checked and correct, 2. Corrected, 3. Your integration notes versus the design, 4. Not settled by documents (only live runs can settle), 5. Schedule risk (decision for the owner), 6. Spike check script (added Oct 28, 2026), 7. Owner Sandbox runs incorporated (Oct 28, 2026), 8. Vault-and-charge and flat delivered bids (Oct 29, 2026) (+25 more)
 
 ### Community 38 - "canonical_json"
-Cohesion: 0.18
-Nodes (9): audit_hash(), award_hash(), canonical_json(), _require_exact_keys(), rules_hash(), _validate_canonical(), Public audit, 7. Rules hash and award hash (+1 more)
+Cohesion: 0.20
+Nodes (7): audit_hash(), award_hash(), bid_receipt_hash(), canonical_json(), _require_exact_keys(), rules_hash(), _validate_canonical()
 
 ### Community 39 - "agents.md: rules for AI coding agents"
 Cohesion: 0.14
@@ -290,10 +293,6 @@ Nodes (13): 10. Bootstrap (task T00A01, in this order), 11. Render deployment, 1
 Cohesion: 0.18
 Nodes (6): BidCandidate, rank_bids(), test_capacity_never_exceeds_merchant_total(), test_rank_bids_sorts_by_key_and_is_a_permutation(), test_tiebreak_is_deterministic_and_merchant_specific(), test_tier_resolution_rejects_invalid_inputs()
 
-### Community 43 - "Audit report, Oct 27, 2026"
-Cohesion: 0.15
-Nodes (11): 1. Checked and correct, 2. Corrected, 3. Your integration notes versus the design, 4. Not settled by documents (only live runs can settle), 5. Schedule risk (decision for the owner), 6. Spike check script (added Oct 28, 2026), 7. Owner Sandbox runs incorporated (Oct 28, 2026), 8. Vault-and-charge and flat delivered bids (Oct 29, 2026) (+3 more)
-
 ### Community 44 - "PH8: Fulfillment, verification, merchant console and simulation (gate IG-8)"
 Cohesion: 0.17
 Nodes (12): PH8: Fulfillment, verification, merchant console and simulation (gate IG-8), T08A01: Fulfillment backend: progress, fulfillment, shipments, manifest, verification, T08A02: Fulfillment tab UI, T08A03: Merchant Agent API: fulfillment, shipments, manifest and verification routes, T08A04: PayPal MCP verification copilot, T08A05: Observability, T08A06: Security pass, T08B01: Merchant console UI I: Demand Board and bid submission (+4 more)
@@ -303,7 +302,7 @@ Cohesion: 0.17
 Nodes (12): 11.10 Happy-path sequence, 11.11 Fulfillment and verification (INT-6, INT-8), 11.1 Two switches: router and mode, 11.2 Time constraints, 11.3 Order creation: the payload ladder, 11.4 Approval handling (redirect first, D10; superseded by INT-7), 11.5 Authorization with a seat lock, 11.6 Funding decision (+4 more)
 
 ### Community 46 - "test_pt07_transitions.py"
-Cohesion: 0.22
+Cohesion: 0.18
 Nodes (4): test_a_trigger_selects_only_listed_transitions(), test_every_pair_of_states(), test_random_state_pairs_follow_the_whitelist(), test_unknown_machines_are_rejected()
 
 ### Community 47 - "FairPool docs index"
@@ -315,8 +314,8 @@ Cohesion: 0.18
 Nodes (10): 1. Rules for every port and service, 2. Platform ports (implemented by Member A, task T01A02; used by both), 3. Edge ports (implemented by Member B unless noted), 4.1 `AllocationReadService` (Member B implements; Member A calls), 4.2 `MerchantDirectory` (Member B implements; Member A calls), 4.3 Checkout surface for the API layer (Member A implements; Member B's UI calls via HTTP only), 4. Cross-member services, 5. Job kinds (+2 more)
 
 ### Community 49 - "Contract: fairness, hashing and money rounding"
-Cohesion: 0.18
-Nodes (10): 10. Tier resolution, feasibility and bid ranking (ranking_v1), 11. Capacity across lots (R9), 12. What the vectors file contains, 1. Canonical JSON, 2. Hash prefixes and formats, 3. Entry commitments and Merkle root (pool close), 4. Seed, 8. Audit chain (+2 more)
+Cohesion: 0.12
+Nodes (13): Public audit, 10. Tier resolution, feasibility and bid ranking (ranking_v1), 11. Capacity across lots (R9), 12. What the vectors file contains, 1. Canonical JSON, 2. Hash prefixes and formats, 3. Entry commitments and Merkle root (pool close), 4. Seed (+5 more)
 
 ### Community 50 - "Vault and charge: the buyer payment path (PAYMENT_MODE=vault_charge)"
 Cohesion: 0.18
@@ -362,9 +361,9 @@ Nodes (10): PH6: Money completion and auction to checkout (gate IG-6), T06A01: F
 Cohesion: 0.20
 Nodes (10): 10.1 Merchants, 10.2 Bid schema (merchant-confirmed structured fields are authoritative), 10.3 Sealing, 10.4 Rule pipeline (deterministic, in this order), 10.5 AI quote parsing and offer reconciliation, 10.6 Tiers, feasibility and ranking, 10.7 Award snapshot and price-out, 10.8 Edge cases (+2 more)
 
-### Community 61 - "Decisions"
-Cohesion: 0.22
-Nodes (8): 1. Approved departures from the idea text, 2. Design decisions (from design section 21), 3. Build decisions, 4. Spike-driven switches, 5.1 Corrections to statements in the TXT, 5.2 What this adds beyond the idea text, 5. Integration decisions (INT-1 to INT-9), Decisions
+### Community 61 - "test_validate_docs.py"
+Cohesion: 0.48
+Nodes (3): _run(), test_broken_fixture_fails_with_nonzero_exit(), test_real_docs_have_zero_errors()
 
 ### Community 62 - "PH0: Bootstrap and contract freeze (gate IG-0)"
 Cohesion: 0.22
@@ -411,7 +410,7 @@ Cohesion: 0.29
 Nodes (6): Acceptance, Contracts, Invariants, Notes, Task, Verification
 
 ### Community 73 - "mock_mcp_server.py"
-Cohesion: 0.38
+Cohesion: 0.32
 Nodes (3): create_order(), get_order(), list_transaction()
 
 ### Community 74 - "Contracts"
@@ -450,9 +449,9 @@ Nodes (5): 5.1 Ground rules, 5.2 Entities, 5.3 Money rules, 5.4 Privacy, 5. Laye
 Cohesion: 0.40
 Nodes (5): 6.1 Pool and lot lifecycles, 6.2 Lot transitions, 6.3 Buyer-order (seat) transitions, 6.4 Rules, 6. Layer 3: State machines
 
-### Community 83 - "test_defaults_match_contract"
-Cohesion: 0.67
-Nodes (3): expected_default(), plain(), test_defaults_match_contract()
+### Community 83 - "Contract: configuration, errors and reason codes"
+Cohesion: 0.29
+Nodes (6): 1. Environment variables, 2. Timing profiles, 3. Rate limits, 4. Error codes, 5. Reason codes, Contract: configuration, errors and reason codes
 
 ### Community 84 - "20. Build plan"
 Cohesion: 0.50
@@ -466,17 +465,17 @@ Nodes (4): 20.1 Step 0 and spikes, 20.2 Schedule, 20.3 Three-minute demo storybo
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Resp` connect `tools_fairpool_spike_check_http / tools_fairpool_spike_check_http_init / tools_fairpool_spike_check_http_request` to `Ctx`, `Contract: PayPal adapter`, `now_s`, `Audit report, Oct 27, 2026`, `fairpool_spike_check.py`, `Http`?**
-  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+- **Why does `Resp` connect `tools_fairpool_spike_check_http / tools_fairpool_spike_check_http_init / tools_fairpool_spike_check_http_request` to `fairpool_spike_check.py`, `Ctx`, `Spikes`, `now_s`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
 - **Are the 12 inferred relationships involving `cmd_run()` (e.g. with `run_core()` and `run_s1()`) actually correct?**
   _`cmd_run()` has 12 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `fairpool` to the rest of the system?**
   _1 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Ctx` be split into smaller, more focused modules?**
-  _Cohesion score 0.1207897793263647 - nodes in this community are weakly interconnected._
-- **Why does `Settings` connect `Settings` to `create_app`, `logging.py`, `pytest`, `check_imports.py`, `test_defaults_match_contract`, `config.py`?**
-  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+  _Cohesion score 0.12280701754385964 - nodes in this community are weakly interconnected._
+- **Why does `Settings` connect `Settings` to `create_app`, `logging.py`, `pytest`, `Contract: configuration, errors and reason codes`, `test_get_settings_is_cached`, `config.py`?**
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
 - **Should `run_s10` be split into smaller, more focused modules?**
-  _Cohesion score 0.14814814814814814 - nodes in this community are weakly interconnected._
-- **Why does `S10: PayPal MCP read-only verification (G14), INT-6` connect `Audit report, Oct 27, 2026` to `Spikes`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+  _Cohesion score 0.1330049261083744 - nodes in this community are weakly interconnected._
+- **Why does `H` connect `tools_spike_check_tests_mock_paypal_deliver / tools_spike_check_tests_mock_paypal_deliver_post / tools_spike_check_tests_mock_paypal_err` to `test_end_to_end.py`?**
+  _High betweenness centrality (0.020) - this node is a cross-community bridge._
