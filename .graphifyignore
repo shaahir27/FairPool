@@ -1,0 +1,8 @@
+.env
+.env.*
+.venv/
+node_modules/
+graphify-out/
+.codex/
+tools/sandbox_tests/
+fairpool-docs-corrected.zip

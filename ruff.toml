@@ -1,0 +1,6 @@
+target-version = "py312"
+line-length = 100
+extend-exclude = ["tools/validate_docs.py", "tools/fairpool_spike_check.py", "tools/sandbox_tests", "tools/spike_check_tests"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
