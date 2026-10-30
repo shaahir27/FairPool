@@ -10,6 +10,8 @@ Two members, two lanes, twelve merge gates. **Member A: Payments and Platform.**
 
 Why this split works in parallel: the two lanes meet only through contracts (`docs/contracts/`), ports and fakes (`domain-ports.md`), jobs and HTTP. Each lane has a fake of the other's side, so neither waits for the other's code; real wiring happens at named gates.
 
+**Solo operation (Oct 30, 2026).** One operator executes both lanes; the Member A and Member B columns are workstream labels. CODEOWNERS uses `@shaahir27`; an independent agent review replaces the second member's review. Phase 0 uses one `phase-0` branch and one pull request.
+
 ## 1. Flow at a glance
 
 ```mermaid

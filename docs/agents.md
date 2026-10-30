@@ -67,7 +67,7 @@ If two sources conflict, **stop**. Do not pick one. Follow the uncertainty proto
 
 ## 4a. Development-time agent tooling
 
-Both members install these in their coding agents before PH1 (task T00A01 verifies): the APIMatic ContextMatic plugin for PayPal (version-aware PayPal Server SDK context; use it to check field names and endpoints) and the PayPal AI Toolkit plugin (best-practice skills, doctor and explain-error commands). They reduce guessing, but **verified facts V1 to V13 and the recorded spike results override them**, and we use raw REST, not the Server SDK, in the adapter. Using the ContextMatic plugin also earns the hackathon's APIMatic perk, so mention it in the README (task T09X01).
+The coding agent environment(s) install these before PH1 (task T00A01 verifies): the APIMatic ContextMatic plugin for PayPal (version-aware PayPal Server SDK context; use it to check field names and endpoints) and the PayPal AI Toolkit plugin (best-practice skills, doctor and explain-error commands). They reduce guessing, but **verified facts V1 to V13 and the recorded spike results override them**, and we use raw REST, not the Server SDK, in the adapter. Using the ContextMatic plugin also earns the hackathon's APIMatic perk, so mention it in the README (task T09X01).
 
 ## 5. PayPal handling rules (from the checklist and sandbox report)
 
@@ -91,6 +91,8 @@ Both members install these in their coding agents before PH1 (task T00A01 verifi
 7. If your task needs a contract change, stop and open a change request (section 8 of `docs/team-split.md`). Do not change a contract and the code that depends on it in one silent pull request.
 
 Definition of done: acceptance met, tests named and green, `make verify` green, no new TODO without a task ID, `docs/progress.md` updated, no secret in the diff, no claim beyond the spec.
+
+**Solo operation (Oct 30, 2026).** One operator executes both lanes; `Member A` and `Member B` are workstream labels. CODEOWNERS uses the operator's handle (`@shaahir27`). Self-merge is allowed after green CI and an independent agent review; the gate owner is the operator. Phase 0 uses one `phase-0` branch and one pull request; task commits preserve traceability.
 
 ## 7. Parallel-work rules
 

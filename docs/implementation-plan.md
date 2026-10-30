@@ -251,7 +251,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 - **Owner:** Member A. **Size:** S (0.25 day). **Phase:** PH0. **Merge gate:** IG-0. **Depends on:** none.
 - **Read first:** scaffold.md §1, §8, §9, §10; agents.md §4a.
 - **Create or change:** repository root, `.github/**`, `Makefile`, `pyproject.toml`, `docs/` copy, `LICENSE`.
-- **Acceptance:** Structure from scaffold.md section 1 exists; docs/ copied (including fairpool-idea.md and system-design.md); `make setup` and `make verify` pass on a clean clone; LICENSE (MIT) detected by GitHub; CODEOWNERS, templates and root AGENTS.md and CLAUDE.md pointers in place; both members' coding agents have the ContextMatic and PayPal AI Toolkit plugins installed with versions recorded in progress.md.
+- **Acceptance:** Structure from scaffold.md section 1 exists; docs/ copied (including fairpool-idea.md and system-design.md); `make setup` and `make verify` pass on a clean clone; LICENSE (MIT) detected by GitHub; CODEOWNERS, templates and the root AGENTS.md Codex instruction file in place (no CLAUDE.md); the coding agent environment(s) have the ContextMatic and PayPal AI Toolkit plugins installed with versions recorded in progress.md; the graphify skill for Codex is installed and the tool-generated `## graphify` block is in AGENTS.md.
 - **Tests that prove it:** `make setup`; `make verify`; GitHub shows the MIT license.
 - **Requirements and invariants:** FR-HK-01, FR-HK-02, FR-IG-09.
 

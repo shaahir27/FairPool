@@ -63,8 +63,8 @@ When sources conflict, stop and log an open question in `progress.md`; never pic
 1. Copy this whole folder to `docs/` in the repository.
 2. The idea document is already in `docs/fairpool-idea.md`. Do not add other source files to `docs/`.
 3. The design document is already in `docs/system-design.md`.
-4. Add root `AGENTS.md` and `CLAUDE.md` pointers (`scaffold.md` section 9).
-5. Run `python tools/validate_docs.py` once the tool exists (task T00A04); until then run the copy delivered with this folder from the repository root.
+4. Add root `AGENTS.md` as the Codex instruction file (the pointer plus the tool-generated `## graphify` block); do not create `CLAUDE.md` (`scaffold.md` section 9).
+5. Run `python tools/validate_docs.py` from the repository root (the tool is committed in T00A01).
 
 ## 5. Current state of decisions
 

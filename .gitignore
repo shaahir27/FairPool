@@ -32,4 +32,6 @@ build/
 tools/sandbox_tests/*.json
 graphify-out/.graphify_*
 graphify-out/cache/
+graphify-out/2026-*/
+graphify-out/manifest.json
 .codex/hooks.json

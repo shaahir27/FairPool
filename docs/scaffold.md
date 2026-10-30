@@ -6,9 +6,12 @@ This file defines the repository structure, tooling, commands, import boundaries
 
 ```
 fairpool/
-  AGENTS.md  CLAUDE.md          pointers to docs/agents.md (section 9)
+  AGENTS.md                     Codex instruction file: pointer + tool-generated graphify block (section 9)
   README.md  LICENSE            MIT (BD-01); README is written in task T09X01
-  Makefile  .env.example  .gitignore  .pre-commit-config.yaml  .gitleaks.toml
+  Makefile  .env.example  .gitignore  .graphifyignore  .dockerignore  ruff.toml
+  .pre-commit-config.yaml  .gitleaks.toml
+  .codex/skills/graphify/        generated Codex graphify skill (T00A01); hooks.json is local-only
+  graphify-out/                  committed graph.json + GRAPH_REPORT.md; intermediates ignored
   .github/
     CODEOWNERS  PULL_REQUEST_TEMPLATE.md
     ISSUE_TEMPLATE/contract-change.md
@@ -85,7 +88,7 @@ Versions and libraries are fixed by BD-02, BD-03, BD-15 to BD-18 in `docs/decisi
 | `make ai-eval` | AI evaluation sets with the real model |
 | `make imports` | `tools/check_imports.py` |
 | `make docs-check` | `tools/validate_docs.py` |
-| `make openapi-check` | Export the Merchant Agent API OpenAPI document and assert exactly the operations and operationIds in `docs/contracts/api.md` section 4.3, at most 20 operations |
+| `make openapi-check` | Export the Merchant Agent API OpenAPI document and assert exactly the operations and operationIds in `docs/contracts/api.md` section 4.3, at most 20 operations. Until the merchant sub-app exists (T01B01), the tool prints `SKIP` and exits 0 |
 | `make sdk` | Export the OpenAPI document and run the APIMatic CLI to regenerate `sdk/` (needs an APIMatic account; INT-4) |
 | `make search-reindex` | Rebuild the search index from Postgres |
 | `make demo-seed` | Seed admin, merchants, catalog, one demo pool template, six sandbox buyer logins (references only, no secrets) |
@@ -95,11 +98,11 @@ Versions and libraries are fixed by BD-02, BD-03, BD-15 to BD-18 in `docs/decisi
 
 ## 4. Containers
 
-`deploy/docker-compose.yml` services: `db` (Postgres 16 with `citext` and `pg_trgm`), `api`, `worker`, `frontend`, and an optional `elastic` profile (single-node Elasticsearch for local search experiments; the production-like path is the Elastic Cloud trial, S8). Environment comes from `.env`, never from the compose file. `render.yaml` defines a web service (`api`), a background worker, a Postgres database and a static frontend, all from the same Docker images.
+`deploy/docker-compose.yml` services: `db` (Postgres 16 with `citext` and `pg_trgm`), `api`, `worker`, `frontend`, and an optional `elastic` profile (single-node Elasticsearch for local search experiments; the production-like path is the Elastic Cloud trial, S8). Environment comes from `.env`, never from the compose file. At PH0 the `frontend` service serves `deploy/frontend-placeholder/index.html`; T01B03 replaces the build context with the real Vite app. `render.yaml` defines a web service (`api`), a background worker, a Postgres database and a static frontend, all from the same Docker images.
 
 ## 5. Import boundaries (enforced by `tools/check_imports.py`)
 
-1. `fairpool.domain` imports only the standard library and `pydantic`: no `sqlalchemy`, `httpx`, `fairpool.modules`, `fairpool.adapters`, `fairpool.db` or `fairpool.api`.
+1. `fairpool.domain` imports only the standard library, `pydantic`, and `cryptography` limited to Ed25519 primitives inside `domain/hashing.py`: no `sqlalchemy`, `httpx`, `fairpool.modules`, `fairpool.adapters`, `fairpool.db` or `fairpool.api`.
 2. `fairpool.adapters.ai` imports only `fairpool.ports`, `fairpool.domain`, the Anthropic SDK, `httpx` and `pydantic` (I2).
 3. `fairpool.adapters.paypal` may be imported only by `fairpool.modules.checkout`, `webhooks`, `reconciler`, `fulfillment`, by `fairpool.wiring`, `fairpool.api.routers` that Member A owns, and by tests (I2, INT-5). It imports no `fairpool.modules`.
 4. `fairpool.modules.sim` must not import `fairpool.adapters.paypal` (I12).
@@ -114,9 +117,11 @@ Jobs on every pull request and on `main`: `lint`, `typecheck`, `test` (with a Po
 
 ## 7. `.env.example`
 
-Contains only variable **names** with empty or safe default values, copied from `docs/contracts/config-and-errors.md` section 1. Real values live in each member's local `.env` (git-ignored) and in the Render environment. Never commit a value for a variable marked S.
+Contains only variable **names** with empty or safe default values, copied from `docs/contracts/config-and-errors.md` section 1, plus the three compose-only Postgres names (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`) clearly marked as infrastructure. Real values live in each member's local `.env` (git-ignored) and in the Render environment. Never commit a value for a variable marked S.
 
 ## 8. CODEOWNERS
+
+Single-operator PH0 (Oct 30, 2026): the repository CODEOWNERS uses `@shaahir27` for every line below; the path split is kept for future team growth. Replace the handles when a second member joins.
 
 ```
 # Replace with the two GitHub handles. Mirrors docs/team-split.md section 2.
@@ -160,7 +165,7 @@ The authoritative ownership map is `docs/team-split.md` section 2; keep the two 
 
 ## 9. Pointer files, pull request template, change-request template
 
-`AGENTS.md` and `CLAUDE.md` at the root each contain only: "Read `docs/00-index.md` then `docs/agents.md` before doing anything in this repository."
+`AGENTS.md` at the root contains: "Read `docs/00-index.md` then `docs/agents.md` before doing anything in this repository." Codex then appends the tool-generated `## graphify` block. No `CLAUDE.md` is created; Codex reads `AGENTS.md`.
 
 `PULL_REQUEST_TEMPLATE.md`: task ID and title; acceptance bullets with the test that proves each; contracts touched (none, or the CR link); invariants this change could affect (I1 to I15); `make verify` output confirmed; screenshots for UI; checklist: no secrets, no live hosts, no claims beyond the spec, `docs/progress.md` updated.
 
@@ -168,12 +173,12 @@ The authoritative ownership map is `docs/team-split.md` section 2; keep the two 
 
 ## 10. Bootstrap (task T00A01, in this order)
 
-1. Create the repository with the structure above, empty modules containing only `__init__.py` and a one-line docstring naming the owner and the task that fills it.
+1. Create the repository with the structure above, empty modules containing only `__init__.py` and a one-line docstring naming the owner and the task that fills it. Files owned by a later task (migrations, frontend, sdk) get only their directories or `.gitkeep` in PH0; the owning task creates the files.
 2. Copy this `docs/` folder in. The idea document is already in it as `docs/fairpool-idea.md`; do not add other source files. The design document is already in it as `docs/system-design.md`.
 3. Add `LICENSE` (MIT), `.gitignore` (`.env`, virtualenvs, `node_modules`, build output, `*.pem`, local databases), pre-commit (ruff, gitleaks), `Makefile`.
 4. Add CODEOWNERS and the templates (section 8 and 9).
 5. Verify `make setup`, `make verify` and `python tools/validate_docs.py` on a clean clone. Record the repository URL and the hosted URL (task T01A03) in `docs/progress.md`.
-6. Development tooling check (docs/agents.md section 4a): both members install the APIMatic ContextMatic plugin and the PayPal AI Toolkit plugin in their coding agents and record the installed versions in `docs/progress.md`.
+6. Development tooling check (docs/agents.md section 4a): the coding agent environment(s) install the APIMatic ContextMatic plugin and the PayPal AI Toolkit plugin and record the installed versions in `docs/progress.md`. The Codex graphify skill is installed with `graphify codex install --project`; `AGENTS.md` receives the `## graphify` block.
 
 ## 11. Render deployment
 

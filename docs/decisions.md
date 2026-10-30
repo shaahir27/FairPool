@@ -25,7 +25,7 @@ The idea text is `docs/fairpool-idea.md`. These four departures were proposed an
 | D4 | Seeded lottery using a public randomness beacon, no arrival priority | ASSUMED | Matches the idea's published-rule wording; the checklist anticipates a seeded draw |
 | D5 | Price tiers resolve at award time, not on final completed quantity | ASSUMED | Partial capture is untested |
 | D6 | PayPal link required to enter live pools, degrading per `DEDUPE_MODE` | ASSUMED | Allowed by the idea if disclosed before joining |
-| D7 | Payment router and mode | CONFIRMED | Superseded by DEP-4: primary Router A with authorize_capture; fallbacks only if G4 or G3 fails |
+| D7 | Payment router and mode | SUPERSEDED by DEP-4 | DEP-4 makes vault-and-charge primary and `single_seller` final; this row is kept for history |
 | D8 | Merchants are demo merchants with self-declared attestations | ASSUMED | FairPool cannot verify inventory |
 | D9 | Revenue: merchant-paid success fee via platform fee | RESOLVED | S3 (G9) failed: platform fee returned 422 UNSUPPORTED_PAYMENT_INSTRUCTION. Revenue is roadmap text only (fee shown as a planned merchant-paid success fee, not implemented) |
 | D10 | PayPal approval UX | SUPERSEDED by INT-7 | JavaScript SDK v6 popup is primary; redirect approval (verified in the Sandbox) is the fallback |

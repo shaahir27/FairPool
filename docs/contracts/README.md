@@ -49,4 +49,4 @@ Current version: `contracts-v1`, tagged at task T00X01 (gate IG-0). Nothing in t
 
 | Version | Date | Change | Approved by |
 |---|---|---|---|
-| contracts-v1 | set at T00X01 | Initial freeze | Member A and Member B |
+| contracts-v1 | 2026-10-30 | Initial freeze after full review; corrections C1-C15 and status consolidation recorded | @shaahir27 (owner) after independent agent review |

@@ -19,7 +19,7 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | Method | Path | Owner | Auth | Purpose |
 |---|---|---|---|---|
 | GET | /health | A | public | Liveness |
-| GET | /ready | A | public | Readiness (database, migrations) |
+| GET | /ready | A | public | Readiness (database, migrations); before T01A01 it reports 503 `not_ready` with `database: not_configured` |
 | POST | /api/v1/auth/register | B | public | Create account |
 | POST | /api/v1/auth/login | B | public | Start session |
 | POST | /api/v1/auth/logout | B | session | End session |

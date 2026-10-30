@@ -2,7 +2,7 @@
 
 Living file. One section per spike. Record sanitized facts only: HTTP status, PayPal status or issue name, field names, amounts, debug IDs. Never record secrets, tokens, assertion values, passwords, full approval URLs or full payment details. When a spike is recorded, update the switch in `docs/decisions.md` section 4 in the same pull request.
 
-Status: RECORDED or PENDING.
+Status: RECORDED, PARTIAL, PENDING or DEFERRED.
 
 ## S2: authorization capture and idempotency (G3). RECORDED Oct 20, 2026
 
@@ -74,15 +74,15 @@ Record: scope accepted yes or no; account ID present in userinfo yes or no; equa
 
 Record the highest accepted level: custom_id and invoice_id replay (level 1), breakdown with items (level 2), experience_context with provided address locked (level 3). Then set `PAYPAL_PAYLOAD_LEVEL`.
 
-## S5: webhook listener (G5). PENDING
+## S5: webhook listener (G5). PARTIAL Oct 28, 2026
 
 Record: public HTTPS listener reachable on 443; real lifecycle events received; signature verification result; duplicate delivery handling. Then set `WEBHOOKS_ENABLED`.
 
-## S6: beacon and sandbox buyers (G6). PENDING
+## S6: beacon and sandbox buyers (G6). RECORDED Oct 29, 2026
 
 Record: beacon endpoint and chain used, round period, a verified round value; number of US personal sandbox buyer accounts created (target six, D11). Then set `BEACON_MODE`.
 
-## S8: Elastic hybrid search (G12). PENDING
+## S8: Elastic hybrid search (G12). PARTIAL Oct 28, 2026
 
 Record: request shapes accepted, inference endpoint, latencies, top-five recall against the Postgres fallback, trial dates. Then set `SEARCH_BACKEND`.
 
@@ -90,7 +90,7 @@ Record: request shapes accepted, inference endpoint, latencies, top-five recall 
 
 Record: tool list shown to the client, locked fields confirmed, idempotency key handling, task usage per call, trial expiry date. Then set `ZAPIER_BRIDGE`.
 
-## S10: PayPal MCP read-only verification (G14). PENDING
+## S10: PayPal MCP read-only verification (G14). RECORDED Oct 28, 2026
 
 Record: tool list, allowlist mechanism or its absence, get-order argument name and output, list-transactions latency and permission state. Then set `PAYPAL_MCP_VERIFICATION`.
 
@@ -98,11 +98,11 @@ Record: tool list, allowlist mechanism or its absence, get-order argument name a
 
 Record: endpoint count, plan or trial and end date, OpenAPI 3.1 import result, generated languages, smoke-test result, licensing of generated code, ContextMatic plugin check.
 
-## S12: PayPal shipment tracking (G16). PENDING
+## S12: PayPal shipment tracking (G16). RECORDED Oct 28, 2026
 
 Record: request and response status, per-item errors, read-back result, idempotency, what buyer or merchant can see. Then set `SHIPMENT_TRACKING_ENABLED`.
 
-## S13: JavaScript SDK v6 approval (G17). PENDING
+## S13: JavaScript SDK v6 approval (G17). RECORDED Oct 28, 2026
 
 Record: which initialisation worked (client ID or client token), `onApprove` fields, cancel and blocked-popup behaviour, console errors. Then set `PAYPAL_APPROVAL_UI` and `PAYPAL_SDK_AUTH`.
 

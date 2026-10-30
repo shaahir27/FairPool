@@ -17,7 +17,7 @@ Tests are the proof that the invariants hold. Every task's acceptance bullets ma
 | Frontend | `frontend/` | none | yes | `tsc`, eslint, unit tests, the verify-my-place vectors |
 | End to end | manual with scripts | none | no | Rehearsals (IT-10) |
 
-Contract tests that must exist from gate IG-0: `test_schema_contract` (enums and `alembic check`), `test_state_machines_contract` (YAML equals code, illegal pairs raise), `test_api_contract` (routes equal the endpoint table), `test_merchant_openapi_contract` (exactly the operations and operationIds in `api.md` section 4.3, at most 20), `test_mcp_contract` (exactly the four tools, no payment tools), `test_fairness_vectors` (Python) and the same vectors in the frontend tests, `test_no_payment_surface` (PT-16).
+Contract tests must exist from the gate that creates their subject: `test_state_machines_contract` (YAML equals code, illegal pairs raise) and `test_fairness_vectors` (Python) at IG-0; `test_schema_contract` (enums and `alembic check`), `test_api_contract` (routes equal the endpoint table) and `test_merchant_openapi_contract` (exactly the operations and operationIds in `api.md` section 4.3, at most 20) at IG-1; `test_mcp_contract` (exactly the four tools, no payment tools) and `test_no_payment_surface` (PT-16) at IG-7. The frontend half of the fairness vectors arrives with the frontend tests.
 
 Coverage gates (line coverage): `domain/` 90 percent, `checkout` and `ledger` 85 percent, everything else 70 percent. Coverage never replaces the named acceptance tests.
 

@@ -21,7 +21,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | Gate | Status | Tagged by | Notes |
 |---|---|---|---|
-| IG-0 | TODO | not yet | |
+| IG-0 | TODO | not yet | local checks green; owner rotation, CI compose and tags pending |
 | IG-1 | TODO | not yet | |
 | IG-2 | TODO | not yet | |
 | IG-3 | TODO | not yet | |
@@ -41,13 +41,13 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
 | T00A01 | A | S | DONE | phase-0 | Repository bootstrap |
-| T00A02 | A | S | TODO | | Secrets hygiene |
-| T00A03 | A | S | TODO | | API and worker skeleton, settings, host guard |
-| T00A04 | A | S | TODO | | Containers, CI and repo tools |
-| T00B01 | B | L | TODO | | Pure domain library with shared vectors |
-| T00B02 | B | S | DONE | | Spike S1 Log in with PayPal |
-| T00B03 | B | S | DONE | | Spike S7 payee-email routing |
-| T00X01 | AB | M | TODO | | Contract review and freeze |
+| T00A02 | A | S | IN PROGRESS | phase-0 | Secrets hygiene (code done; owner rotation pending) |
+| T00A03 | A | S | DONE | phase-0 | API and worker skeleton, settings, host guard |
+| T00A04 | A | S | IN PROGRESS | phase-0 | Containers, CI and repo tools (local Docker pending; CI compose) |
+| T00B01 | B | L | DONE | phase-0 | Pure domain library with shared vectors |
+| T00B02 | B | S | DONE | phase-0 | Spike S1 Log in with PayPal |
+| T00B03 | B | S | DONE | phase-0 | Spike S7 payee-email routing |
+| T00X01 | AB | M | IN PROGRESS | phase-0 | Contract review and freeze |
 
 ### PH1: Data, platform and shell foundations
 
@@ -222,11 +222,16 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Q-O2 | owner | Exact issue name in the void-replay 422 body | `docs/spike-results.md` S2 | answered by T01A04 |
 | Q-S7 | owner | Does an order addressed to a second sandbox business account by payee email approve and authorize (S7)? Owner decides whether the demo uses `payee_email` | `docs/spikes.md` S7 | answered Oct 28: no. Separate seller captures arrive but void and refund are denied; `payee_email` rejected, `single_seller` final |
 | Q-D1 | owner | Confirm the assumed design decisions D1 to D11 in `docs/decisions.md` section 2 (stack, operator-defined pools, and the rest) | `docs/decisions.md` | answered at T00X01 |
+| Q-2026-10-30-01 | implementation | `lot_index` numbering base: `db-schema.md` says "position within the zone"; `fairness-and-hashing.md` section 5 and N7 do not state 0- or 1-based. T00B01 uses 0-based index and 1-based `lot_order`. | `docs/contracts/db-schema.md`, `docs/contracts/fairness-and-hashing.md` | open; T04B02 confirms before persistence |
+| Q-2026-10-30-02 | implementation | Semantic graph refresh needs a valid LLM key; the AST-only graph is committed and usable for code queries. | `graphify-out/GRAPH_REPORT.md` | open; not a PH0 gate blocker |
 
 ## Requests to the owner
 
 | Date | From | Request | Status |
 |---|---|---|---|
+| 2026-10-30 | owner | Rotate the Sandbox REST secret, change the buyer password and disable unused NVP/SOAP credentials (T00A02). Record only completion, never values. | OPEN |
+| 2026-10-30 | owner | Install Docker Desktop and GitHub CLI; the winget elevation prompts were cancelled, so local `docker compose` and `gh pr` are unavailable. | OPEN |
+| 2026-10-30 | owner | Install the APIMatic ContextMatic and PayPal AI Toolkit plugins in the coding agent and record versions (FR-IG-09). | OPEN |
 
 ## Requests between members
 
@@ -245,6 +250,11 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | 2026-10-30 | Single `phase-0` branch from an empty `main` base; one pull request; all PH0 tasks are sequential commits on the branch. | owner | progress.md, plan |
 | 2026-10-30 | Ruff excludes legacy spike/validation scripts; backend and the new repository tools are linted. | owner | progress.md |
 | 2026-10-30 | pip-compile 7.6.2 lacks `--universal`; hashed locks are generated on Windows and verified by the Linux CI install. | owner | progress.md |
+| 2026-10-30 | `cryptography` is allowed only in `domain/hashing.py`; `check_imports.py` enforces the module-scoped exception. | owner | progress.md, scaffold section 5 |
+| 2026-10-30 | gitleaks allowlists the fairness vectors and three mock-fixture spike test files by exact path; no broad allowlist. | owner | .gitleaks.toml, progress.md |
+| 2026-10-30 | Codex is the agent platform: `AGENTS.md` plus `.codex/skills/graphify`; no `CLAUDE.md`. The graph is rebuilt with `graphify extract .` and committed. | owner | progress.md, scaffold section 9 |
+| 2026-10-30 | The host guard lives in `config.py` so PH0 has no adapter dependency; T02A01 reuses it. | owner | progress.md |
+| 2026-10-30 | Graphify semantic extraction failed with the configured Gemini key; the committed graph is the AST-only update (1485 nodes / 2443 edges) and excludes `.env`. A later `graphify label` refreshes names when a valid key is set. | owner | progress.md, graphify-out/GRAPH_REPORT.md |
 
 ## Defects from rehearsals
 
@@ -258,3 +268,5 @@ Devpost text draft, video link and the final checklist result are recorded here 
 ## Daily log
 
 One line per member per day: date, member, what merged, what is next.
+
+- 2026-10-30, owner: T00A01 to T00B01 committed on `phase-0`; S1/S7 consolidated; next: freeze, CI, owner rotation, graph rebuild and merge.
