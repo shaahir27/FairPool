@@ -1,0 +1,7 @@
+FROM nginx:alpine
+
+LABEL org.opencontainers.image.description="FairPool frontend placeholder (replaced by T01B03)"
+
+COPY deploy/frontend-placeholder/index.html /usr/share/nginx/html/index.html
+
+EXPOSE 80

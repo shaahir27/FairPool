@@ -1,0 +1,305 @@
+name: CI
+
+"on":
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.lock
+            backend/requirements-dev.lock
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.lock ]; then
+            python -m pip install --require-hashes -r backend/requirements-dev.lock
+          else
+            python -m pip install -e "backend[dev]"
+          fi
+          python -m pip install --no-deps -e backend
+      - name: Ruff
+        run: |
+          python -m ruff check backend tools
+          python -m ruff format --check backend tools
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.lock
+            backend/requirements-dev.lock
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.lock ]; then
+            python -m pip install --require-hashes -r backend/requirements-dev.lock
+          else
+            python -m pip install -e "backend[dev]"
+          fi
+          python -m pip install --no-deps -e backend
+      - name: Mypy
+        run: python -m mypy --strict backend/src/fairpool/domain backend/src/fairpool/modules
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fairpool
+          POSTGRES_PASSWORD: fairpool
+          POSTGRES_DB: fairpool_test
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U fairpool -d fairpool_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://fairpool:fairpool@localhost:5432/fairpool_test
+      SECRET_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      HMAC_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      RECEIPT_SIGNING_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ADDRESS_ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      VAULT_TOKEN_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      PUBLIC_BASE_URL: http://localhost:8000
+      FRONTEND_BASE_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+      PAYPAL_ENV: sandbox
+      PAYPAL_CLIENT_ID: sandbox-client-id
+      PAYPAL_CLIENT_SECRET: dummy
+      PAYPAL_API_BASE: https://api-m.sandbox.paypal.com
+      PAYPAL_CHECKOUT_BASE: https://www.sandbox.paypal.com
+      SINGLE_SELLER_EMAIL: seller@example.com
+      ANTHROPIC_API_KEY: dummy
+      ELASTICSEARCH_API_KEY: dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.lock
+            backend/requirements-dev.lock
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.lock ]; then
+            python -m pip install --require-hashes -r backend/requirements-dev.lock
+          else
+            python -m pip install -e "backend[dev]"
+          fi
+          python -m pip install --no-deps -e backend
+      - name: Pytest
+        run: |
+          if [ -f backend/src/fairpool/domain/hashing.py ]; then
+            python -m pytest backend/tests \
+              -m "not sandbox and not sandbox_interactive and not faults and not ai_eval" \
+              --cov=fairpool.domain --cov-fail-under=90
+          else
+            python -m pytest backend/tests \
+              -m "not sandbox and not sandbox_interactive and not faults and not ai_eval"
+          fi
+
+  imports:
+    name: Import boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check imports
+        run: python tools/check_imports.py
+
+  docs-check:
+    name: Docs check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate docs
+        run: python tools/validate_docs.py
+
+  openapi-check:
+    name: Merchant OpenAPI check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.lock
+            backend/requirements-dev.lock
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements-dev.lock ]; then
+            python -m pip install --require-hashes -r backend/requirements-dev.lock
+          else
+            python -m pip install -e "backend[dev]"
+          fi
+          python -m pip install --no-deps -e backend
+      - name: Export and check
+        run: python tools/export_merchant_openapi.py --check
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check frontend package
+        id: frontend
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        run: echo "present=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.frontend.outputs.present == 'true'
+        with:
+          node-version: "20"
+      - name: Install
+        if: steps.frontend.outputs.present == 'true'
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+      - name: Lint
+        if: steps.frontend.outputs.present == 'true'
+        run: npm run lint
+      - name: Typecheck
+        if: steps.frontend.outputs.present == 'true'
+        run: npm run typecheck
+      - name: Test
+        if: steps.frontend.outputs.present == 'true'
+        run: npm test -- --run
+      - name: Build
+        if: steps.frontend.outputs.present == 'true'
+        run: npm run build
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  compose:
+    name: Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create dummy environment
+        run: |
+          cat > .env <<'EOF'
+          APP_ENV=test
+          POSTGRES_USER=fairpool
+          POSTGRES_PASSWORD=fairpool
+          POSTGRES_DB=fairpool
+          DATABASE_URL=postgresql+asyncpg://fairpool:fairpool@db:5432/fairpool
+          SECRET_KEY=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          HMAC_KEY=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          RECEIPT_SIGNING_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          ADDRESS_ENCRYPTION_KEY=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          VAULT_TOKEN_KEY=MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          PUBLIC_BASE_URL=http://localhost:8000
+          FRONTEND_BASE_URL=http://localhost:5173
+          CORS_ORIGINS=http://localhost:5173
+          LOG_LEVEL=INFO
+          PAYPAL_ENV=sandbox
+          PAYPAL_CLIENT_ID=sandbox-client-id
+          PAYPAL_CLIENT_SECRET=dummy
+          PAYPAL_API_BASE=https://api-m.sandbox.paypal.com
+          PAYPAL_CHECKOUT_BASE=https://www.sandbox.paypal.com
+          PAYMENT_ROUTER=single_seller
+          PAYMENT_MODE=vault_charge
+          BID_PRICING_MODE=flat_delivered
+          VAULT_CONSENT_VERSION=v1
+          VAULT_CHARGE_CONCURRENCY=5
+          AUTHORIZE_USE_REQUEST_ID=true
+          PAYPAL_PAYLOAD_LEVEL=0
+          PAYPAL_APPROVAL_UI=sdk_popup
+          PAYPAL_SDK_AUTH=client_id
+          SHIPMENT_TRACKING_ENABLED=true
+          PAYPAL_MCP_VERIFICATION=paypal_read_subset
+          SINGLE_SELLER_EMAIL=seller@example.com
+          ALLOWED_PAYER_COUNTRIES=US
+          PLATFORM_FEE_ENABLED=false
+          DEDUPE_MODE=two_keys
+          REQUIRE_PAYPAL_LINK=false
+          WEBHOOKS_ENABLED=false
+          MOCK_TOGGLES_ENABLED=false
+          SEARCH_BACKEND=postgres
+          ELASTIC_INDEX_PREFIX=fairpool
+          SIMILARITY_CHECK_ENABLED=true
+          MCP_ENABLED=true
+          MERCHANT_API_ENABLED=true
+          ZAPIER_BRIDGE=off
+          AI_ENABLED=true
+          ANTHROPIC_API_KEY=dummy
+          AI_MODEL_PARSE=claude-sonnet-5-5
+          AI_MODEL_SIM=claude-haiku-5-5
+          BEACON_MODE=demo
+          TIMING_PROFILE=demo
+          CAPTURE_BUFFER=0
+          CAPTURE_CONCURRENCY=5
+          RECONCILER_INTERVAL_S=60
+          WORKER_CONCURRENCY=4
+          RATE_LIMIT_ENABLED=true
+          EOF
+      - name: Build and start
+        run: docker compose -f deploy/docker-compose.yml up -d --build
+      - name: Wait for API health
+        run: |
+          for attempt in $(seq 1 45); do
+            if curl -fsS http://localhost:8000/health >/dev/null; then
+              echo "API is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f deploy/docker-compose.yml logs api
+          exit 1
+      - name: Check frontend placeholder
+        run: curl -fsS http://localhost:5173/ | grep -qi "placeholder"
+      - name: Stop containers
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml down -v
