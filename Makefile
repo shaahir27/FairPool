@@ -40,8 +40,8 @@ setup:
 
 lock:
 	@$(PIP) install pip-tools
-	@cd backend && ../$(PIP_COMPILE) requirements.in -o requirements.lock --generate-hashes
-	@cd backend && ../$(PIP_COMPILE) requirements-dev.in -o requirements-dev.lock --generate-hashes
+	@cd backend && ../$(PIP_COMPILE) requirements.in -o requirements.lock --generate-hashes --allow-unsafe
+	@cd backend && ../$(PIP_COMPILE) requirements-dev.in -o requirements-dev.lock --generate-hashes --allow-unsafe
 
 lint:
 	@$(PY) -m ruff check backend tools
@@ -98,7 +98,7 @@ gate-check: verify
 	@echo "IT-0 manual checks: tags, spike records, plugin versions, secrets rotation, graph outputs"
 
 dev:
-	@docker compose -f deploy/docker-compose.yml up --build
+	@docker compose --env-file .env -f deploy/docker-compose.yml up --build
 
 migrate:
 	@$(PY) -m alembic upgrade head
