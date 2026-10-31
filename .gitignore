@@ -38,3 +38,4 @@ spike_out/
 
 # Disposable local verification output
 .test-tmp-*/
+docs/evidence/

@@ -1,5 +1,6 @@
 from sqlalchemy import text
 
+from fairpool.adapters.ai.client import PROMPT_VERSION
 from fairpool.modules.intake.run_log import PostgresAiRunLogger
 
 
@@ -9,7 +10,7 @@ async def test_ai_run_logger_writes_attempt_rows(db_session):
         db_session,
         task="INTAKE",
         model="fictional-model",
-        prompt_version="phase2-gemini-v3/1",
+        prompt_version=f"{PROMPT_VERSION}/1",
         input_hash="a" * 64,
         output={"clarification": None},
         ok=True,
@@ -30,7 +31,7 @@ async def test_ai_run_logger_writes_attempt_rows(db_session):
     assert tuple(row) == (
         "INTAKE",
         "fictional-model",
-        "phase2-gemini-v3/1",
+        f"{PROMPT_VERSION}/1",
         "a" * 64,
         {"clarification": None},
         True,

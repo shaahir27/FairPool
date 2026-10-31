@@ -1,16 +1,13 @@
 # Team split
 
-Two members, two lanes, twelve merge gates. **Member A: Payments and Platform.** **Member B: Product and Fairness.** Replace the names below with the real names and GitHub handles in `.github/CODEOWNERS` and `docs/progress.md`.
+Two members, two lanes, twelve merge gates. Phase 0 through 3 task IDs and ownership remain as recorded. From Phase 4 onward, Member A leads the payment, beacon, allocation, auction, merchant and agent API engines; Member B leads intake, search, UI, MCP, simulation and independent tests. No tasks or dependencies are waived.
 
 | | Member A | Member B |
 |---|---|---|
-| Name and handle | (fill in) | (fill in) |
-| Owns | Every PayPal call and money fact: gateway, routers, checkout, buyer-order engine, funding and failure paths, ledger, webhooks, reconciler, fulfillment, shipment tracking, PayPal MCP verification, ops console, platform services (jobs, audit, idempotency), database foundation, deployment, CI, repository tools, SDK generation | Everything before money: identity, PayPal Login link, catalog and pools, join and receipts, fairness (commitments, seed, allocation), intake and the AI adapter, search, auction and bids, merchant profile and API keys, the agent API, MCP server and Zapier bridge, simulation, the public audit page, the buyer and merchant interfaces, AI evaluation, the shared pure library |
-| Why | Invariants I1 to I9 live in the money path; one owner keeps them coherent | Invariants I6, I11, I12 and the idea's fairness and AI rules live here; one owner keeps them coherent |
+| Main responsibility from PH4 | Payment and core engines, beacon, allocation, merchant/bid/auction, reconciliation and agent APIs | Intake, search, UI, MCP, simulation, evaluation and independent property/concurrency checks |
+| Coordination | Merge the Phase 7 agent API before its MCP consumer | Rebase the Phase 7 MCP work on that merge and independently review core outcomes |
 
-Why this split works in parallel: the two lanes meet only through contracts (`docs/contracts/`), ports and fakes (`domain-ports.md`), jobs and HTTP. Each lane has a fake of the other's side, so neither waits for the other's code; real wiring happens at named gates.
-
-**Solo operation (Oct 30, 2026).** One operator executes both lanes; the Member A and Member B columns are workstream labels. CODEOWNERS uses `@shaahir27`; an independent agent review replaces the second member's review. Phase 0 uses one `phase-0` branch and one pull request.
+The Oct 30 solo-operation record is historical: CODEOWNERS currently uses `@shaahir27`. Replace handles only when the second member's GitHub identity is confirmed. Existing Phase 0 through 3 work and its recorded ownership are not rewritten.
 
 ## 1. Flow at a glance
 
@@ -56,8 +53,8 @@ flowchart TB
   A3 --> G3
   B3 --> G3
   subgraph PH4["PH4 Core engines III and the first integration"]
-    A4["Member A<br/>T04A01 T04A02 T04A03"]
-    B4["Member B<br/>T04B01 T04B02 T04B03 T04B04"]
+    A4["Member A<br/>T04A01 T04A02 T04A03 T04A04 T04A05 T04A06"]
+    B4["Member B<br/>T04B01"]
     X4["Both<br/>T04X01"]
   end
   G4{{"IG-4 merge gate<br/>IT-4"}}
@@ -67,8 +64,8 @@ flowchart TB
   B4 --> G4
   G4 -.-> X4
   subgraph PH5["PH5 Real PayPal path, auction core and merchant foundation"]
-    A5["Member A<br/>T05A01 T05A02 T05A03"]
-    B5["Member B<br/>T05B01 T05B02 T05B03"]
+    A5["Member A<br/>T05A01 T05A02 T05A03 T05A06 T05A04 T05A05"]
+    B5["Member B<br/>no B tasks"]
   end
   G5{{"IG-5 merge gate<br/>IT-5"}}
   G4 --> A5
@@ -76,8 +73,8 @@ flowchart TB
   A5 --> G5
   B5 --> G5
   subgraph PH6["PH6 Money completion and auction to checkout"]
-    A6["Member A<br/>T06A01 T06A02 T06A03 T06A04"]
-    B6["Member B<br/>T06B01 T06B02 T06B03 T06B04<br/>T06B05"]
+    A6["Member A<br/>T06A01 T06A02 T06A03 T06A04 T06A05 T06A06 T06A07"]
+    B6["Member B<br/>T06B01 T06B05"]
   end
   G6{{"IG-6 merge gate<br/>IT-6"}}
   G5 --> A6
@@ -85,8 +82,8 @@ flowchart TB
   A6 --> G6
   B6 --> G6
   subgraph PH7["PH7 Live end to end and the agent and merchant lanes"]
-    A7["Member A<br/>T07A01 T07A02 T07A03 T07A04"]
-    B7["Member B<br/>T07B01 T07B02 T07B03 T07B04<br/>T07B05"]
+    A7["Member A<br/>T07A01 T07A02 T07A03 T07A04 T07A05 T07A06"]
+    B7["Member B<br/>T07B01 T07B03 T07B05"]
     X7["Both<br/>T07X01"]
   end
   G7{{"IG-7 merge gate<br/>IT-7"}}
@@ -140,7 +137,7 @@ flowchart TB
   G11 --> DONE([Submitted])
 ```
 
-The same flow as plain text. Both lanes run in parallel inside a phase; the double bar is the merge gate where both lanes join before the next phase starts.
+The same flow as plain text. Lanes can work in parallel against contracts. In Phase 7, A merges T07A05 before B implements dependent T07B03; both remain required for IG-7.
 
 ```
 PH0  A: T00A01 T00A02 T00A03 T00A04
@@ -156,18 +153,18 @@ PH2  A: T02A01 T02A02 T02A03 T02A04
 PH3  A: T03A01 T03A02 T03A03 T03A04 T03A05
      B: T03B01 T03B02 T03B03 T03B04 T03B05
      ==== IG-3 merge gate, IT-3 ====
-PH4  A: T04A01 T04A02 T04A03
-     B: T04B01 T04B02 T04B03 T04B04
+PH4  A: T04A01 T04A02 T04A03 T04A04 T04A05 T04A06
+     B: T04B01
      both: T04X01
      ==== IG-4 merge gate, IT-4 ====
-PH5  A: T05A01 T05A02 T05A03
-     B: T05B01 T05B02 T05B03
+PH5  A: T05A01 T05A02 T05A03 T05A06 T05A04 T05A05
+     B: none
      ==== IG-5 merge gate, IT-5 ====
-PH6  A: T06A01 T06A02 T06A03 T06A04
-     B: T06B01 T06B02 T06B03 T06B04 T06B05
+PH6  A: T06A01 T06A02 T06A03 T06A04 T06A05 T06A06 T06A07
+     B: T06B01 T06B05
      ==== IG-6 merge gate, IT-6 ====
-PH7  A: T07A01 T07A02 T07A03 T07A04
-     B: T07B01 T07B02 T07B03 T07B04 T07B05
+PH7  A: T07A01 T07A02 T07A03 T07A04 T07A05 T07A06
+     B: T07B01 T07B03 T07B05
      both: T07X01
      ==== IG-7 merge gate, IT-7 ====
 PH8  A: T08A01 T08A02 T08A03 T08A04 T08A05 T08A06
@@ -189,7 +186,9 @@ PH11 A: none
 
 ## 2. Ownership map
 
-Each path has exactly one owner. Anything not listed is created only by a task that names it. Changes to files owned by the other member go through a request in `docs/progress.md` (Requests) or a contract change request. CODEOWNERS in `docs/scaffold.md` section 8 mirrors this table.
+Through Phase 3, the existing paths and task ownership remain unchanged. From Phase 4 onward, the following approved overrides take precedence: Member A owns `backend/src/fairpool/adapters/beacon/**`, `modules/{allocation,merchants,agentapi}/**`, `modules/auction/**` except quote parsing, the merchant, merchant-key and agent routers, and `api/merchant_api/**`; Member B owns quote parsing, search, intake, MCP, simulation, buyer/merchant/audit interfaces and independent property/concurrency tests. Checkout and ops interfaces remain A-owned. The task owner coordinates changes in shared pool and public API files. The planned `flags.py` reconciliation task is A-owned. The actual CODEOWNERS handles remain pending confirmation.
+
+Each path has exactly one owner subject to those phase-based overrides. Anything not listed is created only by a task that names it. Changes to files owned by the other member go through a request in `docs/progress.md` (Requests) or a contract change request. CODEOWNERS in `docs/scaffold.md` section 8 mirrors this table.
 
 | Path | Owner |
 |---|---|
@@ -260,33 +259,33 @@ Merge gate IG-3; test IT-3. Load: Member A 2.25 of 2 days, Member B 2.00 of 2 da
 
 | Member A lane | Member B lane | Both |
 |---|---|---|
-| T04A01 (M) lot.open_checkout handler<br/>T04A02 (L) Approval checks and authorization flow (fake router)<br/>T04A03 (L) Funding trigger and capture sweep (fake router) | T04B01 (L) Intake pipeline<br/>T04B02 (M) Beacon adapter and pool.seed<br/>T04B03 (L) Allocation and AllocationReadService<br/>T04B04 (S) Public audit endpoint and keys | T04X01 (L) First integration: pool to checkout |
+| T04A01 (M) lot.open_checkout handler<br/>T04A02 (L) Approval checks and authorization flow (fake router)<br/>T04A03 (L) Funding trigger and capture sweep (fake router)<br/>T04A04 (M) Beacon adapter and pool.seed<br/>T04A05 (L) Allocation and AllocationReadService<br/>T04A06 (S) Public audit endpoint and keys | T04B01 (L) Intake pipeline | T04X01 (L) First integration: pool to checkout |
 
-Merge gate IG-4; test IT-4. Load: Member A 3.00 of 2 days, Member B 3.25 of 2 days.
+Merge gate IG-4; test IT-4. Load: Member A 4.75 of 2 days, Member B 1.50 of 2 days.
 
 ### PH5: Real PayPal path, auction core and merchant foundation
 
 | Member A lane | Member B lane | Both |
 |---|---|---|
-| T05A01 (L) Real PayPal path for one buyer (redirect)<br/>T05A02 (L) Checkout UI<br/>T05A03 (M) Failure path and compensating refund (fake router) | T05B01 (M) Merchant profile and onboarding states<br/>T05B02 (L) Bid API with receipts and sealing<br/>T05B03 (L) Auction rules engine | none |
+| T05A01 (L) Real PayPal path for one buyer (redirect)<br/>T05A02 (L) Checkout UI<br/>T05A03 (M) Failure path and compensating refund (fake router)<br/>T05A06 (M) Merchant profile and onboarding states<br/>T05A04 (L) Bid API with receipts and sealing<br/>T05A05 (L) Auction rules engine | none | none |
 
-Merge gate IG-5; test IT-5. Load: Member A 2.50 of 2 days, Member B 2.50 of 2 days.
+Merge gate IG-5; test IT-5. Load: Member A 5.00 of 2 days, Member B 0.00 of 2 days.
 
 ### PH6: Money completion and auction to checkout
 
 | Member A lane | Member B lane | Both |
 |---|---|---|
-| T06A01 (L) Funding sweep and failure path on the real Sandbox<br/>T06A02 (M) Webhooks<br/>T06A03 (L) Reconciler and unknown-outcome resolution<br/>T06A04 (M) Payload ladder levels and shipping address | T06B01 (M) Quote parsing and confirmation<br/>T06B02 (M) AI offer reconciliation and flags<br/>T06B03 (L) Lot handlers: bid_open, bid_close, award<br/>T06B04 (M) Merchant API keys and MerchantAuth<br/>T06B05 (L) Buyer UI v1: Discover and Join | none |
+| T06A01 (L) Funding sweep and failure path on the real Sandbox<br/>T06A02 (M) Webhooks<br/>T06A03 (L) Reconciler and unknown-outcome resolution<br/>T06A04 (M) Payload ladder levels and shipping address<br/>T06A05 (M) AI offer reconciliation and flags<br/>T06A06 (L) Lot handlers: bid_open, bid_close, award<br/>T06A07 (M) Merchant API keys and MerchantAuth | T06B01 (M) Quote parsing and confirmation<br/>T06B05 (L) Buyer UI v1: Discover and Join | none |
 
-Merge gate IG-6; test IT-6. Load: Member A 3.00 of 2 days, Member B 3.50 of 2 days.
+Merge gate IG-6; test IT-6. Load: Member A 5.00 of 2 days, Member B 1.50 of 2 days.
 
 ### PH7: Live end to end and the agent and merchant lanes
 
 | Member A lane | Member B lane | Both |
 |---|---|---|
-| T07A01 (L) JavaScript SDK v6 approval<br/>T07A02 (M) Refill orchestration<br/>T07A03 (S) Routers per S3 and S7<br/>T07A04 (L) Ops console v1 | T07B01 (L) Buyer UI v2: My Pools and Orders<br/>T07B02 (L) Agent API and delegations<br/>T07B03 (M) FairPool MCP server<br/>T07B04 (M) Merchant Agent API sub-app: lots and bids<br/>T07B05 (M) Search in the merchant lane and advisory similarity | T07X01 (L) Live end-to-end integration |
+| T07A01 (L) JavaScript SDK v6 approval<br/>T07A02 (M) Refill orchestration<br/>T07A03 (S) Routers per S3 and S7<br/>T07A04 (L) Ops console v1<br/>T07A05 (L) Agent API and delegations<br/>T07A06 (M) Merchant Agent API sub-app: lots and bids | T07B01 (L) Buyer UI v2: My Pools and Orders<br/>T07B03 (M) FairPool MCP server<br/>T07B05 (M) Search in the merchant lane and advisory similarity | T07X01 (L) Live end-to-end integration |
 
-Merge gate IG-7; test IT-7. Load: Member A 3.25 of 2 days, Member B 4.00 of 2 days.
+Merge gate IG-7; test IT-7. Load: Member A 4.75 of 2 days, Member B 2.50 of 2 days.
 
 ### PH8: Fulfillment, verification, merchant console and simulation
 
@@ -368,12 +367,12 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | HO-4 Frontend scaffold and generated client | B (T01B03) | A | `scaffold.md` sections 1, 5, 12 | none | IG-1 |
 | HO-5 Notifier | B (T02B01) | A | `domain-ports.md` section 3 | `FakeNotifier` | IG-2 |
 | HO-6 Fairness vectors and pure domain library | B (T00B01) | A | `fairness-and-hashing.md` | none | IG-0 |
-| HO-7 Allocation read service and merchant directory | B (T04B03) | A | `domain-ports.md` section 4 | `FakeAllocationRead`, `FakeMerchantDirectory` | IG-4 (T04X01) |
-| HO-8 Award handoff | B (T06B03) | A | `domain-ports.md` section 6 | the `force-award` helper | IG-6 |
+| HO-7 Allocation read service and merchant directory | A (T04A05) | A (internal handoff) | `domain-ports.md` section 4 | `FakeAllocationRead`, `FakeMerchantDirectory` | IG-4 (T04X01) |
+| HO-8 Award handoff | A (T06A06) | A (internal handoff) | `domain-ports.md` section 6 | the `force-award` helper | IG-6 |
 | HO-9 Offer checkout component | A (T05A02) | B | `scaffold.md` section 5 rule 8 | a stub `OfferCheckout` in B's mock | IG-5, used in T07B01 |
-| HO-10 Refill candidates | B (T04B03) | A | `domain-ports.md` section 4.1 | `FakeAllocationRead.next_candidates` | IG-7 (T07A02) |
-| HO-11 Merchant identity (API keys and sessions) | B (T06B04) | A | `domain-ports.md` section 3 | `FakeMerchantAuth` | IG-8 (T08A01, T08A03) |
-| HO-12 Merchant Agent API sub-app | B (T07B04) | A | `api.md` section 4.3 | none | IG-8 (T08A03) |
+| HO-10 Refill candidates | A (T04A05) | A (internal handoff) | `domain-ports.md` section 4.1 | `FakeAllocationRead.next_candidates` | IG-7 (T07A02) |
+| HO-11 Merchant identity (API keys and sessions) | A (T06A07) | A (internal handoff) | `domain-ports.md` section 3 | `FakeMerchantAuth` | IG-8 (T08A01, T08A03) |
+| HO-12 Merchant Agent API sub-app | A (T07A06) | A (internal handoff) | `api.md` section 4.3 | none | IG-8 (T08A03) |
 | HO-13 Money facts (ledger, order status) read by the UI | A | B | `api.md` orders and progress | recorded API fixtures | IG-7 and IG-8 |
 
 ## 10. Conflict avoidance
@@ -419,39 +418,50 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | 19 | T04A01 lot.open_checkout handler | M | PH4 | IG-4 | T03A01 |
 | 20 | T04A02 Approval checks and authorization flow (fake router) | L | PH4 | IG-4 | T02A02, T03A01 |
 | 21 | T04A03 Funding trigger and capture sweep (fake router) | L | PH4 | IG-4 | T02A03, T03A01, T04A02 |
-| 22 | T04X01 First integration: pool to checkout (both members) | L | PH4 | IG-4 | T04A01, T03A02, T04B03 |
-| 23 | T05A01 Real PayPal path for one buyer (redirect) | L | PH5 | IG-5 | T04A02, T04X01 |
-| 24 | T05A02 Checkout UI | L | PH5 | IG-5 | T01B03 |
-| 25 | T05A03 Failure path and compensating refund (fake router) | M | PH5 | IG-5 | T04A03, T02A03 |
-| 26 | T06A01 Funding sweep and failure path on the real Sandbox | L | PH6 | IG-6 | T05A01, T04A03, T05A03 |
-| 27 | T06A02 Webhooks | M | PH6 | IG-6 | T03A03, T02A01 |
-| 28 | T06A03 Reconciler and unknown-outcome resolution | L | PH6 | IG-6 | T05A01, T02A03 |
-| 29 | T06A04 Payload ladder levels and shipping address | M | PH6 | IG-6 | T05A01, T02A04 |
-| 30 | T07A01 JavaScript SDK v6 approval | L | PH7 | IG-7 | T05A01, T05A02, T02B05 |
-| 31 | T07A02 Refill orchestration | M | PH7 | IG-7 | T03A02, T04B03 |
-| 32 | T07A03 Routers per S3 and S7 | S | PH7 | IG-7 | T00B03, T05A01 |
-| 33 | T07A04 Ops console v1 | L | PH7 | IG-7 | T06A01, T06A02 |
-| 34 | T07X01 Live end-to-end integration (both members) | L | PH7 | IG-7 | T06A01, T07A02, T06B03 |
-| 35 | T08A01 Fulfillment backend: progress, fulfillment, shipments, manifest, verification | L | PH8 | IG-8 | T06A01, T06B04, T03A05 |
-| 36 | T08A02 Fulfillment tab UI | M | PH8 | IG-8 | T01B03 |
-| 37 | T08A03 Merchant Agent API: fulfillment, shipments, manifest and verification routes | M | PH8 | IG-8 | T07B04, T08A01 |
-| 38 | T08A04 PayPal MCP verification copilot | M | PH8 | IG-8 | T08A01, T03A04 |
-| 39 | T08A05 Observability | M | PH8 | IG-8 | T01A03 |
-| 40 | T08A06 Security pass | M | PH8 | IG-8 | T06A02, T07A01 |
-| 41 | T09A01 Fault-injection suite | L | PH9 | IG-9 | T06A03, T06A02 |
-| 42 | T09A02 Sandbox contract suite complete | M | PH9 | IG-9 | T02A01, T05A01 |
-| 43 | T09A03 Deployment hardening and demo tooling | M | PH9 | IG-9 | T01A03 |
-| 44 | T09A04 STRETCH: top-up after FUNDED | S | PH9 | IG-9 | T06A01 |
-| 45 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
-| 46 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
-| 47 | T10A01 Fixes from rehearsal 1 (payments, ops, fulfillment) | M | PH10 | IG-10 | T10X01 |
-| 48 | T10A02 Repository cleanup and compliance | M | PH10 | IG-10 | T09A03 |
-| 49 | T10A03 Devpost text | M | PH10 | IG-10 | T09X01 |
-| 50 | T10A04 Merchant SDKs and developer portal | M | PH10 | IG-10 | T08A03 |
-| 51 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
-| 52 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
-| 53 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
-| 54 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
+| 22 | T04A04 Beacon adapter and pool.seed | M | PH4 | IG-4 | T03B04, T01B04 |
+| 23 | T04A05 Allocation and AllocationReadService | L | PH4 | IG-4 | T04A04 |
+| 24 | T04A06 Public audit endpoint and keys | S | PH4 | IG-4 | T03B04, T04A05 |
+| 25 | T04X01 First integration: pool to checkout (both members) | L | PH4 | IG-4 | T04A01, T03A02, T04A05 |
+| 26 | T05A01 Real PayPal path for one buyer (redirect) | L | PH5 | IG-5 | T04A02, T04X01 |
+| 27 | T05A02 Checkout UI | L | PH5 | IG-5 | T01B03 |
+| 28 | T05A03 Failure path and compensating refund (fake router) | M | PH5 | IG-5 | T04A03, T02A03 |
+| 29 | T05A06 Merchant profile and onboarding states | M | PH5 | IG-5 | T02B01 |
+| 30 | T05A04 Bid API with receipts and sealing | L | PH5 | IG-5 | T05A06, T04A05 |
+| 31 | T05A05 Auction rules engine | L | PH5 | IG-5 | T00B01, T04A05 |
+| 32 | T06A01 Funding sweep and failure path on the real Sandbox | L | PH6 | IG-6 | T05A01, T04A03, T05A03 |
+| 33 | T06A02 Webhooks | M | PH6 | IG-6 | T03A03, T02A01 |
+| 34 | T06A03 Reconciler and unknown-outcome resolution | L | PH6 | IG-6 | T05A01, T02A03 |
+| 35 | T06A04 Payload ladder levels and shipping address | M | PH6 | IG-6 | T05A01, T02A04 |
+| 36 | T06A05 AI offer reconciliation and flags | M | PH6 | IG-6 | T05A04, T05A05 |
+| 37 | T06A06 Lot handlers: bid_open, bid_close, award | L | PH6 | IG-6 | T05A05, T04A01 |
+| 38 | T06A07 Merchant API keys and MerchantAuth | M | PH6 | IG-6 | T05A06 |
+| 39 | T07A01 JavaScript SDK v6 approval | L | PH7 | IG-7 | T05A01, T05A02, T02B05 |
+| 40 | T07A02 Refill orchestration | M | PH7 | IG-7 | T03A02, T04A05 |
+| 41 | T07A03 Routers per S3 and S7 | S | PH7 | IG-7 | T00B03, T05A01 |
+| 42 | T07A04 Ops console v1 | L | PH7 | IG-7 | T06A01, T06A02 |
+| 43 | T07A05 Agent API and delegations | L | PH7 | IG-7 | T03B01, T04B01 |
+| 44 | T07A06 Merchant Agent API sub-app: lots and bids | M | PH7 | IG-7 | T05A04, T06A07 |
+| 45 | T07X01 Live end-to-end integration (both members) | L | PH7 | IG-7 | T06A01, T07A02, T06A06 |
+| 46 | T08A01 Fulfillment backend: progress, fulfillment, shipments, manifest, verification | L | PH8 | IG-8 | T06A01, T06A07, T03A05 |
+| 47 | T08A02 Fulfillment tab UI | M | PH8 | IG-8 | T01B03 |
+| 48 | T08A03 Merchant Agent API: fulfillment, shipments, manifest and verification routes | M | PH8 | IG-8 | T07A06, T08A01 |
+| 49 | T08A04 PayPal MCP verification copilot | M | PH8 | IG-8 | T08A01, T03A04 |
+| 50 | T08A05 Observability | M | PH8 | IG-8 | T01A03 |
+| 51 | T08A06 Security pass | M | PH8 | IG-8 | T06A02, T07A01 |
+| 52 | T09A01 Fault-injection suite | L | PH9 | IG-9 | T06A03, T06A02 |
+| 53 | T09A02 Sandbox contract suite complete | M | PH9 | IG-9 | T02A01, T05A01 |
+| 54 | T09A03 Deployment hardening and demo tooling | M | PH9 | IG-9 | T01A03 |
+| 55 | T09A04 STRETCH: top-up after FUNDED | S | PH9 | IG-9 | T06A01 |
+| 56 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
+| 57 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
+| 58 | T10A01 Fixes from rehearsal 1 (payments, ops, fulfillment) | M | PH10 | IG-10 | T10X01 |
+| 59 | T10A02 Repository cleanup and compliance | M | PH10 | IG-10 | T09A03 |
+| 60 | T10A03 Devpost text | M | PH10 | IG-10 | T09X01 |
+| 61 | T10A04 Merchant SDKs and developer portal | M | PH10 | IG-10 | T08A03 |
+| 62 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
+| 63 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
+| 64 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
+| 65 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
 
 ### Member B
 
@@ -476,38 +486,27 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | 17 | T03B04 Pool close | S | PH3 | IG-3 | T03B01 |
 | 18 | T03B05 Spike S11 APIMatic generation | S | PH3 | IG-3 | T01B01 |
 | 19 | T04B01 Intake pipeline | L | PH4 | IG-4 | T02B02, T02B03, T03B02 |
-| 20 | T04B02 Beacon adapter and pool.seed | M | PH4 | IG-4 | T03B04, T01B04 |
-| 21 | T04B03 Allocation and AllocationReadService | L | PH4 | IG-4 | T04B02 |
-| 22 | T04B04 Public audit endpoint and keys | S | PH4 | IG-4 | T03B04, T04B03 |
-| 23 | T04X01 First integration: pool to checkout (both members) | L | PH4 | IG-4 | T04A01, T03A02, T04B03 |
-| 24 | T05B01 Merchant profile and onboarding states | M | PH5 | IG-5 | T02B01 |
-| 25 | T05B02 Bid API with receipts and sealing | L | PH5 | IG-5 | T05B01, T04B03 |
-| 26 | T05B03 Auction rules engine | L | PH5 | IG-5 | T00B01, T04B03 |
-| 27 | T06B01 Quote parsing and confirmation | M | PH6 | IG-6 | T05B02, T02B03 |
-| 28 | T06B02 AI offer reconciliation and flags | M | PH6 | IG-6 | T05B02, T05B03 |
-| 29 | T06B03 Lot handlers: bid_open, bid_close, award | L | PH6 | IG-6 | T05B03, T04A01 |
-| 30 | T06B04 Merchant API keys and MerchantAuth | M | PH6 | IG-6 | T05B01 |
-| 31 | T06B05 Buyer UI v1: Discover and Join | L | PH6 | IG-6 | T01B03, T01B01 |
-| 32 | T07B01 Buyer UI v2: My Pools and Orders | L | PH7 | IG-7 | T06B05 |
-| 33 | T07B02 Agent API and delegations | L | PH7 | IG-7 | T03B01, T04B01 |
-| 34 | T07B03 FairPool MCP server | M | PH7 | IG-7 | T07B02 |
-| 35 | T07B04 Merchant Agent API sub-app: lots and bids | M | PH7 | IG-7 | T05B02, T06B04 |
-| 36 | T07B05 Search in the merchant lane and advisory similarity | M | PH7 | IG-7 | T03B02, T05B02 |
-| 37 | T07X01 Live end-to-end integration (both members) | L | PH7 | IG-7 | T06A01, T07A02, T06B03 |
-| 38 | T08B01 Merchant console UI I: Demand Board and bid submission | L | PH8 | IG-8 | T01B03, T01B01 |
-| 39 | T08B02 Merchant console UI II: Active Bids and Developer API | L | PH8 | IG-8 | T08B01 |
-| 40 | T08B03 Spike S9 Zapier MCP managed mode | S | PH8 | IG-8 | T07B02 |
-| 41 | T08B04 Simulation engine | L | PH8 | IG-8 | T04B03, T02A02 |
-| 42 | T08B05 Zapier bridge setup and documentation | S | PH8 | IG-8 | T08B03 |
-| 43 | T09B01 Public audit page and verify-my-place | L | PH9 | IG-9 | T00B01, T01B01 |
-| 44 | T09B02 AI evaluation sets and runner | L | PH9 | IG-9 | T04B01, T06B01, T06B02 |
-| 45 | T09B03 Concurrency and property suites for pools, allocation and auction | M | PH9 | IG-9 | T06B03, T03B01 |
-| 46 | T09B04 UI polish and honesty copy | M | PH9 | IG-9 | T07B01, T08B01, T08B02 |
-| 47 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
-| 48 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
-| 49 | T10B01 Fixes from rehearsal 1 (product, UI, agent lane) | M | PH10 | IG-10 | T10X01 |
-| 50 | T10B02 Demo video | L | PH10 | IG-10 | T10X02 |
-| 51 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
-| 52 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
-| 53 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
-| 54 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
+| 20 | T04X01 First integration: pool to checkout (both members) | L | PH4 | IG-4 | T04A01, T03A02, T04A05 |
+| 21 | T06B01 Quote parsing and confirmation | M | PH6 | IG-6 | T05A04, T02B03 |
+| 22 | T06B05 Buyer UI v1: Discover and Join | L | PH6 | IG-6 | T01B03, T01B01 |
+| 23 | T07B01 Buyer UI v2: My Pools and Orders | L | PH7 | IG-7 | T06B05 |
+| 24 | T07B03 FairPool MCP server | M | PH7 | IG-7 | T07A05 |
+| 25 | T07B05 Search in the merchant lane and advisory similarity | M | PH7 | IG-7 | T03B02, T05A04 |
+| 26 | T07X01 Live end-to-end integration (both members) | L | PH7 | IG-7 | T06A01, T07A02, T06A06 |
+| 27 | T08B01 Merchant console UI I: Demand Board and bid submission | L | PH8 | IG-8 | T01B03, T01B01 |
+| 28 | T08B02 Merchant console UI II: Active Bids and Developer API | L | PH8 | IG-8 | T08B01 |
+| 29 | T08B03 Spike S9 Zapier MCP managed mode | S | PH8 | IG-8 | T07A05 |
+| 30 | T08B04 Simulation engine | L | PH8 | IG-8 | T04A05, T02A02 |
+| 31 | T08B05 Zapier bridge setup and documentation | S | PH8 | IG-8 | T08B03 |
+| 32 | T09B01 Public audit page and verify-my-place | L | PH9 | IG-9 | T00B01, T01B01 |
+| 33 | T09B02 AI evaluation sets and runner | L | PH9 | IG-9 | T04B01, T06B01, T06A05 |
+| 34 | T09B03 Concurrency and property suites for pools, allocation and auction | M | PH9 | IG-9 | T06A06, T03B01 |
+| 35 | T09B04 UI polish and honesty copy | M | PH9 | IG-9 | T07B01, T08B01, T08B02 |
+| 36 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
+| 37 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
+| 38 | T10B01 Fixes from rehearsal 1 (product, UI, agent lane) | M | PH10 | IG-10 | T10X01 |
+| 39 | T10B02 Demo video | L | PH10 | IG-10 | T10X02 |
+| 40 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
+| 41 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
+| 42 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
+| 43 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |

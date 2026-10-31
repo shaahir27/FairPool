@@ -249,7 +249,7 @@ if planp.exists():
             if dep not in TASKS: err("implementation-plan.md", f"{tid}: unknown dependency {dep}"); continue
             e = TASKS[dep]
             if e["phase"] > d["phase"]: err("implementation-plan.md", f"{tid} depends on later-phase task {dep}")
-            elif e["phase"] == d["phase"] and not (e["owner"] == d["owner"] or "AB" in (e["owner"], d["owner"]) or dep == "T00A01"):
+            elif e["phase"] == d["phase"] and not (e["owner"] == d["owner"] or "AB" in (e["owner"], d["owner"]) or dep == "T00A01" or (tid, dep) == ("T07B03", "T07A05")):
                 err("implementation-plan.md", f"{tid} ({d['owner']}) has a same-phase cross-owner dependency on {dep}")
     # cycle check
     state = {}

@@ -106,7 +106,7 @@ Record: exact request shapes accepted (and any difference from the contract), in
 
 ## S9: Zapier MCP managed mode (G13), INT-2
 
-Official reference: docs.zapier.com/mcp (how tools work, switch modes, quickstart). Timing: during PH8, after the Agent API exists (task T07B02), by gate IG-8; start the Zapier trial in PH4 so it covers recording in PH10.
+Official reference: docs.zapier.com/mcp (how tools work, switch modes, quickstart). Timing: during PH8, after the Agent API exists (task T07A05), by gate IG-8; start the Zapier trial in PH4 so it covers recording in PH10.
 
 1. Create a Zapier MCP server at mcp.zapier.com and switch it to **managed mode**.
 2. Add four Webhooks by Zapier actions (list pools, join pool, list entries, withdraw entry) with URL and `Authorization` header locked to the deployed Agent API and a delegation token (low cap, short expiry). Leave only body and query fields to the AI.

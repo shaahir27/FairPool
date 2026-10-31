@@ -34,7 +34,7 @@ The vault spike (V1 to V10) and the payouts spike were run by the owner outside 
 
 ## What it cannot do yet (it reports BLOCKED, not PASS)
 
-- S9 live calls need the deployed Agent API (T07B02); until then it checks the tool list (exactly four tools, no meta-tools, no URL or header exposed), and the task usage, trial expiry, locked-URL override and idempotency stay in "Manual confirmations".
+- S9 live calls need the deployed Agent API (T07A05); until then it checks the tool list (exactly four tools, no meta-tools, no URL or header exposed), and the task usage, trial expiry, locked-URL override and idempotency stay in "Manual confirmations".
 - S11 SDK smoke test needs the running API; the script checks the OpenAPI document (3.1, exactly the ten operations), runs the APIMatic CLI, checks that both generated SDKs expose all ten operations and that the Python files compile.
 - S13 runs a local page on `http://localhost` unless you set S13_PUBLIC_URL to an https tunnel to port 8788; a client token needs that public hostname (`localhost` returns 401 `invalid_domain`). The deployed page is rechecked in task T02B05.
 - S3 full onboarding stays blocked while Partner Referrals returns 403 (`--with-s3` re-probes it).

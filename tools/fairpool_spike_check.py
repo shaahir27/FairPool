@@ -2118,7 +2118,7 @@ def run_s9(ctx: Ctx) -> None:
     roles = {"list_pools": env("ZAPIER_TOOL_LIST_POOLS"), "join": env("ZAPIER_TOOL_JOIN"), "list_entries": env("ZAPIER_TOOL_LIST_ENTRIES"), "withdraw": env("ZAPIER_TOOL_WITHDRAW")}
     if not agent_api or not all(roles.values()):
         REC.add(S, "list pools, join with a cap, list entries, withdraw through the tools", "BLOCKED",
-                note="needs the deployed Agent API (task T07B02) and ZAPIER_TOOL_LIST_POOLS/JOIN/LIST_ENTRIES/WITHDRAW with ZAPIER_*_ARGS_JSON; run these four by hand in an AI client until then")
+                note="needs the deployed Agent API (task T07A05) and ZAPIER_TOOL_LIST_POOLS/JOIN/LIST_ENTRIES/WITHDRAW with ZAPIER_*_ARGS_JSON; run these four by hand in an AI client until then")
     else:
         for role, tname in roles.items():
             args = {}

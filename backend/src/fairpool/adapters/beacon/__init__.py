@@ -1,1 +1,1 @@
-"""Public randomness beacon adapter (T04B02)."""
+"""Public randomness beacon adapter (T04A04)."""

@@ -176,7 +176,7 @@ Graphify helps locate instructions and relationships; it does not prove that an 
 
 Definition of done: acceptance met, tests named and green, `make verify` green, no new TODO without a task ID, `docs/progress.md` updated, no secret in the diff, no claim beyond the spec.
 
-**Solo operation (Oct 30, 2026).** One operator executes both lanes; `Member A` and `Member B` are workstream labels. CODEOWNERS uses the operator's handle (`@shaahir27`). Self-merge is allowed after green CI and an independent agent review; the gate owner is the operator. Phase 0 uses one `phase-0` branch and one pull request; task commits preserve traceability.
+**Solo operation history (Oct 30, 2026).** One operator executed both lanes for Phase 0, and CODEOWNERS uses `@shaahir27`. When one operator executes both lanes, self-merge is allowed after green CI and an independent agent review. For two-member work, follow the current owner assignments in `docs/team-split.md`; update CODEOWNERS when the second handle is confirmed.
 
 ## 7. Parallel-work rules
 

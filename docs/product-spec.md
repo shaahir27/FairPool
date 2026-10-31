@@ -180,7 +180,7 @@ The idea text is `docs/fairpool-idea.md`. This table walks its statements in ord
 
 | Idea statement | Status | Requirements | Where it is built or tested |
 |---|---|---|---|
-| Buyers are pooled so merchants can compete for volume | SAME | FR-AU-01 to FR-AU-04 | `domain-ports.md`, `fairness-and-hashing.md`, T05B03, T06B03 |
+| Buyers are pooled so merchants can compete for volume | SAME | FR-AU-01 to FR-AU-04 | `domain-ports.md`, `fairness-and-hashing.md`, T05A05, T06A06 |
 | FairPool reduces first-click advantage and limits duplicate entries through the same linked account; it does not prove one person per account, stop resale or eliminate bots | SAME | FR-ID-03, FR-SL-02, FR-SL-06 | T03B01, F17 disclosed limit |
 | Joining is free and places no PayPal hold | SAME | FR-IN-04 | T03B01; hold only at checkout (T05A01) |
 | Buyers state requirements and a maximum delivered price | SAME | FR-IN-01, FR-IN-05 | T04B01 |
@@ -190,18 +190,18 @@ The idea text is `docs/fairpool-idea.md`. This table walks its statements in ord
 | Structured fields include quantity and currency | NARROWED | FR-IN-06 | DEP-1: quantity 1, USD, US payers |
 | Final total including shipping and tax never exceeds the cap; a changed total needs new approval | SAME | FR-IN-05 | I3, F13 |
 | Fixed published window; every eligible request before close is considered; arrival time gives no priority | SAME | FR-SL-01, FR-SL-02 | T03B01, trigger `trg_entry_insert_window` |
-| AI agents can submit requests through a documented API with the same fields and limits; an agent for an enrolled account is not a separate buyer | SAME | FR-SL-03, FR-AG-01 | T07B02 |
+| AI agents can submit requests through a documented API with the same fields and limits; an agent for an enrolled account is not a separate buyer | SAME | FR-SL-03, FR-AG-01 | T07A05 |
 | The agent lane is reachable through MCP clients | EXTENDED | FR-IG-02, FR-IG-03 | INT-2, INT-3; no payment tools (I1, I2) |
-| Publish the allocation rule before opening; record the entries included at the cutoff; ordered waitlist | SAME | FR-SL-04, FR-SL-05 | T02B02, T03B04, T04B03 |
+| Publish the allocation rule before opening; record the entries included at the cutoff; ordered waitlist | SAME | FR-SL-04, FR-SL-05 | T02B02, T03B04, T04A05 |
 | A hash alone does not prove completeness; a future proof needs a seed FairPool cannot choose after seeing entries and must protect personal data; describe selection as auditable | EXTENDED | FR-SL-06, FR-SL-07 | beacon, commitments and receipts are built now; the wording stays "auditable" (I13) |
-| Pools can be divided into lots (for example 3,000 plus a waitlist) | SAME | FR-LT-01 | T04B03 |
+| Pools can be divided into lots (for example 3,000 plus a waitlist) | SAME | FR-LT-01 | T04A05 |
 | Lot size is fixed by FairPool before bids | CLARIFIED | FR-LT-06 | section 5.1 item 1 |
 | Requests are never split across lots in a way that silently changes terms; each lot is isolated; different winners and prices are disclosed before allocation; no buyer has two active offers per pool | SAME | FR-LT-02 to FR-LT-04 | rules document, `idx_one_active_order_per_entry` |
 | Delivery groups or exact per-buyer totals | SAME | FR-LT-05 | zones in the lot plan, T06A04 |
 | After the window closes, eligible merchants bid; bid contents as listed, with target quantity and evidence | SAME | FR-AU-01, FR-AU-02 | DEP-3 keeps both fields |
 | AI parses a merchant's free-text quote into fields | NARROWED | FR-AI-04 | DEP-2: AI proposes, the merchant confirms |
-| Bids are sealed; sealing is not MAP compliance; merchants attest | SAME | FR-AU-03 | T05B01, T05B02 |
-| Offers violating firm requirements are rejected; the lowest qualifying offer wins | SAME | FR-AU-04 | R1 to R9, T05B03 |
+| Bids are sealed; sealing is not MAP compliance; merchants attest | SAME | FR-AU-03 | T05A06, T05A04 |
+| Offers violating firm requirements are rejected; the lowest qualifying offer wins | SAME | FR-AU-04 | R1 to R9, T05A05 |
 | Tiers, feasibility, price-out and capacity across lots | CLARIFIED | FR-AU-05 to FR-AU-07 | section 5.1 items 2 to 4 |
 | Selected buyers see merchant, product, terms and their own total; a stated window to approve their own AUTHORIZE order; the hold exists only after the winner is known and the buyer approves | SAME | FR-CK-01, FR-CK-02 | T04A01, T05A02, T07A01 |
 | Waitlist offers only available places, confirms the old order cannot complete, goes in bounded waves, never over-invites; offers stay valid long enough | SAME | FR-CK-03 | T03A02, T07A02, I7, I8 |
@@ -240,14 +240,14 @@ Challenges named or implied by the idea text, the checklist and the sandbox repo
 | PayPal Login `invalid_scope` | Spike S1 tests the full request; `DEDUPE_MODE` degrades honestly | FR-PP-02, FR-ID-04 | T00B02, T03B03 |
 | Marketplace approval and seller settlement are unavailable | Labelled single stand-in seller; no claims of marketplace settlement | FR-FN-06, FR-FN-07 | S3 recorded, T07A03 |
 | India-domestic payments are not supported by PayPal | US payers and USD only | FR-IN-06, FR-PP-04 | F25, C-13 |
-| MAP and supplier terms | Merchant attestations; sealing is not compliance | FR-AU-03 | T05B01 |
+| MAP and supplier terms | Merchant attestations; sealing is not compliance | FR-AU-03 | T05A06 |
 | Price changes after approval | Re-quote with a new attempt; buyer approves again | FR-IN-05 | F13 |
 | Holds versus payments | Capture only after the threshold; void and refund paths; exact wording | FR-FN-02, FR-FN-05 | IT-6, PT-11 |
 | Delayed payment events | Reconcile before reassigning a seat | FR-CK-04 | F1, F9, T06A03 |
 | Duplicate purchases and retries | Idempotency keys where PayPal honours them; GET before void | FR-CK-04, I9 | C-03, C-10, PT-10 |
 | Untrusted webhooks | Signature verification, de-duplication, confirm by GET | FR-FN-03 | F2, F3, F4 |
 | A hash does not prove fair selection | Beacon seed, published commitments, signed receipts; the wording stays "auditable" | FR-SL-06, FR-SL-07 | PT-03, T09B01 |
-| Quotes that differ from requirements (an extra bundle item) | Deterministic R3 plus AI flags that can only withhold | FR-AI-02, FR-AU-04 | F20, T06B02 |
+| Quotes that differ from requirements (an extra bundle item) | Deterministic R3 plus AI flags that can only withhold | FR-AI-02, FR-AU-04 | F20, T06A05 |
 | Prompt injection in buyer and merchant text | Closed schemas, no tools, no authority | FR-AI-01, FR-AI-02 | F19, F20 |
 | AI must not move money | No AI-callable payment surface; Agent Toolkit kept out of the payment path | I1, I2, FR-AG-02 | PT-16 |
 | Search used as a gate | Search is retrieval only; PT-14 compares award results with and without search | FR-IG-01 | PT-14 |

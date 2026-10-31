@@ -7,7 +7,7 @@ How to use it: take a task whose dependencies are merged, read the files named i
 ## 1. Principles
 
 1. **Contracts first.** `contracts-v1` is frozen at gate IG-0. After that, members work in parallel against ports, fakes, jobs and HTTP contracts, not against each other's unmerged code.
-2. **Cross-member dependencies are only on earlier phases.** A task may depend on another member's task only if that task is in an earlier phase (merged at an earlier gate). Tasks owned by both members (`AB`) may depend on same-phase tasks. The one exception is `T00A01`: it merges first, at the start of PH0, and everyone branches from it.
+2. **Cross-member dependencies normally use earlier phases.** Tasks owned by both (`AB`) may depend on same-phase tasks. `T00A01` merges first in PH0. In PH7, Member A merges `T07A05` before Member B implements its dependent `T07B03`; neither task is deferred and the gate retains both.
 3. **Every phase ends with a merge.** Both lanes merge to `main` before the gate's integration test runs. Nothing from the next phase merges until the gate passes (hotfixes excepted, `docs/team-split.md` section 8).
 4. **Payments before polish.** The money path (gateway, buyer-order engine, funding, failure, reconciler) is built and tested with fakes before it touches the Sandbox, and verified on the Sandbox before any UI depends on it.
 5. **Spikes before bets.** Every open gate (G) has a spike scheduled before the first task that depends on its result; results go to `docs/spike-results.md` and the switches in `docs/decisions.md` section 4.
@@ -41,10 +41,10 @@ A gate passes only when its integration test passes, `make gate-check GATE=ig-<n
 | IG-1 | `ig-1` | PH1 | T01A01, T01A02, T01A03, T01A04, T01B01, T01B02, T01B03, T01B04 |
 | IG-2 | `ig-2` | PH2 | T02A01, T02A02, T02A03, T02A04, T02B01, T02B02, T02B03, T02B04, T02B05 |
 | IG-3 | `ig-3` | PH3 | T03A01, T03A02, T03A03, T03A04, T03A05, T03B01, T03B02, T03B03, T03B04, T03B05 |
-| IG-4 | `ig-4` | PH4 | T04A01, T04A02, T04A03, T04B01, T04B02, T04B03, T04B04, T04X01 |
-| IG-5 | `ig-5` | PH5 | T05A01, T05A02, T05A03, T05B01, T05B02, T05B03 |
-| IG-6 | `ig-6` | PH6 | T06A01, T06A02, T06A03, T06A04, T06B01, T06B02, T06B03, T06B04, T06B05 |
-| IG-7 | `ig-7` | PH7 | T07A01, T07A02, T07A03, T07A04, T07B01, T07B02, T07B03, T07B04, T07B05, T07X01 |
+| IG-4 | `ig-4` | PH4 | T04A01, T04A02, T04A03, T04B01, T04A04, T04A05, T04A06, T04X01 |
+| IG-5 | `ig-5` | PH5 | T05A01, T05A02, T05A03, T05A06, T05A04, T05A05 |
+| IG-6 | `ig-6` | PH6 | T06A01, T06A02, T06A03, T06A04, T06B01, T06A05, T06A06, T06A07, T06B05 |
+| IG-7 | `ig-7` | PH7 | T07A01, T07A02, T07A03, T07A04, T07B01, T07A05, T07B03, T07A06, T07B05, T07X01 |
 | IG-8 | `ig-8` | PH8 | T08A01, T08A02, T08A03, T08A04, T08A05, T08A06, T08B01, T08B02, T08B03, T08B04, T08B05 |
 | IG-9 | `ig-9` | PH9 | T09A01, T09A02, T09A03, T09A04, T09B01, T09B02, T09B03, T09B04, T09X01, T09X02 |
 | IG-10 | `ig-10` | PH10 | T10A01, T10A02, T10A03, T10A04, T10B01, T10B02, T10X01, T10X02 |
@@ -77,19 +77,19 @@ Sizes are agent-assisted person-days: S = 0.25, M = 0.5, L = 1, XL = 1.5. Each m
 | PH1 | 2 | 2.00 (100%) | 1.75 (88%) |
 | PH2 | 2 | 2.00 (100%) | 2.00 (100%) |
 | PH3 | 2 | 2.25 (112%) | 2.00 (100%) |
-| PH4 | 2 | 3.00 (150%) | 3.25 (162%) |
-| PH5 | 2 | 2.50 (125%) | 2.50 (125%) |
-| PH6 | 2 | 3.00 (150%) | 3.50 (175%) |
-| PH7 | 2 | 3.25 (162%) | 4.00 (200%) |
+| PH4 | 2 | 4.75 (238%) | 1.50 (75%) |
+| PH5 | 2 | 5.00 (250%) | 0.00 (0%) |
+| PH6 | 2 | 5.00 (250%) | 1.50 (75%) |
+| PH7 | 2 | 4.75 (238%) | 2.50 (125%) |
 | PH8 | 2 | 3.50 (175%) | 3.50 (175%) |
 | PH9 | 1 | 3.00 (300%) | 3.75 (375%) |
 | PH10 | 2 | 2.50 (125%) | 2.00 (100%) |
 | PH11 | 1 | 0.38 (38%) | 0.38 (38%) |
-| **Total** | 22 | **28.62 (130%)** | **30.38 (138%)** |
+| **Total** | 22 | **36.38 (165%)** | **22.63 (103%)** |
 
-**What this means, stated plainly.** At these sizes the full scope needs about 130% of Member A's capacity and 138% of Member B's. The break-even velocity factor is 0.77 for Member A and 0.72 for Member B: if agent-assisted work is that much faster than the sizes assume, the plan fits; if not, it does not. The crunch window is PH8 and PH9. No task has been removed to make the numbers look better.
+**What this means, stated plainly.** With the Phase 4 onward reassignment and no scope removed, the full plan estimates 36.375 person-days for A and 22.625 for B against 22 planned working days each. For PH4 through PH11 alone, the estimated loads are 28.875 and 15.125 person-days respectively. Member A is the critical capacity constraint; reassess the schedule using actual progress rather than claiming the original balanced estimates still apply.
 
-**Schedule position on Oct 27, 2026 (no scope removed).** The plan budgets 22 working days. The Devpost deadline is Nov 12, 12:00 pm PT (Nov 13, 1:30 am IST) and submission is planned for Nov 11, which leaves about 15 working days from Oct 27. At the sizes above that is roughly 1.9 times the speed the sizes assume for Member A and 2.0 times for Member B. Nothing is cut here; the owner decides in writing in `docs/decisions.md` (rule below). Measure velocity in the first two phases and decide at IG-2, not IG-4, if the plan is started late.
+**Schedule position on Oct 27, 2026 (no scope removed).** The plan budgets 22 working days. The Devpost deadline is Nov 12, 12:00 pm PT (Nov 13, 1:30 am IST) and submission is planned for Nov 11, which leaves about 15 working days from Oct 27. This is a historical schedule snapshot; the reassigned ownership and actual remaining work require a fresh estimate. Nothing is cut here; the owner decides in writing in `docs/decisions.md` (rule below). Measure velocity in the first two phases and decide at IG-2, not IG-4, if the plan is started late.
 
 **Change set C1 (Oct 29, 2026): `PAYMENT_MODE=vault_charge` and `BID_PRICING_MODE=flat_delivered`.** No task is added or removed; these task texts are overridden as follows, and the contracts `vault-charge.md` and `flat-delivered-bids.md` win over any older task wording. The owner re-estimates at IG-1 (the vault adapter, token encryption and consent UI add work; the approval UI and capture sweep shrink in vault mode).
 - T03A01: the transition engine also implements BO-23 to BO-27.
@@ -99,7 +99,7 @@ Sizes are agent-assisted person-days: S = 0.25, M = 0.5, L = 1, XL = 1.5. Each m
 - T04A02, T04A03 (fake router): implement `charge_vault`, the precheck and the funding trigger on completed captures; the authorize and capture-sweep path stays for the fallback mode.
 - T04X01: the first integration runs pool to charged lot in vault mode.
 - T05A01, T05A02, T05A03: the real path saves PayPal by redirect, charges with the saved permission, and the failure path refunds every completed capture and deletes the saved permissions; the UI shows Save PayPal, Charged and Charge failed. Contract tests VC-01 to VC-06 run here.
-- T05B02, T06B02, T06B03, T08B01: bid validation enforces the flat delivered price (shipping table and itemised tax rejected).
+- T05A04, T06A05, T06A06, T08B01: bid validation enforces the flat delivered price (shipping table and itemised tax rejected).
 - T06A04: only payload level 1 is needed in flat mode (no breakdown); keep the ladder for the fallback.
 - T06B05, T07B01: Buyer UI shows the consent text, the cap, the saved-PayPal step and, later, Charged or Charge failed.
 - T07A01: the SDK v6 approval is the fallback path only.
@@ -108,7 +108,7 @@ Sizes are agent-assisted person-days: S = 0.25, M = 0.5, L = 1, XL = 1.5. Each m
 
 1. **Measure early.** At gates IG-2 and IG-4 each member records planned versus actual days for the phase in `docs/progress.md` (Velocity log). The plan is re-estimated at IG-4 with real velocity.
 2. **Pull forward.** When a member is blocked waiting for the other's merge, they start any unblocked UI task (contract-first) or spike instead of idling.
-3. **Protect the critical path.** Order of protection when time runs short, highest first: the money path (T02A01 to T06A03), the pool, allocation and auction path (T03B01 to T06B03), the buyer and merchant surfaces, the agentic and verification surfaces, polish.
+3. **Protect the critical path.** Order of protection when time runs short, highest first: the money path (T02A01 to T06A03), the pool, allocation and auction path (T03B01 to T06A06), the buyer and merchant surfaces, the agentic and verification surfaces, polish.
 4. **Decision rule.** If the measured velocity at IG-4 shows the remaining work does not fit, the owner decides in writing which candidates below to move, in this order of least product loss per day saved. Nothing moves without that entry.
 
 Candidates for the owner's decision (none is applied): (1) T09A04 top-up after FUNDED, a stretch item not in the idea text; (2) the Elastic backend inside T03B02 and T07B05, keeping the Postgres search (the retrieval interface does not change); (3) T08B03 and T08B05, the Zapier bridge, keeping the FairPool MCP server as the agentic path; (4) T08A04, the PayPal MCP copilot, keeping the verification endpoint; (5) T10A04, SDK generation, shipping the OpenAPI document and a hand-written minimal client; (6) the simulation scale in T08B04, 2,000 instead of 10,000 entries.
@@ -125,7 +125,7 @@ Candidates for the owner's decision (none is applied): (1) T09A04 top-up after F
 | INT-6 PayPal MCP | Read-only verification, manifest, verification endpoint | S10 | T03A04, T08A01, T08A04 |
 | INT-7 JS SDK v6 | Popup approval with redirect fallback | S13 | T02B05, T07A01 |
 | INT-8 Shipment tracking | Tracker submission after shipping | S12 | T03A05, T08A01 |
-| INT-9 Merchant Agent API | Ten-operation key-authenticated API | none | T01B01, T06B04, T07B04, T08A03, T08B02 |
+| INT-9 Merchant Agent API | Ten-operation key-authenticated API | none | T01B01, T06A07, T07A06, T08A03, T08B02 |
 
 ## 6. Requirement coverage
 
@@ -133,22 +133,22 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 
 | Requirement | Tasks |
 |---|---|
-| FR-AD-01 | T00B01, T03B04, T04B04, T09B01 |
+| FR-AD-01 | T00B01, T03B04, T04A06, T09B01 |
 | FR-AD-02 | T01A02 |
-| FR-AG-01 | T07B02, T07B03 |
-| FR-AG-02 | T07B02 |
+| FR-AG-01 | T07A05, T07B03 |
+| FR-AG-02 | T07A05 |
 | FR-AI-01 | T02B03, T04B01 |
-| FR-AI-02 | T06B02 |
+| FR-AI-02 | T06A05 |
 | FR-AI-03 | T08B04 |
 | FR-AI-04 | T06B01 |
 | FR-AI-05 | T09B02 |
-| FR-AU-01 | T05B01, T06B03 |
-| FR-AU-02 | T05B02, T06B01 |
-| FR-AU-03 | T05B01, T05B02 |
-| FR-AU-04 | T05B03 |
-| FR-AU-05 | T05B03 |
-| FR-AU-06 | T05B03, T06B03 |
-| FR-AU-07 | T05B03 |
+| FR-AU-01 | T05A06, T06A06 |
+| FR-AU-02 | T05A04, T06B01 |
+| FR-AU-03 | T05A06, T05A04 |
+| FR-AU-04 | T05A05 |
+| FR-AU-05 | T05A05 |
+| FR-AU-06 | T05A05, T06A06 |
+| FR-AU-07 | T05A05 |
 | FR-CK-01 | T04A01, T05A02 |
 | FR-CK-02 | T04A01, T05A02, T07A01 |
 | FR-CK-03 | T03A02, T07A02 |
@@ -176,7 +176,7 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-IG-01 | T02B04, T03B02, T07B05 |
 | FR-IG-02 | T07B03 |
 | FR-IG-03 | T08B03, T08B05 |
-| FR-IG-04 | T01B01, T06B04, T07B04, T08A03 |
+| FR-IG-04 | T01B01, T06A07, T07A06, T08A03 |
 | FR-IG-05 | T03B05, T10A04 |
 | FR-IG-06 | T02B05, T07A01 |
 | FR-IG-07 | T03A04, T08A01, T08A04 |
@@ -190,11 +190,11 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-IN-06 | T04B01 |
 | FR-IN-07 | T02B02 |
 | FR-IN-08 | T04B01 |
-| FR-LT-01 | T02B02, T04B03 |
-| FR-LT-02 | T04B03 |
-| FR-LT-03 | T02B02, T06B03 |
-| FR-LT-04 | T04A01, T04B03, T04X01 |
-| FR-LT-05 | T04B03, T06A04 |
+| FR-LT-01 | T02B02, T04A05 |
+| FR-LT-02 | T04A05 |
+| FR-LT-03 | T02B02, T06A06 |
+| FR-LT-04 | T04A01, T04A05, T04X01 |
+| FR-LT-05 | T04A05, T06A04 |
 | FR-LT-06 | T02B02 |
 | FR-OP-01 | T07A04 |
 | FR-OP-02 | T08A05 |
@@ -206,11 +206,11 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-PP-06 | T00A03, T08A06 |
 | FR-SL-01 | T02B02, T06B05 |
 | FR-SL-02 | T03B01 |
-| FR-SL-03 | T07B02 |
+| FR-SL-03 | T07A05 |
 | FR-SL-04 | T02B02, T03B04 |
-| FR-SL-05 | T04B03 |
+| FR-SL-05 | T04A05 |
 | FR-SL-06 | T09B01 |
-| FR-SL-07 | T00B01, T04B02 |
+| FR-SL-07 | T00B01, T04A04 |
 | FR-SM-01 | T08B04 |
 | FR-UI-01 | T06B05 |
 | FR-UI-02 | T07A01, T07B01 |
@@ -218,7 +218,7 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-UI-04 | T07B05, T08B01 |
 | FR-UI-05 | T08B02 |
 | FR-UI-06 | T08A01, T08A02 |
-| FR-UI-07 | T06B04, T08B02 |
+| FR-UI-07 | T06A07, T08B02 |
 | FR-UI-08 | T01B03, T09B04 |
 
 ## 7. Sizing and conventions
@@ -524,9 +524,11 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ## PH3: Core engines II: buyer-order engine, seat control, join, search, PayPal Login, pool close (gate IG-3)
 
+The owner closed IG-2 by exception; its automated acceptance evidence remains pending. Phase 3 contract prerequisites still apply.
+
 **Goal.** The buyer-order transition engine and seat control; idempotent pool join with signed receipts; the search service with the Postgres fallback and, if S8 passed, Elastic; PayPal Login per the S1 outcome; pool close with commitments. Spikes S5, S10, S11 and S12 recorded.
 
-**Entry condition.** IG-2 passed: gateway, ledger, identity, catalog and AI adapter are merged.
+**Entry condition.** IG-2 was closed by owner exception; gateway, ledger, identity, catalog and AI adapter are merged. Outstanding automated acceptance checks remain recorded in `progress.md`.
 
 **Exit.** IT-3: PT-07, PT-10 and PT-12 pass for the buyer-order engine and seat control; 200 parallel joins by one account give one entry and receipts verify; search returns the same shape from the Postgres backend (and Elastic if S8 passed) and PT-14 passes; PayPal Login behaves per `DEDUPE_MODE`; pool close publishes commitments and the root and late joins are impossible; S5, S10, S11 and S12 are recorded and the APIMatic trial started in PH3.
 
@@ -651,10 +653,10 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 | T04A02 | A | L | T02A02, T03A01 | Approval checks and authorization flow (fake router) |
 | T04A03 | A | L | T02A03, T03A01, T04A02 | Funding trigger and capture sweep (fake router) |
 | T04B01 | B | L | T02B02, T02B03, T03B02 | Intake pipeline |
-| T04B02 | B | M | T03B04, T01B04 | Beacon adapter and pool.seed |
-| T04B03 | B | L | T04B02 | Allocation and AllocationReadService |
-| T04B04 | B | S | T03B04, T04B03 | Public audit endpoint and keys |
-| T04X01 | AB | L | T04A01, T03A02, T04B03 | First integration: pool to checkout |
+| T04A04 | A | M | T03B04, T01B04 | Beacon adapter and pool.seed |
+| T04A05 | A | L | T04A04 | Allocation and AllocationReadService |
+| T04A06 | A | S | T03B04, T04A05 | Public audit endpoint and keys |
+| T04X01 | AB | L | T04A01, T03A02, T04A05 | First integration: pool to checkout |
 
 ### T04A01: lot.open_checkout handler
 
@@ -692,27 +694,27 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 - **Tests that prove it:** `tests/integration/test_intake_validation.py`; F19.
 - **Requirements and invariants:** FR-IN-01, FR-IN-02, FR-IN-03, FR-IN-05, FR-IN-06, FR-IN-08, FR-AI-01, F19.
 
-### T04B02: Beacon adapter and pool.seed
+### T04A04: Beacon adapter and pool.seed
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T03B04, T01B04.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T03B04, T01B04.
 - **Read first:** fairness-and-hashing.md §4; domain-ports.md Beacon; spikes.md S6.
 - **Create or change:** `adapters/beacon/**`, `modules/pools/seed.py`.
 - **Acceptance:** drand and demo beacon clients with fakes; pool.seed requeues while unavailable; the seed is stored with the beacon response.
 - **Tests that prove it:** `tests/integration/test_seed_waits.py`; F27.
 - **Requirements and invariants:** FR-SL-07, F27.
 
-### T04B03: Allocation and AllocationReadService
+### T04A05: Allocation and AllocationReadService
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T04B02.
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T04A04.
 - **Read first:** fairness-and-hashing.md §5; domain-ports.md §4.1; state-machines.md; db-schema.md allocations, lots.
 - **Create or change:** `modules/allocation/**`.
 - **Acceptance:** pool.allocate orders per zone, forms lots with lot_order, cancels undersized lots and creates the waitlist; real AllocationReadService including next_candidates; PT-01 and PT-02 pass.
 - **Tests that prove it:** PT-01; PT-02; `tests/integration/test_allocation_lots.py`.
 - **Requirements and invariants:** FR-SL-05, FR-LT-01, FR-LT-02, FR-LT-04, FR-LT-05, I11.
 
-### T04B04: Public audit endpoint and keys
+### T04A06: Public audit endpoint and keys
 
-- **Owner:** Member B. **Size:** S (0.25 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T03B04, T04B03.
+- **Owner:** Member A. **Size:** S (0.25 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T03B04, T04A05.
 - **Read first:** api.md §3 public audit; fairness-and-hashing.md.
 - **Create or change:** `api/routers/public.py`.
 - **Acceptance:** GET public audit and keys per api.md; no personal data, salts or caps.
@@ -721,7 +723,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T04X01: First integration: pool to checkout
 
-- **Owner:** Both members. **Size:** L (1 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T04A01, T03A02, T04B03.
+- **Owner:** Both members. **Size:** L (1 day). **Phase:** PH4. **Merge gate:** IG-4. **Depends on:** T04A01, T03A02, T04A05.
 - **Read first:** domain-ports.md §6; testing-strategy.md IT-4.
 - **Create or change:** `backend/src/fairpool/wiring.py`, the admin force-award route, `tests/integration/test_pipeline_fakes.py`.
 - **Acceptance:** Real AllocationReadService and MerchantDirectory wired into checkout through wiring.py; force-award helper; IT-1 passes.
@@ -743,9 +745,9 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 | T05A01 | A | L | T04A02, T04X01 | Real PayPal path for one buyer (redirect) |
 | T05A02 | A | L | T01B03 | Checkout UI |
 | T05A03 | A | M | T04A03, T02A03 | Failure path and compensating refund (fake router) |
-| T05B01 | B | M | T02B01 | Merchant profile and onboarding states |
-| T05B02 | B | L | T05B01, T04B03 | Bid API with receipts and sealing |
-| T05B03 | B | L | T00B01, T04B03 | Auction rules engine |
+| T05A06 | A | M | T02B01 | Merchant profile and onboarding states |
+| T05A04 | A | L | T05A06, T04A05 | Bid API with receipts and sealing |
+| T05A05 | A | L | T00B01, T04A05 | Auction rules engine |
 
 ### T05A01: Real PayPal path for one buyer (redirect)
 
@@ -774,27 +776,27 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 - **Tests that prove it:** PT-11; F9; F24.
 - **Requirements and invariants:** FR-FN-05, FR-FN-04, I5, F9, F24.
 
-### T05B01: Merchant profile and onboarding states
+### T05A06: Merchant profile and onboarding states
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH5. **Merge gate:** IG-5. **Depends on:** T02B01.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH5. **Merge gate:** IG-5. **Depends on:** T02B01.
 - **Read first:** db-schema.md merchants; api.md merchant profile; product-spec.md FR-AU-03.
 - **Create or change:** `modules/merchants/**`, `api/routers/merchant.py`.
 - **Acceptance:** Profile, attestations with timestamps, demo onboarding status and merchant role checks.
 - **Tests that prove it:** `tests/integration/test_merchant_profile.py`.
 - **Requirements and invariants:** FR-AU-01, FR-AU-03.
 
-### T05B02: Bid API with receipts and sealing
+### T05A04: Bid API with receipts and sealing
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH5. **Merge gate:** IG-5. **Depends on:** T05B01, T04B03.
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH5. **Merge gate:** IG-5. **Depends on:** T05A06, T04A05.
 - **Read first:** db-schema.md bids; fairness-and-hashing.md §6; api.md merchant bids; state-machines.md bid.
 - **Create or change:** `modules/auction/bids.py`.
 - **Acceptance:** Save revisions with signed receipts; sealed access (owner and engine only); target quantity and evidence fields; late bids rejected by database time.
 - **Tests that prove it:** `tests/integration/test_bid_sealing.py`; PT-15 (bids).
 - **Requirements and invariants:** FR-AU-02, FR-AU-03.
 
-### T05B03: Auction rules engine
+### T05A05: Auction rules engine
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH5. **Merge gate:** IG-5. **Depends on:** T00B01, T04B03.
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH5. **Merge gate:** IG-5. **Depends on:** T00B01, T04A05.
 - **Read first:** fairness-and-hashing.md §10, §11; db-schema.md awards; product-spec.md FR-AU-04 to FR-AU-07.
 - **Create or change:** `domain/auction_rules.py`, `modules/auction/rules.py`.
 - **Acceptance:** R1 to R9, tier resolution, feasibility, ranking and capacity across lots reproduce the vectors; PT-05 and PT-06 pass.
@@ -817,10 +819,10 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 | T06A02 | A | M | T03A03, T02A01 | Webhooks |
 | T06A03 | A | L | T05A01, T02A03 | Reconciler and unknown-outcome resolution |
 | T06A04 | A | M | T05A01, T02A04 | Payload ladder levels and shipping address |
-| T06B01 | B | M | T05B02, T02B03 | Quote parsing and confirmation |
-| T06B02 | B | M | T05B02, T05B03 | AI offer reconciliation and flags |
-| T06B03 | B | L | T05B03, T04A01 | Lot handlers: bid_open, bid_close, award |
-| T06B04 | B | M | T05B01 | Merchant API keys and MerchantAuth |
+| T06B01 | B | M | T05A04, T02B03 | Quote parsing and confirmation |
+| T06A05 | A | M | T05A04, T05A05 | AI offer reconciliation and flags |
+| T06A06 | A | L | T05A05, T04A01 | Lot handlers: bid_open, bid_close, award |
+| T06A07 | A | M | T05A06 | Merchant API keys and MerchantAuth |
 | T06B05 | B | L | T01B03, T01B01 | Buyer UI v1: Discover and Join |
 
 ### T06A01: Funding sweep and failure path on the real Sandbox
@@ -861,34 +863,34 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T06B01: Quote parsing and confirmation
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05B02, T02B03.
+- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05A04, T02B03.
 - **Read first:** ai-schemas.md §3; api.md merchant quote; state-machines.md BS-01 to BS-03.
 - **Create or change:** `modules/auction/quote.py`.
 - **Acceptance:** Paste a quote, AI proposes fields, the merchant confirms; unconfirmed fields never enter the auction (BS-01, BS-03).
 - **Tests that prove it:** `tests/integration/test_quote_confirm.py`; F20.
 - **Requirements and invariants:** FR-AI-04, FR-AU-02.
 
-### T06B02: AI offer reconciliation and flags
+### T06A05: AI offer reconciliation and flags
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05B02, T05B03.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05A04, T05A05.
 - **Read first:** ai-schemas.md §4; state-machines.md BS-04, BS-05, BS-10; product-spec.md FR-AI-02.
 - **Create or change:** `modules/auction/reconcile.py`.
 - **Acceptance:** RECONCILE task; a BLOCKING flag moves the bid to FLAGGED (R7); ops review hold when AI is unavailable; injected-instruction cases do not change outcomes.
 - **Tests that prove it:** `tests/ai_eval` smoke; F20; a test that AI never qualifies an offer.
 - **Requirements and invariants:** FR-AI-02, F20.
 
-### T06B03: Lot handlers: bid_open, bid_close, award
+### T06A06: Lot handlers: bid_open, bid_close, award
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05B03, T04A01.
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05A05, T04A01.
 - **Read first:** domain-ports.md §5, §6; state-machines.md LS-01 to LS-04; fairness-and-hashing.md §10, §11; db-schema.md awards.
 - **Create or change:** `modules/auction/handlers.py`.
 - **Acceptance:** Handlers per domain-ports.md; award snapshot, router and mode stamped, priced-out marking, no-bid cancellation, lot.open_checkout enqueued; serialized in lot_order.
 - **Tests that prove it:** `tests/integration/test_award_handoff.py`; R9 ordering test.
 - **Requirements and invariants:** FR-AU-01, FR-AU-06, FR-LT-03.
 
-### T06B04: Merchant API keys and MerchantAuth
+### T06A07: Merchant API keys and MerchantAuth
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05B01.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T05A06.
 - **Read first:** db-schema.md merchant_api_keys; api.md §4.2, §4.3; domain-ports.md MerchantAuth.
 - **Create or change:** `modules/merchants/api_keys.py`, `api/routers/merchant_keys.py`, `api/deps.py`.
 - **Acceptance:** Create, list and revoke keys (shown once, HMAC stored, scopes); MerchantAuth for sessions and keys; API_KEY_INVALID and API_KEY_SCOPE behaviour; PT-15 for bids.
@@ -917,15 +919,15 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 | ID | Owner | Size | Depends on | Task |
 |---|---|---|---|---|
 | T07A01 | A | L | T05A01, T05A02, T02B05 | JavaScript SDK v6 approval |
-| T07A02 | A | M | T03A02, T04B03 | Refill orchestration |
+| T07A02 | A | M | T03A02, T04A05 | Refill orchestration |
 | T07A03 | A | S | T00B03, T05A01 | Routers per S3 and S7 |
 | T07A04 | A | L | T06A01, T06A02 | Ops console v1 |
 | T07B01 | B | L | T06B05 | Buyer UI v2: My Pools and Orders |
-| T07B02 | B | L | T03B01, T04B01 | Agent API and delegations |
-| T07B03 | B | M | T07B02 | FairPool MCP server |
-| T07B04 | B | M | T05B02, T06B04 | Merchant Agent API sub-app: lots and bids |
-| T07B05 | B | M | T03B02, T05B02 | Search in the merchant lane and advisory similarity |
-| T07X01 | AB | L | T06A01, T07A02, T06B03 | Live end-to-end integration |
+| T07A05 | A | L | T03B01, T04B01 | Agent API and delegations |
+| T07B03 | B | M | T07A05 | FairPool MCP server |
+| T07A06 | A | M | T05A04, T06A07 | Merchant Agent API sub-app: lots and bids |
+| T07B05 | B | M | T03B02, T05A04 | Search in the merchant lane and advisory similarity |
+| T07X01 | AB | L | T06A01, T07A02, T06A06 | Live end-to-end integration |
 
 ### T07A01: JavaScript SDK v6 approval
 
@@ -938,7 +940,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T07A02: Refill orchestration
 
-- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T03A02, T04B03.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T03A02, T04A05.
 - **Read first:** domain-ports.md §6 refill; state-machines.md vacancy rule; fairness-and-hashing.md §5.
 - **Create or change:** `modules/checkout/refill.py`.
 - **Acceptance:** lot.refill with vacancy count, wave limit, refill cutoff and next_candidates; never invites more than vacancies.
@@ -972,9 +974,9 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 - **Tests that prove it:** frontend unit tests.
 - **Requirements and invariants:** FR-UI-02, FR-UI-03.
 
-### T07B02: Agent API and delegations
+### T07A05: Agent API and delegations
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T03B01, T04B01.
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T03B01, T04B01.
 - **Read first:** api.md §4.4; db-schema.md delegations; ai-schemas.md; product-spec.md FR-AG-*.
 - **Create or change:** `modules/agentapi/**`, `api/routers/agent.py`.
 - **Acceptance:** Agent endpoints including the flat list and withdraw, search, max_total_usd and body idempotency key; delegation tokens hashed, scoped and revocable; same validator as the web flow; no payment endpoint; OpenAPI docs and a sample agent script.
@@ -983,16 +985,16 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T07B03: FairPool MCP server
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T07B02.
+- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T07A05.
 - **Read first:** api.md §4.5; AGENTS.md rule 22.
 - **Create or change:** `modules/mcp/**`.
 - **Acceptance:** MCP endpoint with exactly the four tools and delegation-token auth; test_mcp_contract and PT-16 pass; a real AI client joins, lists and withdraws.
 - **Tests that prove it:** `tests/unit/test_mcp_contract.py`; PT-16.
 - **Requirements and invariants:** FR-IG-02, FR-AG-01.
 
-### T07B04: Merchant Agent API sub-app: lots and bids
+### T07A06: Merchant Agent API sub-app: lots and bids
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T05B02, T06B04.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T05A04, T06A07.
 - **Read first:** api.md §4.3; db-schema.md bids.
 - **Create or change:** `api/merchant_api/{app,routes_lots_bids}.py`.
 - **Acceptance:** Sub-app mounted at /merchant-api/v1 with list_lots, get_lot, submit_bid, list_bids and get_bid; idempotent submit_bid with confirmed true; OpenAPI at the documented path.
@@ -1001,7 +1003,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T07B05: Search in the merchant lane and advisory similarity
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T03B02, T05B02.
+- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T03B02, T05A04.
 - **Read first:** ai-schemas.md §7; domain-ports.md Search; db-schema.md bid_flags.
 - **Create or change:** `modules/search/similarity.py`, `modules/auction/flags.py`.
 - **Acceptance:** Demand Board and merchant lots search; LOW_SIMILARITY WARNING flag after confirmed revisions; Elastic index sync verified; PT-14 passes.
@@ -1010,7 +1012,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T07X01: Live end-to-end integration
 
-- **Owner:** Both members. **Size:** L (1 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T06A01, T07A02, T06B03.
+- **Owner:** Both members. **Size:** L (1 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T06A01, T07A02, T06A06.
 - **Read first:** testing-strategy.md IT-7; demo-and-submission.md §3.
 - **Create or change:** `tests/integration` live checklist and scripts.
 - **Acceptance:** IT-2 passes with at least three real Sandbox buyers.
@@ -1029,21 +1031,21 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 | ID | Owner | Size | Depends on | Task |
 |---|---|---|---|---|
-| T08A01 | A | L | T06A01, T06B04, T03A05 | Fulfillment backend: progress, fulfillment, shipments, manifest, verification |
+| T08A01 | A | L | T06A01, T06A07, T03A05 | Fulfillment backend: progress, fulfillment, shipments, manifest, verification |
 | T08A02 | A | M | T01B03 | Fulfillment tab UI |
-| T08A03 | A | M | T07B04, T08A01 | Merchant Agent API: fulfillment, shipments, manifest and verification routes |
+| T08A03 | A | M | T07A06, T08A01 | Merchant Agent API: fulfillment, shipments, manifest and verification routes |
 | T08A04 | A | M | T08A01, T03A04 | PayPal MCP verification copilot |
 | T08A05 | A | M | T01A03 | Observability |
 | T08A06 | A | M | T06A02, T07A01 | Security pass |
 | T08B01 | B | L | T01B03, T01B01 | Merchant console UI I: Demand Board and bid submission |
 | T08B02 | B | L | T08B01 | Merchant console UI II: Active Bids and Developer API |
-| T08B03 | B | S | T07B02 | Spike S9 Zapier MCP managed mode |
-| T08B04 | B | L | T04B03, T02A02 | Simulation engine |
+| T08B03 | B | S | T07A05 | Spike S9 Zapier MCP managed mode |
+| T08B04 | B | L | T04A05, T02A02 | Simulation engine |
 | T08B05 | B | S | T08B03 | Zapier bridge setup and documentation |
 
 ### T08A01: Fulfillment backend: progress, fulfillment, shipments, manifest, verification
 
-- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T06A01, T06B04, T03A05.
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T06A01, T06A07, T03A05.
 - **Read first:** api.md §4.2; db-schema.md shipments; paypal-adapter.md §4, §13; decisions.md INT-6, INT-8.
 - **Create or change:** `modules/fulfillment/**`, `api/routers/merchant_fulfillment.py`.
 - **Acceptance:** Endpoints per api.md section 4.2 with the LOT_NOT_FUNDED rules; shipments.submit through the adapter when enabled; the manifest has no personal data; the verification endpoint makes read-only GETs; PT-15 for these routes.
@@ -1061,7 +1063,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T08A03: Merchant Agent API: fulfillment, shipments, manifest and verification routes
 
-- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T07B04, T08A01.
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T07A06, T08A01.
 - **Read first:** api.md §4.3.
 - **Create or change:** `api/merchant_api/routes_fulfillment.py`.
 - **Acceptance:** Five operations (get_lot_progress, get_lot_fulfillment, submit_shipments, get_verification_manifest, get_lot_verification) added to the sub-app with merchant_key auth and scopes; test_merchant_openapi_contract passes with ten operations; the OpenAPI document is frozen.
@@ -1115,7 +1117,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T08B03: Spike S9 Zapier MCP managed mode
 
-- **Owner:** Member B. **Size:** S (0.25 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T07B02.
+- **Owner:** Member B. **Size:** S (0.25 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T07A05.
 - **Read first:** spikes.md S9; api.md §4.6; decisions.md INT-2.
 - **Create or change:** `docs/spike-results.md` (S9 section).
 - **Acceptance:** S9 recorded; trial started in PH4; ZAPIER_BRIDGE set.
@@ -1124,7 +1126,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T08B04: Simulation engine
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T04B03, T02A02.
+- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T04A05, T02A02.
 - **Read first:** product-spec.md FR-SM-01, FR-AI-03; ai-schemas.md §5; domain-ports.md; paypal-adapter.md §9.
 - **Create or change:** `modules/sim/**`, `api/routers/admin_sim.py`.
 - **Acceptance:** SIMULATION pools with the fake router, seeded generator, LLM text variety, SIMULATED banner everywhere and 10,000-entry allocation under 10 seconds.
@@ -1157,8 +1159,8 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 | T09A03 | A | M | T01A03 | Deployment hardening and demo tooling |
 | T09A04 | A | S | T06A01 | STRETCH: top-up after FUNDED |
 | T09B01 | B | L | T00B01, T01B01 | Public audit page and verify-my-place |
-| T09B02 | B | L | T04B01, T06B01, T06B02 | AI evaluation sets and runner |
-| T09B03 | B | M | T06B03, T03B01 | Concurrency and property suites for pools, allocation and auction |
+| T09B02 | B | L | T04B01, T06B01, T06A05 | AI evaluation sets and runner |
+| T09B03 | B | M | T06A06, T03B01 | Concurrency and property suites for pools, allocation and auction |
 | T09B04 | B | M | T07B01, T08B01, T08B02 | UI polish and honesty copy |
 | T09X01 | AB | L | T09A02, T09B02 | README full draft |
 | T09X02 | AB | M | T07X01 | Feature freeze and IT-3 |
@@ -1210,7 +1212,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T09B02: AI evaluation sets and runner
 
-- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T04B01, T06B01, T06B02.
+- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T04B01, T06B01, T06A05.
 - **Read first:** ai-schemas.md §6, §7.
 - **Create or change:** `backend/tests/ai_eval/**`.
 - **Acceptance:** About 50 intake, 30 quote and 30 reconcile cases; metrics and retrieval recall; README table; baseline stored; zero injected instructions change an outcome.
@@ -1219,7 +1221,7 @@ in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
 
 ### T09B03: Concurrency and property suites for pools, allocation and auction
 
-- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T06B03, T03B01.
+- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T06A06, T03B01.
 - **Read first:** testing-strategy.md §2.
 - **Create or change:** `backend/tests/property/**`, `backend/tests/concurrency/**`.
 - **Acceptance:** PT-01, PT-02, PT-05, PT-06, PT-13 and PT-15 complete; join and refill races pass.

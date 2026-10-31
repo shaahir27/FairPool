@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -36,3 +37,20 @@ def test_broken_fixture_fails_with_nonzero_exit(tmp_path: Path) -> None:
     assert result.returncode != 0
     assert "forbidden text: TBD" in result.stdout
     assert "errors: 0" not in result.stdout
+
+
+def test_agent_api_merges_before_same_phase_mcp(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    shutil.copytree(REPO_ROOT / "docs", docs)
+    result = _run(docs)
+    assert result.returncode == 0, result.stdout + result.stderr
+    plan = docs / "implementation-plan.md"
+    text = plan.read_text(encoding="utf-8").replace(
+        "| T07A05 | A | L | T03B01, T04B01 |",
+        "| T07A05 | A | L | T03B01, T04B01, T07B03 |",
+    )
+    assert text != plan.read_text(encoding="utf-8")
+    plan.write_text(text, encoding="utf-8")
+    result = _run(docs)
+    assert result.returncode != 0
+    assert "T07A05 (A) has a same-phase cross-owner dependency on T07B03" in result.stdout

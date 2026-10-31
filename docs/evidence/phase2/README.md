@@ -1,8 +1,20 @@
 # Phase 2 verification record (2026-10-31)
 
-Implementation is on `phase-2`; IG-2 remains open. JSON evidence distinguishes
-local verification from pending external acceptance. Do not tag `ig-2` from
-local unit tests or fake responses.
+Phase 2 was merged into `main`. On 2026-10-31 the owner explicitly closed IG-2
+by exception; the `ig-2` tag has not been created, and automated acceptance
+checks still report pending evidence. Closure does not mean those checks passed.
+
+The later prompt-v4 Gemini evaluation was resumed across reports after quota
+interruptions: 479 of 480 case checks met their recorded expectations. Run 1's
+`reconcile-015` routed a consistent offer to review after validation retries;
+runs 2 and 3 recorded 160/160 each. An earlier 100-case sample exposed capacity
+mismatches in `quote-005`, `quote-008` and `quote-025`, including conflicting
+capacity values returned as a definite value. These issues remain unresolved.
+See `gemini-full-quota-20261031.json`,
+`gemini-resume-run2-retry-20261031.json`, and
+`gemini-resume-run3-20261031.json`; retain quota failures and earlier reports.
+CI passed for merged commit `ca4e4a5`, but the gate's CI evidence remains
+pending for the current uncommitted prompt/test changes.
 
 Foundation repairs cover handler rollback, claim ownership and supported kinds,
 shipment association (migration 0002), application error codes/Retry-After,

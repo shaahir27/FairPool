@@ -121,7 +121,7 @@ Contains only variable **names** with empty or safe default values, copied from 
 
 ## 8. CODEOWNERS
 
-Single-operator PH0 (Oct 30, 2026): the repository CODEOWNERS uses `@shaahir27` for every line below; the path split is kept for future team growth. Replace the handles when a second member joins.
+Single-operator PH0 (Oct 30, 2026): the repository CODEOWNERS uses `@shaahir27` for every line below; the path split is kept for future team growth. Replace the handles when a second member joins. The Phase 4 onward task reassignment in `team-split.md` supersedes the illustrative path split below; update CODEOWNERS patterns and handles when the second member is confirmed. Until then, GitHub CODEOWNERS continues to name the existing operator.
 
 ```
 # Replace with the two GitHub handles. Mirrors docs/team-split.md section 2.

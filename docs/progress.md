@@ -12,10 +12,10 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | Hosted URL (Render) | not yet recorded |
 | Daily sync time (IST) | not applicable (solo operator) |
 | Member A name and handle | solo operator @shaahir27 (both workstreams) |
-| Member B name and handle | solo operator @shaahir27 (both workstreams) |
+| Member B name and handle | second member's name and GitHub handle not yet recorded; @shaahir27 previously operated both workstreams |
 | ContextMatic plugin version (A, B) | Qoder: remote MCP ready (5 tools, 2026-10-30); Codex: .codex/config.toml staged; Antigravity: mcp_config.json present; no local version string |
 | PayPal AI Toolkit plugin version (A, B) | Codex: paypal@paypal-ai-toolkit 1.2.0, installed and enabled (2026-10-30); Qoder/Antigravity: not supported — do not add the write-capable MCP |
-| Current phase and gate | PH2, IG-2 (PH1 closed with `ig-1`) |
+| Current phase and gate | PH3 planning; IG-2 closed by owner exception (not tagged; automated acceptance pending) |
 
 ## Gates
 
@@ -23,7 +23,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 |---|---|---|---|
 | IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
-| IG-2 | IN PROGRESS | not tagged | Local implementation, C-01 to C-07 7/7, S4 highest 2 and S8 Elastic hybrid passed (recall 1.0); Elastic selected and `.env`/Render config applied and live; Gemini failed 154/480 and awaits quota; remote CI pending |
+| IG-2 | DONE (owner exception) | not tagged | Owner explicitly closed IG-2 on 2026-10-31 despite outstanding acceptance checks. The current Gemini evaluation recorded 479/480 case checks passing across resumed segments; one consistent offer required review. Earlier capacity parsing errors remain unresolved. The gate checker still reports Gemini and CI evidence pending; this closure is not an automated acceptance pass. |
 | IG-3 | TODO | not yet | |
 | IG-4 | TODO | not yet | |
 | IG-5 | TODO | not yet | |
@@ -72,7 +72,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T02A04 | A | S | DONE | phase-2 | C-01 to C-07 passed; S4 levels 1-2 passed, highest verified 2; level 3 (address lock) unverified; PAYPAL_PAYLOAD_LEVEL remains 0 |
 | T02B01 | B | M | DONE | phase-2 | Buyer auth, Argon2id, signed 24-hour sessions, CSRF, revocation, auth limiter and unread notifications tested |
 | T02B02 | B | M | DONE | phase-2 | Nested templates/zones/timelines; create/publish/cancel, frozen rules and pool.open; later handlers remain pending |
-| T02B03 | B | M | IN REVIEW | phase-2 | Gemini adapter, strict semantic validation and 160 reviewed labels; full live run 480/480 failed with 154 errors and 48.3% field accuracy; free-tier daily 500 exhausted; prompt v3, raw-output logging and subset tooling ready; live rerun awaits quota |
+| T02B03 | B | M | IN REVIEW | phase-2 | Gemini adapter and 160 labelled cases; earlier v2 evaluation failed 154/480, and a later resumed v4 evaluation recorded 479/480 case checks meeting expectations. One consistent offer was routed to review; earlier capacity mismatches and automated acceptance/CI evidence remain open |
 | T02B04 | B | S | DONE | phase-2 | PostgreSQL baseline recall@5 10/10; live Elastic hybrid passed with managed `.jina-embeddings-v5-text-small`: 20 docs/10 queries, recall@5 1.0, 205-387ms; temp index deleted; Elastic selected; `SEARCH_BACKEND=elastic`/`ELASTIC_INFERENCE_ID` applied in `.env`, `deploy/render.yaml` and live Render (`/ready` 200) |
 | T02B05 | B | S | DONE | | Spike S13 JavaScript SDK v6 (recorded Oct 29; see spike-results.md) |
 
@@ -99,9 +99,9 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T04A02 | A | L | TODO | | Approval checks and authorization flow (fake router) |
 | T04A03 | A | L | TODO | | Funding trigger and capture sweep (fake router) |
 | T04B01 | B | L | TODO | | Intake pipeline |
-| T04B02 | B | M | TODO | | Beacon adapter and pool.seed |
-| T04B03 | B | L | TODO | | Allocation and AllocationReadService |
-| T04B04 | B | S | TODO | | Public audit endpoint and keys |
+| T04A04 | A | M | TODO | | Beacon adapter and pool.seed |
+| T04A05 | A | L | TODO | | Allocation and AllocationReadService |
+| T04A06 | A | S | TODO | | Public audit endpoint and keys |
 | T04X01 | AB | L | TODO | | First integration: pool to checkout |
 
 ### PH5: Real PayPal path, auction core and merchant foundation
@@ -111,9 +111,9 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T05A01 | A | L | TODO | | Real PayPal path for one buyer (redirect) |
 | T05A02 | A | L | TODO | | Checkout UI |
 | T05A03 | A | M | TODO | | Failure path and compensating refund (fake router) |
-| T05B01 | B | M | TODO | | Merchant profile and onboarding states |
-| T05B02 | B | L | TODO | | Bid API with receipts and sealing |
-| T05B03 | B | L | TODO | | Auction rules engine |
+| T05A06 | A | M | TODO | | Merchant profile and onboarding states |
+| T05A04 | A | L | TODO | | Bid API with receipts and sealing |
+| T05A05 | A | L | TODO | | Auction rules engine |
 
 ### PH6: Money completion and auction to checkout
 
@@ -124,9 +124,9 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T06A03 | A | L | TODO | | Reconciler and unknown-outcome resolution |
 | T06A04 | A | M | TODO | | Payload ladder levels and shipping address |
 | T06B01 | B | M | TODO | | Quote parsing and confirmation |
-| T06B02 | B | M | TODO | | AI offer reconciliation and flags |
-| T06B03 | B | L | TODO | | Lot handlers: bid_open, bid_close, award |
-| T06B04 | B | M | TODO | | Merchant API keys and MerchantAuth |
+| T06A05 | A | M | TODO | | AI offer reconciliation and flags |
+| T06A06 | A | L | TODO | | Lot handlers: bid_open, bid_close, award |
+| T06A07 | A | M | TODO | | Merchant API keys and MerchantAuth |
 | T06B05 | B | L | TODO | | Buyer UI v1: Discover and Join |
 
 ### PH7: Live end to end and the agent and merchant lanes
@@ -138,9 +138,9 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T07A03 | A | S | TODO | | Routers per S3 and S7 |
 | T07A04 | A | L | TODO | | Ops console v1 |
 | T07B01 | B | L | TODO | | Buyer UI v2: My Pools and Orders |
-| T07B02 | B | L | TODO | | Agent API and delegations |
+| T07A05 | A | L | TODO | | Agent API and delegations |
 | T07B03 | B | M | TODO | | FairPool MCP server |
-| T07B04 | B | M | TODO | | Merchant Agent API sub-app: lots and bids |
+| T07A06 | A | M | TODO | | Merchant Agent API sub-app: lots and bids |
 | T07B05 | B | M | TODO | | Search in the merchant lane and advisory similarity |
 | T07X01 | AB | L | TODO | | Live end-to-end integration |
 
@@ -223,12 +223,20 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Q-2026-10-30-06 | implementation | Replay authorize with the same `PayPal-Request-Id`: the earlier runs returned 201; the corrected 2026-10-31 run returned 200 on both orders. Does `AUTHORIZE_USE_REQUEST_ID=true` still hold? | `docs/spike-results.md` S2, `docs/decisions.md` §4 | answered 2026-10-31: 200 on both after the app-owner fix; the 201s were under the wrong app owner; switch stays `true` |
 | Q-S7 | owner | Does an order addressed to a second sandbox business account by payee email approve and authorize (S7)? Owner decides whether the demo uses `payee_email` | `docs/spikes.md` S7 | answered Oct 28: no. Separate seller captures arrive but void and refund are denied; `payee_email` rejected, `single_seller` final |
 | Q-D1 | owner | Confirm the assumed design decisions D1 to D11 in `docs/decisions.md` section 2 (stack, operator-defined pools, and the rest) | `docs/decisions.md` | answered at T00X01 |
-| Q-2026-10-30-01 | implementation | `lot_index` numbering base: `db-schema.md` says "position within the zone"; `fairness-and-hashing.md` section 5 and N7 do not state 0- or 1-based. T00B01 uses 0-based index and 1-based `lot_order`. | `docs/contracts/db-schema.md`, `docs/contracts/fairness-and-hashing.md` | open; T04B02 confirms before persistence |
+| Q-2026-10-30-01 | implementation | `lot_index` numbering base: `db-schema.md` says "position within the zone"; `fairness-and-hashing.md` section 5 and N7 do not state 0- or 1-based. T00B01 uses 0-based index and 1-based `lot_order`. | `docs/contracts/db-schema.md`, `docs/contracts/fairness-and-hashing.md` | open; T04A04 confirms before persistence |
 | Q-2026-10-30-02 | implementation | Semantic graph refresh needs a valid LLM key; the AST-only graph is committed and usable for code queries. | `graphify-out/GRAPH_REPORT.md` | open; not a PH0 gate blocker |
 | Q-2026-10-30-03 | implementation | `db/models/*` (per area) versus per-module `models.py`: chosen per-area for one metadata and no cross-lane imports; schema content is unchanged. | `docs/implementation-plan.md` T01A01, `docs/contracts/db-schema.md` | answered by plan approval |
 | Q-2026-10-30-04 | implementation | `chk_usd_only` has no currency column to check; implemented as a null-safe JSON check on pool templates and canonical requests. | `docs/contracts/db-schema.md` | answered by plan approval |
 | Q-2026-10-30-05 | implementation | `vault_tokens` has no named index for "one active token per entry"; added a partial unique on `entry_id WHERE deleted_at IS NULL`. | `docs/contracts/db-schema.md` | answered by plan approval |
 | Q-2026-10-31-07 | implementation | T02A03/IT-2 say "PT-09 passes for the ledger", but PT-09 is a lot-funding property and the funding engine is T04A03 (PH4). Reading (a): only the ledger half (completed captures from distinct buyers, PENDING excluded) is required now; reading (b): the whole property waits for T04A03. The ledger query and its completed/distinct-buyer tests exist; no funding transition exists yet. | `docs/implementation-plan.md` T02A03 and T04A03; `docs/testing-strategy.md` PT-09 | open; PT-09 lands with T04A03 |
+
+| Q-2026-10-31-08 | implementation planning | Phase 3 join accepts confirmed_request_id, but no persisted confirmed request exists and full intake is T04B01. Recommend pulling forward only deterministic manual confirmation plus a private confirmed_requests record in migration 0003. | api.md Entry/Intake; db-schema.md; T03B01/T04B01 | open; approve narrow CR before dependent code |
+| Q-2026-10-31-09 | implementation planning | Vault permission needs entry_id, so ACTIVE-before-entry is circular. Recommend SUBMITTED entry then consent/save and close-time eligibility; specify durable setup attempts, safe restart identities, callback fencing and fake-only Phase 3 lifecycle while real saving remains T05A01 onward. | vault-charge.md sections 2-5; db-schema.md vault_tokens; implementation-plan.md change set C1 | open; approve lifecycle/storage/key amendments before dependent code |
+| Q-2026-10-31-10 | implementation planning | Clock.db_now and entry-window trigger use transaction-start now(); a transaction that waits across close_at can admit late while pool.close is delayed. Recommend fresh database wall-clock checks after locks and a new trigger-function migration, retaining canonical/audit timestamp formats. | domain-ports.md Clock; db-schema.md admission trigger; infra/clock.py; migration 0001 | open; approve deadline semantics amendment and lock-wait regression |
+| Q-2026-10-31-11 | implementation planning | Phase 3 close must publish commitments, but audit/key routes are stubs; overdue pool.open can leave PUBLISHED unable to follow PS-03. Recommend bringing forward close-time public reads and an atomic whitelisted OPEN/CLOSED catch-up with no late admission. | T03B04/T04A06; api.md public audit/keys; state-machines.md PS-02/PS-03 | open; approve bounded dependency/guard clarification |
+| Q-2026-10-31-12 | gate planning | The owner closed IG-2 by exception on 2026-10-31. Gemini acceptance and CI evidence remain pending; PT-14's full award comparison also needs a later award engine. | implementation-plan.md PH3 entry; testing-strategy.md PT-14/IT-3; Phase 2 evidence | owner exception recorded; outstanding checks remain open |
+| Q-2026-10-31-13 | implementation planning | OAuth states lack session binding and S1 does not establish arbitrary ID-token nonce validation. S5 requires verified receipts, but the current receiver stores unverified bodies and processing is scheduled later. Specify session/nonce verification and receipt-only scope without enabling absent money handlers. | T03B03/T03A03; db-schema.md oauth_states; api.md; PayPal S1/S5 evidence | open; approve security/phase-boundary clarifications |
+| Q-2026-10-31-14 | integration planning | S11 asks for live submit_bid/progress SDK smoke tests before those handlers exist. Recommend labelled contract-stub serialization smoke now, with real workflow smoke explicitly pending for its implementation phase; do not start a trial without owner approval. | spikes.md S11; T03B05 and later merchant/bid tasks | open; record acceptance split before counting S11 complete |
 
 ## Requests to the owner
 
@@ -344,5 +352,8 @@ live Elastic hybrid test passed recall@5 10/10 (205-387 ms) with managed
 selected; `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID` are set in `.env`,
 `deploy/render.yaml` and live Render (`/ready` 200). The full Gemini live run failed 154/480 cases at 48.3% field
 accuracy; the free-tier daily 500 limit is exhausted, so the prompt-v3 rerun
-awaits a quota-enabled key. Remote CI remains pending. IG-2 is not closed or
-tagged. No paid deployment was performed.
+awaited a quota-enabled key at that time. The owner subsequently closed IG-2
+by exception on 2026-10-31; it is not tagged and the automated acceptance
+checks still report pending evidence. See the current gate row and Phase 2
+verification record for the later Gemini evaluation. No paid deployment was
+performed.

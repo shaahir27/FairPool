@@ -117,3 +117,22 @@ Official sources consulted: Elastic hybrid search with `semantic_text` (elastic.
 ### 5.2 What this adds beyond the idea text
 
 Additions that the idea text does not mention (all consistent with its rules): Elastic search (INT-1), Zapier and FairPool MCP agent paths (INT-2, INT-3), merchant bot API and SDK (INT-9), PayPal MCP verification (INT-6), shipment tracking (INT-8), the JS SDK popup (INT-7). The idea's own buyer A2A lane (FR-SL-03) is the base for INT-2 and INT-3.
+
+
+## Phase 4 onward: owner reassignment and task ID history (2026-10-31)
+
+The owner approved a Member A-heavy split from Phase 4 onward. Phase 0 through 3 IDs and ownership remain unchanged. No task or dependency is deferred. The task IDs below are historical aliases for traceability; the new IDs are current. Member A merges the Phase 7 Agent API before Member B builds its dependent MCP server in the same phase.
+
+| Previous task ID | Current task ID |
+|---|---|
+| T04B02 | T04A04 |
+| T04B03 | T04A05 |
+| T04B04 | T04A06 |
+| T05B01 | T05A06 |
+| T05B02 | T05A04 |
+| T05B03 | T05A05 |
+| T06B02 | T06A05 |
+| T06B03 | T06A06 |
+| T06B04 | T06A07 |
+| T07B02 | T07A05 |
+| T07B04 | T07A06 |
