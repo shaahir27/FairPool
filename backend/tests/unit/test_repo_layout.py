@@ -12,7 +12,6 @@ def test_required_paths_exist():
         ".env.example",
         ".gitignore",
         ".graphifyignore",
-        "docs/agents.md",
         "docs/contracts/vectors/fairness_v1.json",
         "backend/pyproject.toml",
         "backend/alembic.ini",
@@ -36,8 +35,16 @@ def test_required_paths_exist():
 
 def test_codex_agent_file_and_no_claude_file():
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    assert "docs/00-index.md" in agents and "docs/agents.md" in agents
-    assert "## graphify" not in agents
+    assert "docs/00-index.md" in agents
+    assert [
+        p.relative_to(ROOT).as_posix()
+        for p in ROOT.rglob("*.md")
+        if p.name.lower() == "agents.md"
+        and not any(
+            part in {".git", ".venv", "node_modules", "graphify-out"}
+            for part in p.relative_to(ROOT).parts
+        )
+    ] == ["AGENTS.md"]
     assert not (ROOT / "CLAUDE.md").exists()
     assert not (ROOT / ".claude").exists()
     ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")

@@ -6,7 +6,7 @@ This folder is everything a human or an AI coding agent needs to build it. Two m
 
 ## 1. Read order
 
-**AI coding agents** (every task, in this order): this file, `registry.md`, `agents.md`, your task in `implementation-plan.md`, the contracts that task names, the requirements it cites in `product-spec.md`. Open `system-design.md` only to understand a rule's rationale and `fairpool-idea.md` only to settle a doubt.
+**AI coding agents** (every task, in this order): this file, `registry.md`, the root `AGENTS.md`, your task in `implementation-plan.md`, the contracts that task names, the requirements it cites in `product-spec.md`. Open `system-design.md` only to understand a rule's rationale and `fairpool-idea.md` only to settle a doubt.
 
 **Members, day one:** this file, `product-spec.md`, `decisions.md`, `team-split.md`, `implementation-plan.md` sections 1 to 4, then every file in `contracts/`.
 
@@ -18,7 +18,7 @@ This folder is everything a human or an AI coding agent needs to build it. Two m
 | `registry.md` | Definition of every ID (I, V, P, G, R, F, D, S and the other families) | both |
 | `decisions.md` | Approved departures, assumed decisions, build decisions, integration decisions INT-1 to INT-9, spike-driven switches | both |
 | `product-spec.md` | Numbered requirements, idea alignment audit, challenge register, claims | both |
-| `agents.md` | Rules every agent follows; the standard task prompt | both |
+| `../AGENTS.md` | Root instruction file: rules every agent follows; the standard task prompt | both |
 | `scaffold.md` | Repository layout, tooling, Make targets, import boundaries, CI, CODEOWNERS, bootstrap | Member A |
 | `implementation-plan.md` | 12 phases, 12 gates, capacity check, every task with files, acceptance and tests | both (generated list; changes by pull request) |
 | `team-split.md` | Roles, ownership map, flow chart, merge points, daily and gate procedures, handoffs | both |
@@ -63,7 +63,7 @@ When sources conflict, stop and log an open question in `progress.md`; never pic
 1. Copy this whole folder to `docs/` in the repository.
 2. The idea document is already in `docs/fairpool-idea.md`. Do not add other source files to `docs/`.
 3. The design document is already in `docs/system-design.md`.
-4. Add root `AGENTS.md` as the Codex instruction file (the pointer plus the tool-generated `## graphify` block); do not create `CLAUDE.md` (`scaffold.md` section 9).
+4. Keep the single root `AGENTS.md` as the complete agent instruction file, including the tool-generated `## graphify` block. Do not create another agent instruction file in `docs/` or a `CLAUDE.md` (`scaffold.md` section 9).
 5. Run `python tools/validate_docs.py` from the repository root (the tool is committed in T00A01).
 
 ## 5. Current state of decisions
@@ -72,4 +72,4 @@ Decided and recorded: the four departures from the idea text (DEP-1 to DEP-4), t
 
 ## 6. Ground rules in one paragraph
 
-Only the payments adapter calls PayPal, only against the Sandbox. AI proposes; rules decide; humans approve. Money is integer cents. Deadlines use the database clock. Paid means a COMPLETED capture. Search is retrieval, never a gate. No AI-callable tool can move money. Claims never exceed what was verified. Everything else is in `agents.md`.
+Only the payments adapter calls PayPal, only against the Sandbox. AI proposes; rules decide; humans approve. Money is integer cents. Deadlines use the database clock. Paid means a COMPLETED capture. Search is retrieval, never a gate. No AI-callable tool can move money. Claims never exceed what was verified. Everything else is in `AGENTS.md`.

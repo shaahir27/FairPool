@@ -2,7 +2,7 @@
 
 This is the build plan for FairPool: 12 phases (PH0 to PH11), each ending in a merge gate (IG-0 to IG-11) with an integration acceptance test (IT-0 to IT-11, defined in `docs/testing-strategy.md`). Every task has an owner, size, dependencies, files to read first, files to touch, acceptance criteria and named tests. The task list is the single source for `docs/team-split.md` and `docs/progress.md`; `tools/validate_docs.py` checks that all three agree.
 
-How to use it: take a task whose dependencies are merged, read the files named in "Read first", change only the paths named in "Create or change" (and only paths your member owns, `docs/team-split.md` section 2), prove every acceptance bullet with the named tests, then open a pull request titled `<TASK-ID>: ...` (`docs/agents.md` section 6).
+How to use it: take a task whose dependencies are merged, read the files named in "Read first", change only the paths named in "Create or change" (and only paths your member owns, `docs/team-split.md` section 2), prove every acceptance bullet with the named tests, then open a pull request titled `<TASK-ID>: ...` (`AGENTS.md` section 6).
 
 ## 1. Principles
 
@@ -249,7 +249,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 ### T00A01: Repository bootstrap
 
 - **Owner:** Member A. **Size:** S (0.25 day). **Phase:** PH0. **Merge gate:** IG-0. **Depends on:** none.
-- **Read first:** scaffold.md §1, §8, §9, §10; agents.md §4a.
+- **Read first:** scaffold.md §1, §8, §9, §10; AGENTS.md §4a.
 - **Create or change:** repository root, `.github/**`, `Makefile`, `pyproject.toml`, `docs/` copy, `LICENSE`.
 - **Acceptance:** Structure from scaffold.md section 1 exists; docs/ copied (including fairpool-idea.md and system-design.md); `make setup` and `make verify` pass on a clean clone; LICENSE (MIT) detected by GitHub; CODEOWNERS, templates and the root AGENTS.md Codex instruction file in place (no CLAUDE.md); the coding agent environment(s) have the ContextMatic and PayPal AI Toolkit plugins installed with versions recorded in progress.md; the graphify skill for Codex is installed and the tool-generated `## graphify` block is in AGENTS.md.
 - **Tests that prove it:** `make setup`; `make verify`; GitHub shows the MIT license.
@@ -258,7 +258,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 ### T00A02: Secrets hygiene
 
 - **Owner:** Member A. **Size:** S (0.25 day). **Phase:** PH0. **Merge gate:** IG-0. **Depends on:** none.
-- **Read first:** agents.md §3 rule 2; config-and-errors.md §1.
+- **Read first:** AGENTS.md §3 rule 2; config-and-errors.md §1.
 - **Create or change:** `.env.example`, `.pre-commit-config.yaml`, `.gitleaks.toml`, `backend/src/fairpool/logging.py`.
 - **Acceptance:** Sandbox REST secret rotated and the buyer password changed; unused NVP and SOAP credentials disabled; `.env.example` has names only; gitleaks runs in pre-commit and CI; the log redaction filter has a test.
 - **Tests that prove it:** `tests/unit/test_log_redaction.py`; gitleaks CI job.
@@ -490,7 +490,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 ### T02B03: AI adapter and run logging
 
 - **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH2. **Merge gate:** IG-2. **Depends on:** T01B02.
-- **Read first:** ai-schemas.md (all); domain-ports.md AiRunLogger; agents.md §8.
+- **Read first:** ai-schemas.md (all); domain-ports.md AiRunLogger; AGENTS.md §8.
 - **Create or change:** `adapters/ai/**`, `modules/intake/run_log.py`.
 - **Acceptance:** AIClient with Anthropic and Fake implementations; AiRunLogger writes ai_runs; schema validation, one retry, input limits and untrusted wrapping; no payments imports.
 - **Tests that prove it:** `tests/unit/test_ai_schema_validation.py`; `tests/unit/test_ai_no_payments_imports.py`.
@@ -540,7 +540,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 ### T03A01: Buyer-order transition engine
 
 - **Owner:** Member A. **Size:** L (1 day). **Phase:** PH3. **Merge gate:** IG-3. **Depends on:** T02A03, T00B01.
-- **Read first:** state-machines.md (buyer_order); db-schema.md; domain-ports.md; agents.md rule 11.
+- **Read first:** state-machines.md (buyer_order); db-schema.md; domain-ports.md; AGENTS.md rule 11.
 - **Create or change:** `modules/checkout/engine.py`.
 - **Acceptance:** Whitelist from state-machines.md enforced; row lock; audit, ledger and job in one transaction; IllegalTransition raised and alerted; PT-07 and PT-10 pass.
 - **Tests that prove it:** PT-07; PT-10; `tests/unit/test_illegal_transitions.py`.
@@ -976,7 +976,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 ### T07B03: FairPool MCP server
 
 - **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH7. **Merge gate:** IG-7. **Depends on:** T07B02.
-- **Read first:** api.md §4.5; agents.md rule 22.
+- **Read first:** api.md §4.5; AGENTS.md rule 22.
 - **Create or change:** `modules/mcp/**`.
 - **Acceptance:** MCP endpoint with exactly the four tools and delegation-token auth; test_mcp_contract and PT-16 pass; a real AI client joins, lists and withdraws.
 - **Tests that prove it:** `tests/unit/test_mcp_contract.py`; PT-16.
@@ -1081,7 +1081,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 ### T08A06: Security pass
 
 - **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH8. **Merge gate:** IG-8. **Depends on:** T06A02, T07A01.
-- **Read first:** agents.md §3; config-and-errors.md §3; product-spec.md FR-ID-05.
+- **Read first:** AGENTS.md §3; config-and-errors.md §3; product-spec.md FR-ID-05.
 - **Create or change:** rate-limit and header middleware in `api/app.py`, dependency lockfiles.
 - **Acceptance:** Rate limits, CSRF checks, security headers, pinned dependencies, log redaction tests, sandbox-host guard tests, API key and token handling review.
 - **Tests that prove it:** `tests/unit/test_rate_limits.py`; `tests/unit/test_security_headers.py`; log redaction.

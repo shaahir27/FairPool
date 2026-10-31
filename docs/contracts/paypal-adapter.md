@@ -52,7 +52,7 @@ class PayPalGateway(Protocol):
     async def create_setup_token(self, entry_id: str, return_url: str, cancel_url: str) -> SetupToken: ...   # vault-charge.md, key vs:{entry_id}
     async def create_payment_token(self, setup_token_id: str, entry_id: str) -> PaymentToken: ...           # key vp:{entry_id}
     async def delete_payment_token(self, payment_token_id: str, entry_id: str) -> None: ...                 # key vd:{entry_id}; 404 counts as deleted
-    async def charge_vault(self, buyer_order_id: str, payment_token_id: str, total_cents: int, payee: Payee) -> ChargeResult: ...   # key vc:{buyer_order_id}; one order, capture only if needed
+    async def charge_vault(self, buyer_order_id: str, payment_token_id: str, total_cents: int, payee: Payee) -> ChargeResult: ...   # logical vc:{buyer_order_id}; HTTP UUIDv5 keys vc:{buyer_order_id}:create and :capture; one order, capture only if needed
 
 class PaymentRouter(Protocol):
     name: str                                   # fake | single_seller | payee_email | platform

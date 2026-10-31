@@ -1,6 +1,6 @@
 # Testing strategy
 
-Tests are the proof that the invariants hold. Every task's acceptance bullets map to named tests (`docs/agents.md` section 6). This file defines the layers, the property tests (PT-xx), the integration acceptance test for each gate (IT-x), the fault matrix for F1 to F30, and how the checklist maps to tests.
+Tests are the proof that the invariants hold. Every task's acceptance bullets map to named tests (`AGENTS.md` section 6). This file defines the layers, the property tests (PT-xx), the integration acceptance test for each gate (IT-x), the fault matrix for F1 to F30, and how the checklist maps to tests.
 
 ## 1. Layers
 

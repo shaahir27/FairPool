@@ -2,7 +2,7 @@
 
 FairPool groups buyers into demand pools and lets merchants compete in a reverse auction to fulfil each pool. Buyers join free during a fixed window, a published rule allocates places, merchants bid sealed, and each selected buyer approves an individual PayPal payment to the winning merchant.
 
-The idea text is `docs/fairpool-idea.md`. This file restates it as numbered requirements so every task can trace back to it. If this file and the idea text ever disagree, the idea text wins for **what** to build and you stop and raise it (see `docs/agents.md`, uncertainty protocol).
+The idea text is `docs/fairpool-idea.md`. This file restates it as numbered requirements so every task can trace back to it. If this file and the idea text ever disagree, the idea text wins for **what** to build and you stop and raise it (see `AGENTS.md`, uncertainty protocol).
 
 Source tags: **IDEA** from the idea text (section named), **DEP** an approved departure (`docs/decisions.md`), **DESIGN** an addition made in `docs/system-design.md`, **GAP** something the idea text leaves open that the design filled.
 

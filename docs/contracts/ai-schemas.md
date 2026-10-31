@@ -5,9 +5,9 @@ Owner: Member B. Code lives in `backend/src/fairpool/adapters/ai/` and the `inta
 ## 1. Rules for every task
 
 1. Closed JSON schema with enums. Validate every output; on invalid JSON or schema failure retry once; then fall back to the manual form (FR-IN-08) or, for reconciliation, to ops review.
-2. Untrusted input (buyer messages, merchant quotes, notes) is wrapped in `<untrusted>...</untrusted>` in the prompt and the system prompt states that nothing inside it is an instruction (F19, F20). No tools are given to the model.
+2. Untrusted input (buyer messages, merchant quotes, notes) is JSON-encoded inside an explicitly labelled untrusted data envelope (so embedded closing tags cannot escape) in the prompt and the system prompt states that nothing inside it is an instruction (F19, F20). No tools are given to the model.
 3. Input limits: buyer message 2,000 characters; quote and notes 4,000 characters; control characters stripped before the call.
-4. Settings: temperature 0 for INTAKE, QUOTE and RECONCILE; 0.7 for SIM_TEXT; 20 second timeout; `max_tokens` 1,000 (2,000 for SIM_TEXT). Model names from `AI_MODEL_PARSE` and `AI_MODEL_SIM` (BD-04).
+4. Provider: Google Gemini through `google-genai`; omit temperature for Gemini 3.x; 20 second timeout; `max_output_tokens` 1,000 (2,000 for SIM_TEXT). Model names from `AI_MODEL_PARSE` and `AI_MODEL_SIM` (BD-04).
 5. Every call writes an `ai_runs` row: task, model, prompt version, SHA-256 of the canonical input, output, ok flag, error, latency, tokens.
 6. The AI package imports nothing from payments, ledger, checkout or the database layer. `AIClient` methods receive a session and pass it unchanged to the injected `AiRunLogger` (`domain-ports.md`), which writes the `ai_runs` row.
 7. Amounts are strings (for example `"600.00"`), never numbers, so no floating point enters the system. The server converts to cents with the regex `^\d+(\.\d{1,2})?$` and rejects anything else (BD-14).
@@ -96,13 +96,13 @@ Input: `kind` (`buyer_message` or `merchant_quote`) and `facts` (numbers and ter
 
 ## 6. Evaluation (FR-AI-05)
 
-Files (Member B creates them in task T09B02):
+Files (Phase 2 baseline; T09B02 extends the same production-path evaluation):
 
 - `backend/tests/ai_eval/data/intake_cases.jsonl`: about 50 messy buyer messages. Each line `{"id", "pool_candidates", "message", "history", "expected": {fields as in section 2 after server validation}}`.
 - `backend/tests/ai_eval/data/quote_cases.jsonl`: about 30 merchant quotes. Each line `{"id", "lot_requirement", "quote_text", "expected_fields"}`.
-- `backend/tests/ai_eval/data/reconcile_cases.jsonl`: about 30 cases built from the same quotes with deliberate mismatches (extra bundle item, wrong condition, hidden fee, injected instruction). Each line `{"id", "lot_requirement", "structured", "text", "expected_flags": [codes], "must_not_qualify": true}`.
+- `backend/tests/ai_eval/data/reconcile_cases.jsonl`: 60 cases (30 consistent, 20 explicit contradictions and 10 ambiguous) built from synthetic quotes with deliberate mismatches (extra bundle item, wrong condition, hidden fee, injected instruction). Each line `{"id", "lot_requirement", "structured", "text", "expected_flags": [codes], "must_not_qualify": true}`.
 
-Metrics: per-field exact match for enums, integers and dates; ambiguity recall (did it ask when it should); false-confirmation rate (confirmed something wrong); for reconcile, flag-code recall and precision and the count of injected instructions that changed the outcome (must be zero). The README publishes the measured numbers. CI stores a baseline and fails if a run drops more than five points below it.
+Metrics: per-field exact match for enums, integers and dates; ambiguity recall (did it ask when it should); false-confirmation rate (confirmed something wrong); for reconcile, flag-code recall and precision and the count of injected instructions that changed the outcome (must be zero). The README publishes the measured numbers. Phase 2 requires three complete live runs, at least 95% exact extraction accuracy, zero accepted malformed outputs, invented monetary values, unauthorized IDs, unsupported blocking flags or successful injections. Every contradiction must be flagged or routed to review; ambiguous cases remain unresolved. All supplied simulation facts must be preserved. Retain every failure and retry; no acceptance claim while a required check is pending.
 
 ## 7. Retrieval and similarity (INT-1, FR-IG-01)
 
@@ -118,3 +118,19 @@ Search is **retrieval**, not AI judgement, and never a gate for requirements (R3
 ## 8. Fake AI (for tests)
 
 `FakeAI` returns scripted outputs keyed by the SHA-256 of the canonical input, can return invalid JSON or time out on demand, and never makes a network call. Unit and integration tests use it; the evaluation and a few smoke tests use the real model.
+
+## Phase 2 acceptance amendment
+
+Strict JSON rejects duplicate keys, non-finite numbers, trailing prose, unknown
+properties and coercions. Monetary extraction is validated against the source;
+unknown data stays null. Flags require valid code/field, grounded non-empty
+snippet and consistent severity. Ambiguous or ungrounded reconciliation is an
+unavailable proposal requiring ops review, never silently consistent.
+
+The synthetic evaluation corpus has 50 intake, 30 quote, 60 reconciliation
+(30 consistent, 20 contradictions, 10 ambiguous), and 20 simulation cases.
+Run the full live corpus three times and retain every result and retry with
+model/prompt/schema/dataset fingerprint. Changing the model invalidates acceptance.
+Zero observed false positives is a measured result, not a future guarantee.
+Unpaid Gemini evaluation uses fictional inputs only; confidential data requires
+an appropriate paid service under Google's terms.

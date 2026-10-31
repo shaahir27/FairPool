@@ -6,7 +6,7 @@ This file defines the repository structure, tooling, commands, import boundaries
 
 ```
 fairpool/
-  AGENTS.md                     Codex instruction file: pointer + tool-generated graphify block (section 9)
+  AGENTS.md                     Single complete agent instruction file + graphify block (section 9)
   README.md  LICENSE            MIT (BD-01); README is written in task T09X01
   Makefile  .env.example  .gitignore  .graphifyignore  .dockerignore  ruff.toml
   .pre-commit-config.yaml  .gitleaks.toml
@@ -16,7 +16,7 @@ fairpool/
     CODEOWNERS  PULL_REQUEST_TEMPLATE.md
     ISSUE_TEMPLATE/contract-change.md
     workflows/ci.yml
-  docs/                         this folder: 00-index.md, registry.md, decisions.md, product-spec.md, agents.md,
+  docs/                         this folder: 00-index.md, registry.md, decisions.md, product-spec.md,
                                 scaffold.md, implementation-plan.md, team-split.md, testing-strategy.md, spikes.md,
                                 spike-results.md, demo-and-submission.md, progress.md, system-design.md, fairpool-idea.md,
                                 contracts/ (README, db-schema, state-machines, fairness-and-hashing, api,
@@ -165,7 +165,7 @@ The authoritative ownership map is `docs/team-split.md` section 2; keep the two 
 
 ## 9. Pointer files, pull request template, change-request template
 
-`AGENTS.md` at the root contains: "Read `docs/00-index.md` then `docs/agents.md` before doing anything in this repository." Codex then appends the tool-generated `## graphify` block. No `CLAUDE.md` is created; Codex reads `AGENTS.md`.
+`AGENTS.md` at the repository root contains the complete agent rules, read order, skill routing and tool-generated `## graphify` block. It is the only agent instruction file; do not keep a copy in `docs/`. No `CLAUDE.md` is created; Codex reads `AGENTS.md`.
 
 `PULL_REQUEST_TEMPLATE.md`: task ID and title; acceptance bullets with the test that proves each; contracts touched (none, or the CR link); invariants this change could affect (I1 to I15); `make verify` output confirmed; screenshots for UI; checklist: no secrets, no live hosts, no claims beyond the spec, `docs/progress.md` updated.
 
@@ -178,7 +178,7 @@ The authoritative ownership map is `docs/team-split.md` section 2; keep the two 
 3. Add `LICENSE` (MIT), `.gitignore` (`.env`, virtualenvs, `node_modules`, build output, `*.pem`, local databases), pre-commit (ruff, gitleaks), `Makefile`.
 4. Add CODEOWNERS and the templates (section 8 and 9).
 5. Verify `make setup`, `make verify` and `python tools/validate_docs.py` on a clean clone. Record the repository URL and the hosted URL (task T01A03) in `docs/progress.md`.
-6. Development tooling check (docs/agents.md section 4a): the coding agent environment(s) install the APIMatic ContextMatic plugin and the PayPal AI Toolkit plugin and record the installed versions in `docs/progress.md`. The Codex graphify skill is installed with `graphify codex install --project`; `AGENTS.md` receives the `## graphify` block.
+6. Development tooling check (AGENTS.md section 4a): the coding agent environment(s) install the APIMatic ContextMatic plugin and the PayPal AI Toolkit plugin and record the installed versions in `docs/progress.md`. The Codex graphify skill is installed with `graphify codex install --project`; `AGENTS.md` receives the `## graphify` block.
 
 ## 11. Render deployment
 

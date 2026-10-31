@@ -375,7 +375,7 @@ Free-tier limits: the Render API sleeps after 15 minutes idle and there is no fr
 - [docs/testing-strategy.md](docs/testing-strategy.md) — test layers and IT gates
 - [docs/decisions.md](docs/decisions.md) — confirmed decisions, spike switches and integrations
 - [docs/progress.md](docs/progress.md) — current status, gates and open questions
-- [docs/agents.md](docs/agents.md) — rules for AI coding agents working in this repository
+- [AGENTS.md](AGENTS.md) — rules for AI coding agents working in this repository
 
 The contracts in `docs/contracts/` are frozen at `contracts-v1`. Any change needs a contract change request and a new tag.
 

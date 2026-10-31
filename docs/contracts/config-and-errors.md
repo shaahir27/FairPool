@@ -56,9 +56,9 @@ Owner is who maintains the code that reads it. Secrets are marked S and never ap
 | `MERCHANT_API_ENABLED` | `true` | B | | Mount the Merchant Agent API at `/merchant-api/v1` |
 | `ZAPIER_BRIDGE` | `off` | B | | Documentation switch only (`off` or `managed`); no code reads it |
 | `AI_ENABLED` | `true` | B | | When false, intake uses the manual form and quotes go to ops review |
-| `ANTHROPIC_API_KEY` | empty | B | S | Anthropic API key |
-| `AI_MODEL_PARSE` | `claude-sonnet-5-5` | B | | Model for INTAKE, QUOTE, RECONCILE (verify the name in Anthropic's docs) |
-| `AI_MODEL_SIM` | `claude-haiku-5-5` | B | | Model for SIM_TEXT |
+| `GEMINI_API_KEY` | empty | B | S | Gemini API key |
+| `AI_MODEL_PARSE` | `gemini-3.5-flash-lite` | B | | Model for INTAKE, QUOTE, RECONCILE (verify the name in Google's Gemini docs) |
+| `AI_MODEL_SIM` | `gemini-3.5-flash-lite` | B | | Model for SIM_TEXT |
 | `BEACON_MODE` | `demo` | B | | `drand` or `demo` (S6) |
 | `DRAND_BASE_URL` | empty | B | | drand HTTP endpoint (S6) |
 | `DRAND_CHAIN_HASH` | empty | B | | drand chain hash (S6) |

@@ -16,8 +16,11 @@ def err(f, msg): ERR.append(f"ERROR   {f}: {msg}")
 def warn(f, msg): WARN.append(f"warning {f}: {msg}")
 
 FILES = sorted(p for p in ROOT.rglob("*.md") if "source" not in p.relative_to(ROOT).parts)
+AGENTS = ROOT.parent / "AGENTS.md"
+if AGENTS.exists():
+    FILES.append(AGENTS)
 TEXT = {p: p.read_text(encoding="utf-8") for p in FILES}
-REL = {p: str(p.relative_to(ROOT)) for p in FILES}
+REL = {p: "../AGENTS.md" if p == AGENTS else str(p.relative_to(ROOT)) for p in FILES}
 def strip_fences(t): return re.sub(r"```.*?```", "", t, flags=re.S)
 
 # ---------------------------------------------------------------- ID families
@@ -189,7 +192,7 @@ if cfgp.exists():
         if m: ERRCODES.add(m.group(1))
 PFX = ("PAYPAL_", "PAYMENT_", "AI_", "BEACON_", "DRAND_", "REQUIRE_", "TIMING_", "CAPTURE_", "WORKER_", "RECONCILER_", "WEBHOOKS_", "MOCK_", "DEDUPE_",
        "SEARCH_", "ELASTIC", "SHIPMENT_", "MCP_", "MERCHANT_API_", "ZAPIER_", "SIMILARITY_", "SINGLE_", "ALLOWED_", "ADDRESS_", "RECEIPT_", "HMAC_", "SECRET_",
-       "DATABASE_", "ANTHROPIC_", "APP_", "CORS_", "PUBLIC_", "FRONTEND_", "LOG_", "RATE_", "AUTHORIZE_", "PLATFORM_")
+       "DATABASE_", "GEMINI_", "APP_", "CORS_", "PUBLIC_", "FRONTEND_", "LOG_", "RATE_", "AUTHORIZE_", "PLATFORM_")
 for p, t in TEXT.items():
     for m in re.finditer(r"`([A-Z][A-Z0-9_]{3,})`", t):
         v = m.group(1)
