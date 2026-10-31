@@ -356,7 +356,7 @@ The live Phase 1 skeleton is deployed on Render's **free** tier and grouped in t
 - Database: **Supabase free Postgres** (session pooler, PostgreSQL 17); the Render Postgres was deleted after the switch;
 - No background worker in the free skeleton.
 
-The services were created through the Render API because Blueprint creation is dashboard-only. [deploy/render.yaml](deploy/render.yaml) remains the self-contained reference for a free Render stack; it still declares a Render Postgres, which the live deployment does not use.
+The services were created through the Render API because Blueprint creation is dashboard-only. [deploy/render.yaml](deploy/render.yaml) is the reference for the two Render services; it does not provision a database. Set `DATABASE_URL` to the Supabase session-pooler URL.
 
 **IT-1 evidence (2026-10-31):** migration `0001` applied (32 application tables plus `alembic_version`, 21 enums); `/health` 200; `/ready` 200 (`database` and `migrations` ok); `POST /webhooks/paypal` 200 with the raw body stored and duplicate events suppressed; frontend `/` and `/settings` serve the SPA. Recorded in [docs/progress.md](docs/progress.md).
 
