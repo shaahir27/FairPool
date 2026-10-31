@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 from functools import lru_cache
 from typing import Final, Literal
 from urllib.parse import urlsplit
@@ -114,9 +115,9 @@ class Settings(BaseSettings):
     zapier_bridge: Literal["off", "managed"] = "off"
 
     ai_enabled: bool = True
-    anthropic_api_key: SecretStr = SecretStr("")
-    ai_model_parse: str = "claude-sonnet-5-5"
-    ai_model_sim: str = "claude-haiku-5-5"
+    gemini_api_key: SecretStr = SecretStr("")
+    ai_model_parse: str = "gemini-3.5-flash-lite"
+    ai_model_sim: str = "gemini-3.5-flash-lite"
     beacon_mode: Literal["drand", "demo"] = "demo"
     drand_base_url: str = ""
     drand_chain_hash: str = ""
@@ -204,8 +205,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "DRAND_BASE_URL and DRAND_CHAIN_HASH are required when BEACON_MODE=drand"
             )
-        if self.ai_enabled and not self.anthropic_api_key.get_secret_value():
-            raise ValueError("ANTHROPIC_API_KEY is required when AI_ENABLED=true")
+        if self.ai_enabled and not self.gemini_api_key.get_secret_value():
+            raise ValueError("GEMINI_API_KEY is required when AI_ENABLED=true")
 
         if not self.paypal_login_redirect_uri:
             self.paypal_login_redirect_uri = (
@@ -227,4 +228,4 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Load settings once; import time never reads the environment."""
-    return Settings()  # type: ignore[call-arg]  # required fields come from env or .env
+    return Settings(_env_file=None if os.environ.get("APP_ENV") == "test" else ".env")  # type: ignore[call-arg]

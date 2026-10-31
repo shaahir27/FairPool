@@ -35,3 +35,6 @@ graphify-out/
 spike_out/
 .codex/hooks.json
 .agents
+
+# Disposable local verification output
+.test-tmp-*/

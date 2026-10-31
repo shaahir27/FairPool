@@ -870,3 +870,20 @@ async def test_platform_unique_constraints(db_session: AsyncSession):
         {"id": new_id(), "merchant": merchant_id, "prefix": prefix, "hash": HEX64},
         sqlstate="23505",
     )
+
+
+async def test_shipment_rejects_captured_order_from_another_lot(db_session):
+    pool = await add_pool(db_session)
+    entry = await add_entry(db_session, pool)
+    own_lot = await add_lot(db_session, pool, status="FUNDED")
+    other_lot = await add_lot(db_session, pool, status="FUNDED", lot_index=1, lot_order=1)
+    order = await add_buyer_order(db_session, other_lot, entry, status="CAPTURED")
+    merchant, _ = await add_merchant(db_session)
+    await expect_error(
+        db_session,
+        "INSERT INTO shipments (id,lot_id,buyer_order_id,merchant_id,carrier,"
+        "tracking_number,shipped_at) "
+        "VALUES (:id,:lot,:buyer,:merchant,'UPS','CROSS-LOT',now())",
+        {"id": new_id(), "lot": own_lot, "buyer": order, "merchant": merchant},
+        sqlstate="23514",
+    )

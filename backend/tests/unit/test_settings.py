@@ -27,7 +27,7 @@ SECRET_FIELDS = (
     "paypal_client_secret",
     "vault_token_key",
     "elasticsearch_api_key",
-    "anthropic_api_key",
+    "gemini_api_key",
 )
 
 BASE_VALUES: dict[str, Any] = {
@@ -168,7 +168,7 @@ def test_secret_fields_are_secretstr_and_masked() -> None:
         payment_mode="vault_charge",
         vault_token_key=vault_key(),
         elasticsearch_api_key="dummy-elastic-key",
-        anthropic_api_key="dummy-anthropic-key",
+        gemini_api_key="dummy-gemini-key",
     )
     for name in SECRET_FIELDS:
         value = getattr(settings, name)
@@ -281,12 +281,12 @@ def test_drand_requires_url_and_chain_hash() -> None:
     assert settings.drand_chain_hash == "dummy-chain-hash"
 
 
-def test_ai_enabled_requires_anthropic_key() -> None:
-    with pytest.raises(ValidationError, match="ANTHROPIC_API_KEY"):
+def test_ai_enabled_requires_gemini_key() -> None:
+    with pytest.raises(ValidationError, match="GEMINI_API_KEY"):
         make_settings(ai_enabled=True)
-    assert make_settings(ai_enabled=False).anthropic_api_key.get_secret_value() == ""
-    settings = make_settings(ai_enabled=True, anthropic_api_key="dummy-anthropic-key")
-    assert settings.anthropic_api_key.get_secret_value() == "dummy-anthropic-key"
+    assert make_settings(ai_enabled=False).gemini_api_key.get_secret_value() == ""
+    settings = make_settings(ai_enabled=True, gemini_api_key="dummy-gemini-key")
+    assert settings.gemini_api_key.get_secret_value() == "dummy-gemini-key"
 
 
 def test_require_paypal_link_conflicts_with_checkout_only() -> None:

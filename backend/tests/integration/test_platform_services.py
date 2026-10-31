@@ -172,7 +172,7 @@ async def test_job_queue_dedupe_and_backoff(db_session: AsyncSession):
     claimed = await queue.claim(db_session, worker_id="test", limit=10)
     job = next(item for item in claimed if item.id == first)
     assert job.attempts == 1
-    await queue.fail(db_session, first, "boom")
+    await queue.fail(db_session, first, "boom", worker_id="test", attempt=1)
     row = (
         await db_session.execute(
             text("SELECT status, run_at, attempts FROM jobs WHERE id = :id"), {"id": first}
@@ -193,7 +193,7 @@ async def test_job_queue_dedupe_and_backoff(db_session: AsyncSession):
     assert retried.attempts == 2
 
     await db_session.execute(text("UPDATE jobs SET max_attempts = 1 WHERE id = :id"), {"id": first})
-    await queue.fail(db_session, first, "boom again")
+    await queue.fail(db_session, first, "boom again", worker_id="test", attempt=2)
     status = await db_session.scalar(text("SELECT status FROM jobs WHERE id = :id"), {"id": first})
     assert status == "FAILED"
 
@@ -323,3 +323,106 @@ async def test_worker_runner_stops_on_the_event(db_engine: AsyncEngine, monkeypa
     stop = threading.Event()
     stop.set()
     await worker.run_worker({}, stop, poll_interval_s=0.01)
+
+
+async def test_runner_rolls_back_handler_writes_and_leaves_unknown_kinds(db_engine):
+    factory = factory_for(db_engine)
+    queue = PostgresJobQueue()
+    await clean_test_jobs(factory)
+    kind = f"test.rollback.{uuid4()}"
+    marker = f"test.marker.{uuid4()}"
+    async with factory.begin() as session:
+        job_id = await queue.enqueue(session, kind, {})
+        unknown_id = await queue.enqueue(session, "test.unsupported", {})
+
+    async def handler(session, payload):
+        await queue.enqueue(session, marker, {})
+        raise RuntimeError("failed after write")
+
+    runner = JobRunner(queue, factory, {kind: handler}, worker_id="owner")
+    assert await runner.run_once() == 1
+    async with factory() as session:
+        assert (
+            await session.scalar(text("SELECT count(*) FROM jobs WHERE kind=:k"), {"k": marker})
+            == 0
+        )
+        row = (
+            await session.execute(
+                text("SELECT status, attempts, last_error FROM jobs WHERE id=:id"), {"id": job_id}
+            )
+        ).one()
+        assert row.status == "PENDING" and row.attempts == 1 and row.last_error == "RuntimeError"
+        row = (
+            await session.execute(
+                text("SELECT status, attempts FROM jobs WHERE id=:id"), {"id": unknown_id}
+            )
+        ).one()
+        assert row.status == "PENDING" and row.attempts == 0
+    await clean_test_jobs(factory)
+
+
+async def test_stale_job_owner_cannot_complete_or_fail_new_claim(db_session):
+    queue = PostgresJobQueue()
+    job_id = await queue.enqueue(db_session, "test.owner", {})
+    await queue.claim(db_session, worker_id="old", kinds=("test.owner",))
+    await db_session.execute(
+        text("UPDATE jobs SET locked_until=now()-interval '1 second' WHERE id=:id"), {"id": job_id}
+    )
+    claimed = await queue.claim(db_session, worker_id="new", kinds=("test.owner",))
+    assert len(claimed) == 1
+    await queue.complete(db_session, job_id, worker_id="old", attempt=1)
+    await queue.fail(db_session, job_id, "old failure", worker_id="old", attempt=1)
+    assert (
+        await db_session.scalar(text("SELECT status FROM jobs WHERE id=:id"), {"id": job_id})
+        == "RUNNING"
+    )
+    await queue.complete(db_session, job_id, worker_id="new", attempt=2)
+    assert (
+        await db_session.scalar(text("SELECT status FROM jobs WHERE id=:id"), {"id": job_id})
+        == "DONE"
+    )
+
+
+async def test_executing_handler_cannot_be_reclaimed_after_lease_expiry(db_engine):
+    queue = PostgresJobQueue()
+    factory = factory_for(db_engine)
+    kind = f"test.running-lease.{uuid4()}"
+    async with factory.begin() as db:
+        job_id = await queue.enqueue(db, kind, {})
+    started, release = asyncio.Event(), asyncio.Event()
+
+    async def handler(db, payload):
+        started.set()
+        await release.wait()
+
+    runner = JobRunner(
+        queue, factory, {kind: handler}, worker_id="running", lease_seconds=1, batch_size=1
+    )
+    running = asyncio.create_task(runner.run_once())
+    try:
+        await asyncio.wait_for(started.wait(), 5)
+        for _ in range(60):
+            async with factory() as db:
+                expired = await db.scalar(
+                    text("SELECT clock_timestamp()>locked_until FROM jobs WHERE id=:id"),
+                    {"id": job_id},
+                )
+            if expired:
+                break
+            await asyncio.sleep(0.05)
+        else:
+            raise AssertionError("Lease never expired")
+
+        async def reclaim():
+            async with factory.begin() as db:
+                return await queue.claim(db, worker_id="other", kinds=(kind,))
+
+        assert await asyncio.wait_for(reclaim(), 2) == []
+    finally:
+        release.set()
+        await running
+    async with factory() as db:
+        assert (
+            await db.scalar(text("SELECT status FROM jobs WHERE id=:id"), {"id": job_id}) == "DONE"
+        )
+    await clean_test_jobs(factory)

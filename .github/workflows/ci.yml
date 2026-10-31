@@ -98,7 +98,9 @@ jobs:
       PAYPAL_API_BASE: https://api-m.sandbox.paypal.com
       PAYPAL_CHECKOUT_BASE: https://www.sandbox.paypal.com
       SINGLE_SELLER_EMAIL: seller@example.com
-      ANTHROPIC_API_KEY: dummy
+      GEMINI_API_KEY: dummy
+      AI_MODEL_PARSE: gemini-3.5-flash-lite
+      AI_MODEL_SIM: gemini-3.5-flash-lite
       ELASTICSEARCH_API_KEY: dummy
     steps:
       - uses: actions/checkout@v4
@@ -269,9 +271,9 @@ jobs:
           MERCHANT_API_ENABLED=true
           ZAPIER_BRIDGE=off
           AI_ENABLED=true
-          ANTHROPIC_API_KEY=dummy
-          AI_MODEL_PARSE=claude-sonnet-5-5
-          AI_MODEL_SIM=claude-haiku-5-5
+          GEMINI_API_KEY=dummy
+          AI_MODEL_PARSE=gemini-3.5-flash-lite
+          AI_MODEL_SIM=gemini-3.5-flash-lite
           BEACON_MODE=demo
           TIMING_PROFILE=demo
           CAPTURE_BUFFER=0

@@ -19,6 +19,14 @@ class DomainError(Exception):
         self.message = message
 
 
+class ApplicationError(Exception):
+    """An allowlisted public error code; no exception details cross the API."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
 class CanonicalJSONError(DomainError, ValueError):
     """Input cannot be encoded with the canonical JSON profile (contract section 1)."""
 

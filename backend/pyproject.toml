@@ -13,6 +13,8 @@ dependencies = [
   "pydantic",
   "pydantic-settings",
   "sqlalchemy[asyncio]",
+  "asyncpg",
+  "google-genai",
   "alembic",
   "httpx",
   "cryptography",

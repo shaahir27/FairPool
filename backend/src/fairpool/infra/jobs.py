@@ -80,12 +80,18 @@ class PostgresJobQueue(JobQueue):
         worker_id: str,
         limit: int = 10,
         lease_seconds: int = 300,
+        kinds: tuple[str, ...] | None = None,
     ) -> list[ClaimedJob]:
+        if kinds == ():
+            return []
         await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": CLAIM_LOCK})
         await session.execute(
             text(
-                "UPDATE jobs SET status = 'PENDING', locked_by = NULL, locked_until = NULL "
-                "WHERE status = 'RUNNING' AND locked_until < now()"
+                "WITH expired AS (SELECT id FROM jobs WHERE status = 'RUNNING' "
+                "AND locked_until < now() FOR UPDATE SKIP LOCKED) "
+                "UPDATE jobs SET status = CASE WHEN attempts >= max_attempts "
+                "THEN 'FAILED'::job_status ELSE 'PENDING'::job_status END, "
+                "locked_by = NULL, locked_until = NULL WHERE id IN (SELECT id FROM expired)"
             )
         )
         rows = (
@@ -93,13 +99,14 @@ class PostgresJobQueue(JobQueue):
                 text(
                     "SELECT j.id, j.concurrency_key FROM jobs j "
                     "WHERE j.status = 'PENDING' AND j.run_at <= now() "
+                    "AND (:all_kinds OR j.kind = ANY(CAST(:kinds AS text[]))) "
                     "AND (j.concurrency_key IS NULL OR NOT EXISTS ("
                     "  SELECT 1 FROM jobs r WHERE r.status = 'RUNNING' "
                     "  AND r.concurrency_key = j.concurrency_key)) "
                     "ORDER BY j.run_at, j.created_at "
                     "LIMIT :limit FOR UPDATE SKIP LOCKED"
                 ),
-                {"limit": limit},
+                {"limit": limit, "all_kinds": kinds is None, "kinds": list(kinds or ())},
             )
         ).all()
         seen_keys: set[str] = set()
@@ -135,16 +142,21 @@ class PostgresJobQueue(JobQueue):
             )
         return claimed
 
-    async def complete(self, session: AsyncSession, job_id: UUID) -> None:
+    async def complete(
+        self, session: AsyncSession, job_id: UUID, *, worker_id: str, attempt: int
+    ) -> None:
         await session.execute(
             text(
                 "UPDATE jobs SET status = 'DONE', locked_by = NULL, locked_until = NULL "
-                "WHERE id = :id AND status = 'RUNNING'"
+                "WHERE id = :id AND status = 'RUNNING' "
+                "AND locked_by = :worker AND attempts = :attempt"
             ),
-            {"id": job_id},
+            {"id": job_id, "worker": worker_id, "attempt": attempt},
         )
 
-    async def fail(self, session: AsyncSession, job_id: UUID, error: str) -> None:
+    async def fail(
+        self, session: AsyncSession, job_id: UUID, error: str, *, worker_id: str, attempt: int
+    ) -> None:
         await session.execute(
             text(
                 "UPDATE jobs SET "
@@ -154,9 +166,16 @@ class PostgresJobQueue(JobQueue):
                 "ELSE now() + make_interval(secs => "
                 "  LEAST(POWER(2, attempts), :cap)) END, "
                 "locked_by = NULL, locked_until = NULL, last_error = :error "
-                "WHERE id = :id"
+                "WHERE id = :id AND status = 'RUNNING' "
+                "AND locked_by = :worker AND attempts = :attempt"
             ),
-            {"id": job_id, "error": error[:2000], "cap": MAX_BACKOFF_SECONDS},
+            {
+                "id": job_id,
+                "error": error[:2000],
+                "cap": MAX_BACKOFF_SECONDS,
+                "worker": worker_id,
+                "attempt": attempt,
+            },
         )
 
 
@@ -181,28 +200,49 @@ class JobRunner:
         self.poll_interval_s = poll_interval_s
 
     async def run_once(self) -> int:
-        async with self.session_factory() as session:
-            async with session.begin():
+        count = 0
+        for _ in range(self.batch_size):
+            # Claim only work this process can start immediately.
+            async with self.session_factory.begin() as session:
                 jobs = await self.queue.claim(
                     session,
                     worker_id=self.worker_id,
-                    limit=self.batch_size,
+                    limit=1,
                     lease_seconds=self.lease_seconds,
+                    kinds=tuple(self.handlers),
                 )
-        for job in jobs:
-            handler = self.handlers.get(job.kind)
-            async with self.session_factory() as session:
-                async with session.begin():
-                    if handler is None:
-                        await self.queue.fail(session, job.id, f"no handler for {job.kind}")
+            if not jobs:
+                break
+            job = jobs[0]
+            count += 1
+            try:
+                async with self.session_factory.begin() as session:
+                    owned = await session.scalar(
+                        text(
+                            "SELECT id FROM jobs WHERE id=:id AND status='RUNNING' "
+                            "AND locked_by=:worker AND attempts=:attempt "
+                            "AND locked_until > now() FOR UPDATE"
+                        ),
+                        {"id": job.id, "worker": self.worker_id, "attempt": job.attempts},
+                    )
+                    if owned is None:
                         continue
-                    try:
-                        await handler(session, job.payload)
-                    except Exception as exc:
-                        await self.queue.fail(session, job.id, type(exc).__name__)
-                    else:
-                        await self.queue.complete(session, job.id)
-        return len(jobs)
+                    # The row lock protects an executing handler even after lease expiry.
+                    await self.handlers[job.kind](session, job.payload)
+                    await self.queue.complete(
+                        session, job.id, worker_id=self.worker_id, attempt=job.attempts
+                    )
+            except Exception as exc:
+                # The failed handler transaction has rolled back before bookkeeping.
+                async with self.session_factory.begin() as session:
+                    await self.queue.fail(
+                        session,
+                        job.id,
+                        type(exc).__name__,
+                        worker_id=self.worker_id,
+                        attempt=job.attempts,
+                    )
+        return count
 
     async def run_forever(self, stop_event: threading.Event) -> None:
         logger.info("job_runner.started worker=%s handlers=%d", self.worker_id, len(self.handlers))

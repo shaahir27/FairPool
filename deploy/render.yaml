@@ -46,7 +46,7 @@ services:
         sync: false
       - key: SINGLE_SELLER_MERCHANT_ID
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
       - key: ELASTICSEARCH_URL
         sync: false
@@ -122,9 +122,9 @@ envVarGroups:
       - key: AI_ENABLED
         value: "false"
       - key: AI_MODEL_PARSE
-        value: claude-sonnet-5-5
+        value: gemini-3.5-flash-lite
       - key: AI_MODEL_SIM
-        value: claude-haiku-5-5
+        value: gemini-3.5-flash-lite
 
   - name: search
     envVars:
