@@ -26,12 +26,15 @@ Owner is who maintains the code that reads it. Secrets are marked S and never ap
 | `PAYPAL_WEBHOOK_ID` | empty | A | | Registered webhook ID (S5) |
 | `PAYPAL_LOGIN_ENABLED` | `false` | B | | Enable Log in with PayPal (S1) |
 | `PAYPAL_LOGIN_REDIRECT_URI` | `${PUBLIC_BASE_URL}/api/v1/paypal/login/callback` | B | | Registered web return URL |
+| `OAUTH_STATE_TTL_S` | `600` | B | | Database-clock lifetime of a single-use `oauth_states` row (CR-3) |
 | `PAYMENT_ROUTER` | `single_seller` | A | | `fake`, `single_seller`, `payee_email`, `platform` (see `decisions.md`) |
 | `PAYMENT_MODE` | `vault_charge` | A | | `vault_charge` (primary, owner decision Oct 29), `authorize_capture` (fallback) or `capture_only` |
 | `BID_PRICING_MODE` | `flat_delivered` | A | | `flat_delivered` (one delivered price per tier, shipping and tax included) or `itemised` |
 | `VAULT_TOKEN_KEY` | none (required when `PAYMENT_MODE=vault_charge`) | A | S | 32-byte base64 key that encrypts saved PayPal permissions at rest (AES-256-GCM) |
 | `VAULT_CONSENT_VERSION` | `v1` | A | | Names the consent wording a buyer accepted before saving PayPal |
 | `VAULT_CHARGE_CONCURRENCY` | `5` | A | | Parallel vault charges per worker |
+| `VAULT_SETUP_TTL_S` | `900` | A | | Database-clock lifetime of a `vault_setup_attempts` row; past it the attempt is `FAILED` and `VAULT_SETUP_EXPIRED` (CR-3) |
+| `VAULT_REAL_SAVE_ENABLED` | `false` | A | | `false` until T05A01 ships the real save path: `POST /api/v1/entries/{id}/vault` answers `FEATURE_DISABLED` and only `FakePaymentVault` runs, so no half-saved permission can exist (DEP-5) |
 | `AUTHORIZE_USE_REQUEST_ID` | `true` | A | | Replay authorize with the request ID (S2 result) |
 | `PAYPAL_PAYLOAD_LEVEL` | `0` | A | | Highest payload ladder level, 0 to 3 (level 4 unavailable) |
 | `PAYPAL_APPROVAL_UI` | `sdk_popup` | A | | `sdk_popup` (primary, S13 passed) or `redirect` (fallback) |
@@ -51,6 +54,7 @@ Owner is who maintains the code that reads it. Secrets are marked S and never ap
 | `ELASTICSEARCH_API_KEY` | empty | B | S | Elasticsearch API key |
 | `ELASTIC_INFERENCE_ID` | empty | B | | Explicit inference endpoint for the `semantic_text` field |
 | `ELASTIC_INDEX_PREFIX` | `fairpool` | B | | Index name prefix |
+| `SEARCH_TIMEOUT_MS` | `1500` | B | | Deadline for one search backend call; over it the request falls back to the Postgres trigram path instead of failing the caller (S8 measured 205-387 ms) |
 | `SIMILARITY_CHECK_ENABLED` | `true` | B | | Run the advisory wrong-product check |
 | `MCP_ENABLED` | `true` | B | | Mount the FairPool MCP server at `/mcp` |
 | `MERCHANT_API_ENABLED` | `true` | B | | Mount the Merchant Agent API at `/merchant-api/v1` |
@@ -103,6 +107,10 @@ Copied into `pools.timeline` at pool creation, then frozen with the rules.
 | `POST /webhooks/paypal` | 300 per minute per IP |
 | Everything else | 120 per minute per IP |
 
+Limits are enforced in-process per worker (the existing `AuthRateLimiter` shape, widened to sessions); shared-store enforcement is a disclosed limit until it is scheduled, and multi-process deployments therefore see up to `n` times the listed rate. A test that needs more attempts than the limit — `test_join_200_parallel` and PT-13 — runs with `RATE_LIMIT_ENABLED=false` and asserts the constraint outcome; the limiter itself gets its own test at the contracted boundary, so the two mechanisms are never conflated (CR-3).
+
+Two different things stop a duplicate join and both are required: the `Idempotency-Key` store replays one client's repeated submission of the same request, while the database constraints on `(pool_id, user_id)` and `(pool_id, paypal_account_key)` are the last word on one entry per buyer and per linked account, across keys, tabs and lanes. A request that loses the race to a committed entry maps the expected constraint violation to the stored response of the winning entry, using a savepoint so the rest of the transaction stays usable.
+
 ## 4. Error codes
 
 Response shape in `api.md`. Codes are UPPER_SNAKE.
@@ -115,13 +123,15 @@ Response shape in `api.md`. Codes are UPPER_SNAKE.
 | NOT_FOUND | 404 | Unknown resource |
 | RATE_LIMITED | 429 | Over the limit; `Retry-After` set |
 | IDEMPOTENCY_KEY_REQUIRED | 400 | Missing `Idempotency-Key` |
-| IDEMPOTENCY_CONFLICT | 409 | Same key, different body |
+| IDEMPOTENCY_CONFLICT | 409 | Same key with a different body, **or** the same key whose stored response is not yet written — an in-flight or abandoned attempt (CR-3). For a join this is safe to retry: the `(pool_id, user_id)` and `(pool_id, paypal_account_key)` constraints, not the key, are what guarantee one entry |
 | FEATURE_DISABLED | 403 | Helper or toggle not enabled |
 | POOL_NOT_OPEN | 409 | Pool is not OPEN |
 | POOL_CLOSED | 409 | The entry window has closed |
 | PAYPAL_LINK_REQUIRED | 403 | The pool needs a linked PayPal account |
 | PAYPAL_LINK_CONFLICT | 409 | Account key already linked to another user, or relink blocked by active entries |
 | REQUEST_INVALID | 422 | Confirmed request fails pool validation |
+| RULES_MISMATCH | 409 | The confirmed request was frozen against a different rules document than the pool's (CR-3) |
+| INTEGRITY_ERROR | 500 | A stored record that must exist is missing or fails re-validation (an entry without a receipt, a canonical request whose hash no longer matches); never a silent skip and never an invented value (CR-3) |
 | NO_MATCHING_POOL | 404 | No open pool matches |
 | DELEGATION_INVALID | 401 | Agent token unknown, expired or revoked |
 | DELEGATION_CAP_EXCEEDED | 403 | Agent cap above the delegation limit |

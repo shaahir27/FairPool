@@ -5,7 +5,7 @@ This file lets Member A and Member B build in parallel. Each module codes agains
 ## 1. Rules for every port and service
 
 - Every method that touches the database takes `session: AsyncSession` as its first argument and **never commits**. The job runner or the HTTP request handler owns the transaction (I10).
-- No method reads the application clock for a deadline. Use `Clock.db_now(session)` (I15).
+- No method reads the application clock for a deadline. Use `Clock.db_now(session)` (I15), and after taking a pool, lot or buyer-order lock use `Clock.db_wall_now(session)` before comparing against a stored deadline (CR-3).
 - Every method is `async`.
 - Fakes are deterministic, in-memory, and record calls so tests can assert on them.
 
@@ -14,6 +14,11 @@ This file lets Member A and Member B build in parallel. Each module codes agains
 ```python
 class Clock(Protocol):
     async def db_now(self, session) -> datetime: ...          # SELECT now() from the database
+    async def db_wall_now(self, session) -> datetime: ...     # SELECT clock_timestamp(), CR-3
+        # db_now is the stable transaction timestamp: audit rows, receipts and canonical
+        # records use it. db_wall_now is the reading used for a deadline decision taken
+        # after a lock is held, because now() is fixed at transaction start and a
+        # transaction that waits on a lock across its deadline must see the real time.
 
 class JobQueue(Protocol):
     async def enqueue(self, session, kind: str, payload: dict, *, run_at: datetime | None = None,
@@ -145,6 +150,39 @@ Under `PAYMENT_ROUTER=single_seller` the router ignores the merchant's payee fie
 
 Member B never imports checkout code. The two members meet only at HTTP (`api.md`), jobs (below) and the services above.
 
+### 4.4 Vault permission port (Member A implements at T05A01; Member B calls the fake from IG-3, CR-3)
+
+`charge_vault` was already on both the real gateway and `FakePaymentRouter`; it is named here so the port surface is auditable, and the save/withdraw half is added because join, close and withdraw need it and nothing declared it before.
+
+```python
+@dataclass(frozen=True)
+class SetupRedirect:
+    approve_url: str          # full URL never reaches a log, an audit row or a prompt
+    operation_key: str        # the vault_setup_attempts row identity this attempt owns
+
+@dataclass(frozen=True)
+class VaultPermission:
+    entry_id: UUID
+    status: str               # vault_status: SETUP_PENDING | ACTIVE | DELETED | FAILED
+    label: str | None         # last four characters only; the token itself never leaves the ciphertext column
+
+class PaymentRouter(Protocol):
+    def payee_for(self, award, payee_ref) -> Payee: ...
+    def label(self) -> str: ...
+    async def charge_vault(self, session, *, buyer_order_id, amount_cents,
+                           idempotency_key: str) -> CaptureResult: ...   # BO-23 to BO-27
+
+class PaymentVault(Protocol):                                    # never runs against a live host in Phase 3
+    async def start_setup(self, session, *, entry_id: UUID) -> SetupRedirect: ...
+    async def exchange(self, session, *, entry_id: UUID, setup_token: str) -> VaultPermission: ...
+    async def delete(self, session, *, entry_id: UUID) -> VaultPermission: ...   # 404 counts as deleted
+    async def status(self, session, *, entry_id: UUID) -> VaultPermission: ...
+```
+
+Rules: `start_setup` and `exchange` perform their provider I/O **outside** any transaction that holds a pool, lot or entry lock; the state change that follows runs in its own transaction with its audit row. `FakePaymentVault` is the only implementation Phase 3 and the simulation may use (`I12`), it is scriptable to ACTIVE, decline and unknown-outcome paths, and it records calls so tests can assert that no network client was built for a synthetic entry. Under `PAYMENT_MODE=vault_charge` with real saving not yet shipped, `VAULT_REAL_SAVE_ENABLED=false` makes `start_setup` refuse with `FEATURE_DISABLED` rather than half-save; nothing else changes (see `decisions.md` DEP-5).
+
+
+
 ## 5. Job kinds
 
 One table is the source of truth. Handlers are registered by kind in `worker.py`. Payloads contain IDs only. `ck` is the concurrency key (jobs with the same key never run at the same time). `dedupe` coalesces repeated enqueues while one is pending.
@@ -178,6 +216,8 @@ One table is the source of truth. Handlers are registered by kind in `worker.py`
 | reconciler.sweep | A | none | reconciler | reconciler | cron every `RECONCILER_INTERVAL_S` | Heal stale states, age guard |
 
 Runner rules: claim with `FOR UPDATE SKIP LOCKED` where `status = 'PENDING' AND run_at <= now()`; honour `concurrency_key`; retry failures with backoff 2, 4, 8 up to `max_attempts` then mark FAILED and raise an alert; a handler is idempotent and re-checks deadlines against the database clock when it runs (I15). Timers are job rows with `run_at`; there are no in-memory timers.
+
+CR-3 adds **no** job kind. A `QUARANTINED` permission is deleted by the callback that discovers it and by the withdrawal path, so no timer is needed while `VAULT_REAL_SAVE_ENABLED=false`; if the real save path at `T05A01` shows a leak that neither path can collect, a cleanup kind is added with its own change request rather than improvised in code. Unregistered kinds stay `PENDING` and are never claimed, which is what keeps a Phase 3 queue honest: an enqueue is not evidence that work happened.
 
 ## 6. Handoff protocols
 
