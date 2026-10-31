@@ -151,7 +151,7 @@ For skill maintenance, compare the installed version with its publisher's curren
 
 The root `AGENTS.md` is the only repository agent instruction file. Keep the full rules and Graphify block here; do not create a second copy under `docs/` or another directory. Documentation and task prompts must point here.
 
-Graphify helps locate instructions and relationships; it does not prove that an agent followed a skill. Read the located instructions, run the relevant checks, and report skills actually used and any unavailable tools. After code changes run `graphify update .`; this AST-only update does not refresh changed Markdown semantics. After instruction edits, validate documentation and inspect the instruction diff directly; use the Graphify skill's semantic update workflow when refreshing documentation nodes is needed.
+Graphify helps locate instructions and relationships; it does not prove that an agent followed a skill. Read the located instructions, run the relevant checks, and report skills actually used and any unavailable tools. After code changes run `graphify update .`; at the end of every phase, run it again before closing the gate and record the result. This AST-only update does not refresh changed Markdown semantics. After instruction edits, validate documentation and inspect the instruction diff directly; use the Graphify skill's semantic update workflow when refreshing documentation nodes is needed.
 
 ## 5. PayPal handling rules (from the checklist and sandbox report)
 
