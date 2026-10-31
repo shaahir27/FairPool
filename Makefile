@@ -114,7 +114,8 @@ db-reset:
 	@$(PY) -m alembic -c backend/alembic.ini upgrade head
 
 search-reindex:
-	@echo "SKIP: search indexing starts at T03B02"
+	@echo "Reindex is an admin API call since T03B02: POST /api/v1/admin/search/reindex (admin session + CSRF)."
+	@echo "It pages over public documents and enqueues one search.index job per document; the worker applies them."
 
 demo-seed:
 	@echo "SKIP: demo seed starts at T04B02"

@@ -61,8 +61,53 @@ def pool_service(settings: Settings):
     )
 
 
+def checkout_engine(settings: Settings):
+    """The single transition engine instance: one set of platform ports (I10)."""
+    from fairpool.infra.audit import PostgresAuditLog
+    from fairpool.infra.clock import DbClock
+    from fairpool.infra.idempotency import PostgresIdempotencyStore
+    from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.checkout.engine import CheckoutEngine
+    from fairpool.modules.ledger.service import PostgresLedger
+    from fairpool.modules.notify.service import PostgresNotifier
+
+    return CheckoutEngine(
+        clock=DbClock(),
+        audit=PostgresAuditLog(),
+        jobs=PostgresJobQueue(),
+        ledger=PostgresLedger(),
+        notifier=PostgresNotifier(),
+        idempotency=PostgresIdempotencyStore(),
+    )
+
+
 def worker_handlers(settings: Settings):
-    return {"pool.open": pool_service(settings).open}
+    """Only the kinds Phase 3 actually implements (T03A02, T03B02, T03B04).
+
+    Everything else stays PENDING and unclaimed on purpose: an enqueue is not
+    evidence that work happened, and registering a half-handler would let a queue
+    look like a feature.
+    """
+    from fairpool.infra.audit import PostgresAuditLog
+    from fairpool.infra.clock import DbClock
+    from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.checkout.expiry import OfferExpiry
+    from fairpool.modules.notify.service import PostgresNotifier
+    from fairpool.modules.pools.close import PoolCloseService
+    from fairpool.modules.search.handlers import search_index_handler
+    from fairpool.modules.search.indexer import build_search_indexer
+
+    clock, audit, jobs = DbClock(), PostgresAuditLog(), PostgresJobQueue()
+    expiry = OfferExpiry(engine=checkout_engine(settings), jobs=jobs)
+    close = PoolCloseService(
+        clock, audit, jobs, PostgresNotifier(), payment_mode=settings.payment_mode
+    )
+    return {
+        "pool.open": pool_service(settings).open,
+        "pool.close": close.close,
+        "offer.expire": expiry.expire,
+        "search.index": search_index_handler(build_search_indexer(settings)),
+    }
 
 
 def ai_client(settings: Settings):

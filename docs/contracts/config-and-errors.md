@@ -130,6 +130,7 @@ Response shape in `api.md`. Codes are UPPER_SNAKE.
 | PAYPAL_LINK_REQUIRED | 403 | The pool needs a linked PayPal account |
 | PAYPAL_LINK_CONFLICT | 409 | Account key already linked to another user, or relink blocked by active entries |
 | REQUEST_INVALID | 422 | Confirmed request fails pool validation |
+| PROVIDER_DECLINED | 400 | The provider declined or cancelled the Log-in-with-PayPal step; nothing is written (CR-3) |
 | RULES_MISMATCH | 409 | The confirmed request was frozen against a different rules document than the pool's (CR-3) |
 | INTEGRITY_ERROR | 500 | A stored record that must exist is missing or fails re-validation (an entry without a receipt, a canonical request whose hash no longer matches); never a silent skip and never an invented value (CR-3) |
 | NO_MATCHING_POOL | 404 | No open pool matches |

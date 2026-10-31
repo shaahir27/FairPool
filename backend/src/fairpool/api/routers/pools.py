@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session
 from fairpool.db.models.catalog import Pool
 from fairpool.db.models.enums import PoolStatus
+from fairpool.db.session import create_engine
+from fairpool.modules.pools.events import stream_pool_events
 from fairpool.modules.pools.service import rules_document, summary
 
 router = APIRouter()
@@ -78,8 +81,29 @@ async def pools_rules(pool_id: UUID, db: AsyncSession = Depends(database_session
     "/api/v1/pools/{pool_id}/events",
     operation_id="pools_events",
 )
-async def pools_events(pool_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def pools_events(pool_id: UUID, request: Request):
+    # Public feed (api.md "Server-sent events"): pool_status, lot_status and
+    # tick only; the generator opens short read sessions and holds no lock.
+    if not hasattr(request.app.state, "session_factory"):
+        settings = request.app.state.settings
+        if settings is None:
+            raise HTTPException(500, "INTERNAL_ERROR")
+        request.app.state.engine = create_engine(settings)
+        request.app.state.session_factory = async_sessionmaker(
+            request.app.state.engine, expire_on_commit=False
+        )
+    factory = request.app.state.session_factory
+    async with factory() as probe:
+        exists = await probe.scalar(
+            text("SELECT status FROM pools WHERE id = :id"), {"id": pool_id}
+        )
+    if exists is None or str(exists) == PoolStatus.DRAFT.value:
+        raise HTTPException(404, "NOT_FOUND")
+    return StreamingResponse(
+        stream_pool_events(factory, pool_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 async def public_pool(db: AsyncSession, pool_id: UUID) -> Pool:

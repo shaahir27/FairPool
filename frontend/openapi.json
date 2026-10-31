@@ -1461,6 +1461,25 @@
         "title": "EntryStatusResponse",
         "type": "object"
       },
+      "EntryWithdrawResponse": {
+        "properties": {
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "entry_status": {
+            "title": "Entry Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "entry_status"
+        ],
+        "title": "EntryWithdrawResponse",
+        "type": "object"
+      },
       "ForceAwardRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3217,6 +3236,40 @@
         "title": "RulesResponse",
         "type": "object"
       },
+      "SearchReindexResponse": {
+        "description": "One page of public documents re-enqueued for indexing (T03B02).",
+        "properties": {
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "enqueued": {
+            "title": "Enqueued",
+            "type": "integer"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "documents",
+          "enqueued",
+          "has_more"
+        ],
+        "title": "SearchReindexResponse",
+        "type": "object"
+      },
       "ShipmentInput": {
         "additionalProperties": false,
         "properties": {
@@ -4781,6 +4834,29 @@
         "operationId": "admin_search_reindex",
         "parameters": [
           {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
             "in": "header",
             "name": "X-CSRF-Token",
             "required": false,
@@ -4801,7 +4877,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SearchReindexResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -5677,6 +5755,7 @@
     },
     "/api/v1/intake/manual": {
       "post": {
+        "description": "The deterministic half of intake (CR-3 pull-forward from T04B01).\n\nNo AI is involved and nothing here depends on T02B03: the buyer's own form is\nvalidated against the pool's frozen template and stored as the immutable\nconfirmed request the join endpoint consumes.",
         "operationId": "intake_manual",
         "parameters": [
           {
@@ -8050,6 +8129,22 @@
           },
           {
             "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "X-CSRF-Token",
             "required": false,
             "schema": {
@@ -8140,7 +8235,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/EntryWithdrawResponse"
+                }
               }
             },
             "description": "Successful Response"

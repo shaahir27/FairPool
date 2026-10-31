@@ -46,6 +46,9 @@ _SENSITIVE_KEY = re.compile(
     r"(?:secret|token|assertion|password|approval|client_secret|payment_token|vault)",
     re.IGNORECASE,
 )
+_EXACT_SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
+    {"code", "state", "nonce", "payer_id", "access_token", "refresh_token", "setup_token_id"}
+)
 _APPROVAL_URL = re.compile(
     r"https://(?:www\.)?sandbox\.paypal\.com/"
     r"[^\s\"'<>]*(?:checkoutnow|approve|webapps|token=|approval_session_id=|ba_token=)"
@@ -54,6 +57,14 @@ _APPROVAL_URL = re.compile(
 )
 _BEARER = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=\-]+")
 _AGENT_TOKEN = re.compile(r"\b(?:fpd|fpm)_[A-Za-z0-9._\-]+")
+# An OAuth authorization code, the single-use state, the nonce and the PayPal
+# payer id arrive in a query string, so any access or error line that echoes the
+# URL would leak a live credential. \b keeps `from_state=` and `to_state=` (which
+# are diagnostics, not secrets) out of the mask.
+_OAUTH_PARAM = re.compile(
+    r"(?i)\b(code|state|nonce|PayerID|ba_token|auth_code)(\"'?\s*[=:]\s*)"
+    r"(\"[^\"]*\"|'[^']*'|[^\s,;&\"']+)"
+)
 _KEY_VALUE = re.compile(
     r"(?i)\b("
     r"[A-Za-z0-9_.\-]*(?:secret|token|assertion|password|approval|vault)[A-Za-z0-9_.\-]*"
@@ -74,7 +85,8 @@ def redact_text(text: str) -> str:
     masked = _APPROVAL_URL.sub(REDACTED_URL, text)
     masked = _BEARER.sub(f"Bearer {REDACTED}", masked)
     masked = _AGENT_TOKEN.sub(REDACTED, masked)
-    return _KEY_VALUE.sub(_mask_key_value, masked)
+    masked = _KEY_VALUE.sub(_mask_key_value, masked)
+    return _OAUTH_PARAM.sub(_mask_key_value, masked)
 
 
 class RedactionFilter(logging.Filter):
@@ -90,7 +102,7 @@ class RedactionFilter(logging.Filter):
             if key in _STANDARD_RECORD_KEYS or key == "message":
                 continue
             value = record.__dict__[key]
-            if _SENSITIVE_KEY.search(key):
+            if _SENSITIVE_KEY.search(key) or key in _EXACT_SENSITIVE_KEYS:
                 record.__dict__[key] = REDACTED
             elif isinstance(value, str):
                 record.__dict__[key] = redact_text(value)
