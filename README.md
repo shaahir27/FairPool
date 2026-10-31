@@ -33,15 +33,15 @@ FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **
 
 ## Current status
 
-Last updated: **30 October 2026.**
+Last updated: **31 October 2026.**
 
 | | Status |
 |---|---|
 | Phase 0, bootstrap and contract freeze | **Complete.** `contracts-v1` and `ig-0` are tagged. |
-| Phase 1, data, platform and shell foundations | **In progress.** The database schema and migration, platform services, complete API contract, port fakes and frontend shell are in the repository. The hosted skeleton and the final S2 PayPal check are pending before IG-1. |
+| Phase 1, data, platform and shell foundations | **Complete — IT-1 green.** The database schema and migration, platform services, complete API contract, port fakes, hosted skeleton and S2 check are done. Tagged `ig-1`. |
 | Phase 2 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
 
-**What works now:** `make setup`, `make verify`, the 32-table Postgres migration, the 287 backend tests and 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, and the placeholder frontend shell.
+**What works now:** `make setup`, `make verify`, the 32-table Postgres migration, the 287 backend tests and 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, the placeholder frontend shell, and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase.
 
 **What does not work yet:** no buyer can join a pool, no merchant can bid, no offer or checkout exists, no PayPal call is made by the application, and no AI call runs. The new API handlers are stubs that fail with the standard error envelope until later phases replace them. The frontend pages are labelled Phase 1 placeholders.
 
@@ -278,7 +278,7 @@ make verify
 | `make openapi-check` | Export and verify the ten Merchant Agent API operations |
 | `make secrets` | gitleaks history scan |
 | `make verify` | Every check above that runs in CI |
-| `make gate-check GATE=ig-1` | `verify` plus the migration check and frontend build; hosted steps are manual |
+| `make gate-check GATE=ig-1` | `verify` plus the migration check and frontend build; hosted IT-1 steps are recorded in `docs/progress.md` |
 | `make lock` | Regenerate hashed lock files |
 | `cd frontend && npm run gen:api` | Regenerate typed API types from the committed OpenAPI snapshot |
 
@@ -349,18 +349,18 @@ Current local count: **287 backend tests** and **14 frontend tests**. The fairne
 
 ## Deployment
 
-The blueprint is [deploy/render.yaml](deploy/render.yaml). The Phase 1 skeleton is configured on Render's **free** tier:
+The live Phase 1 skeleton is deployed on Render's **free** tier and grouped in the Render project **`fairpool`** → environment **`production`**:
 
-- a free Docker web service for the API;
-- a free static frontend built from `frontend/`;
-- a free PostgreSQL 16 database;
-- public HTTPS on 443 for the webhook listener and the SDK domain;
-- every secret set in the Render dashboard, never in the file;
-- **no background worker in the free skeleton.**
+- API: <https://fairpool-api.onrender.com> — free Docker web service, health check `/health`;
+- Frontend: <https://fairpool-frontend.onrender.com> — free static site, SPA rewrite to `index.html`;
+- Database: **Supabase free Postgres** (session pooler, PostgreSQL 17); the Render Postgres was deleted after the switch;
+- No background worker in the free skeleton.
 
-Free-tier limits: the web service sleeps after 15 minutes idle, there is no free background worker, and free Postgres expires about 30 days after creation. That is enough to verify the hosted `/health`, `/ready` and webhook stub, but not for the live demo. The worker and paid web/Postgres instances must be restored before **2026-11-20** per [docs/decisions.md](docs/decisions.md) BD-05, and before the free Postgres expires.
+The services were created through the Render API because Blueprint creation is dashboard-only. [deploy/render.yaml](deploy/render.yaml) remains the self-contained reference for a free Render stack; it still declares a Render Postgres, which the live deployment does not use.
 
-**Current deployment status:** the hosted skeleton URL is not recorded yet. The owner must create the Blueprint, enter the secrets, run the migration once against the external database URL, and set `PUBLIC_BASE_URL`, `FRONTEND_BASE_URL` and `CORS_ORIGINS`. The hosted URL will be recorded in [docs/progress.md](docs/progress.md) when that is done.
+**IT-1 evidence (2026-10-31):** migration `0001` applied (32 application tables plus `alembic_version`, 21 enums); `/health` 200; `/ready` 200 (`database` and `migrations` ok); `POST /webhooks/paypal` 200 with the raw body stored and duplicate events suppressed; frontend `/` and `/settings` serve the SPA. Recorded in [docs/progress.md](docs/progress.md).
+
+Free-tier limits: the Render API sleeps after 15 minutes idle and there is no free worker; free Supabase pauses after about 7 days of inactivity. That is enough to verify the hosted skeleton, but not for the live demo. Restore the worker and paid Render web service before **2026-11-20** per [docs/decisions.md](docs/decisions.md) BD-05. The final QA checklist currently calls for a paid Postgres for judging; that database decision and a Supabase keep-alive are still open.
 
 ---
 
