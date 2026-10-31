@@ -1,6 +1,6 @@
 {
-  "status": "pending",
-  "selected_backend": "postgres",
+  "status": "passed",
+  "selected_backend": "elastic",
   "measured_at": "2026-10-31T07:01:34.769524+00:00",
   "dataset": {
     "documents": [
@@ -206,11 +206,176 @@
     ]
   },
   "elastic": {
-    "status": "pending",
-    "reason": "No exported Elastic endpoint/API key; comparison not run",
-    "documentation": "https://www.elastic.co/docs/solutions/search/hybrid-semantic-text",
+    "status": "passed",
+    "endpoint_version": "9.5.5",
+    "license": {
+      "type": "enterprise",
+      "expiry_date": "2028-02-29T23:59:59.999Z"
+    },
+    "inference_id": ".jina-embeddings-v5-text-small",
+    "index": "fairpool_s8_69def09985 (temporary; deleted)",
+    "documents": 20,
+    "queries": 10,
+    "bulk_errors": false,
+    "request_shape": "RRF of BM25 match on search_text and semantic query on semantic_text",
+    "recall_at_5": 1.0,
+    "results": [
+      {
+        "query": "big 4k screen for my desk",
+        "expected_id": 0,
+        "top_five": [
+          0,
+          10,
+          1,
+          17,
+          2
+        ],
+        "hit": true,
+        "latency_ms": 272.3
+      },
+      {
+        "query": "quiet wireless keyboard",
+        "expected_id": 3,
+        "top_five": [
+          3,
+          4,
+          5,
+          15,
+          6
+        ],
+        "hit": true,
+        "latency_ms": 246.2
+      },
+      {
+        "query": "mouse wrist support vertical",
+        "expected_id": 6,
+        "top_five": [
+          6,
+          5,
+          18,
+          19,
+          17
+        ],
+        "hit": true,
+        "latency_ms": 233.4
+      },
+      {
+        "query": "podcast usb microphone",
+        "expected_id": 7,
+        "top_five": [
+          7,
+          8,
+          11,
+          15,
+          3
+        ],
+        "hit": true,
+        "latency_ms": 205.5
+      },
+      {
+        "query": "4k camera for streaming",
+        "expected_id": 10,
+        "top_five": [
+          10,
+          0,
+          9,
+          1,
+          8
+        ],
+        "hit": true,
+        "latency_ms": 298.3
+      },
+      {
+        "query": "laptop docking ports usb",
+        "expected_id": 11,
+        "top_five": [
+          11,
+          19,
+          7,
+          5,
+          3
+        ],
+        "hit": true,
+        "latency_ms": 211.3
+      },
+      {
+        "query": "portable solid state storage",
+        "expected_id": 12,
+        "top_five": [
+          12,
+          13,
+          11,
+          19,
+          17
+        ],
+        "hit": true,
+        "latency_ms": 387.2
+      },
+      {
+        "query": "headphones noise cancelling",
+        "expected_id": 14,
+        "top_five": [
+          14,
+          15,
+          8,
+          7,
+          3
+        ],
+        "hit": true,
+        "latency_ms": 229.9
+      },
+      {
+        "query": "warm adjustable lamp",
+        "expected_id": 16,
+        "top_five": [
+          16,
+          17,
+          19,
+          18,
+          4
+        ],
+        "hit": true,
+        "latency_ms": 217.0
+      },
+      {
+        "query": "office chair lumbar",
+        "expected_id": 18,
+        "top_five": [
+          18,
+          5,
+          17,
+          19,
+          16
+        ],
+        "hit": true,
+        "latency_ms": 262.3
+      }
+    ],
+    "previous_attempt": {
+      "inference_id": ".multilingual-e5-small-elasticsearch",
+      "status": "failed",
+      "reason": "429 no ML nodes with sufficient capacity; bulk had errors; temporary index deleted"
+    },
+    "cleanup": "temporary Elastic index deleted; PostgreSQL baseline unchanged",
     "trial_start": null,
     "trial_end": null
   },
-  "acceptance": "Keep PostgreSQL until live Elastic query success and recall >= baseline are recorded"
+  "acceptance": "Elastic hybrid query succeeded and recall@5 >= the PostgreSQL baseline; Elastic selected; apply SEARCH_BACKEND=elastic and ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small.",
+  "accepted_at": "2026-10-31T10:33:26.190566+00:00",
+  "decision": "Elastic hybrid query succeeded with recall@5 1.0, equal to the PostgreSQL baseline 1.0; the plan acceptance rule selects Elastic. SEARCH_BACKEND=elastic and ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small are applied in .env and Render.",
+  "limitation": "No Elastic trial was available; the cluster reports an enterprise license. Similarity remains advisory and never changes a bid's status.",
+  "limitations": [
+    "The local .multilingual-e5-small-elasticsearch endpoint has no ML-node capacity (429), so the managed .jina-embeddings-v5-text-small endpoint was used.",
+    "No Elastic trial; the live cluster reports an enterprise license expiring 2028-02-29."
+  ],
+  "config_applied": {
+    "SEARCH_BACKEND": "elastic",
+    "ELASTIC_INFERENCE_ID": ".jina-embeddings-v5-text-small",
+    "where": [
+      ".env",
+      "deploy/render.yaml (search env group)",
+      "Render live service"
+    ],
+    "verified": "Render env group and service updated via API; deploy live; /health 200 and /ready 200"
+  }
 }

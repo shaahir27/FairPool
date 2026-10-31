@@ -201,6 +201,14 @@ async def test_vault_capture_unknown_preserves_known_order_identity(monkeypatch)
     assert keys[0] != keys[1] and len(set(keys[1:])) == 1
 
 
+async def test_fake_drops_webhooks_and_lists_none():
+    from fairpool.fakes.payments import FakePayPalGateway
+
+    fake = FakePayPalGateway()
+    assert await fake.verify_webhook({}, b"{}") is False
+    assert await fake.list_webhooks() == []
+
+
 async def test_fake_timeout_after_send_is_retrievable():
     from fairpool.fakes.payments import FakePayPalGateway
 

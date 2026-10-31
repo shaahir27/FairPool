@@ -49,7 +49,10 @@ async def test_pool_publication_freezes_rules_and_enqueues_atomically(db_session
     pool = await service.create(db_session, actor_id=admin, payload=PoolInput.model_validate(data))
     assert pool.status == "DRAFT"
     await service.publish(db_session, pool.id, actor_id=admin)
-    assert pool.rules_hash == rules_hash(rules_document(pool))
+    document = rules_document(pool)
+    assert document["disclosures"] == {"lots_may_differ": True}
+    assert pool.search_text == "Fictional monitor pool sample-monitor black NEW monitor NY"
+    assert pool.rules_hash == rules_hash(document)
     pool.beacon = {**pool.beacon, "randomness": "aa" * 32, "signature": "bb" * 64}
     assert pool.rules_hash == rules_hash(rules_document(pool))
     jobs = (

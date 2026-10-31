@@ -39,11 +39,12 @@ Last updated: **31 October 2026.**
 |---|---|
 | Phase 0, bootstrap and contract freeze | **Complete.** `contracts-v1` and `ig-0` are tagged. |
 | Phase 1, data, platform and shell foundations | **Complete — IT-1 green.** The database schema and migration, platform services, complete API contract, port fakes, hosted skeleton and S2 check are done. Tagged `ig-1`. |
-| Phase 2 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
+| Phase 2, core engines | **Implemented on `phase-2`; IG-2 open.** PayPal raw-REST gateway, ledger, identity, catalog and the Gemini AI adapter with tests. Sandbox C-01 to C-07 pass; S4 verified levels 1-2; S8 selected Elastic. The full live Gemini evaluation awaits quota, so `ig-2` is not tagged. |
+| Phase 3 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
 
-**What works now:** `make setup`, `make verify`, the 32-table Postgres migration, the 287 backend tests and 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, the placeholder frontend shell, and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase.
+**What works now:** `make setup`, `make verify`, the 32-table Postgres migration plus migration 0002, the 352 backend tests and 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, the Phase 2 engines, and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase.
 
-**What does not work yet:** no buyer can join a pool, no merchant can bid, no offer or checkout exists, no PayPal call is made by the application, and no AI call runs. The new API handlers are stubs that fail with the standard error envelope until later phases replace them. The frontend pages are labelled Phase 1 placeholders.
+**What does not work yet:** no buyer can join a pool, no merchant can bid, no offer or checkout exists, no application flow calls PayPal, and the live AI evaluation has not passed. The new API handlers are stubs that fail with the standard error envelope until later phases replace them. The frontend pages are labelled Phase 1 placeholders.
 
 The honest summary: this repository is the foundation and the frozen contract, not a live marketplace.
 
@@ -307,7 +308,7 @@ Key values for a local run:
 | `PAYMENT_ROUTER=single_seller` | The only usable Sandbox route; labelled on screen |
 | `DEDUPE_MODE=two_keys` | Login and checkout identifiers are separate provider keys |
 | `WEBHOOKS_ENABLED=false` | Enable only when the verified handler ships |
-| `SEARCH_BACKEND=postgres` | Postgres trigram fallback unless S8/T02B04 selects Elastic |
+| `SEARCH_BACKEND` | `postgres` fallback, or `elastic` when `ELASTICSEARCH_URL` and the API key are set; S8 verified `ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small` |
 | `AI_ENABLED` | Turns the AI adapter on when a key is present |
 
 Never commit `.env`. The PayPal host guard accepts only `https://api-m.sandbox.paypal.com` and `https://www.sandbox.paypal.com` on port 443.

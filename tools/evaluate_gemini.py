@@ -69,8 +69,22 @@ def assessment(case: dict[str, Any], output: Any, unavailable: bool) -> list[str
     return errors
 
 
-async def evaluate(report_path: Path, rpm: int) -> int:
-    dataset = cases()
+async def evaluate(
+    report_path: Path,
+    rpm: int,
+    case_ids: list[str] | None = None,
+    runs: int = 3,
+) -> int:
+    all_cases = cases()
+    if case_ids:
+        wanted = set(case_ids)
+        known = {c["id"] for c in all_cases}
+        unknown = wanted - known
+        if unknown:
+            raise SystemExit(f"Unknown case ids: {', '.join(sorted(unknown))}")
+        dataset = [c for c in all_cases if c["id"] in wanted]
+    else:
+        dataset = all_cases
     model_parse = os.environ.get("AI_MODEL_PARSE", "gemini-3.5-flash-lite")
     model_sim = os.environ.get("AI_MODEL_SIM", "gemini-3.5-flash-lite")
     fingerprint = dict(
@@ -86,6 +100,7 @@ async def evaluate(report_path: Path, rpm: int) -> int:
         started_at=datetime.now(UTC).isoformat(),
         status="pending",
         reason=None,
+        selection={"case_ids": case_ids, "runs": runs},
         results=[],
     )
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,7 +143,7 @@ async def evaluate(report_path: Path, rpm: int) -> int:
 
     ai.before_attempt = limited
     try:
-        for run in range(1, 4):
+        for run in range(1, runs + 1):
             for case in dataset:
                 before = len(logger.attempts)
                 output, unavailable = None, False
@@ -156,17 +171,21 @@ async def evaluate(report_path: Path, rpm: int) -> int:
         await ai.close()
     results = report["results"]
     extraction = [r for r in results if r["task"] in {"INTAKE", "QUOTE"}]
-    accuracy = sum(r["matched_fields"] for r in extraction) / sum(
-        r["expected_fields"] for r in extraction
-    )
+    if extraction:
+        accuracy = sum(r["matched_fields"] for r in extraction) / sum(
+            r["expected_fields"] for r in extraction
+        )
+        case_accuracy = sum(not r["errors"] for r in extraction) / len(extraction)
+    else:
+        accuracy = case_accuracy = 0.0
     report["exact_extraction_field_accuracy"] = accuracy
-    report["exact_extraction_case_accuracy"] = sum(not r["errors"] for r in extraction) / len(
-        extraction
-    )
+    report["exact_extraction_case_accuracy"] = case_accuracy
     report["completed_at"] = datetime.now(UTC).isoformat()
     report["status"] = (
         "passed"
-        if len(results) == 480 and accuracy >= 0.95 and not any(r["errors"] for r in results)
+        if len(results) == len(dataset) * runs
+        and accuracy >= 0.95
+        and not any(r["errors"] for r in results)
         else "failed"
     )
     save()
@@ -183,10 +202,22 @@ def main() -> int:
         help="The account's verified quota; includes validation retries",
     )
     parser.add_argument("--report", type=Path, default=ROOT / "docs/evidence/phase2/gemini.json")
+    parser.add_argument(
+        "--case-ids",
+        help="Comma-separated case IDs for a diagnostic subset",
+    )
+    parser.add_argument("--runs", type=int, default=3)
     args = parser.parse_args()
     if args.requests_per_minute < 1:
         parser.error("quota must be positive")
-    return asyncio.run(evaluate(args.report, args.requests_per_minute))
+    if args.runs < 1:
+        parser.error("runs must be positive")
+    ids = (
+        [item.strip() for item in args.case_ids.split(",") if item.strip()]
+        if args.case_ids
+        else None
+    )
+    return asyncio.run(evaluate(args.report, args.requests_per_minute, ids, args.runs))
 
 
 if __name__ == "__main__":

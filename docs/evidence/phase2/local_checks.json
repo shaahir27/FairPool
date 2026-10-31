@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "backend": {
-    "passed": 350,
+    "passed": 352,
     "domain_coverage_percent": "98.60",
     "sandbox_tests": "7 skipped, not passed"
   },

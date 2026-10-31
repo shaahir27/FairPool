@@ -1,4 +1,12 @@
 {
-  "status": "pending",
-  "reason": "Requires app-owning seller credentials and human Sandbox approval. PAYPAL_PAYLOAD_LEVEL remains 0; no unverified level enabled; no payment resources created in this run."
+  "status": "passed",
+  "source": "tools/fairpool_spike_check.py run --only s4, run 8e91a3b6",
+  "run_at": "2026-10-31T08:24:16.728256+00:00",
+  "highest_verified_level": 2,
+  "level_1": "passed: custom_id + invoice_id accepted; replay 200 with the same order",
+  "level_2": "passed: breakdown/items accepted; mismatching breakdown rejected 422 AMOUNT_MISMATCH",
+  "level_3": "not verified: non-interactive run did not complete approval/address-lock attestation; create returned HTTP 200 and the harness marked it failed",
+  "level_4": "unavailable per S3",
+  "cleanup": "Sandbox orders only; no captures or refunds",
+  "note": "PAYPAL_PAYLOAD_LEVEL remains 0 in the app; the verified ladder supports up to level 2."
 }

@@ -52,8 +52,6 @@ services:
         sync: false
       - key: ELASTICSEARCH_API_KEY
         sync: false
-      - key: ELASTIC_INFERENCE_ID
-        sync: false
 
   - type: web
     name: fairpool-frontend
@@ -121,7 +119,9 @@ envVarGroups:
   - name: search
     envVars:
       - key: SEARCH_BACKEND
-        value: postgres
+        value: elastic
+      - key: ELASTIC_INFERENCE_ID
+        value: .jina-embeddings-v5-text-small
       - key: ELASTIC_INDEX_PREFIX
         value: fairpool
       - key: SIMILARITY_CHECK_ENABLED
