@@ -122,6 +122,15 @@ class VaultStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class VaultSetupStatus(StrEnum):
+    """One save-PayPal attempt (CR-3). QUARANTINED is a token that arrived too late."""
+
+    PENDING = "PENDING"
+    EXCHANGED = "EXCHANGED"
+    FAILED = "FAILED"
+    QUARANTINED = "QUARANTINED"
+
+
 class MerchantOnboarding(StrEnum):
     NONE = "NONE"
     PENDING = "PENDING"
@@ -206,6 +215,7 @@ ENUM_TYPES: dict[str, type[StrEnum]] = {
     "payment_router": PaymentRouter,
     "payment_mode": PaymentMode,
     "vault_status": VaultStatus,
+    "vault_setup_status": VaultSetupStatus,
     "merchant_onboarding": MerchantOnboarding,
     "flag_severity": FlagSeverity,
     "flag_code": FlagCode,

@@ -24,3 +24,8 @@ class FakeClock:
 
     async def db_now(self, session: AsyncSession) -> datetime:
         return self._now
+
+    async def db_wall_now(self, session: AsyncSession) -> datetime:
+        # Same value in the fake: a test that wants a lock-wait across a deadline
+        # advances the clock explicitly, which is the whole point of using a fake.
+        return self._now

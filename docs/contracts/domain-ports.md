@@ -158,13 +158,12 @@ Member B never imports checkout code. The two members meet only at HTTP (`api.md
 @dataclass(frozen=True)
 class SetupRedirect:
     approve_url: str          # full URL never reaches a log, an audit row or a prompt
-    operation_key: str        # the vault_setup_attempts row identity this attempt owns
+    setup_token_id: str       # the provider's setup token, for the vault service to encrypt and store
 
 @dataclass(frozen=True)
-class VaultPermission:
-    entry_id: UUID
-    status: str               # vault_status: SETUP_PENDING | ACTIVE | DELETED | FAILED
-    label: str | None         # last four characters only; the token itself never leaves the ciphertext column
+class SavedPermission:
+    payment_token_id: str     # a credential: encrypt on arrival, never log, return, audit or prompt
+    label: str                # last four characters only
 
 class PaymentRouter(Protocol):
     def payee_for(self, award, payee_ref) -> Payee: ...
@@ -172,14 +171,25 @@ class PaymentRouter(Protocol):
     async def charge_vault(self, session, *, buyer_order_id, amount_cents,
                            idempotency_key: str) -> CaptureResult: ...   # BO-23 to BO-27
 
-class PaymentVault(Protocol):                                    # never runs against a live host in Phase 3
-    async def start_setup(self, session, *, entry_id: UUID) -> SetupRedirect: ...
-    async def exchange(self, session, *, entry_id: UUID, setup_token: str) -> VaultPermission: ...
-    async def delete(self, session, *, entry_id: UUID) -> VaultPermission: ...   # 404 counts as deleted
+class PaymentVaultProvider(Protocol):        # provider-facing: takes no session, does no database write
+    async def start_setup(self, entry_id: UUID) -> SetupRedirect: ...
+    async def exchange(self, entry_id: UUID, setup_token_id: str) -> SavedPermission: ...
+    async def delete(self, payment_token_id: str) -> None: ...           # provider 404 counts as deleted
+
+@dataclass(frozen=True)
+class VaultPermission:
+    entry_id: UUID
+    status: str               # vault_status: SETUP_PENDING | ACTIVE | DELETED | FAILED
+    label: str | None         # last four characters only; the token itself never leaves the ciphertext column
+
+class PaymentVault(Protocol):                # the vault service both lanes may call (B owns it from IG-3)
+    async def start(self, session, *, entry_id: UUID) -> SetupRedirect: ...
+    async def complete(self, session, *, entry_id: UUID, setup_token_id: str) -> VaultPermission: ...
+    async def withdraw(self, session, *, entry_id: UUID) -> VaultPermission: ...
     async def status(self, session, *, entry_id: UUID) -> VaultPermission: ...
 ```
 
-Rules: `start_setup` and `exchange` perform their provider I/O **outside** any transaction that holds a pool, lot or entry lock; the state change that follows runs in its own transaction with its audit row. `FakePaymentVault` is the only implementation Phase 3 and the simulation may use (`I12`), it is scriptable to ACTIVE, decline and unknown-outcome paths, and it records calls so tests can assert that no network client was built for a synthetic entry. Under `PAYMENT_MODE=vault_charge` with real saving not yet shipped, `VAULT_REAL_SAVE_ENABLED=false` makes `start_setup` refuse with `FEATURE_DISABLED` rather than half-save; nothing else changes (see `decisions.md` DEP-5).
+Rules: `PaymentVault` owns the database side — the `vault_setup_attempts` row, the encrypted `vault_tokens` row, the quarantine decision — and calls `PaymentVaultProvider` for the three provider steps **outside** any transaction that holds a pool, lot or entry lock, then writes the result in its own transaction with its audit row. `FakePaymentVaultProvider` is the only provider implementation Phase 3 and the simulation may use (`I12`): it issues local, inert approve URLs and token ids, is scriptable to ACTIVE, decline and unknown-outcome paths, and records calls so a test can prove no network client was built for a synthetic entry. Under `PAYMENT_MODE=vault_charge` with real saving not yet shipped, `VAULT_REAL_SAVE_ENABLED=false` makes `start` refuse with `FEATURE_DISABLED` rather than half-save; nothing else changes (see `decisions.md` DEP-5).
 
 
 

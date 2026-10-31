@@ -154,3 +154,34 @@ class EntryReceipt(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
+
+
+class ConfirmedRequest(Base):
+    """The durable record behind a join's ``confirmed_request_id`` (CR-3, T03B01).
+
+    Immutable except for the two ``consumed_*`` columns: the cap and the request a
+    receipt was issued over must not be movable afterwards.
+    """
+
+    __tablename__ = "confirmed_requests"
+    __table_args__ = (Index("ix_confirmed_requests_pool_user", "pool_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    pool_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pools.id"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    rules_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    canonical_request: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    request_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    cap_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    zone_id: Mapped[str] = mapped_column(Text, nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consumed_by_entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pool_entries.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
