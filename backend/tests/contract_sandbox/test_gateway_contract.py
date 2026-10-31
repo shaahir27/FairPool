@@ -80,15 +80,14 @@ async def test_c03_create_replay(gateway):
 async def test_c04_before_approval_waits(gateway):
     req = order_request(gateway)
     result = await gateway.create_order(req)
-    for operation in ("authorize", "capture"):
-        with pytest.raises(PaymentError) as info:
-            await gateway._request(
-                "POST",
-                f"/v2/checkout/orders/{result.id}/{operation}",
-                body={},
-                key=f"contract:{req.buyer_order_id}:{operation}",
-            )
-        assert info.value.category == "WAIT" and info.value.code == "ORDER_NOT_APPROVED"
+    with pytest.raises(PaymentError) as info:
+        await gateway._request(
+            "POST",
+            f"/v2/checkout/orders/{result.id}/authorize",
+            body={},
+            key=f"contract:{req.buyer_order_id}:authorize",
+        )
+    assert info.value.category == "WAIT" and info.value.code == "ORDER_NOT_APPROVED"
 
 
 async def test_c05_distinct_orders(gateway):

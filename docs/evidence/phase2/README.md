@@ -54,10 +54,11 @@ public documents and ten labelled queries. Recall@5 was 10/10; see s8.json for
 request shape, per-query latency and timestamps. Elastic comparison and trial
 dates remain pending; SEARCH_BACKEND stays postgres. Similarity is advisory.
 
-C-01 to C-07 are real Sandbox tests under backend/tests/contract_sandbox, skipped
-without explicitly exported app-owning seller credentials and always in CI.
-S4 still needs human approval and resource cleanup; no new live resources were
-created here. Existing S13 evidence is retained; hosted repeat remains later.
+C-01 to C-07 passed against Sandbox with the app-owning seller on 2026-10-31
+(7/7); C-06 uses the documented PayPal-Mock-Response test header; no captures or
+refunds. S4 still needs human approval and resource cleanup; no new live
+resources were created for S4. Existing S13 evidence is retained; hosted repeat
+remains later.
 
 `python tools/gate_check.py ig-2` runs local checks and rejects pending or stale
 evidence. Authentication throttling is intentionally per process; shared rate
