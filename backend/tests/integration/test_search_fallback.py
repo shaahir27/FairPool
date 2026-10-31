@@ -9,6 +9,7 @@ was not executed (OD-P3-3). No test here opens a network connection.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import os
 import uuid
@@ -633,9 +634,10 @@ async def test_reindex_response_model_matches_the_route() -> None:
 async def test_backends_agree_on_the_same_public_documents(db_session: AsyncSession) -> None:
     """Live Elastic parity; recorded as not executed when no cluster is configured.
 
-    The gate is `ELASTICSEARCH_URL` alone: with a URL present this test really calls
-    that cluster (a missing key or an unreachable host is a failure, not a skip), and
-    a skip is reported as a skip, never counted as a pass (OD-P3-3).
+    The gate is `ELASTICSEARCH_URL` plus the client library being importable: with a
+    URL and a client present this test really calls that cluster (a missing key or an
+    unreachable host is a failure, not a skip), and a skip is reported as a skip with
+    its reason, never counted as a pass (OD-P3-3, D-P3-02).
     """
     url = os.environ.get("ELASTICSEARCH_URL", "")
     key = os.environ.get("ELASTICSEARCH_API_KEY", "")
@@ -644,6 +646,14 @@ async def test_backends_agree_on_the_same_public_documents(db_session: AsyncSess
             "NOT RUN (OD-P3-3): ELASTICSEARCH_URL is empty in this environment, so the "
             "Elastic half of this parity check did not execute. The Postgres backend "
             "assertions above are the only live search evidence here."
+        )
+    try:
+        importlib.import_module("elasticsearch")
+    except ImportError:
+        pytest.skip(
+            "NOT RUN (D-P3-02): ELASTICSEARCH_URL is set but the official async client "
+            "is not installed here, so no live Elastic call was made. Installing the "
+            "pinned client is the fix; pretending otherwise would be a fake pass."
         )
     pool_id = await add_pool(db_session, title="Fictional zephyr pool")
     await add_lot(db_session, pool_id)
@@ -691,3 +701,54 @@ async def test_backends_agree_on_the_same_public_documents(db_session: AsyncSess
 def _shape(hit: SearchHit) -> dict[str, object]:
     """Everything a hit says about its row except the retrieval score (the float)."""
     return {key: value for key, value in vars(hit).items() if key != "score"}
+
+
+# --- the public pools list goes through the service ------------------------------
+
+
+async def test_pools_list_q_uses_the_search_service(db_session: AsyncSession) -> None:
+    """T03B02 acceptance: `GET /api/v1/pools?q=` retrieves through SearchService.
+
+    Before T03B02 this route ran a keyword LIKE and the service existed but was
+    unreachable from the public surface. A DRAFT pool must stay invisible here just
+    as it is invisible to the indexer, and a pool that does not match is absent
+    rather than ranked low (FR-IG-01, INT-1).
+    """
+    target = await add_pool(
+        db_session,
+        title="Ceramic kettle fictional pool",
+        search_text="Ceramic kettle copper pour-over",
+    )
+    other = await add_pool(
+        db_session,
+        title="Linen basket fictional pool",
+        search_text="Linen basket folded storage",
+    )
+    draft = await add_pool(
+        db_session,
+        title="Ceramic kettle fictional draft",
+        status="DRAFT",
+        search_text="Ceramic kettle copper draft",
+    )
+
+    app = create_app(make_settings())
+
+    async def db() -> Any:
+        yield db_session
+
+    app.dependency_overrides[database_session] = db
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://example.test"
+    ) as client:
+        found = (await client.get("/api/v1/pools", params={"q": "kettle copper"})).json()
+        empty = (await client.get("/api/v1/pools", params={"q": "tungsten carbide"})).json()
+
+    ids = {row["pool_id"] for row in found}
+    assert str(target) in ids
+    assert str(other) not in ids
+    assert str(draft) not in ids
+    assert empty == []
+    # Every row the ranked path returns is a public pool summary, which is the shape
+    # api.md fixes for this route; the unfiltered listing is not asserted here because
+    # the shared test database holds rows other suites committed (D-P3-01).
+    assert all({"pool_id", "title", "status", "seats"} <= set(row) for row in found)

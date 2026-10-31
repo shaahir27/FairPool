@@ -1,0 +1,7 @@
+{
+  "executed": "not executed in this session; the Oct 28 partial record stands and is not rewritten",
+  "recorded": "2026-11-01",
+  "status": "pending",
+  "what_phase_3_did": "CR-3 resolved the ingest rule: the raw body is always stored, an unconfigured PAYPAL_WEBHOOK_ID stores UNVERIFIED and enqueues nothing, and only a verified row may enqueue work. WEBHOOKS_ENABLED stays false and no money-state handler is registered.",
+  "why_pending": "Four of the seven contracted event types (CHECKOUT.ORDER.APPROVED, PAYMENT.AUTHORIZATION.VOIDED, PAYMENT.CAPTURE.PENDING, PAYMENT.CAPTURE.DENIED) cannot be produced until authorize/capture/void handlers exist in Phase 4-5, and a listener registration needs a public HTTPS URL plus the PayPal dashboard. spikes.md section S5 requires each event type to be judged separately, so an unrun type is pending, not passed."
+}

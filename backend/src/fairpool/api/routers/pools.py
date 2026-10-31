@@ -20,12 +20,28 @@ from fairpool.modules.pools.service import rules_document, summary
 router = APIRouter()
 
 
+def _search_service(request: Request):
+    """One routing search service per app: Postgres always, Elastic only if configured."""
+    from fairpool.modules.search.service import build_search_service
+
+    cached = getattr(request.app.state, "search_service", None)
+    if cached is not None:
+        return cached
+    settings = request.app.state.settings
+    if settings is None:
+        raise HTTPException(500, "INTERNAL_ERROR")
+    built = build_search_service(settings)
+    request.app.state.search_service = built
+    return built
+
+
 @router.get(
     "/api/v1/pools",
     response_model=list[schemas.PoolSummary],
     operation_id="pools_list",
 )
 async def pools_list(
+    request: Request,
     q: str | None = Query(None, max_length=200),
     status: str | None = Query(None),
     sort: str | None = Query(None),
@@ -37,16 +53,31 @@ async def pools_list(
         if status not in PoolStatus.__members__ or status == "DRAFT":
             raise HTTPException(422, "VALIDATION_ERROR")
         query = query.where(Pool.status == PoolStatus(status))
+    hits = None
     if q:
-        query = query.where(
-            Pool.search_text.ilike("%" + q.replace("%", "\\%").replace("_", "\\_") + "%")
+        # FR-IG-01: a `q` search goes through the search service, not a keyword LIKE.
+        # The service has already chosen its backend and fallen back to the Postgres
+        # trigram path if the configured one failed; retrieval never gates a result
+        # (INT-1), so an empty answer here means nothing matched, not that search broke.
+        hits = await _search_service(request).search(
+            db, q=q, kinds=["pool"], status=None, limit=limit or 20
         )
+        ids = [UUID(hit.doc_id) for hit in hits]
+        if not ids:
+            return []
+        query = query.where(Pool.id.in_(ids))
     if sort not in (None, "closing", "title"):
         raise HTTPException(422, "VALIDATION_ERROR")
     query = query.order_by(
         Pool.title if sort == "title" else Pool.timeline["close_at"].astext, Pool.id
     )
-    return [summary(p) for p in (await db.scalars(query.limit(limit or 20))).all()]
+    pools = list((await db.scalars(query.limit(limit or 20))).all())
+    if hits is not None:
+        # Keep the retrieval ranking the service produced; the SQL order above exists
+        # to make the unranked paths deterministic.
+        by_id = {pool.id: pool for pool in pools}
+        pools = [by_id[UUID(hit.doc_id)] for hit in hits if UUID(hit.doc_id) in by_id]
+    return [summary(p) for p in pools]
 
 
 @router.get(

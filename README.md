@@ -33,16 +33,17 @@ FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **
 
 ## Current status
 
-Last updated: **31 October 2026.**
+Last updated: **1 November 2026.**
 
 | | Status |
 |---|---|
 | Phase 0, bootstrap and contract freeze | **Complete.** `contracts-v1` and `ig-0` are tagged. |
 | Phase 1, data, platform and shell foundations | **Complete — IT-1 green.** The database schema and migration, platform services, complete API contract, port fakes, hosted skeleton and S2 check are done. Tagged `ig-1`. |
-| Phase 2, core engines | **Implemented on `phase-2`; IG-2 open.** PayPal raw-REST gateway, ledger, identity, catalog and the Gemini AI adapter with tests. Sandbox C-01 to C-07 pass; S4 verified levels 1-2; S8 selected Elastic. The full live Gemini evaluation awaits quota, so `ig-2` is not tagged. |
-| Phase 3 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
+| Phase 2, core engines | **Merged; IG-2 closed by owner exception, not tagged.** PayPal raw-REST gateway, ledger, identity, catalog and the Gemini AI adapter with tests. Sandbox C-01 to C-07 pass; S4 verified levels 1-2; S8 selected Elastic. The resumed Gemini run recorded 479 of 480 case checks, so automated acceptance still reports pending. |
+| Phase 3, core engines II | **Implemented on branch `phase-3`; IG-3 not passed.** Buyer-order transition engine, offer expiry and seat control, pool join with signed receipts, withdrawal and SSE, pool close with the commitment Merkle root, PayPal Login linking, search with the Postgres fallback, and the fake vault permission lifecycle. `make gate-check GATE=ig-3` runs and exits red while five evidence items stay pending (see [docs/evidence/phase3/README.md](docs/evidence/phase3/README.md)). |
+| Phase 4 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
 
-**What works now:** `make setup`, `make verify`, the 32-table Postgres migration plus migration 0002, the 352 backend tests and 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, the Phase 2 engines, and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase.
+**What works now:** `make setup`, `make verify`, the 34-table Postgres schema through migration 0003, 672 backend tests plus one documented skip, 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, the Phase 2 and Phase 3 engines, and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase. **What does not work yet:** charging a saved PayPal permission (the real save path is Phase 5, so a live-sandbox buyer cannot become eligible at close and the UI must say so), allocation, award, checkout, funding, refunds, fulfillment, the agent and merchant surfaces, and any real Elastic search call in CI (no credentials; the skip prints that reason).
 
 **What does not work yet:** no buyer can join a pool, no merchant can bid, no offer or checkout exists, no application flow calls PayPal, and the live AI evaluation has not passed. The new API handlers are stubs that fail with the standard error envelope until later phases replace them. The frontend pages are labelled Phase 1 placeholders.
 

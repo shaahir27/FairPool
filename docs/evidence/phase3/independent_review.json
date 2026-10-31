@@ -1,0 +1,14 @@
+{
+  "executed": "2026-11-01",
+  "note": "No independent review completed in this session, so this stays pending and IG-3 stays red. What was done instead, and does not substitute for a review: the plan review that produced CR-3, a per-lane verification by the integrator (every acceptance item was run against the real test database), targeted greps for direct status writes, float money, tautological assertions and network calls from the engine, and one regression test proven to discriminate.",
+  "outstanding_review_scope": [
+    "contract fidelity of CR-3 against the code as written",
+    "lock order across join, withdraw, close, link/unlink and the engine (deadlock analysis)",
+    "unknown-outcome handling in the vault and expiry paths",
+    "account and permission binding (two_keys, quarantine)",
+    "privacy boundaries of search documents and public endpoints",
+    "whether any claim in docs, comments or evidence overstates what was executed"
+  ],
+  "recorded": "2026-11-01",
+  "status": "pending"
+}

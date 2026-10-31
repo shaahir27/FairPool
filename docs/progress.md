@@ -24,7 +24,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
 | IG-2 | DONE (owner exception) | not tagged | Owner explicitly closed IG-2 on 2026-10-31 despite outstanding acceptance checks. The current Gemini evaluation recorded 479/480 case checks passing across resumed segments; one consistent offer required review. Earlier capacity parsing errors remain unresolved. CI is green for the current `main` head `88105a0` (nine jobs, 2026-11-01), which closes the pending-CI half; the gate checker still reports the Gemini evidence pending, so this closure is not an automated acceptance pass. |
-| IG-3 | IN PROGRESS | not yet | Phase 3 runs on branch `phase-3`. Gate-check support for `ig-3` and a `docs/evidence/phase3/` set are part of the work. This gate may not be tagged while the APIMatic trial decision (`OD-P3-2`) and any unrecorded spike evidence stay open. |
+| IG-3 | IN PROGRESS | not tagged | Phase 3 code is complete on branch `phase-3` and `make gate-check GATE=ig-3` runs the full automated chain green, then exits 2: `docs/evidence/phase3/` holds independent_review, s5, s11 and ci as pending. Nothing was marked passed to close a gate. |
 | IG-4 | TODO | not yet | |
 | IG-5 | TODO | not yet | |
 | IG-6 | TODO | not yet | |
@@ -80,16 +80,16 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T03A01 | A | L | IN PROGRESS | | Buyer-order transition engine (CR-3 merged first) |
-| T03A02 | A | M | IN PROGRESS | | Offer expiry and seat control |
-| T03A03 | A | S | IN PROGRESS | | Spike S5 webhooks (partly recorded Oct 28; CR-3 splits verified from unverified ingest; three event types remain unreachable in Phase 3 because authorize/capture are Phase 4-5) |
-| T03A04 | A | S | DONE | | Spike S10 PayPal MCP read-only verification |
-| T03A05 | A | S | DONE | | Spike S12 shipment tracking |
-| T03B01 | B | M | IN PROGRESS | | Pool join, receipts and events (carries the CR-3 pull-forward of the deterministic manual confirmation and the public signing-key route) |
-| T03B02 | B | M | IN PROGRESS | | Search service and indexer |
-| T03B03 | B | M | IN PROGRESS | | PayPal Login link flow |
-| T03B04 | B | S | IN PROGRESS | | Pool close (plus the close-time public audit fields) |
-| T03B05 | B | S | TODO | | Spike S11 APIMatic generation — blocked on the owner trial decision (OD-P3-2); offline generation against `sdk/merchant-openapi.json` may still be recorded |
+| T03A01 | A | L | DONE | | Buyer-order transition engine (CR-3 merged first); PT-07 runtime, PT-10, illegal-transition alert, effects rollback green |
+| T03A02 | A | M | DONE | | Offer expiry and seat control; PT-12 model-based and F5 pass. `lot.refill` handler deliberately not implemented |
+| T03A03 | A | S | IN PROGRESS | | Spike S5 webhooks (partly recorded Oct 28; CR-3 split stored/verified/processed. Four event types unreachable until Phase 4-5; `docs/evidence/phase3/s5.json` stays pending) |
+| T03A04 | A | S | DONE | | Spike S10 PayPal MCP read-only verification (Oct 28-29 evidence reused, limits recorded) |
+| T03A05 | A | S | DONE | | Spike S12 shipment tracking (Oct 28 evidence reused; no proof-of-delivery claim) |
+| T03B01 | B | M | DONE | | Pool join, receipts and events, plus the CR-3 pull-forward of the deterministic manual confirmation and the public signing key |
+| T03B02 | B | M | DONE | | Search service and indexer (Postgres live; Elastic implemented, never executed here — `OD-P3-3`) |
+| T03B03 | B | M | DONE | | PayPal Login link flow (port + fake provider; no real PayPal identity client exists yet) |
+| T03B04 | B | S | DONE | | Pool close, plus the close-time public audit fields |
+| T03B05 | B | S | BLOCKED | | Spike S11 APIMatic generation — the OpenAPI document now exists and validates at ten operations; the trial is an open owner action (`OD-P3-2`) |
 
 ### PH4: Core engines III and the first integration
 
@@ -308,6 +308,14 @@ Record planned versus actual days per phase and member at each gate. The plan is
 
 | ID | Found in | Description | Owner | Status |
 |---|---|---|---|---|
+| D-P3-01 | PH3 | Some Phase 3 tests commit rows into the shared `fairpool_test` database (the 200-parallel join race and the PT-07 walk must commit for the race to be real). Count-based assertions in other files then depend on execution order. Fix: derive every expected count from the rows the test itself created, or give the committing tests their own database. | B | OPEN |
+| D-P3-02 | PH3 | The `elasticsearch` client is not installed, so the live Elastic parity path cannot execute even where `ELASTICSEARCH_URL` is set. The skip now gates on the URL and on the client being importable, and prints which reason applied. Installing the pinned client remains a deliberate, lockfile-level decision. | B | CLOSED |
+| D-P3-03 | PH3 | `GET /api/v1/pools/{id}/entries/me` reports `vault_status` and `vault_label` as null when `VAULT_TOKEN_KEY` is unset rather than failing. Deliberate: a buyer's own page must not break over an operator setting. Recorded so it is not later read as "no permission exists". | B | RECORDED |
+| D-P3-04 | PH3 | The contracted 10-per-minute-per-user join limit is enforced per worker process (the pre-existing `AuthRateLimiter` shape, widened to sessions). Multi-process deployments see up to n times the rate. Disclosed limit, needs shared-store enforcement before it is claimed. | A | OPEN |
+| D-P3-05 | PH3 | `make setup` does not create the loopback `fairpool_test` database `db/safety.py` requires, so a clean clone cannot run `make test` until someone creates it. Fix: add it to `setup` or to `deploy/db-init.sql`. | A | OPEN |
+| D-P3-06 | PH3 | `.gitignore` lists `docs/evidence/` as disposable local output, yet the Phase 2 evidence files are tracked. `make gate-check` therefore reads a directory a clean clone does not have. Fix: drop the ignore rule and keep evidence committed (it is a gate record, not build output), or move the checks onto committed artifacts. Phase 3 evidence was force-added to follow the Phase 2 precedent. | A | OPEN |
+| D-P3-07 | PH3 | `/api/v1/pools?q=` reached the search service only after the review pass: T03B02 shipped the service, indexer and reindex route while the public listing still ran a keyword `ilike`. Now routed through `SearchService` with one route-level test. | B | CLOSED |
+| D-P2-01 | PH2 | Quote-capacity parsing can return a definite capacity from conflicting values; regression coverage still owed before unqualified AI demo acceptance. | B | OPEN |
 
 ## Submission notes
 
@@ -362,3 +370,50 @@ by exception on 2026-10-31; it is not tagged and the automated acceptance
 checks still report pending evidence. See the current gate row and Phase 2
 verification record for the later Gemini evaluation. No paid deployment was
 performed.
+
+## Phase 3 execution record (2026-11-01)
+
+Executed solo on branch `phase-3` in three authored commits, after the plan
+review that produced CR-3. Skills applied: `ponytail` (scope and the smallest
+complete change), `ponytail-review` and `verification-before-completion`
+(everything claimed below was run, and CI/git state was checked live rather
+than taken from the plan), `test-driven-development` (acceptance bullet to named
+test), `graphify` (navigation; it needed grep fallback for line-level facts).
+
+1. `89cc31f CR-3` — contracts and plan only. Fixes the five contradictions that
+   made IG-3 unreachable as written: no durable confirmed request, the vault
+   ACTIVE-before-entry circularity, `now()` at the deadline boundary, the
+   `int` vault cap, and the join/idempotency/rate-limit mechanisms being three
+   names for one undefined rule. Records `DEP-5`, `OD-P3-1` to `OD-P3-5`, the
+   PT-14 split, and the trial, Elastic and webhook blockers.
+2. `6d915c6` — migration 0003, `Clock.db_wall_now`, the `PaymentVault` /
+   `PayPalIdentity` ports, the pure guard module, the buyer-order engine and
+   offer expiry with their tests (PT-07 runtime, PT-10, PT-12, F5).
+3. `66eaefa` — join with signed receipts, withdrawal, SSE, public signing key,
+   pool close with the vector-checked Merkle snapshot, PayPal Login linking,
+   the fake vault lifecycle, search with Postgres fallback and admin reindex,
+   the worker registry for exactly the four implemented kinds, plus PT-13,
+   PT-14 (Phase 3 form), F14, F15, F16 and the privacy tests.
+
+Measured, not asserted: 659 offline tests and 8 fault tests pass, one test is
+skipped with a printed reason (no Elastic credentials), `ruff check`,
+`ruff format --check`, `mypy --strict` over `domain/` and `modules/`,
+`tools/check_imports.py`, `tools/validate_docs.py`, frontend lint, 14 frontend
+tests and the frontend build are all clean, and `tools/check_migrations.py`
+passes the full round trip on a disposable database.
+
+`make gate-check GATE=ig-3` now exists, runs the whole automated chain green
+(lint, strict typing, 659 offline tests, import boundaries, docs, OpenAPI,
+frontend lint/tests/build, Alembic round trip, migration verification, the fault
+suite, generated artifacts and gitleaks) and then exits 2, listing
+independent_review, s5, s11 and ci as pending. That is the correct state: `ig-3`
+may not be tagged until those are real, and no evidence file was marked passed to
+make it look otherwise.
+
+Owner actions IG-3 cannot pass without:
+- decide `OD-P3-2` (start the APIMatic trial, or move the requirement);
+- provide or waive Elastic credentials and record the cluster provenance and
+  trial dates that `spikes.md` S8 asks for;
+- confirm the sandbox webhook listener and URL for `T03A03`, and accept that
+  four event types are physically unobservable until Phase 4-5;
+- push `phase-3` and run remote CI before any tag; the branch is local.

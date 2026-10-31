@@ -1,0 +1,7 @@
+{
+  "basis": "Pinned Oct 28 evidence: Orders v2 POST .../track returned 201, GET returned the tracker, a repeat stayed at one tracker, legacy batch endpoint 403; SHIPMENT_TRACKING_ENABLED=true.",
+  "executed_now": false,
+  "limits": "Dashboard visibility, carrier updates and delivery are NOT established, so no proof-of-shipment or seller-protection claim is made anywhere.",
+  "recorded": "2026-11-01",
+  "status": "passed"
+}
