@@ -38,10 +38,16 @@ retries), and uses no fake fallback. Reported zero false positives would be an
 observed result on this corpus, not a universal guarantee.
 
 Run tests only with APP_ENV=test and an explicitly exported DATABASE_URL naming
-a loopback PostgreSQL database ending in _test. Tests never load .env. The local
-run used a separate postgres:16 container on port 55432, not the development or
-hosted database. `python tools/check_migrations.py` creates and drops its own
-additional database in that disposable cluster.
+a loopback PostgreSQL database ending in _test. Tests never load .env. Export
+the other required settings explicitly as well: `SECRET_KEY`, `HMAC_KEY`,
+`RECEIPT_SIGNING_KEY`, `ADDRESS_ENCRYPTION_KEY`, `PAYPAL_CLIENT_ID`,
+`PAYPAL_CLIENT_SECRET`, `VAULT_TOKEN_KEY` and `SINGLE_SELLER_EMAIL`; set
+`AI_ENABLED=false` for the offline suite (or export a valid `GEMINI_API_KEY`).
+The canonical local gate is `python tools/gate_check.py ig-2`; it exits 2 until
+the external evidence below is complete. The local run used a separate
+postgres:16 container on port 55432, not the development or hosted database.
+`python tools/check_migrations.py` creates and drops its own additional
+database in that disposable cluster.
 
 `python tools/benchmark_search.py` measured actual pg_trgm over 20 fictional
 public documents and ten labelled queries. Recall@5 was 10/10; see s8.json for

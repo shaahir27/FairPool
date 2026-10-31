@@ -103,7 +103,7 @@ Versions and libraries are fixed by BD-02, BD-03, BD-15 to BD-18 in `docs/decisi
 ## 5. Import boundaries (enforced by `tools/check_imports.py`)
 
 1. `fairpool.domain` imports only the standard library, `pydantic`, and `cryptography` limited to Ed25519 primitives inside `domain/hashing.py`: no `sqlalchemy`, `httpx`, `fairpool.modules`, `fairpool.adapters`, `fairpool.db` or `fairpool.api`.
-2. `fairpool.adapters.ai` imports only `fairpool.ports`, `fairpool.domain`, the Anthropic SDK, `httpx` and `pydantic` (I2).
+2. `fairpool.adapters.ai` imports only `fairpool.ports`, `fairpool.domain`, the Google GenAI SDK, `httpx` and `pydantic` (I2).
 3. `fairpool.adapters.paypal` may be imported only by `fairpool.modules.checkout`, `webhooks`, `reconciler`, `fulfillment`, by `fairpool.wiring`, `fairpool.api.routers` that Member A owns, and by tests (I2, INT-5). It imports no `fairpool.modules`.
 4. `fairpool.modules.sim` must not import `fairpool.adapters.paypal` (I12).
 5. Member B modules (`identity`, `catalog`, `intake`, `pools`, `allocation`, `auction`, `merchants`, `search`, `agentapi`, `mcp`, `sim`, `notify`) must not import Member A modules (`checkout`, `ledger`, `webhooks`, `reconciler`, `fulfillment`, `infra`), and vice versa. They meet only through `fairpool.ports`, jobs and HTTP. `fairpool.wiring` is the only place that connects concrete implementations.
