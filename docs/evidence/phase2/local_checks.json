@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "backend": {
+    "passed": 350,
+    "domain_coverage_percent": "98.60",
+    "sandbox_tests": "7 skipped, not passed"
+  },
+  "frontend": {
+    "passed": 14,
+    "lint": "passed",
+    "typecheck": "passed",
+    "production_build": "passed"
+  },
+  "checks": {
+    "ruff": "passed",
+    "mypy_strict": "passed",
+    "docs": "passed",
+    "imports": "0 violations",
+    "openapi_snapshot": "passed",
+    "merchant_operations": 10,
+    "generated_frontend_types": "passed",
+    "secret_scan": "Gitleaks staged diff: no leaks; .env excluded"
+  },
+  "graphify": {
+    "status": "AST updated",
+    "nodes": 2980,
+    "edges": 6438,
+    "communities": 200,
+    "limitations": "Markdown semantics not refreshed; optional SQL extractor unavailable"
+  },
+  "external_acceptance": "Pending; see separate evidence files. No IG-2 tag."
+}

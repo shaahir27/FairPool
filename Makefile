@@ -75,7 +75,7 @@ test-faults:
 	@$(PY) -m pytest backend/tests/faults -m faults
 
 ai-eval:
-	@$(PY) -m pytest backend/tests/ai_eval -m ai_eval
+	@$(PY) tools/evaluate_gemini.py --requests-per-minute $(EVAL_RPM)
 
 imports:
 	@if [ -f tools/check_imports.py ]; then $(PY) tools/check_imports.py; else echo "SKIP: tools/check_imports.py (T00A04)"; fi
@@ -100,15 +100,8 @@ secrets:
 
 verify: lint typecheck test imports docs-check openapi-check secrets
 
-gate-check: verify
-	@if [ "$(GATE)" = "ig-1" ]; then \
-		$(PY) -m alembic -c backend/alembic.ini upgrade head; \
-		$(PY) -m alembic -c backend/alembic.ini check; \
-		cd frontend && npm run build && cd ..; \
-		echo "IT-1 manual: hosted /health + /ready, webhook POST + stored row, contract tests, port fakes, S2 O1/O2, S6"; \
-	else \
-		echo "IT-0 manual checks: tags, spike records, plugin versions, secrets rotation, graph outputs"; \
-	fi
+gate-check:
+	@$(PY) tools/gate_check.py $(GATE)
 
 dev:
 	@docker compose --env-file .env -f deploy/docker-compose.yml up --build

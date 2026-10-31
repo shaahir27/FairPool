@@ -1826,6 +1826,29 @@
         "title": "LotProgress",
         "type": "object"
       },
+      "LotSize": {
+        "additionalProperties": false,
+        "properties": {
+          "min_seats": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Min Seats",
+            "type": "integer"
+          },
+          "seats": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Seats",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seats",
+          "min_seats"
+        ],
+        "title": "LotSize",
+        "type": "object"
+      },
       "ManifestItem": {
         "properties": {
           "amount_cents": {
@@ -2560,9 +2583,10 @@
         "properties": {
           "lot_plan": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ZonePlan"
             },
+            "maxItems": 60,
+            "minItems": 1,
             "title": "Lot Plan",
             "type": "array"
           },
@@ -2572,21 +2596,20 @@
             "type": "boolean"
           },
           "rule_version": {
+            "const": "allocation_v1",
             "default": "allocation_v1",
             "title": "Rule Version",
             "type": "string"
           },
           "template": {
-            "additionalProperties": true,
-            "title": "Template",
-            "type": "object"
+            "$ref": "#/components/schemas/Template"
           },
           "timeline": {
-            "additionalProperties": true,
-            "title": "Timeline",
-            "type": "object"
+            "$ref": "#/components/schemas/Timeline"
           },
           "title": {
+            "maxLength": 200,
+            "minLength": 1,
             "title": "Title",
             "type": "string"
           }
@@ -3177,6 +3200,23 @@
         "title": "RulesDocument",
         "type": "object"
       },
+      "RulesResponse": {
+        "properties": {
+          "rules_document": {
+            "$ref": "#/components/schemas/RulesDocument"
+          },
+          "rules_hash": {
+            "title": "Rules Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rules_document",
+          "rules_hash"
+        ],
+        "title": "RulesResponse",
+        "type": "object"
+      },
       "ShipmentInput": {
         "additionalProperties": false,
         "properties": {
@@ -3370,6 +3410,183 @@
           "pool_id"
         ],
         "title": "SimRunResponse",
+        "type": "object"
+      },
+      "Template": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle_contents": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Bundle Contents",
+            "type": "array"
+          },
+          "condition": {
+            "enum": [
+              "NEW",
+              "REFURBISHED",
+              "OPEN_BOX"
+            ],
+            "title": "Condition",
+            "type": "string"
+          },
+          "currency": {
+            "const": "USD",
+            "title": "Currency",
+            "type": "string"
+          },
+          "delivery_sla_days": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Delivery Sla Days",
+            "type": "integer"
+          },
+          "fund_by": {
+            "title": "Fund By",
+            "type": "string"
+          },
+          "min_return_days": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Min Return Days",
+            "type": "integer"
+          },
+          "product_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Product Key",
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 1.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "zones": {
+            "items": {
+              "$ref": "#/components/schemas/Zone"
+            },
+            "maxItems": 60,
+            "minItems": 1,
+            "title": "Zones",
+            "type": "array"
+          }
+        },
+        "required": [
+          "product_key",
+          "title",
+          "condition",
+          "quantity",
+          "currency",
+          "bundle_contents",
+          "delivery_sla_days",
+          "fund_by",
+          "min_return_days",
+          "zones"
+        ],
+        "title": "Template",
+        "type": "object"
+      },
+      "Timeline": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_age_guard_s": {
+            "default": 216000,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Authorization Age Guard S",
+            "type": "integer"
+          },
+          "beacon_delay_s": {
+            "default": 10,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Beacon Delay S",
+            "type": "integer"
+          },
+          "bid_window_s": {
+            "default": 120,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Bid Window S",
+            "type": "integer"
+          },
+          "capture_grace_s": {
+            "default": 120,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Capture Grace S",
+            "type": "integer"
+          },
+          "close_at": {
+            "format": "date-time",
+            "title": "Close At",
+            "type": "string"
+          },
+          "fund_deadline_s": {
+            "default": 600,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Fund Deadline S",
+            "type": "integer"
+          },
+          "max_refill_waves": {
+            "default": 1,
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Max Refill Waves",
+            "type": "integer"
+          },
+          "offer_window_s": {
+            "default": 180,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Offer Window S",
+            "type": "integer"
+          },
+          "open_at": {
+            "format": "date-time",
+            "title": "Open At",
+            "type": "string"
+          },
+          "pending_wait_s": {
+            "default": 120,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Pending Wait S",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open_at",
+          "close_at"
+        ],
+        "title": "Timeline",
         "type": "object"
       },
       "ValidationError": {
@@ -3586,6 +3803,66 @@
       "WebhookAck": {
         "properties": {},
         "title": "WebhookAck",
+        "type": "object"
+      },
+      "Zone": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "pattern": "^[A-Z]{2}$",
+              "type": "string"
+            },
+            "maxItems": 60,
+            "minItems": 1,
+            "title": "Regions",
+            "type": "array"
+          },
+          "zone_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Zone Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone_id",
+          "label",
+          "regions"
+        ],
+        "title": "Zone",
+        "type": "object"
+      },
+      "ZonePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/LotSize"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Lots",
+            "type": "array"
+          },
+          "zone_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Zone Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone_id",
+          "lots"
+        ],
+        "title": "ZonePlan",
         "type": "object"
       }
     },
@@ -7627,6 +7904,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
                   "type": "string"
                 },
                 {
@@ -7675,6 +7953,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 100,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -8001,7 +8281,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RulesDocument"
+                  "$ref": "#/components/schemas/RulesResponse"
                 }
               }
             },

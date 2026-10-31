@@ -1,0 +1,5 @@
+{
+  "status": "passed",
+  "source": "docs/spike-results.md, S13 recorded 2026-10-29",
+  "scope": "Existing SDK evidence retained; sdk_popup/client_id switches retained. Deployed-host repeat is T07A01, not claimed here."
+}

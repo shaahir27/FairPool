@@ -67,7 +67,9 @@ def main() -> None:
     configure_logging(settings.log_level)
     stop_event = threading.Event()
     install_signal_handlers(stop_event)
-    asyncio.run(run_worker({}, stop_event))
+    from fairpool.wiring import worker_handlers
+
+    asyncio.run(run_worker(worker_handlers(settings), stop_event))
 
 
 if __name__ == "__main__":

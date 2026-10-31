@@ -433,6 +433,14 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 | T02B04 | B | S | none | Spike S8 Elastic hybrid search |
 | T02B05 | B | S | T01A03 | Spike S13 JavaScript SDK v6 |
 
+The owner-approved Phase 2 execution amendment (2026-10-31) replaces the planned
+Anthropic dependency with Gemini via google-genai, adds the seven foundation
+repairs and migration 0002, and requires the 160-case/three-run adversarial gate.
+Execution follows payment gateway/router/ledger, identity/catalog, Gemini, then
+spikes/evidence. Keep exactly three commits, with one authorized intermediate
+instructions/contracts commit. Current verified and pending outcomes are recorded
+in `evidence/phase2/README.md`; external pending checks cannot close IG-2.
+
 ### T02A01: PayPal gateway (raw REST)
 
 - **Owner:** Member A. **Size:** L (1 day). **Phase:** PH2. **Merge gate:** IG-2. **Depends on:** T00A02, T00A03.
@@ -492,7 +500,7 @@ Sizes: S = 0.25 day, M = 0.5, L = 1, XL = 1.5 (agent-assisted). Task IDs: `T` + 
 - **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH2. **Merge gate:** IG-2. **Depends on:** T01B02.
 - **Read first:** ai-schemas.md (all); domain-ports.md AiRunLogger; AGENTS.md §8.
 - **Create or change:** `adapters/ai/**`, `modules/intake/run_log.py`.
-- **Acceptance:** AIClient with Anthropic and Fake implementations; AiRunLogger writes ai_runs; schema validation, one retry, input limits and untrusted wrapping; no payments imports.
+- **Acceptance:** AIClient with Gemini and Fake implementations; AiRunLogger writes ai_runs; schema validation, one retry, input limits and untrusted wrapping; no payments imports.
 - **Tests that prove it:** `tests/unit/test_ai_schema_validation.py`; `tests/unit/test_ai_no_payments_imports.py`.
 - **Requirements and invariants:** FR-AI-01, I2.
 

@@ -40,3 +40,40 @@ def payment_router(
         RestPayPalGateway(settings),
         Payee(settings.single_seller_email, settings.single_seller_merchant_id or None),
     )
+
+
+def pool_service(settings: Settings):
+    from fairpool.adapters.beacon.announcement import BeaconAnnouncement
+    from fairpool.infra.audit import PostgresAuditLog
+    from fairpool.infra.clock import DbClock
+    from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.pools.service import PoolService
+
+    return PoolService(
+        DbClock(),
+        PostgresAuditLog(),
+        PostgresJobQueue(),
+        BeaconAnnouncement(
+            mode=settings.beacon_mode,
+            base_url=settings.drand_base_url,
+            chain_hash=settings.drand_chain_hash,
+        ),
+    )
+
+
+def worker_handlers(settings: Settings):
+    return {"pool.open": pool_service(settings).open}
+
+
+def ai_client(settings: Settings):
+    from fairpool.adapters.ai.client import AIUnavailable, GeminiAI
+    from fairpool.modules.intake.run_log import PostgresAiRunLogger
+
+    if not settings.ai_enabled:
+        raise AIUnavailable("AI_DISABLED")
+    return GeminiAI(
+        api_key=settings.gemini_api_key.get_secret_value(),
+        model_parse=settings.ai_model_parse,
+        model_sim=settings.ai_model_sim,
+        logger=PostgresAiRunLogger(),
+    )

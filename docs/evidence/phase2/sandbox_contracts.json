@@ -1,0 +1,4 @@
+{
+  "status": "pending",
+  "reason": "C-01 to C-07 implemented but app-owning seller credentials are not exported; no live PayPal calls in this phase run."
+}

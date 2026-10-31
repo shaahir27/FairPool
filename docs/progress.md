@@ -23,7 +23,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 |---|---|---|---|
 | IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
-| IG-2 | TODO | not yet | |
+| IG-2 | IN PROGRESS | not tagged | Local implementation verified; live Gemini, Sandbox C-01 to C-07/S4, Elastic comparison and remote CI pending |
 | IG-3 | TODO | not yet | |
 | IG-4 | TODO | not yet | |
 | IG-5 | TODO | not yet | |
@@ -66,14 +66,14 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T02A01 | A | L | TODO | | PayPal gateway (raw REST) |
-| T02A02 | A | M | TODO | | Payment routers and fake gateway |
-| T02A03 | A | S | TODO | | Ledger service |
-| T02A04 | A | S | TODO | | Spike S4 payload ladder |
-| T02B01 | B | M | TODO | | Identity and notifier |
-| T02B02 | B | M | TODO | | Catalog, pool templates, admin publish and rules |
-| T02B03 | B | M | TODO | | AI adapter and run logging |
-| T02B04 | B | S | IN PROGRESS | | Spike S8 Elastic hybrid search (partly recorded Oct 28; see spike-results.md) |
+| T02A01 | A | L | IN REVIEW | phase-2 | Raw REST gateway implemented; offline retry/identity/tracker tests pass; real C-01 to C-07 pending exported credentials |
+| T02A02 | A | M | IN REVIEW | phase-2 | Single-seller disclosure and simulation-first fake; denial/pending/revoked/timeout outcomes covered |
+| T02A03 | A | S | IN REVIEW | phase-2 | Transactional ledger, exact net and distinct buyers; PostgreSQL replay/concurrency/rollback tests pass |
+| T02A04 | A | S | BLOCKED | phase-2 | S4 requires app-owning Sandbox seller and human approval; payload level remains 0 |
+| T02B01 | B | M | IN REVIEW | phase-2 | Buyer auth, Argon2id, signed 24-hour sessions, CSRF, revocation, auth limiter and unread notifications tested |
+| T02B02 | B | M | IN REVIEW | phase-2 | Nested templates/zones/timelines; create/publish/cancel, frozen rules and pool.open; later handlers remain pending |
+| T02B03 | B | M | IN REVIEW | phase-2 | Gemini adapter, strict semantic validation and 160 reviewed synthetic labels; three live runs pending HTTP400 configuration issue |
+| T02B04 | B | S | IN PROGRESS | phase-2 | Actual pg_trgm baseline: 20 public docs/10 queries, recall@5 10/10; Elastic comparison/trial dates pending; postgres retained |
 | T02B05 | B | S | DONE | | Spike S13 JavaScript SDK v6 (recorded Oct 29; see spike-results.md) |
 
 ### PH3: Core engines II: buyer-order engine, seat control, join, search, PayPal Login, pool close
@@ -304,3 +304,32 @@ One line per member per day: date, member, what merged, what is next.
 - 2026-10-30, owner: T01A02, T01B02 and T01B03 complete (platform services, ports/fakes, frontend shell; `make verify` and `gate-check GATE=ig-1` green locally). Next: owner Render deploy and S2 O2, then IT-1 and `ig-1`.
 - 2026-10-31, owner: S2 corrected run 0 FAIL; O2 `PREVIOUSLY_VOIDED`; replay authorize 200 both; app-owner fix confirmed; four old captures refund pending; NVP/SOAP exposed credentials must be disabled; next hosted Render.
 - 2026-10-31, owner: Render free deployment live (API + static, project `fairpool`); IT-1 green; DB switched to free Supabase and the Render Postgres deleted; docs updated; `ig-1` tagged. Next: PH2.
+
+## Phase 2 execution record (2026-10-31)
+
+The owner approved the Gemini/validation plan and exactly three phase commits,
+including exactly one intermediate instructions/contracts commit (`e830966`).
+The remaining two group payment/platform and identity/catalog/Gemini/evidence.
+Contract amendments were independently reviewed in the working tree; no remote
+merge or CI result is represented as completed before it occurs.
+
+Foundation regressions found in PH1 were reproduced and repaired: handler writes
+survived exceptions, unsupported jobs were consumed, expired claims lacked owner
+fencing, cross-lot shipments were accepted, application errors lost their codes,
+and gate tooling accepted unknown gates/failed to propagate failures reliably.
+Migration 0001 and original product idea/historical spike results are unchanged.
+
+Local verification: 350 backend tests passed with 98.60% domain coverage; 14
+frontend tests, lint, types and production build passed. Fresh migration,
+upgrade-from-0001 and both drift checks passed in a newly created disposable
+database. Docs/imports/OpenAPI/types checks passed. Independent review repaired
+hypothetical/negated flag false positives and stale-evaluation handling; final
+focused rereview passed 38 tests. The later local run also covers evaluator
+failure retention and exact field metrics. Evidence: `docs/evidence/phase2/README.md`.
+
+C-01 to C-07 collected but all seven skipped without exported Sandbox seller
+credentials; these are pending, not passed. Gemini's initial failed live attempt
+is retained; model lookup with the exported key returned HTTP400/INVALID_ARGUMENT.
+The revised prompt/dataset needs three complete live runs with a working
+configuration. Elastic comparison, S4 human approvals and remote CI remain
+pending. IG-2 is not closed or tagged. No paid deployment was performed.

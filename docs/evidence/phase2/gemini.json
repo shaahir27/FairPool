@@ -1,0 +1,40 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v1",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v1",
+    "dataset_sha256": "24a0f02ddee3d131c6d8fd32caf6e2ae28e53e7c72c7898f939d14f52ec43afb"
+  },
+  "started_at": "2026-10-31T06:58:15.921540+00:00",
+  "status": "pending",
+  "reason": "Incomplete live attempt retained. Exported-key model lookup returned HTTP 400; provider configuration needs correction before three complete runs.",
+  "results": [
+    {
+      "run": 1,
+      "case_id": "intake-001",
+      "task": "INTAKE",
+      "demo": true,
+      "output": null,
+      "review": true,
+      "errors": [
+        "Required extraction unavailable"
+      ],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v1/phase2-v1",
+          "input_hash": "ce7d135fb656b77ae683d83ae1a9e526ab7a1781aa133da33d2e5194768f6be6",
+          "output": null,
+          "ok": false,
+          "error": "PROVIDER_UNAVAILABLE",
+          "latency_ms": 250,
+          "tokens_in": 0,
+          "tokens_out": 0
+        }
+      ]
+    }
+  ]
+}

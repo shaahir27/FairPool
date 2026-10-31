@@ -79,7 +79,7 @@ def test_ai_adapter_allows_its_declared_imports(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "backend/src/fairpool/adapters/ai/client.py",
-        "from anthropic import Anthropic\n"
+        "from google.genai import Client\n"
         "import httpx\n"
         "from pydantic import BaseModel\n"
         "from fairpool.ports import AIProposal\n"

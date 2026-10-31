@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from fairpool.domain.pool_config import PoolInput
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -144,6 +146,11 @@ class RulesDocument(ResponseModel):
     refill: dict[str, Any]
     beacon: dict[str, Any]
     disclosures: dict[str, Any]
+
+
+class RulesResponse(ResponseModel):
+    rules_document: RulesDocument
+    rules_hash: str
 
 
 class PoolEvent(ResponseModel):
@@ -579,13 +586,8 @@ class MeOrderList(ResponseModel):
 
 
 # --- admin ------------------------------------------------------------------
-class PoolCreateRequest(StrictModel):
-    title: str
-    template: dict[str, Any]
-    lot_plan: list[dict[str, Any]]
-    timeline: dict[str, Any]
-    require_paypal_link: bool = True
-    rule_version: str = "allocation_v1"
+class PoolCreateRequest(PoolInput):
+    pass
 
 
 class AdminPoolResponse(ResponseModel):
