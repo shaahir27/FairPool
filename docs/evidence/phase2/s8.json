@@ -1,0 +1,381 @@
+{
+  "status": "passed",
+  "selected_backend": "elastic",
+  "measured_at": "2026-10-31T07:01:34.769524+00:00",
+  "dataset": {
+    "documents": [
+      "27 inch 4K monitor desk screen",
+      "24 inch HD monitor compact screen",
+      "32 inch curved gaming monitor screen",
+      "wireless keyboard quiet typing",
+      "mechanical keyboard backlit typing",
+      "wireless mouse ergonomic office",
+      "vertical mouse wrist support",
+      "USB microphone podcast audio",
+      "condenser microphone studio recording",
+      "webcam HD video calls",
+      "webcam 4K streaming camera",
+      "USB docking station laptop ports",
+      "portable solid state drive storage",
+      "external hard drive backup storage",
+      "noise cancelling headphones over ear",
+      "wireless earbuds in ear audio",
+      "adjustable desk lamp warm light",
+      "standing desk height adjustable",
+      "ergonomic office chair lumbar support",
+      "laptop stand adjustable aluminium"
+    ],
+    "queries": [
+      [
+        "big 4k screen for my desk",
+        0
+      ],
+      [
+        "quiet wireless keyboard",
+        3
+      ],
+      [
+        "mouse wrist support vertical",
+        6
+      ],
+      [
+        "podcast usb microphone",
+        7
+      ],
+      [
+        "4k camera for streaming",
+        10
+      ],
+      [
+        "laptop docking ports usb",
+        11
+      ],
+      [
+        "portable solid state storage",
+        12
+      ],
+      [
+        "headphones noise cancelling",
+        14
+      ],
+      [
+        "warm adjustable lamp",
+        16
+      ],
+      [
+        "office chair lumbar",
+        18
+      ]
+    ]
+  },
+  "postgres": {
+    "request_shape": "SELECT id, similarity(search_text, :q) AS score FROM s8_public WHERE status='OPEN' ORDER BY score DESC,id LIMIT 5",
+    "ingest_ms": 6.0273000271990895,
+    "recall_at_5": 1.0,
+    "results": [
+      {
+        "query": "big 4k screen for my desk",
+        "expected_id": 0,
+        "top_five": [
+          0,
+          1,
+          2,
+          10,
+          17
+        ],
+        "hit": true,
+        "latency_ms": 6.028100033290684
+      },
+      {
+        "query": "quiet wireless keyboard",
+        "expected_id": 3,
+        "top_five": [
+          3,
+          15,
+          4,
+          5,
+          13
+        ],
+        "hit": true,
+        "latency_ms": 1.8263999954797328
+      },
+      {
+        "query": "mouse wrist support vertical",
+        "expected_id": 6,
+        "top_five": [
+          6,
+          5,
+          18,
+          4,
+          9
+        ],
+        "hit": true,
+        "latency_ms": 1.5709999715909362
+      },
+      {
+        "query": "podcast usb microphone",
+        "expected_id": 7,
+        "top_five": [
+          7,
+          8,
+          11,
+          14,
+          12
+        ],
+        "hit": true,
+        "latency_ms": 1.70079997042194
+      },
+      {
+        "query": "4k camera for streaming",
+        "expected_id": 10,
+        "top_five": [
+          10,
+          0,
+          2,
+          9,
+          1
+        ],
+        "hit": true,
+        "latency_ms": 1.598200004082173
+      },
+      {
+        "query": "laptop docking ports usb",
+        "expected_id": 11,
+        "top_five": [
+          11,
+          19,
+          7,
+          12,
+          18
+        ],
+        "hit": true,
+        "latency_ms": 2.4982999893836677
+      },
+      {
+        "query": "portable solid state storage",
+        "expected_id": 12,
+        "top_five": [
+          12,
+          11,
+          13,
+          17,
+          19
+        ],
+        "hit": true,
+        "latency_ms": 1.503199979197234
+      },
+      {
+        "query": "headphones noise cancelling",
+        "expected_id": 14,
+        "top_five": [
+          14,
+          8,
+          9,
+          7,
+          10
+        ],
+        "hit": true,
+        "latency_ms": 1.3689000043086708
+      },
+      {
+        "query": "warm adjustable lamp",
+        "expected_id": 16,
+        "top_five": [
+          16,
+          19,
+          17,
+          12,
+          11
+        ],
+        "hit": true,
+        "latency_ms": 1.452399999834597
+      },
+      {
+        "query": "office chair lumbar",
+        "expected_id": 18,
+        "top_five": [
+          18,
+          5,
+          14,
+          19,
+          9
+        ],
+        "hit": true,
+        "latency_ms": 1.3995000044815242
+      }
+    ]
+  },
+  "elastic": {
+    "status": "passed",
+    "endpoint_version": "9.5.5",
+    "license": {
+      "type": "enterprise",
+      "expiry_date": "2028-02-29T23:59:59.999Z"
+    },
+    "inference_id": ".jina-embeddings-v5-text-small",
+    "index": "fairpool_s8_69def09985 (temporary; deleted)",
+    "documents": 20,
+    "queries": 10,
+    "bulk_errors": false,
+    "request_shape": "RRF of BM25 match on search_text and semantic query on semantic_text",
+    "recall_at_5": 1.0,
+    "results": [
+      {
+        "query": "big 4k screen for my desk",
+        "expected_id": 0,
+        "top_five": [
+          0,
+          10,
+          1,
+          17,
+          2
+        ],
+        "hit": true,
+        "latency_ms": 272.3
+      },
+      {
+        "query": "quiet wireless keyboard",
+        "expected_id": 3,
+        "top_five": [
+          3,
+          4,
+          5,
+          15,
+          6
+        ],
+        "hit": true,
+        "latency_ms": 246.2
+      },
+      {
+        "query": "mouse wrist support vertical",
+        "expected_id": 6,
+        "top_five": [
+          6,
+          5,
+          18,
+          19,
+          17
+        ],
+        "hit": true,
+        "latency_ms": 233.4
+      },
+      {
+        "query": "podcast usb microphone",
+        "expected_id": 7,
+        "top_five": [
+          7,
+          8,
+          11,
+          15,
+          3
+        ],
+        "hit": true,
+        "latency_ms": 205.5
+      },
+      {
+        "query": "4k camera for streaming",
+        "expected_id": 10,
+        "top_five": [
+          10,
+          0,
+          9,
+          1,
+          8
+        ],
+        "hit": true,
+        "latency_ms": 298.3
+      },
+      {
+        "query": "laptop docking ports usb",
+        "expected_id": 11,
+        "top_five": [
+          11,
+          19,
+          7,
+          5,
+          3
+        ],
+        "hit": true,
+        "latency_ms": 211.3
+      },
+      {
+        "query": "portable solid state storage",
+        "expected_id": 12,
+        "top_five": [
+          12,
+          13,
+          11,
+          19,
+          17
+        ],
+        "hit": true,
+        "latency_ms": 387.2
+      },
+      {
+        "query": "headphones noise cancelling",
+        "expected_id": 14,
+        "top_five": [
+          14,
+          15,
+          8,
+          7,
+          3
+        ],
+        "hit": true,
+        "latency_ms": 229.9
+      },
+      {
+        "query": "warm adjustable lamp",
+        "expected_id": 16,
+        "top_five": [
+          16,
+          17,
+          19,
+          18,
+          4
+        ],
+        "hit": true,
+        "latency_ms": 217.0
+      },
+      {
+        "query": "office chair lumbar",
+        "expected_id": 18,
+        "top_five": [
+          18,
+          5,
+          17,
+          19,
+          16
+        ],
+        "hit": true,
+        "latency_ms": 262.3
+      }
+    ],
+    "previous_attempt": {
+      "inference_id": ".multilingual-e5-small-elasticsearch",
+      "status": "failed",
+      "reason": "429 no ML nodes with sufficient capacity; bulk had errors; temporary index deleted"
+    },
+    "cleanup": "temporary Elastic index deleted; PostgreSQL baseline unchanged",
+    "trial_start": null,
+    "trial_end": null
+  },
+  "acceptance": "Elastic hybrid query succeeded and recall@5 >= the PostgreSQL baseline; Elastic selected; apply SEARCH_BACKEND=elastic and ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small.",
+  "accepted_at": "2026-10-31T10:33:26.190566+00:00",
+  "decision": "Elastic hybrid query succeeded with recall@5 1.0, equal to the PostgreSQL baseline 1.0; the plan acceptance rule selects Elastic. SEARCH_BACKEND=elastic and ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small are applied in .env and Render.",
+  "limitation": "No Elastic trial was available; the cluster reports an enterprise license. Similarity remains advisory and never changes a bid's status.",
+  "limitations": [
+    "The local .multilingual-e5-small-elasticsearch endpoint has no ML-node capacity (429), so the managed .jina-embeddings-v5-text-small endpoint was used.",
+    "No Elastic trial; the live cluster reports an enterprise license expiring 2028-02-29."
+  ],
+  "config_applied": {
+    "SEARCH_BACKEND": "elastic",
+    "ELASTIC_INFERENCE_ID": ".jina-embeddings-v5-text-small",
+    "where": [
+      ".env",
+      "deploy/render.yaml (search env group)",
+      "Render live service"
+    ],
+    "verified": "Render env group and service updated via API; deploy live; /health 200 and /ready 200"
+  }
+}

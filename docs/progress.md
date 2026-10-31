@@ -23,7 +23,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 |---|---|---|---|
 | IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
-| IG-2 | TODO | not yet | |
+| IG-2 | IN PROGRESS | not tagged | Local implementation, C-01 to C-07 7/7, S4 highest 2 and S8 Elastic hybrid passed (recall 1.0); Elastic selected and `.env`/Render config applied and live; Gemini failed 154/480 and awaits quota; remote CI pending |
 | IG-3 | TODO | not yet | |
 | IG-4 | TODO | not yet | |
 | IG-5 | TODO | not yet | |
@@ -66,14 +66,14 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T02A01 | A | L | TODO | | PayPal gateway (raw REST) |
-| T02A02 | A | M | TODO | | Payment routers and fake gateway |
-| T02A03 | A | S | TODO | | Ledger service |
-| T02A04 | A | S | TODO | | Spike S4 payload ladder |
-| T02B01 | B | M | TODO | | Identity and notifier |
-| T02B02 | B | M | TODO | | Catalog, pool templates, admin publish and rules |
-| T02B03 | B | M | TODO | | AI adapter and run logging |
-| T02B04 | B | S | IN PROGRESS | | Spike S8 Elastic hybrid search (partly recorded Oct 28; see spike-results.md) |
+| T02A01 | A | L | DONE | phase-2 | Raw REST gateway; offline retry/identity/tracker tests; real C-01 to C-07 7/7 passed on Sandbox with app-owning seller; S4 payload ladder remains T02A04 |
+| T02A02 | A | M | DONE | phase-2 | Single-seller disclosure and simulation-first fake; denial/pending/revoked/timeout outcomes covered |
+| T02A03 | A | S | DONE | phase-2 | Transactional ledger, exact net and distinct buyers; PostgreSQL replay/concurrency/rollback tests pass; PT-09's funding half needs the T04A03 engine (Q-2026-10-31-07) |
+| T02A04 | A | S | DONE | phase-2 | C-01 to C-07 passed; S4 levels 1-2 passed, highest verified 2; level 3 (address lock) unverified; PAYPAL_PAYLOAD_LEVEL remains 0 |
+| T02B01 | B | M | DONE | phase-2 | Buyer auth, Argon2id, signed 24-hour sessions, CSRF, revocation, auth limiter and unread notifications tested |
+| T02B02 | B | M | DONE | phase-2 | Nested templates/zones/timelines; create/publish/cancel, frozen rules and pool.open; later handlers remain pending |
+| T02B03 | B | M | IN REVIEW | phase-2 | Gemini adapter, strict semantic validation and 160 reviewed labels; full live run 480/480 failed with 154 errors and 48.3% field accuracy; free-tier daily 500 exhausted; prompt v3, raw-output logging and subset tooling ready; live rerun awaits quota |
+| T02B04 | B | S | DONE | phase-2 | PostgreSQL baseline recall@5 10/10; live Elastic hybrid passed with managed `.jina-embeddings-v5-text-small`: 20 docs/10 queries, recall@5 1.0, 205-387ms; temp index deleted; Elastic selected; `SEARCH_BACKEND=elastic`/`ELASTIC_INFERENCE_ID` applied in `.env`, `deploy/render.yaml` and live Render (`/ready` 200) |
 | T02B05 | B | S | DONE | | Spike S13 JavaScript SDK v6 (recorded Oct 29; see spike-results.md) |
 
 ### PH3: Core engines II: buyer-order engine, seat control, join, search, PayPal Login, pool close
@@ -228,6 +228,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Q-2026-10-30-03 | implementation | `db/models/*` (per area) versus per-module `models.py`: chosen per-area for one metadata and no cross-lane imports; schema content is unchanged. | `docs/implementation-plan.md` T01A01, `docs/contracts/db-schema.md` | answered by plan approval |
 | Q-2026-10-30-04 | implementation | `chk_usd_only` has no currency column to check; implemented as a null-safe JSON check on pool templates and canonical requests. | `docs/contracts/db-schema.md` | answered by plan approval |
 | Q-2026-10-30-05 | implementation | `vault_tokens` has no named index for "one active token per entry"; added a partial unique on `entry_id WHERE deleted_at IS NULL`. | `docs/contracts/db-schema.md` | answered by plan approval |
+| Q-2026-10-31-07 | implementation | T02A03/IT-2 say "PT-09 passes for the ledger", but PT-09 is a lot-funding property and the funding engine is T04A03 (PH4). Reading (a): only the ledger half (completed captures from distinct buyers, PENDING excluded) is required now; reading (b): the whole property waits for T04A03. The ledger query and its completed/distinct-buyer tests exist; no funding transition exists yet. | `docs/implementation-plan.md` T02A03 and T04A03; `docs/testing-strategy.md` PT-09 | open; PT-09 lands with T04A03 |
 
 ## Requests to the owner
 
@@ -244,6 +245,11 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | 2026-10-31 | owner | Supabase free Postgres chosen; schema applied, Render API `DATABASE_URL` switched, Render Postgres deleted. Free project pauses after about 7 days of inactivity. | DONE |
 | 2026-10-31 | owner | Decide the judging database: `docs/demo-and-submission.md` says paid Render Postgres for judging; free Supabase conflicts. Either update that rule and add a keep-alive, or move to a paid DB before Dec 1. | OPEN |
 | 2026-10-31 | owner | Revoke the temporary Render API key in Account Settings after the deployment work is finished. | OPEN |
+| 2026-10-31 | owner | Gemini API key: full live run failed 154/480 (48.3%); the free-tier daily limit of 500 requests is exhausted (429, retry ~21h). Prompt v3 and diagnostics are ready; provide a quota-enabled key or wait for reset. | OPEN |
+| 2026-10-31 | owner | S4 payload ladder: highest verified level 2; level 3 (address lock) unverified, no further approval requested. | DONE |
+| 2026-10-31 | owner | S8: Elastic hybrid passed (recall@5 1.0 vs PostgreSQL 1.0, 205-387ms) with managed `.jina-embeddings-v5-text-small`; temporary index deleted; Elastic selected. | DONE |
+| 2026-10-31 | owner | Set `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small` in `.env`, `deploy/render.yaml` and live Render; env group and service verified via API; deploy live; `/health` and `/ready` 200. | DONE |
+| 2026-10-31 | owner | Push the contract CR, `phase-2` and the tags to GitHub and run remote CI. | OPEN |
 
 ## Requests between members
 
@@ -280,7 +286,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | 2026-10-30 | Frontend uses React Router 6.28; `npm audit` reports two moderate production advisories whose fix is Router 7. The scaffold has no live data; revisit Router 7 at T09B04. | owner | progress.md, frontend/package.json |
 | 2026-10-30 | Graph output is local-only: `graphify-out/` is git-ignored and removed from the repository per owner. The local AST graph has 2,591 nodes / 5,139 edges / 177 communities; `.graphifyignore` excludes `.env`; the three value matches were the shared project word `fairpool`, not secrets. | owner | progress.md, .gitignore |
 | 2026-10-30 | Render free tier chosen for the PH1 skeleton: free API web service, free Postgres, free static site, no worker. Free web sleeps after 15 minutes, free Postgres expires after about 30 days, and there is no free worker; the worker and paid instances must return by 2026-11-20 (BD-05) for the live demo. | owner | progress.md, deploy/render.yaml, README.md |
-| 2026-10-30 | Codex 0.164.0 loads the PayPal plugin skills but not its SSE MCP tools; the plugin version is recorded and live MCP is optional, not a PH0 blocker. | owner | progress.md, docs/agents.md |
+| 2026-10-30 | Codex 0.164.0 loads the PayPal plugin skills but not its SSE MCP tools; the plugin version is recorded and live MCP is optional, not a PH0 blocker. | owner | progress.md, AGENTS.md |
 | 2026-10-30 | Exposed dev-time PayPal access token removed from Codex config; Sandbox client secret rotated again; no value recorded. | owner | progress.md |
 | 2026-10-31 | Hosted skeleton uses free Supabase Postgres (session pooler); Render API `DATABASE_URL` switched and Render Postgres deleted. Data API, automatic table exposure and automatic RLS are off. Paid DB decision for judging remains open. | owner | progress.md, README.md |
 | 2026-10-31 | Owner approved one additional evidence commit after the two PH1 implementation commits (hosted IT-1 + Supabase); `ig-1` tags that commit. | owner | progress.md |
@@ -304,3 +310,39 @@ One line per member per day: date, member, what merged, what is next.
 - 2026-10-30, owner: T01A02, T01B02 and T01B03 complete (platform services, ports/fakes, frontend shell; `make verify` and `gate-check GATE=ig-1` green locally). Next: owner Render deploy and S2 O2, then IT-1 and `ig-1`.
 - 2026-10-31, owner: S2 corrected run 0 FAIL; O2 `PREVIOUSLY_VOIDED`; replay authorize 200 both; app-owner fix confirmed; four old captures refund pending; NVP/SOAP exposed credentials must be disabled; next hosted Render.
 - 2026-10-31, owner: Render free deployment live (API + static, project `fairpool`); IT-1 green; DB switched to free Supabase and the Render Postgres deleted; docs updated; `ig-1` tagged. Next: PH2.
+- 2026-10-31, owner: Real Sandbox C-01–C-07 7/7 passed after correcting the invalid C-04 capture expectation; S4 levels 1-2 passed (highest verified 2; level 3 unverified); Gemini key model lookup passes but live generation is blocked by 402 prepayment credits; S8 Elastic and remote CI remain pending.
+- 2026-10-31, owner: Full Gemini run 480/480 with 154 errors and 48.3% field accuracy; free-tier daily 500 exhausted (429); prompt v3 and raw-output/subset diagnostics implemented; live Gemini rerun awaits quota.
+- 2026-10-31, owner: Elastic endpoint tested live; local `.multilingual-e5-small` lacked ML capacity, but managed `.jina-embeddings-v5-text-small` hybrid RRF reached recall@5 10/10 at 205-387ms; temp index deleted; Elastic selected; `SEARCH_BACKEND=elastic`/`ELASTIC_INFERENCE_ID` applied to `.env`, `deploy/render.yaml` and live Render (`/ready` 200).
+
+## Phase 2 execution record (2026-10-31)
+
+The owner approved the Gemini/validation plan and exactly three phase commits,
+including exactly one intermediate instructions/contracts commit (`e830966`).
+The remaining two group payment/platform and identity/catalog/Gemini/evidence.
+Contract amendments were independently reviewed in the working tree; no remote
+merge or CI result is represented as completed before it occurs.
+
+Foundation regressions found in PH1 were reproduced and repaired: handler writes
+survived exceptions, unsupported jobs were consumed, expired claims lacked owner
+fencing, cross-lot shipments were accepted, application errors lost their codes,
+and gate tooling accepted unknown gates/failed to propagate failures reliably.
+Migration 0001 and original product idea/historical spike results are unchanged.
+
+Local verification: 352 backend tests passed with 98.60% domain coverage; 14
+frontend tests, lint, types and production build passed. Fresh migration,
+upgrade-from-0001 and both drift checks passed in a newly created disposable
+database. Docs/imports/OpenAPI/types checks passed. Independent review repaired
+hypothetical/negated flag false positives and stale-evaluation handling; final
+focused rereview passed 38 tests. The later local run also covers evaluator
+failure retention and exact field metrics. Evidence: `docs/evidence/phase2/README.md`.
+
+C-01 to C-07 passed against Sandbox with the app-owning seller on 2026-10-31
+(7/7); C-06 uses the documented PayPal-Mock-Response test header; no captures
+or refunds. S4 verified levels 1-2; highest level 2, level 3 unverified. S8's
+live Elastic hybrid test passed recall@5 10/10 (205-387 ms) with managed
+`.jina-embeddings-v5-text-small`; the temporary index was deleted and Elastic is
+selected; `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID` are set in `.env`,
+`deploy/render.yaml` and live Render (`/ready` 200). The full Gemini live run failed 154/480 cases at 48.3% field
+accuracy; the free-tier daily 500 limit is exhausted, so the prompt-v3 rerun
+awaits a quota-enabled key. Remote CI remains pending. IG-2 is not closed or
+tagged. No paid deployment was performed.

@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "checks": [
+    "upgrade 0001 -> 0002",
+    "fresh base -> head",
+    "Alembic drift after both paths"
+  ],
+  "isolation": "New random disposable loopback PostgreSQL database created and dropped for every check; migration 0001 untouched."
+}

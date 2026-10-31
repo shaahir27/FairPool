@@ -131,7 +131,7 @@ Results recorded since v1 (`docs/spike-results.md`, Oct 20): G3 passed (S2): aut
                                               │
                                               ↓
  Services out: PayPal Sandbox (OAuth, Orders v2, Payments v2, Webhooks, Log in with PayPal, shipment tracking)
-               Anthropic API (intake, quote parsing, simulation text)  |  Randomness beacon (allocation seed)
+               Gemini API (intake, quote parsing, simulation text)  |  Randomness beacon (allocation seed)
                Elastic hybrid search (optional, Postgres fallback)  |  Channel3 catalog (optional)
 
  Outside the product: a merchant’s AI client reads PayPal through the PayPal MCP server (read-only verification);
@@ -217,7 +217,7 @@ Every outside tool, where it sits, what it is used for, what it is not used for,
 | PayPal shipment tracking (INT-8) | Layer 8, fulfillment (11.11) | Merchant uploads tracking; FairPool submits trackers for captured transactions through the adapter | AI calls | SHIPMENT\_TRACKING\_ENABLED; otherwise tracking stays inside FairPool, labelled | S12; G16 |
 | PayPal MCP server, read-only (INT-6) | Layer 10 merchant side; Layer 8 fulfillment (11.11) | A merchant’s AI client checks each PayPal order in the per-lot manifest against FairPool’s funded total | Write tools; list-transactions in the live demo; the payment path | PAYPAL\_MCP\_VERIFICATION; FairPool’s own verification endpoint | S10; G14 |
 | PayPal Agent Toolkit (INT-5) | Layer 14, dev time only | Plugin in each member’s coding agent (skills, doctor, explain-error) | The payment path: it cannot express an AUTHORIZE order with payee and idempotency, and AI-made payloads would break I2, I3 and I9 | None; verified facts override it | none |
-| Anthropic API | Layer 5 intake; Layer 7 quote parsing and reconciliation; Layer 11 simulation text | AI proposes, deterministic rules decide | Eligibility, money, PayPal | Manual form; ops review (8.3, 10.5) | none |
+| Gemini API | Layer 5 intake; Layer 7 quote parsing and reconciliation; Layer 11 simulation text | AI proposes, deterministic rules decide | Eligibility, money, PayPal | Manual form; ops review (8.3, 10.5) | none |
 | Elastic hybrid search (INT-1) | Layer 5 candidate retrieval; Layer 7 Demand Board and agent pool search | semantic\_text index with an explicit inference endpoint and an RRF hybrid query over public pool and lot documents only; an advisory LOW\_SIMILARITY warning on quotes | A gate on offers; indexing buyer requests; per-buyer matching against bids | SEARCH\_BACKEND=postgres (trigram) | S8; G12 |
 | Zapier MCP (INT-2) | Layer 10, agent lane | Managed mode with exactly four tools (list pools, join pool, list my entries, withdraw entry), URL and Authorization header locked to the Agent API with a delegation token | PayPal or any other app; payment | ZAPIER\_BRIDGE (a documentation switch); our own /mcp | S9; G13 |
 | FairPool MCP server (INT-3) | Layer 10, agent lane | /mcp over Streamable HTTP with the same four tools and delegation-token auth | Payment tools | Does not depend on Zapier’s plan or trial | none |
@@ -393,7 +393,7 @@ Between the buyer’s words and a structured request. It never decides eligibili
 - Closed JSON schema with enums. Outputs are validated and retried once, then fall back to the form.
 - Every run is stored (task, model, prompt version, input hash, output, latency, tokens) for audit and replay.
 - The AI module holds no database session and no PayPal credentials (section 4.4).
-- Model choice is configuration: a mid-size model for parsing and reconciliation, a small one for simulation. Confirm current model strings in Anthropic’s docs when coding.
+- Model choice is configuration: a mid-size model for parsing and reconciliation, a small one for simulation. Confirm current model strings in Google's Gemini docs when coding.
 
 ### 8.4 Evaluation
 

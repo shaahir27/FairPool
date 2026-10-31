@@ -2,7 +2,7 @@
 
 Contracts are the exact interfaces between modules and between the two members. They are what lets Member A and Member B work in parallel without waiting for each other's code. They are derived from `docs/system-design.md` and tightened where the design left bytes, columns or names open.
 
-Current version: `contracts-v1`, tagged at task T00X01 (gate IG-0). Nothing in this folder changes after that tag except through a change request.
+Current version: `contracts-v1.1`, tagged after the Phase 2 change request. Nothing in this folder changes after that tag except through a change request.
 
 ## Files
 
@@ -24,7 +24,7 @@ Current version: `contracts-v1`, tagged at task T00X01 (gate IG-0). Nothing in t
 2. Frozen means frozen. A change needs a **contract change request** (CR): a pull request titled `CR: <summary>` that edits the contract, adds a row to the change log below, names every affected task, and is approved by **both** members. CRs are rare; each one costs both members time.
 3. After a CR merges, tag `contracts-v1.<n>` and the affected owners update their code within 24 hours. Until they do, `main` may be red for that area; the CR author helps.
 4. Tests derive from contracts: state machines are loaded from the YAML in `state-machines.md`; API routes are compared with the endpoint table in `api.md`; the migration is compared with `db-schema.md` by `alembic check`; hashing uses `vectors/fairness_v1.json`.
-5. When a contract is silent, do not guess. Log an open question in `docs/progress.md` (see `docs/agents.md`).
+5. When a contract is silent, do not guess. Log an open question in `docs/progress.md` (see `AGENTS.md`).
 
 ## Contract notes (ambiguities in the design resolved here)
 
@@ -50,3 +50,28 @@ Current version: `contracts-v1`, tagged at task T00X01 (gate IG-0). Nothing in t
 | Version | Date | Change | Approved by |
 |---|---|---|---|
 | contracts-v1 | 2026-10-30 | Initial freeze after full review; corrections C1-C15 and status consolidation recorded | @shaahir27 (owner) after independent agent review |
+
+| contracts-v1.1 | 2026-10-31 | Phase 2 provider, payment identity, rules vector/envelope, shipment association and evidence validation | @shaahir27 (owner) after independent review; merged into `main` and tagged |
+
+### Phase 2 change request (owner-approved implementation plan, 2026-10-31)
+
+Scope: T02A01 to T02A04 and T02B01 to T02B05. The owner approved Gemini,
+shipment association, request identity, rules envelope/vector and grounded AI flags.
+The existing ports and endpoint paths remain unchanged. Independent review is
+required before gate acceptance. No historical spike evidence or migration 0001 changes.
+
+- Gemini uses `google-genai`, `GEMINI_API_KEY`, `AI_MODEL_PARSE` and `AI_MODEL_SIM`.
+  Default model: `gemini-3.5-flash-lite`; compatible Gemini names are configurable.
+  No tools, 20-second calls, SDK retries disabled and one validation retry.
+  Use supported generation parameters; temperature is omitted for Gemini 3.x.
+- Vault charge has one logical `vc:<buyer_order_id>` identity, with separate
+  UUIDv5 HTTP keys derived from `vc:<buyer_order_id>:create` and `:capture`.
+- Rules reads return `{rules_document, rules_hash}`; the hash covers the document
+  alone, according to the existing canonical JSON algorithm and fixed vector.
+- Migration 0002 requires the captured buyer order to belong to the shipment lot.
+- Reconciliation evidence must occur in the input and relate to the named field.
+  Unsupported/ambiguous claims require review; no model-written accusation is shown.
+
+The owner authorized one intermediate contract commit. The contract-only amendment
+is merged into `main` and tagged `contracts-v1.1`; the implementation continues on
+`phase-2`. The tag marks the contract version only; IG-2 acceptance remains open.

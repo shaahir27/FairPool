@@ -205,7 +205,8 @@ def _check_import(
     if _is_under(module, AI):
         allowed = (
             stdlib
-            or top in {"pydantic", "anthropic", "httpx"}
+            or top in {"pydantic", "httpx"}
+            or _is_under(target, "google.genai")
             or _is_under(target, PORTS)
             or _is_under(target, DOMAIN)
             or _is_under(target, AI)
@@ -216,7 +217,7 @@ def _check_import(
                 line,
                 2,
                 "adapters.ai may import only the standard library, fairpool.ports, "
-                "fairpool.domain, anthropic, httpx and pydantic (I2)",
+                "fairpool.domain, google.genai, httpx and pydantic (I2)",
             )
 
     # Rule 3: only the money modules, wiring, Member A routers and tests may

@@ -258,3 +258,9 @@ def test_waitlist_candidate_rejects_invalid_rank() -> None:
     candidate = fairness.WaitlistCandidate("a", "Z", 0, 1000)
     with pytest.raises(AllocationError):
         fairness.waitlist_candidate([candidate], {"a": 500}, zone_id="Z")
+
+
+def test_fixed_rules_document_vector(vectors):
+    case = vectors["rules"]
+    assert hashing.canonical_json(case["document"]) == case["canonical_json"]
+    assert hashing.rules_hash(case["document"]) == case["sha256"]

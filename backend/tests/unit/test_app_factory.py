@@ -169,3 +169,25 @@ def test_request_id_is_propagated_to_success_and_error_responses() -> None:
     assert healthy.headers["X-Request-ID"] == "req-abc"
     assert missing.headers["X-Request-ID"] == "req-def"
     assert error_of(missing)["request_id"] == "req-def"
+
+
+@pytest.mark.parametrize(
+    ("status", "detail", "expected"),
+    [
+        (409, "POOL_CLOSED", "POOL_CLOSED"),
+        (429, "RATE_LIMITED", "RATE_LIMITED"),
+        (409, "private secret", "VALIDATION_ERROR"),
+    ],
+)
+def test_application_error_code_and_retry_after(status, detail, expected):
+    app = create_app()
+
+    async def deny():
+        raise HTTPException(status_code=status, detail=detail, headers={"Retry-After": "30"})
+
+    app.add_api_route("/_test/application-error", deny)
+    with client_for(app) as client:
+        response = client.get("/_test/application-error")
+    assert error_of(response)["code"] == expected
+    assert response.headers["Retry-After"] == "30"
+    assert "private secret" not in response.text

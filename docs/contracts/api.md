@@ -32,7 +32,7 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | DELETE | /api/v1/me/delegations/{delegation_id} | B | session | Revoke delegation |
 | GET | /api/v1/pools | B | public | List and search pools (`q`, `status`, `sort=trending`) |
 | GET | /api/v1/pools/{pool_id} | B | public | Pool detail and timeline |
-| GET | /api/v1/pools/{pool_id}/rules | B | public | Published rules document and rules_hash |
+| GET | /api/v1/pools/{pool_id}/rules | B | public | `{rules_document, rules_hash}` envelope containing the published rules and their hash |
 | GET | /api/v1/pools/{pool_id}/events | B | public | Server-sent events for pool and lot status |
 | POST | /api/v1/intake/messages | B | session | Buyer text to proposal or clarifying question |
 | POST | /api/v1/intake/confirm | B | session | Confirm a proposal into a canonical request |

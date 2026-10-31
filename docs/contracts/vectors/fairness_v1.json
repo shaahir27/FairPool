@@ -300,5 +300,41 @@
       }
     ],
     "chosen_tier_index": 1
+  },
+  "rules": {
+    "document": {
+      "v": 1,
+      "pool_id": "00000000-0000-0000-0000-000000000001",
+      "rule_version": "allocation_v1",
+      "template": {
+        "product_key": "sample-monitor",
+        "condition": "NEW"
+      },
+      "lot_plan": [
+        {
+          "zone_id": "US",
+          "target_size": 5,
+          "min_size": 3
+        }
+      ],
+      "timeline": {
+        "open_at": "2026-10-31T10:00:00.000000Z",
+        "close_at": "2026-10-31T10:03:00.000000Z"
+      },
+      "require_paypal_link": false,
+      "allocation": "seeded_lottery_v1",
+      "bid_ranking": "ranking_v1",
+      "refill": {
+        "max_refill_waves": 1
+      },
+      "beacon": {
+        "source": "demo"
+      },
+      "disclosures": {
+        "lots_may_differ": true
+      }
+    },
+    "canonical_json": "{\"allocation\":\"seeded_lottery_v1\",\"beacon\":{\"source\":\"demo\"},\"bid_ranking\":\"ranking_v1\",\"disclosures\":{\"lots_may_differ\":true},\"lot_plan\":[{\"min_size\":3,\"target_size\":5,\"zone_id\":\"US\"}],\"pool_id\":\"00000000-0000-0000-0000-000000000001\",\"refill\":{\"max_refill_waves\":1},\"require_paypal_link\":false,\"rule_version\":\"allocation_v1\",\"template\":{\"condition\":\"NEW\",\"product_key\":\"sample-monitor\"},\"timeline\":{\"close_at\":\"2026-10-31T10:03:00.000000Z\",\"open_at\":\"2026-10-31T10:00:00.000000Z\"},\"v\":1}",
+    "sha256": "189188e18e00225ef30c53aaee0905a91808345873a4c2d4bced3447708310b4"
   }
 }

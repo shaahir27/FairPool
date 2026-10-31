@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "source": "backend/tests/contract_sandbox/test_gateway_contract.py",
+  "tests": "C-01 to C-07",
+  "result": "7 passed against PayPal Sandbox",
+  "run_at": "2026-10-31T08:08:53.834601+00:00",
+  "environment": "app-owning Sandbox seller; explicit exported credentials; PAYPAL_PAYLOAD_LEVEL=0",
+  "notes": "C-06 uses the documented PayPal-Mock-Response test header; no captures or refunds in this suite."
+}

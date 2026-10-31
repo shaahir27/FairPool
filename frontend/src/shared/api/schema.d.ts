@@ -1990,6 +1990,13 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** LotSize */
+        LotSize: {
+            /** Min Seats */
+            min_seats: number;
+            /** Seats */
+            seats: number;
+        };
         /** ManifestItem */
         ManifestItem: {
             /** Amount Cents */
@@ -2295,9 +2302,7 @@ export interface components {
         /** PoolCreateRequest */
         PoolCreateRequest: {
             /** Lot Plan */
-            lot_plan: {
-                [key: string]: unknown;
-            }[];
+            lot_plan: components["schemas"]["ZonePlan"][];
             /**
              * Require Paypal Link
              * @default true
@@ -2306,16 +2311,11 @@ export interface components {
             /**
              * Rule Version
              * @default allocation_v1
+             * @constant
              */
-            rule_version: string;
-            /** Template */
-            template: {
-                [key: string]: unknown;
-            };
-            /** Timeline */
-            timeline: {
-                [key: string]: unknown;
-            };
+            rule_version: "allocation_v1";
+            template: components["schemas"]["Template"];
+            timeline: components["schemas"]["Timeline"];
             /** Title */
             title: string;
         };
@@ -2562,6 +2562,12 @@ export interface components {
              */
             v: number;
         };
+        /** RulesResponse */
+        RulesResponse: {
+            rules_document: components["schemas"]["RulesDocument"];
+            /** Rules Hash */
+            rules_hash: string;
+        };
         /** ShipmentInput */
         ShipmentInput: {
             /**
@@ -2639,6 +2645,90 @@ export interface components {
              * Format: uuid
              */
             sim_run_id: string;
+        };
+        /** Template */
+        Template: {
+            /** Bundle Contents */
+            bundle_contents: string[];
+            /**
+             * Condition
+             * @enum {string}
+             */
+            condition: "NEW" | "REFURBISHED" | "OPEN_BOX";
+            /**
+             * Currency
+             * @constant
+             */
+            currency: "USD";
+            /** Delivery Sla Days */
+            delivery_sla_days: number;
+            /** Fund By */
+            fund_by: string;
+            /** Min Return Days */
+            min_return_days: number;
+            /** Product Key */
+            product_key: string;
+            /** Quantity */
+            quantity: number;
+            /** Title */
+            title: string;
+            /** Variant */
+            variant?: string | null;
+            /** Zones */
+            zones: components["schemas"]["Zone"][];
+        };
+        /** Timeline */
+        Timeline: {
+            /**
+             * Authorization Age Guard S
+             * @default 216000
+             */
+            authorization_age_guard_s: number;
+            /**
+             * Beacon Delay S
+             * @default 10
+             */
+            beacon_delay_s: number;
+            /**
+             * Bid Window S
+             * @default 120
+             */
+            bid_window_s: number;
+            /**
+             * Capture Grace S
+             * @default 120
+             */
+            capture_grace_s: number;
+            /**
+             * Close At
+             * Format: date-time
+             */
+            close_at: string;
+            /**
+             * Fund Deadline S
+             * @default 600
+             */
+            fund_deadline_s: number;
+            /**
+             * Max Refill Waves
+             * @default 1
+             */
+            max_refill_waves: number;
+            /**
+             * Offer Window S
+             * @default 180
+             */
+            offer_window_s: number;
+            /**
+             * Open At
+             * Format: date-time
+             */
+            open_at: string;
+            /**
+             * Pending Wait S
+             * @default 120
+             */
+            pending_wait_s: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2730,6 +2820,22 @@ export interface components {
         };
         /** WebhookAck */
         WebhookAck: Record<string, never>;
+        /** Zone */
+        Zone: {
+            /** Label */
+            label: string;
+            /** Regions */
+            regions: string[];
+            /** Zone Id */
+            zone_id: string;
+        };
+        /** ZonePlan */
+        ZonePlan: {
+            /** Lots */
+            lots: components["schemas"]["LotSize"][];
+            /** Zone Id */
+            zone_id: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -5208,7 +5314,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RulesDocument"];
+                    "application/json": components["schemas"]["RulesResponse"];
                 };
             };
             /** @description Validation Error */

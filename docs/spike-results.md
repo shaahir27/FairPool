@@ -78,9 +78,11 @@ Record: scope accepted yes or no; account ID present in userinfo yes or no; equa
 
 **Result (RECORDED Oct 28, 2026).** The account-attributes scope was rejected with `invalid_scope`; `openid` only worked (code and token exchange 200, userinfo 200 with `sub` and `user_id`). The raw userinfo `user_id` and the checkout `payer_id` differ, so no prefix stripping is used. `DEDUPE_MODE=two_keys`. Limits: this does not prove one human per account and does not prove cross-app portability.
 
-## S4: payload ladder (G8). PENDING
+## S4: payload ladder (G8). RECORDED Oct 31, 2026
 
-Record the highest accepted level: custom_id and invoice_id replay (level 1), breakdown with items (level 2), experience_context with provided address locked (level 3). Then set `PAYPAL_PAYLOAD_LEVEL`.
+Run `tools/fairpool_spike_check.py run --only s4`, run 8e91a3b6, app-owning Sandbox seller; orders only, no captures or refunds.
+
+**Result.** Level 1 passed: `custom_id` and `invoice_id` accepted and an idempotent replay returned 200 with the same order. Level 2 passed: the breakdown with items was accepted, and a mismatching breakdown was rejected 422 `AMOUNT_MISMATCH`. Level 3 was not verified: the non-interactive run did not complete the approval/address-lock attestation (create returned HTTP 200 and the harness marked the step failed). Level 4 is unavailable per S3. The verified ladder therefore supports up to level 2, but `PAYPAL_PAYLOAD_LEVEL` remains `0` in the app.
 
 ## S5: webhook listener (G5). PARTIAL Oct 28, 2026
 
@@ -90,9 +92,9 @@ Record: public HTTPS listener reachable on 443; real lifecycle events received; 
 
 Record: beacon endpoint and chain used, round period, a verified round value; number of US personal sandbox buyer accounts created (target six, D11). Then set `BEACON_MODE`.
 
-## S8: Elastic hybrid search (G12). PARTIAL Oct 28, 2026
+## S8: Elastic hybrid search (G12). RECORDED Oct 31, 2026
 
-Record: request shapes accepted, inference endpoint, latencies, top-five recall against the Postgres fallback, trial dates. Then set `SEARCH_BACKEND`.
+**Result.** The live cluster reports version 9.5.5 and an enterprise license expiring 2028-02-29. The local `.multilingual-e5-small-elasticsearch` endpoint failed with 429 because no ML node had capacity, so the managed `.jina-embeddings-v5-text-small` endpoint was used. A temporary 20-document index mapped `search_text` into `semantic_text`; the hybrid RRF query combined a BM25 `match` on the text field with a `semantic` query on the embedding field. Top-five recall was 10/10 on ten labelled queries, equal to the PostgreSQL baseline (10/10), at 205-387 ms per query. The temporary index was deleted. `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small` are set; similarity remains advisory and never changes a bid's status.
 
 ## S9: Zapier MCP managed mode (G13). PENDING
 

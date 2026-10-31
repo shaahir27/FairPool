@@ -1,4 +1,4 @@
-"""Shared test configuration: local env and Postgres fixtures (T01A01)."""
+"""Shared test configuration: explicit environment and isolated Postgres fixtures (T01A01)."""
 
 from __future__ import annotations
 
@@ -17,39 +17,20 @@ from fairpool.db.session import normalize_database_url
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _load_env_file() -> None:
-    """Make host-side tests use the same local settings as the app.
-
-    Values already present in the environment win (CI exports its own). The
-    file is never printed and is git-ignored.
-    """
-    path = ROOT / ".env"
-    if not path.exists():
-        return
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key:
-            os.environ.setdefault(key, value)
-
-
-_load_env_file()
-
-
 def database_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is required for the Postgres test suite")
+    from fairpool.db.safety import require_test_database
+
+    require_test_database(url)
     return url
 
 
 @pytest.fixture(scope="session")
 def migrated_db() -> None:
-    """Apply migration 0001 once; the tests themselves roll back."""
+    """Apply migrations once; the tests themselves roll back."""
+    database_url()  # Refuse ordinary or hosted databases before invoking Alembic.
     subprocess.run(
         [sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"],
         cwd=ROOT,

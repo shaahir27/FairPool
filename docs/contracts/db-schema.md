@@ -262,7 +262,7 @@ Index: `UNIQUE (entry_id) WHERE status IN (active statuses)`; `(lot_id, status)`
 | trg_entry_insert_window | On insert into `pool_entries`, require the pool status OPEN and `now() < close_at` from `timeline` | I15, FR-SL-02 |
 | trg_entry_synthetic_matches_mode | `synthetic` must be false for LIVE_SANDBOX pools and true for SIMULATION pools | I12 |
 | trg_paypal_rows_live_only | Inserts into `paypal_orders`, `paypal_authorizations`, `paypal_captures`, `paypal_refunds` require the lot's pool to be LIVE_SANDBOX | I12 |
-| trg_shipments_funded_only | Inserts into `shipments` require the lot status FUNDED or CLOSED and the buyer order status CAPTURED | I4, FR-IG-08 |
+| trg_shipments_funded_only | Inserts into `shipments` require the lot status FUNDED or CLOSED and the buyer order status CAPTURED, with `buyer_orders.lot_id = shipments.lot_id` (migration `0002`) | I4, FR-IG-08 |
 | idx_one_active_order_per_entry | Partial unique index on `buyer_orders(entry_id)` over active statuses | FR-LT-04, I8 |
 | chk_usd_only | `currency = 'USD'` wherever stored | DEP-1 |
 

@@ -213,7 +213,7 @@ Each path has exactly one owner. Anything not listed is created only by a task t
 
 ## 3. First 48 hours (PH0), in order
 
-1. **Both, about 2 hours, day 1 morning.** Read `docs/00-index.md`, `docs/agents.md` and every file in `docs/contracts/`. Write any question as an open question in `docs/progress.md`.
+1. **Both, about 2 hours, day 1 morning.** Read `docs/00-index.md`, `AGENTS.md` and every file in `docs/contracts/`. Write any question as an open question in `docs/progress.md`.
 2. **Member A: T00A01.** Bootstrap the repository and merge it first (Member B reviews within the hour). Everyone branches from it.
 3. **Member A: T00A02 now** (it needs the owner's hands in the PayPal dashboard); then T00A03 and T00A04.
 4. **Member B: T00B02 and T00B03 now** (spikes S1 and S7 need no repository); then T00B01 as soon as T00A01 is merged.

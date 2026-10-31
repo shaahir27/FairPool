@@ -51,7 +51,7 @@ def use_connection(monkeypatch: pytest.MonkeyPatch, connection: _FakeConnection)
 
 @pytest.mark.asyncio
 async def test_ready_when_database_and_revision_match(monkeypatch):
-    use_connection(monkeypatch, _FakeConnection("0001"))
+    use_connection(monkeypatch, _FakeConnection(migrations.HEAD_REVISION))
     probe = migrations.make_readiness_probe()
     assert await probe() == {"database": "ok", "migrations": "ok"}
 

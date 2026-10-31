@@ -41,7 +41,7 @@ _CONTEXT_VARS: Final[dict[str, ContextVar[str | None]]] = {
     "paypal_debug_id": paypal_debug_id,
 }
 
-# Keys that may never carry a value into a log record (agents.md section 3 rule 2).
+# Keys that may never carry a value into a log record (AGENTS.md section 3 rule 2).
 _SENSITIVE_KEY = re.compile(
     r"(?:secret|token|assertion|password|approval|client_secret|payment_token|vault)",
     re.IGNORECASE,

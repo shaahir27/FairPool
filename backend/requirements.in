@@ -8,3 +8,4 @@ alembic
 httpx
 cryptography
 argon2-cffi
+google-genai

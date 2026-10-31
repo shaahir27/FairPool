@@ -10,7 +10,7 @@ from fairpool.db.session import get_engine
 
 # Updated only when a new migration is added; test_schema_contract checks it
 # against the newest file under backend/migrations/versions.
-HEAD_REVISION = "0001"
+HEAD_REVISION = "0002"
 
 
 def make_readiness_probe() -> Callable[[], Awaitable[dict[str, str]]]:
