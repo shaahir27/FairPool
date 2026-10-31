@@ -2,7 +2,7 @@
 
 Contracts are the exact interfaces between modules and between the two members. They are what lets Member A and Member B work in parallel without waiting for each other's code. They are derived from `docs/system-design.md` and tightened where the design left bytes, columns or names open.
 
-Current version: `contracts-v1`, tagged at task T00X01 (gate IG-0). Nothing in this folder changes after that tag except through a change request.
+Current version: `contracts-v1.1`, tagged after the Phase 2 change request. Nothing in this folder changes after that tag except through a change request.
 
 ## Files
 
@@ -51,7 +51,7 @@ Current version: `contracts-v1`, tagged at task T00X01 (gate IG-0). Nothing in t
 |---|---|---|---|
 | contracts-v1 | 2026-10-30 | Initial freeze after full review; corrections C1-C15 and status consolidation recorded | @shaahir27 (owner) after independent agent review |
 
-| proposed contracts-v1.1 (unmerged) | 2026-10-31 | Phase 2 provider, payment identity, rules vector/envelope, shipment association and evidence validation | Owner-approved plan; independent review corrections applied; not yet merged |
+| contracts-v1.1 | 2026-10-31 | Phase 2 provider, payment identity, rules vector/envelope, shipment association and evidence validation | @shaahir27 (owner) after independent review; merged into `main` and tagged |
 
 ### Phase 2 change request (owner-approved implementation plan, 2026-10-31)
 
@@ -72,6 +72,6 @@ required before gate acceptance. No historical spike evidence or migration 0001 
 - Reconciliation evidence must occur in the input and relate to the named field.
   Unsupported/ambiguous claims require review; no model-written accusation is shown.
 
-The owner subsequently authorized exactly one intermediate commit. Keep the three-commit
-phase budget; independently review and commit the contract-only amendment first.
-A commit is not represented as a merged pull request or passed acceptance gate.
+The owner authorized one intermediate contract commit. The contract-only amendment
+is merged into `main` and tagged `contracts-v1.1`; the implementation continues on
+`phase-2`. The tag marks the contract version only; IG-2 acceptance remains open.

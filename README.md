@@ -378,7 +378,7 @@ Free-tier limits: the Render API sleeps after 15 minutes idle and there is no fr
 - [docs/progress.md](docs/progress.md) — current status, gates and open questions
 - [AGENTS.md](AGENTS.md) — rules for AI coding agents working in this repository
 
-The contracts in `docs/contracts/` are frozen at `contracts-v1`. Any change needs a contract change request and a new tag.
+The contracts in `docs/contracts/` are frozen at `contracts-v1.1`. Any change needs a contract change request and a new tag.
 
 ---
 
