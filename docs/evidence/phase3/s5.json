@@ -1,18 +1,19 @@
 {
   "executed": "2026-11-01",
   "owner_actions_required": [
-    "register the seven event types on the Sandbox app and put the new webhook ID in .env (never in chat)",
-    "accept the per-event-type split so three verifiable types can be recorded now and four deferred to IG-5",
-    "one live buyer approval, which only a human can click"
+    "in the Sandbox dashboard, on the same app whose REST credentials are in .env: open Webhooks, delete the stale entry (and the one just created), or paste its id here",
+    "then I re-register the seven event types, store the returned id in .env, and record per-event-type verification results",
+    "one live buyer approval, which only a human can click, for CHECKOUT.ORDER.APPROVED"
   ],
-  "prior_partial_evidence": "Oct 28-29 record retained unchanged in docs/spike-results.md: authorization-created, capture-completed and capture-refunded arrived and verified; a resend delivered the same event ID twice; order-approved was not observed in the window.",
+  "prior_partial_evidence": "Oct 28-29 record retained unchanged in docs/spike-results.md: authorization-created, capture-completed and capture-refunded arrived and verified; a resend delivered the same event id twice; order-approved was not observed in the window.",
   "status": "pending",
   "verified_now": {
-    "PAYPAL_WEBHOOK_ID": "set in .env but matches nothing - it is a dangling reference to the temporary S5 listener that was deleted (spike-results.md records 'Temporary webhook removed (204)')",
-    "WEBHOOKS_ENABLED": "not set in .env, contract default false; no money-state handler is registered in Phase 3",
-    "WEBHOOK_PUBLIC_URL": "fairpool-api.onrender.com; the deployed listener endpoint answers (health/ready both HTTP 200)",
-    "listener_registration": "GET /v1/notifications/webhooks -> HTTP 200 with 0 listeners registered on this app",
-    "sandbox_rest_credentials": "valid; client-credentials token obtained from api-m.sandbox.paypal.com (values never printed)"
+    "PAYPAL_WEBHOOK_ID": "still the stale October value in .env; it was deliberately NOT overwritten because no id could be verified against the app",
+    "endpoint": "https://fairpool-api.onrender.com/webhooks/paypal answers; /health and /ready both HTTP 200",
+    "listener_creation": "POST /v1/notifications/webhooks with the seven contracted event types returned HTTP 201 once. Re-creating either URL afterwards returns HTTP 400 WEBHOOK_URL_ALREADY_EXISTS.",
+    "listener_lookup": "GET /v1/notifications/webhooks returns HTTP 200 with zero links for this app, so the created webhook's id could not be read back and is not known here.",
+    "sandbox_rest_credentials": "valid; client-credentials token obtained from api-m.sandbox.paypal.com (values never printed)",
+    "verify_signature_call": "gateway.verify_webhook sends webhook_id plus the five PayPal-Auth-* headers and the raw event, and needs no url field, so a query-string listener URL would still verify"
   },
-  "why_pending": "Nothing can be verified end to end until a listener actually exists: signature verification calls PayPal's verify endpoint with the registered webhook ID, and the configured ID no longer resolves. Registering a listener is a write to the owner's Sandbox app, so it needs the owner's go-ahead; producing the remaining four event types additionally needs the Phase 4-5 authorize/capture/void handlers."
+  "why_pending": "Signature verification cannot be executed without a webhook id that this app can see. PayPal registered a listener and then refused to list it, which is a dashboard-level inconsistency only the owner can clear. Four of the seven event types additionally cannot be produced until the Phase 4-5 authorize/capture/void handlers exist."
 }

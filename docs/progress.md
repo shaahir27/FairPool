@@ -371,6 +371,35 @@ checks still report pending evidence. See the current gate row and Phase 2
 verification record for the later Gemini evaluation. No paid deployment was
 performed.
 
+## IG-3 closure attempt (2026-11-01, second pass)
+
+Asked to close the gate. What got done, and the two things that stopped it:
+
+1. **Search dependencies are now real.** `elasticsearch` 9.5.1 and `aiohttp` 3.14.5 (with
+   their transitive pins) went into `requirements.in` and both hash-locked files via
+   `pip-compile`. No pre-existing pin moved - the diff is 791 added and 14 removed lines,
+   all of them new packages - and `pip install --require-hashes --dry-run` resolves, so CI
+   installs the official client. The live Elastic parity test still skips there because CI
+   holds no cluster credentials, which is the honest outcome.
+2. **Webhook listener: created, then untraceable.** Registering the seven contracted event
+   types returned HTTP 201, but `GET /v1/notifications/webhooks` for the same app returns
+   zero links, and re-creating either the plain or the query-string URL now fails with
+   `WEBHOOK_URL_ALREADY_EXISTS`. So a listener exists that this app cannot see, its id was
+   never readable, and `PAYPAL_WEBHOOK_ID` was deliberately left at its stale value rather
+   than pointed at something unverified. Without a readable id, signature verification
+   cannot be executed, and I will not record a verified result I did not observe. This
+   needs a dashboard clear-out on the app whose credentials are in `.env`.
+3. **APIMatic trial: cannot be delegated.** The 14-day trial is an account signup at
+   apimatic.io (email, terms, per-language pricing afterwards) and no APIMatic credential
+   exists locally. I will not create an account on your identity, and I will not present a
+   simulated generation as a trial result. Either start it and hand me the token in `.env`,
+   or waive it in one line and I amend `IT-3`.
+4. **Nothing was tagged.** `make gate-check GATE=ig-3` runs the whole automated chain green
+   and still exits 2 on `s5` and `s11`. `contracts-v1.2` also remains untagged: it is due
+   under `contracts/README.md` section 0.2, but tagging was reserved until the gate
+   requirements were met, and they are not.
+
+
 ## IG-3 evidence verification (2026-11-01)
 
 Ordered work on the gate, executed rather than assumed:
