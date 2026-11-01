@@ -230,6 +230,30 @@ async def test_force_award_refuses_a_lot_past_its_forced_states(
     assert response.json()["error"]["code"] == "ORDER_STATE_INVALID"
 
 
+async def test_force_award_refuses_a_zero_price(db_session: AsyncSession) -> None:
+    """A flat award prices every seat, so ``item_cents`` must be at least one cent."""
+    world = await build_world(
+        db_session, lot_status="PLANNED", seated=1, waitlisted=0, with_award=False
+    )
+    payload = {**body(world.merchant_id), "item_cents": 0}
+    async with await client_for(db_session, app_env="local") as client:
+        csrf = await admin_login(client, db_session)
+        response = await client.post(
+            f"/api/v1/admin/lots/{world.lot_id}/force-award",
+            json=payload,
+            headers={"X-CSRF-Token": csrf},
+        )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert (
+        await db_session.scalar(
+            text("SELECT count(*) FROM awards WHERE lot_id = :lot"), {"lot": world.lot_id}
+        )
+        == 0
+    )
+
+
 async def test_force_award_requires_an_admin(db_session: AsyncSession) -> None:
     """api.md: the helper is an admin route."""
     world = await build_world(

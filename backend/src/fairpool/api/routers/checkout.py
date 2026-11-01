@@ -40,7 +40,7 @@ from fairpool.db.models.checkout import (
     PayPalRefund,
 )
 from fairpool.db.models.pools import Lot
-from fairpool.domain.errors import ApplicationError
+from fairpool.domain.errors import ApplicationError, IllegalTransition
 from fairpool.modules.checkout.engine import TransitionRequest
 from fairpool.modules.identity.service import Principal
 from fairpool.wiring import CheckoutServices, checkout_services
@@ -57,6 +57,13 @@ CAPTURE_ONLY_NOTICE = "Sandbox demo: the lot is captured without a separate auth
 HOLD_NOTICE = (
     "PayPal places a hold for the total shown only after you approve. "
     "The hold is released if this lot does not reach its minimum."
+)
+#: vault-charge.md section 1: no funds are reserved and PayPal's approval screen
+#: shows no amount, so the hold sentence of api.md section 3 is false in this mode.
+VAULT_NOTICE = (
+    "Nothing is charged or held now, and PayPal's approval screen shows no amount. "
+    "FairPool charges this saved account once, after the lot is awarded, for the "
+    "final price if it is at or below your maximum."
 )
 LOTS_MAY_DIFFER_NOTICE = (
     "Separate lots in this pool can end with different winning merchants and prices."
@@ -115,6 +122,13 @@ def _labels(lot: Lot) -> list[str]:
     if _fallback_notice(lot) is not None:
         labels.append(FALLBACK_LABEL)
     return labels
+
+
+def _hold_notice(lot: Lot) -> str:
+    """What happens to the buyer's money, in the language of the stamped mode (M10)."""
+    if str(lot.payment_mode) == "vault_charge":
+        return VAULT_NOTICE
+    return HOLD_NOTICE
 
 
 def _redirect(request: Request, buyer_order_id: object) -> RedirectResponse:
@@ -194,7 +208,7 @@ async def offers_get(
         },
         "offer_expires_at": order.offer_expires_at,
         "notices": {
-            "hold": HOLD_NOTICE,
+            "hold": _hold_notice(lot),
             "lots_may_differ": LOTS_MAY_DIFFER_NOTICE,
             "fallback": _fallback_notice(lot),
         },
@@ -257,15 +271,20 @@ async def offers_decline(
         # The whitelist or a guard refuses this seat here (for example a vault-mode
         # lot, which has no buyer payment window): no transition is invented.
         raise ApplicationError("ORDER_STATE_INVALID")
-    await services.engine.apply(
-        db,
-        TransitionRequest(
-            buyer_order_id=order.id,
-            to_state="DECLINED",
-            trigger=None,
-            actor="buyer",
-        ),
-    )
+    try:
+        await services.engine.apply(
+            db,
+            TransitionRequest(
+                buyer_order_id=order.id,
+                to_state="DECLINED",
+                trigger=None,
+                actor="buyer",
+            ),
+        )
+    except IllegalTransition:
+        # A decline that lost the race (the timer or a capture moved the seat) is the
+        # contract's state answer, never a 500 (M12).
+        raise ApplicationError("ORDER_STATE_INVALID") from None
     return {"buyer_order_id": str(order.id), "status": "DECLINED"}
 
 
@@ -312,15 +331,20 @@ async def checkout_cancel(
         db, buyer_order_id=record.buyer_order_id, to_state="DECLINED", trigger=None
     )
     if not decision.illegal_pair and decision.reason is None:
-        await services.engine.apply(
-            db,
-            TransitionRequest(
-                buyer_order_id=record.buyer_order_id,
-                to_state="DECLINED",
-                trigger=None,
-                actor="buyer",
-            ),
-        )
+        try:
+            await services.engine.apply(
+                db,
+                TransitionRequest(
+                    buyer_order_id=record.buyer_order_id,
+                    to_state="DECLINED",
+                    trigger=None,
+                    actor="buyer",
+                ),
+            )
+        except IllegalTransition:
+            # The cancel hint is only a hint: a seat that moved on is not an error the
+            # browser should see, and the redirect still happens (M12).
+            pass
     return _redirect(request, record.buyer_order_id)
 
 
@@ -497,15 +521,18 @@ async def offers_cancelled(
     )
     if decision.illegal_pair or decision.reason is not None:
         raise ApplicationError("ORDER_STATE_INVALID")
-    await services.engine.apply(
-        db,
-        TransitionRequest(
-            buyer_order_id=order.id,
-            to_state="DECLINED",
-            trigger=None,
-            actor="buyer",
-        ),
-    )
+    try:
+        await services.engine.apply(
+            db,
+            TransitionRequest(
+                buyer_order_id=order.id,
+                to_state="DECLINED",
+                trigger=None,
+                actor="buyer",
+            ),
+        )
+    except IllegalTransition:
+        raise ApplicationError("ORDER_STATE_INVALID") from None
     return {"buyer_order_id": str(order.id), "status": "DECLINED", "reason": None}
 
 

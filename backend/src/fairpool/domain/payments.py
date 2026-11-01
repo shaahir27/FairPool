@@ -80,10 +80,19 @@ class PaymentToken:
 
 @dataclass(frozen=True)
 class ChargeResult:
+    """One vault charge, as the provider answered it (vault-charge.md section 2).
+
+    ``amount_cents`` and ``payee_email`` are the *captured* values read from the
+    provider's capture resource, never our own expected ones: BO-24 compares them
+    against the award total and the stamped seller (I3).
+    """
+
     order_id: str
     capture_id: str | None
     capture_status: str | None
     error: str | None
+    amount_cents: int | None = None
+    payee_email: str | None = None
 
 
 @dataclass(frozen=True)

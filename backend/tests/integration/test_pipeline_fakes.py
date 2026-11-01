@@ -495,26 +495,19 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
         assert "order.vault_charge" in ran
         # ``domain-ports.md`` section 5 coalesces every ``lot.try_fund`` enqueue under
         # ``try_fund:{lot_id}`` while one is pending, and ``lot.open_checkout`` already
-        # scheduled the deadline timer. The funding decision therefore runs at that
-        # deadline; the test moves it into the past and runs the registered handler.
+        # scheduled the deadline timer. That timer is still in the future and the lot's
+        # stored deadline is never rewritten here: each completed charge enqueues the
+        # same key and ``infra/jobs.enqueue`` keeps the earlier ``run_at``, so the
+        # funding decision runs on the capture event instead of on the deadline.
+        assert "lot.try_fund" in ran, "a capture event pulled the deadline timer forward"
         assert (
             await scalar(
                 db_session,
-                "SELECT count(*) FROM jobs WHERE kind = 'lot.try_fund' AND status = 'PENDING' "
-                "AND payload->>'lot_id' = ANY(:lots)",
-                {"lots": [str(row.id) for row in east_lots]},
+                "SELECT count(*) FROM lots WHERE id = ANY(:lots) AND fund_deadline_at > now()",
+                {"lots": [row.id for row in east_lots]},
             )
             == 2
         )
-        await db_session.execute(
-            text(
-                "UPDATE lots SET fund_deadline_at = now() - interval '1 second' "
-                "WHERE id = ANY(:lots)"
-            ),
-            {"lots": [row.id for row in east_lots]},
-        )
-        for row in east_lots:
-            await handlers["lot.try_fund"](db_session, {"lot_id": str(row.id)})
 
         orders = (
             await db_session.execute(
@@ -526,7 +519,8 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
                 {"lots": [row.id for row in east_lots]},
             )
         ).all()
-        assert len(orders) == 5  # 3 + 2 seats, refilled from the waitlist
+        # One order per seat of the two EAST lots, refilled from the waitlist.
+        assert len(orders) == sum(int(row.seats) for row in east_lots)
         assert {row.status for row in orders} == {"CAPTURED"}
         assert {int(row.total_cents) for row in orders} == {ITEM_CENTS}
         # Every offer was for a seat whose cap covers the total; the two priced-out
@@ -561,7 +555,7 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
                 {"lots": [row.id for row in east_lots]},
             )
         ).all()
-        assert len(captures) == 5
+        assert len(captures) == sum(int(row.seats) for row in east_lots)
         # The fake gateway's ids are the only provider ids in this run (I12).
         assert all(str(row.paypal_capture_id).startswith("FAKE-") for row in captures)
         assert {str(row.status) for row in captures} == {"COMPLETED"}
@@ -575,7 +569,9 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
                 {"lots": [row.id for row in east_lots]},
             )
         ).all()
-        assert {int(row[1]) for row in ledger} == {3, 2}
+        assert {str(row[0]): int(row[1]) for row in ledger} == {
+            str(row.id): int(row.seats) for row in east_lots
+        }
 
         for row in east_lots:
             assert await status_of(db_session, "lots", row.id) == "FUNDED"

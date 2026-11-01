@@ -1,28 +1,36 @@
 """``order.resolve`` and ``reconciler.sweep``: heal stale orders, never invent a state.
 
 Contract: ``domain-ports.md`` section 5 (job kinds), ``state-machines.md`` BO-02,
-BO-15 to BO-17 and CR-3 note 1.
+BO-07/BO-08/BO-11, BO-24/BO-25/BO-26, BO-15 to BO-17, CR-3 note 1 and
+``vault-charge.md`` section 7.
 
 The sweep is a reader: it finds buyer orders that no timer will move again --
 APPROVED seats without a running authorize job, offers whose stored deadline has
-passed, and AUTHORIZING rows whose seat horizon has passed -- and enqueues
+passed, AUTHORIZING rows whose seat horizon has passed, and CAPTURING rows older than
+``capture_grace_s`` (an unknown capture or charge outcome) -- and enqueues
 ``order.resolve`` for each, with the ``bo:{buyer_order_id}`` concurrency key.
 
-``order.resolve`` itself only re-enqueues an **existing** trigger:
+``order.resolve`` itself re-enqueues an **existing** trigger, or settles a CAPTURING
+row through the handler that owns it:
 
 * APPROVED or AUTHORIZING -> ``order.authorize`` (BO-03/04/05/20; the authorize
   handler replays its own key, so an unknown outcome is healed by the same
   identity and never by a new one);
 * an OFFERED or ORDER_CREATED offer past ``offer_expires_at`` -> ``offer.expire``
-  (BO-15/BO-16).
+  (BO-15/BO-16);
+* CAPTURING -> ``resolve_charge``, which reads the provider resource back by the
+  stored id (or replays the same request key) and applies BO-07/08/11 or
+  BO-24/25/26 under that same identity (``vault-charge.md`` section 7).
 
-It never writes ``buyer_orders.status`` and never applies a transition. An order
-in any other state, or an expired row that is already terminal, is left alone.
+It never writes ``buyer_orders.status`` itself and never applies a transition of its
+own. An order in any other state, or an expired row that is already terminal, is
+left alone.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, Final
 from uuid import UUID
@@ -44,9 +52,15 @@ EXPIRING_STATES: Final[frozenset[str]] = frozenset({"OFFERED", "ORDER_CREATED"})
 #: States the authorize trigger owns.
 AUTHORIZE_STATES: Final[frozenset[str]] = frozenset({"APPROVED", "AUTHORIZING"})
 
+#: The state an unknown capture or vault-charge outcome leaves behind.
+CAPTURING_STATE: Final[str] = "CAPTURING"
+
 #: One sweep never enqueues more than this, so a large backlog cannot make a
 #: single admin call unbounded.
 BATCH_SIZE: Final[int] = 200
+
+#: What the checkout layer supplies so a CAPTURING row can be settled by evidence.
+type ResolveCharge = Callable[[AsyncSession, UUID], Awaitable[None]]
 
 
 def _grace_seconds(timeline: dict[str, Any], default: int = 120) -> int:
@@ -57,10 +71,20 @@ def _grace_seconds(timeline: dict[str, Any], default: int = 120) -> int:
 class Reconciler:
     """The ``reconciler.sweep`` and ``order.resolve`` handlers."""
 
-    def __init__(self, *, clock: Clock, jobs: JobQueue, batch_size: int = BATCH_SIZE) -> None:
+    def __init__(
+        self,
+        *,
+        clock: Clock,
+        jobs: JobQueue,
+        batch_size: int = BATCH_SIZE,
+        resolve_charge: ResolveCharge | None = None,
+    ) -> None:
         self.clock = clock
         self.jobs = jobs
         self.batch_size = batch_size
+        # Wired by the composition root to the checkout handlers that own the money
+        # call; without it a CAPTURING row is reported and left alone, never guessed.
+        self.resolve_charge = resolve_charge
 
     async def sweep(self, session: AsyncSession, payload: dict[str, Any]) -> int:
         """Enqueue one ``order.resolve`` per stale order and return the count."""
@@ -82,6 +106,7 @@ class Reconciler:
                         [
                             *sorted(EXPIRING_STATES),
                             *sorted(AUTHORIZE_STATES),
+                            CAPTURING_STATE,
                         ]
                     )
                 )
@@ -109,6 +134,9 @@ class Reconciler:
         if status in AUTHORIZE_STATES:
             await self._enqueue(session, "order.authorize", order.id, now)
             return
+        if status == CAPTURING_STATE:
+            await self._settle_capturing(session, order.id)
+            return
         wall_now = await self.clock.db_wall_now(session)
         if (
             status in EXPIRING_STATES
@@ -118,6 +146,17 @@ class Reconciler:
             await self._enqueue(session, "offer.expire", order.id, now)
             return
         logger.info("reconciler.resolve.skipped buyer_order_id=%s status=%s", order.id, status)
+
+    async def _settle_capturing(self, session: AsyncSession, buyer_order_id: UUID) -> None:
+        """Hand one CAPTURING row to the handler that owns its provider call."""
+        if self.resolve_charge is None:
+            logger.error(
+                "reconciler.resolve.unwired buyer_order_id=%s status=%s",
+                buyer_order_id,
+                CAPTURING_STATE,
+            )
+            return
+        await self.resolve_charge(session, buyer_order_id)
 
     async def _enqueue(
         self, session: AsyncSession, kind: str, buyer_order_id: UUID, run_at: Any
@@ -140,9 +179,15 @@ class Reconciler:
             grace = timedelta(seconds=_grace_seconds(row.timeline))
             horizon = row.seat_locked_until or (row.updated_at + grace)
             return bool(wall_now >= horizon)
+        if status == CAPTURING_STATE:
+            # An unknown capture or charge outcome: the provider may have accepted
+            # while our call timed out, so the row is read back, never re-done under
+            # a new key (vault-charge.md section 7).
+            grace = timedelta(seconds=_grace_seconds(row.timeline))
+            return bool(wall_now >= row.updated_at + grace)
         if status in EXPIRING_STATES:
             return bool(row.offer_expires_at is not None and wall_now >= row.offer_expires_at)
         return False
 
 
-__all__ = ["AUTHORIZE_STATES", "EXPIRING_STATES", "Reconciler"]
+__all__ = ["AUTHORIZE_STATES", "CAPTURING_STATE", "EXPIRING_STATES", "Reconciler", "ResolveCharge"]

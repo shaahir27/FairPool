@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -168,6 +168,48 @@ async def test_confirming_another_buyers_proposal_answers_not_found(
         )
 
     assert refused.status_code == 404 and refused.json()["error"]["code"] == "NOT_FOUND"
+
+
+async def test_a_guessed_session_id_is_not_another_buyers_conversation(
+    db_session: AsyncSession,
+) -> None:
+    """The turn history is keyed by owner and session, so a guessed id sees nothing."""
+    from tests.integration.test_intake_validation import ConstantFakeAI
+
+    pool_id = await open_pool(db_session)
+    constant = ConstantFakeAI(proposal(pool_id, condition="OPEN_BOX"))  # always asks
+    app = create_app(settings_for())
+    app.state.intake_ai = constant
+
+    async def session() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[database_session] = session
+    session_id = str(uuid4())
+    body = {"pool_id": str(pool_id), "message": MESSAGE, "session_id": session_id}
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://api.test"
+    ) as http:
+        csrf_a = await login(http, "intake-session-a@example.test")
+        for _ in range(2):
+            turn = await http.post(
+                "/api/v1/intake/messages", json=body, headers={"X-CSRF-Token": csrf_a}
+            )
+            assert turn.status_code == 200, turn.text
+        assert [len(call.payload["history"]) for call in constant.calls] == [0, 1]
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://api.test"
+    ) as other:
+        csrf_b = await login(other, "intake-session-b@example.test")
+        stolen = await other.post(
+            "/api/v1/intake/messages", json=body, headers={"X-CSRF-Token": csrf_b}
+        )
+
+    assert stolen.status_code == 200, stolen.text
+    # The other buyer's turn starts a fresh history: nothing of A's, and A's three-turn
+    # budget is untouched by it.
+    assert constant.calls[-1].payload["history"] == []
 
 
 async def test_the_message_route_is_limited_to_20_per_minute_per_user(

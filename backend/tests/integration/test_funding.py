@@ -255,6 +255,36 @@ async def test_capture_poll_completes_a_pending_capture(db_session: AsyncSession
 
     assert await order_status(db_session, orders[0]) == "CAPTURED"
     assert [row.kind for row in world.ports.ledger.entries].count("CAPTURE_COMPLETED") == 1
+    assert await capture_row_status(db_session, orders[0]) == "COMPLETED"
+
+
+async def test_capture_poll_records_a_declined_outcome_on_the_capture_row(
+    db_session: AsyncSession,
+) -> None:
+    """M6: the stored ``paypal_captures.status`` follows every poll, not only the order."""
+    world = await build_world(db_session, seats=1, seated=1, waitlisted=0, moq=1)
+    router = distinct_router(outcome="pending")
+    orders = await authorized_orders(world, router=router, count=1)
+    service = funding_service(world, router=router)
+    await service.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    await service.capture(db_session, {"buyer_order_id": str(orders[0])})
+    assert await capture_row_status(db_session, orders[0]) == "PENDING"
+
+    capture_id, capture = next(iter(router.gateway.captures.items()))
+    router.gateway.captures[capture_id] = replace(capture, status="DECLINED")
+    await service.poll(db_session, {"buyer_order_id": str(orders[0])})
+
+    assert await order_status(db_session, orders[0]) == "CAPTURE_FAILED"
+    assert await capture_row_status(db_session, orders[0]) == "DECLINED"
+
+
+async def capture_row_status(session: AsyncSession, buyer_order_id: UUID) -> str:
+    return str(
+        await session.scalar(
+            text("SELECT status FROM paypal_captures WHERE buyer_order_id = :id"),
+            {"id": buyer_order_id},
+        )
+    )
 
 
 async def test_no_capture_slot_requeues_instead_of_calling_paypal(
@@ -319,3 +349,123 @@ async def test_finalize_close_ignores_a_lot_that_is_not_funded(
     await service.finalize_close(db_session, {"lot_id": str(world.lot_id)})
     assert await lot_status(db_session, world.lot_id) == "AWARDED"
     assert world.ports.audit.rows == []
+
+
+async def test_a_pending_capture_at_the_deadline_keeps_the_lot_funded(
+    db_session: AsyncSession,
+) -> None:
+    """M5: LS-11 needs the capture window over, so a PENDING capture blocks the close."""
+    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=1)
+    router = distinct_router()
+    orders = await authorized_orders(world, router=router, count=2)
+    service = funding_service(world, router=router)
+    await service.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    await service.capture(db_session, {"buyer_order_id": str(orders[0])})
+
+    router.gateway.outcome = "pending"
+    await service.capture(db_session, {"buyer_order_id": str(orders[1])})
+    assert await order_status(db_session, orders[1]) == "CAPTURE_PENDING"
+    await service.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "FUNDED"
+
+    await service.finalize_close(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "FUNDED", "a capture is in flight"
+
+    pending_capture_id = await db_session.scalar(
+        text("SELECT paypal_capture_id FROM paypal_captures WHERE buyer_order_id = :id"),
+        {"id": orders[1]},
+    )
+    capture = router.gateway.captures[str(pending_capture_id)]
+    router.gateway.captures[str(pending_capture_id)] = replace(capture, status="COMPLETED")
+    await service.poll(db_session, {"buyer_order_id": str(orders[1])})
+    assert await order_status(db_session, orders[1]) == "CAPTURED"
+
+    await service.finalize_close(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "CLOSED"
+
+
+async def test_an_earlier_funding_event_is_not_swallowed_by_the_deadline_timer(
+    db_session: AsyncSession,
+) -> None:
+    """M4: the deadline timer owns ``try_fund:{lot}``; a capture event still pulls it in.
+
+    The lot's deadline is far in the future and its stored ``fund_deadline_at`` is
+    never touched here: the completed capture's own ``lot.try_fund`` effect is what
+    makes the funding decision run, because a coalesced enqueue keeps the earlier
+    ``run_at`` (``infra/jobs.enqueue``).
+    """
+    from fairpool.infra.audit import PostgresAuditLog
+    from fairpool.infra.clock import DbClock
+    from fairpool.infra.idempotency import PostgresIdempotencyStore
+    from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.checkout.engine import CheckoutEngine
+    from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
+
+    world = await build_world(db_session, seats=1, seated=1, waitlisted=0, moq=1)
+    clock, jobs = DbClock(), PostgresJobQueue()
+    await OpenCheckoutHandler(
+        clock=clock,
+        audit=world.ports.audit,
+        jobs=jobs,
+        notifier=world.ports.notifier,
+        allocations=PostgresAllocationRead(),
+    ).open(db_session, {"lot_id": str(world.lot_id)})
+    (deadline,) = (
+        await db_session.execute(
+            text(
+                "SELECT run_at FROM jobs WHERE kind = 'lot.try_fund' AND payload->>'lot_id' = :lot"
+            ),
+            {"lot": str(world.lot_id)},
+        )
+    ).one()
+    stored_deadline = await db_session.scalar(
+        text("SELECT fund_deadline_at FROM lots WHERE id = :lot"), {"lot": world.lot_id}
+    )
+    assert stored_deadline is not None
+
+    router = distinct_router()
+    orders = await authorized_orders(world, router=router, count=1)
+    service = FundingService(
+        engine=CheckoutEngine(
+            clock=clock,
+            audit=PostgresAuditLog(),
+            jobs=jobs,
+            ledger=world.ports.ledger,
+            notifier=world.ports.notifier,
+            idempotency=PostgresIdempotencyStore(),
+        ),
+        clock=clock,
+        audit=world.ports.audit,
+        jobs=jobs,
+        notifier=world.ports.notifier,
+        ledger=world.ports.ledger,
+        allocations=PostgresAllocationRead(),
+        gateway=router.gateway,
+        capture_concurrency=5,
+        capture_buffer=0,
+    )
+    await service.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "FUNDING"
+    await service.capture(db_session, {"buyer_order_id": str(orders[0])})
+    assert await order_status(db_session, orders[0]) == "CAPTURED"
+
+    rows = (
+        await db_session.execute(
+            text(
+                "SELECT run_at FROM jobs WHERE kind = 'lot.try_fund' AND status = 'PENDING' "
+                "AND payload->>'lot_id' = :lot"
+            ),
+            {"lot": str(world.lot_id)},
+        )
+    ).all()
+    assert len(rows) == 1, "one coalesced funding job, not two"
+    assert rows[0][0] < deadline, "the capture event pulled the deadline timer forward"
+    # The deadline itself was never rewritten to make this happen.
+    assert (
+        await db_session.scalar(
+            text("SELECT fund_deadline_at FROM lots WHERE id = :lot"), {"lot": world.lot_id}
+        )
+        == stored_deadline
+    )
+    await service.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "FUNDED"

@@ -8,7 +8,7 @@ orders, recomputed under the lot lock, and the waitlist selection is the read
 service's N12 rule (same zone, ascending rank, cap covers the awarded total, entry
 still ELIGIBLE). The handler stops when the lot is past ``refill_cutoff_at``, when
 the wave budget (``max_refill_waves``) is spent, or when the lot is no longer
-CHECKOUT_OPEN/FUNDING. The counter is incremented in this same transaction, so two
+CHECKOUT_OPEN. The counter is incremented in this same transaction, so two
 refill jobs cannot both spend the last wave (I8, I10).
 
 The offer row, its timer and the active-order count are the ones
@@ -44,9 +44,11 @@ from fairpool.ports import (
 
 logger: Final[logging.Logger] = logging.getLogger("fairpool.checkout.refill")
 
-#: Only these lot states accept a refill (the vacancy rule, plus the optional
-#: top-up after FUNDED is off).
-REFILLABLE: Final[frozenset[str]] = frozenset({"CHECKOUT_OPEN", "FUNDING"})
+#: Only a CHECKOUT_OPEN lot accepts a refill. The vacancy rule also mentions FUNDING,
+#: but the only transition that continues a refilled offer, BO-01, requires the lot to
+#: be CHECKOUT_OPEN, so an offer created during FUNDING could never be paid for; the
+#: gap is recorded as an open question rather than papered over here (Q-2026-11-01-16).
+REFILLABLE: Final[frozenset[str]] = frozenset({"CHECKOUT_OPEN"})
 
 
 class RefillService:

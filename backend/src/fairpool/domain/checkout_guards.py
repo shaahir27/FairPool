@@ -75,21 +75,30 @@ CAPTURE_COMPLETED: Final[str] = "COMPLETED"
 CAPTURE_PENDING: Final[str] = "PENDING"
 CAPTURE_FAILURES: Final[frozenset[str]] = frozenset({"DECLINED", "FAILED"})
 
-#: Definitive vault-charge declines (vault-charge.md section 7).
-VAULT_DECLINE_CODES: Final[frozenset[str]] = frozenset({"INSTRUMENT_DECLINED", "PERMISSION_DENIED"})
+#: Definitive vault-charge declines (vault-charge.md section 7): 422
+#: ``INSTRUMENT_DECLINED``, status ``DENIED`` and the 403 rows. ``TOKEN_REVOKED`` is
+#: the adapter's code for a deleted or revoked permission, which the contract files
+#: under the same 403 row (VC-03).
+VAULT_DECLINE_CODES: Final[frozenset[str]] = frozenset(
+    {"INSTRUMENT_DECLINED", "PERMISSION_DENIED", "TOKEN_REVOKED"}
+)
 
 #: Transitions that exist only in ``PAYMENT_MODE=vault_charge``: BO-23 names the
 #: mode in its own guard and BO-24 to BO-27 share its trigger, which is enqueued
 #: only in that mode (vault-charge.md section 3).
 VAULT_ONLY: Final[frozenset[str]] = frozenset({"BO-23", "BO-24", "BO-25", "BO-26", "BO-27"})
 
-#: Refunds are mode-independent: LS-10 requires a COMPLETED refund for every
-#: completed capture whatever the mode (state-machines.md, vault-charge.md section 7).
-MODE_INDEPENDENT: Final[frozenset[str]] = frozenset({"BO-13", "BO-14"})
+#: Refunds and capture polling are mode-independent (state-machines.md, vault-charge.md
+#: section 7). A capture that is already pending has no ladder to climb, so polling it
+#: (BO-09/BO-10) is the same act in both modes; LS-10 requires a COMPLETED refund for
+#: every completed capture whatever the mode (BO-13/BO-14).
+MODE_INDEPENDENT: Final[frozenset[str]] = frozenset({"BO-09", "BO-10", "BO-13", "BO-14"})
 
 #: Under ``PAYMENT_MODE=vault_charge`` the buyer checkout ladder is not used and
 #: there is no buyer payment window (vault-charge.md section 3), and no
-#: authorization exists to void (section 1).
+#: authorization exists to void (section 1). BO-09 and BO-10 are absent on purpose:
+#: they poll a capture that already exists, which is the same act in both modes and
+#: the only way a vault PENDING charge ever resolves (``capture.poll``).
 AUTHORIZE_LADDER: Final[frozenset[str]] = frozenset(
     {
         "BO-01",
@@ -100,8 +109,6 @@ AUTHORIZE_LADDER: Final[frozenset[str]] = frozenset(
         "BO-06",
         "BO-07",
         "BO-08",
-        "BO-09",
-        "BO-10",
         "BO-11",
         "BO-12",
         "BO-15",
@@ -239,6 +246,8 @@ def _stamped(facts: BuyerOrderFacts) -> str | None:
 
 def _mode_family(transition_id: str, facts: BuyerOrderFacts) -> str | None:
     """BO-23 to BO-27 are the vault path; the ladder is not used in that mode."""
+    if transition_id in MODE_INDEPENDENT:
+        return None
     if facts.payment_mode == MODE_VAULT and transition_id in AUTHORIZE_LADDER:
         return (
             f"{transition_id} belongs to the buyer checkout ladder, which is not "

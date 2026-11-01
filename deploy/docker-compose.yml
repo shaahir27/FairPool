@@ -26,6 +26,8 @@ services:
       # The host .env points at 127.0.0.1 for host-side Alembic/tests; inside
       # the compose network the database is the `db` service.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # The image defaults to Render's port; compose pins the one it maps.
+      PORT: 8000
     depends_on:
       db:
         condition: service_healthy

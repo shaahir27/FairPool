@@ -14,7 +14,8 @@ like a feature (``domain-ports.md`` section 5, CR-3).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
+from uuid import UUID
 
 from fairpool.adapters.paypal.gateway import RestPayPalGateway
 from fairpool.config import Settings
@@ -285,7 +286,19 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     allocation = AllocationService(clock, audit)
     surface = checkout if checkout is not None else checkout_services(settings)
     expiry = OfferExpiry(engine=surface.engine, jobs=jobs)
-    reconciler = Reconciler(clock=clock, jobs=jobs)
+
+    async def resolve_charge(session: Any, buyer_order_id: UUID) -> None:
+        """Settle a CAPTURING order by evidence; each handler ignores the other mode.
+
+        The vault handler owns a ``vault_charge`` lot and the funding service the
+        authorize ladder, both stamped on the lot at award (N8), so calling both in
+        order settles the row exactly once without the reconciler knowing either mode
+        (vault-charge.md section 7).
+        """
+        await surface.vault_charge.reconcile(session, buyer_order_id)
+        await surface.funding.reconcile(session, buyer_order_id)
+
+    reconciler = Reconciler(clock=clock, jobs=jobs, resolve_charge=resolve_charge)
 
     async def sweep(session, payload) -> None:
         await reconciler.sweep(session, payload)

@@ -60,7 +60,11 @@ class PostgresJobQueue(JobQueue):
                 "CAST(:payload AS jsonb), :concurrency_key, :dedupe_key) "
                 "ON CONFLICT (dedupe_key) "
                 "WHERE dedupe_key IS NOT NULL AND status IN ('PENDING','RUNNING') "
-                "DO NOTHING RETURNING id"
+                # A coalesced event must not be swallowed: the earlier run_at wins, so
+                # a capture that completes before the deadline timer pulls funding
+                # forward instead of waiting for it (domain-ports.md section 5, I5).
+                "DO UPDATE SET run_at = LEAST(jobs.run_at, EXCLUDED.run_at) "
+                "RETURNING id"
             ),
             {
                 "id": job_id,
@@ -71,7 +75,9 @@ class PostgresJobQueue(JobQueue):
                 "dedupe_key": dedupe_key,
             },
         )
-        return job_id if inserted is not None else None
+        # ``DO UPDATE`` returns the row that already owned the key, so the caller still
+        # sees ``None`` for "this enqueue was coalesced into an existing job".
+        return job_id if inserted is not None and inserted == job_id else None
 
     async def claim(
         self,

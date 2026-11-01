@@ -363,7 +363,8 @@ class FundingService:
             )
         except PaymentError as exc:
             # No capture resource exists to record, so no whitelisted pair applies;
-            # the order stays CAPTURING and the reconciler owns the unknown outcome.
+            # the order stays CAPTURING and ``reconcile`` settles it under the same
+            # request key once the reconciler sweeps it (I9, B2).
             logger.error(
                 "checkout.capture.unknown buyer_order_id=%s category=%s code=%s",
                 buyer_order_id,
@@ -371,27 +372,77 @@ class FundingService:
                 exc.code,
             )
             return
-        await self._record_capture(session, buyer_order_id, capture, auth_id=str(auth_id))
+        await self._settle_capture(
+            session, buyer_order_id, capture, auth_id=str(auth_id), trigger="job:order.capture"
+        )
+
+    async def reconcile(self, session: AsyncSession, buyer_order_id: UUID) -> None:
+        """Settle one CAPTURING authorize-mode order by replaying its capture key.
+
+        ``order.resolve`` calls this for an order whose capture outcome is unknown:
+        the capture is re-requested with ``cap:{paypal_auth_id}``, the key the first
+        attempt used, so the provider replays rather than captures twice (I9), and the
+        result is applied exactly as ``order.capture`` would apply it.
+        """
+        order = await session.scalar(select(BuyerOrder).where(BuyerOrder.id == buyer_order_id))
+        if order is None:
+            raise ApplicationError("NOT_FOUND")
+        if str(order.status) != str(BuyerOrderStatus.CAPTURING):
+            return
+        mode = await session.scalar(select(Lot.payment_mode).where(Lot.id == order.lot_id))
+        if mode is not None and str(mode) == "vault_charge":
+            # The vault path's CAPTURING rows have their own reconciler step.
+            return
+        auth_id = await session.scalar(
+            select(PayPalAuthorization.paypal_auth_id)
+            .where(PayPalAuthorization.buyer_order_id == buyer_order_id)
+            .order_by(PayPalAuthorization.created_at.desc(), PayPalAuthorization.id)
+            .limit(1)
+        )
+        if auth_id is None:
+            logger.error("checkout.capture.reconcile_unavailable buyer_order_id=%s", buyer_order_id)
+            return
+        try:
+            capture = await self.gateway.capture_authorization(
+                str(auth_id),
+                amount_cents=int(order.total_cents),
+                request_key=f"cap:{auth_id}",
+            )
+        except PaymentError as exc:
+            logger.error(
+                "checkout.capture.reconcile_unknown buyer_order_id=%s category=%s code=%s",
+                buyer_order_id,
+                exc.category,
+                exc.code,
+            )
+            return
+        await self._settle_capture(
+            session, buyer_order_id, capture, auth_id=str(auth_id), trigger="job:order.capture"
+        )
+
+    async def _settle_capture(
+        self,
+        session: AsyncSession,
+        buyer_order_id: UUID,
+        capture: GatewayCapture,
+        *,
+        auth_id: str | None,
+        trigger: str,
+    ) -> None:
+        """Persist the capture row, then apply the one transition its status proves."""
+        await self._record_capture(session, buyer_order_id, capture, auth_id=auth_id)
         status = str(capture.status)
         if status == "COMPLETED":
             await self._observe_capture(
-                session, buyer_order_id, capture, to_state="CAPTURED", trigger="job:order.capture"
+                session, buyer_order_id, capture, to_state="CAPTURED", trigger=trigger
             )
         elif status == "PENDING":
             await self._observe_capture(
-                session,
-                buyer_order_id,
-                capture,
-                to_state="CAPTURE_PENDING",
-                trigger="job:order.capture",
+                session, buyer_order_id, capture, to_state="CAPTURE_PENDING", trigger=trigger
             )
         elif status in checkout_guards.CAPTURE_FAILURES:
             await self._observe_capture(
-                session,
-                buyer_order_id,
-                capture,
-                to_state="CAPTURE_FAILED",
-                trigger="job:order.capture",
+                session, buyer_order_id, capture, to_state="CAPTURE_FAILED", trigger=trigger
             )
 
     async def _observe_capture(
@@ -470,6 +521,9 @@ class FundingService:
             raise ApplicationError("INTEGRITY_ERROR")
         capture = await self.gateway.get_capture(str(capture_id))
         status = str(capture.status)
+        # The stored row follows every GET, whatever the outcome: a PENDING capture
+        # that read DECLINED must not keep claiming to be pending (M6, I4).
+        await self._record_capture(session, buyer_order_id, capture, auth_id=None)
         if status == "COMPLETED":
             await self._observe_capture(
                 session, buyer_order_id, capture, to_state="CAPTURED", trigger="job:capture.poll"
@@ -514,6 +568,19 @@ class FundingService:
         lot = await lock_lot(session, lot_id)
         if str(lot.status) != str(LotStatus.FUNDED):
             return
+        if not await self._capture_window_over(session, lot.id):
+            # LS-11: "capture window over; ledger balanced". A capture still PENDING at
+            # the deadline, or a completed capture the ledger never recorded, means the
+            # lot is not finished; the job comes back after the poll (I4, M5).
+            now_wait = await self.clock.db_now(session)
+            await self.jobs.enqueue(
+                session,
+                "lot.finalize_close",
+                {"lot_id": str(lot.id)},
+                run_at=now_wait + timedelta(seconds=POLL_INTERVAL_S),
+                concurrency_key=f"lot:{lot.id}",
+            )
+            return
         award = await self.allocations.get_award(session, lot_id)
         # LS-11's guard text names the merchant notification, and its effect list
         # carries audit only; the notification is written before the transition so
@@ -527,6 +594,25 @@ class FundingService:
             audit=self.audit,
             payload={"transition_id": "LS-11"},
         )
+
+    async def _capture_window_over(self, session: AsyncSession, lot_id: UUID) -> bool:
+        """True when no capture is PENDING and every completed one has its ledger fact."""
+        pending = await session.scalar(
+            select(func.count())
+            .select_from(PayPalCapture)
+            .join(BuyerOrder, BuyerOrder.id == PayPalCapture.buyer_order_id)
+            .where(BuyerOrder.lot_id == lot_id, PayPalCapture.status == "PENDING")
+        )
+        if int(pending or 0) > 0:
+            return False
+        completed_rows = await session.scalar(
+            select(func.count())
+            .select_from(PayPalCapture)
+            .join(BuyerOrder, BuyerOrder.id == PayPalCapture.buyer_order_id)
+            .where(BuyerOrder.lot_id == lot_id, PayPalCapture.status == "COMPLETED")
+        )
+        on_ledger = await self.ledger.completed_capture_count(session, lot_id)
+        return int(completed_rows or 0) == int(on_ledger)
 
     async def _notify_merchant(
         self, session: AsyncSession, award: AwardView, *, kind: str, lot_id: UUID

@@ -447,9 +447,12 @@ async def test_open_checkout_never_offers_more_than_the_seats(
     db_session: AsyncSession,
 ) -> None:
     """T04A01 acceptance (I8): three seated entries on two seats create two offers."""
-    world = await build_world(db_session, seats=2, seated=2, waitlisted=0)
+    world = await build_world(db_session, seats=2, seated=3, waitlisted=0)
     await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
-    assert len(await order_rows(db_session, world.lot_id)) == 2
+
+    rows = await order_rows(db_session, world.lot_id)
+    assert len(rows) == 2, "the seat cap, not the seated count, decides the offers"
+    assert {row[1] for row in rows} <= set(world.entry_ids[:3])
 
 
 async def test_open_checkout_sets_the_deadlines_from_the_timeline(
@@ -535,3 +538,73 @@ async def test_a_lot_that_is_not_awarded_is_left_alone(db_session: AsyncSession)
     await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
     assert world.ports.jobs.jobs == []
     assert world.ports.audit.rows == []
+
+
+# ------------------------------------------------------------ refill limits
+
+
+def refill_handler(world: World):
+    from fairpool.modules.checkout.refill import RefillService
+
+    return RefillService(
+        clock=world.ports.clock,
+        audit=world.ports.audit,
+        jobs=world.ports.jobs,
+        allocations=PostgresAllocationRead(),
+    )
+
+
+async def decline_first_offer(world: World) -> UUID:
+    """BO-21 on the first offer, which opens one vacancy while CHECKOUT_OPEN."""
+    from fairpool.modules.checkout.engine import TransitionRequest
+
+    rows = await order_rows(world.session, world.lot_id)
+    order_id = rows[0][0]
+    await world.ports.engine.apply(
+        world.session,
+        TransitionRequest(
+            buyer_order_id=order_id, to_state="DECLINED", trigger=None, actor="buyer"
+        ),
+    )
+    return order_id
+
+
+async def test_a_refill_at_the_cutoff_offers_nothing(db_session: AsyncSession) -> None:
+    """CR-4: past ``refill_cutoff_at`` a refill could no longer fund the lot."""
+    world = await build_world(db_session, seats=2, seated=2, waitlisted=1)
+    await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
+    await decline_first_offer(world)
+    await db_session.execute(
+        text("UPDATE lots SET refill_cutoff_at = :at WHERE id = :lot"),
+        {"at": world.now, "lot": world.lot_id},
+    )
+
+    await refill_handler(world).refill(db_session, {"lot_id": str(world.lot_id)})
+
+    assert (await lot_row(db_session, world.lot_id))[3] == 0
+    entries = {row[1] for row in await order_rows(db_session, world.lot_id)}
+    assert world.entry_ids[2] not in entries
+
+
+async def test_a_refill_past_the_wave_budget_offers_nothing(db_session: AsyncSession) -> None:
+    """CR-4: ``max_refill_waves`` bounds the waves one lot may spend (I8)."""
+    world = await build_world(db_session, seats=3, seated=3, waitlisted=1)
+    await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
+    handler = refill_handler(world)
+
+    await decline_first_offer(world)
+    await handler.refill(db_session, {"lot_id": str(world.lot_id)})
+    assert (await lot_row(db_session, world.lot_id))[3] == 1
+
+    rows = await order_rows(db_session, world.lot_id)
+    second = next(row[0] for row in rows if str(row[2]) == "OFFERED")
+    from fairpool.modules.checkout.engine import TransitionRequest
+
+    await world.ports.engine.apply(
+        world.session,
+        TransitionRequest(buyer_order_id=second, to_state="DECLINED", trigger=None, actor="buyer"),
+    )
+    await handler.refill(db_session, {"lot_id": str(world.lot_id)})
+
+    # The budget (1) is spent, so the second vacancy stays open.
+    assert (await lot_row(db_session, world.lot_id))[3] == 1

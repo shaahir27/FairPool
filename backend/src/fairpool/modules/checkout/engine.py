@@ -58,7 +58,7 @@ from fairpool.domain import checkout_guards
 from fairpool.domain.checkout_guards import BuyerOrderFacts, Observation
 from fairpool.domain.errors import ApplicationError, IllegalTransition
 from fairpool.domain.hashing import canonical_json, sha256_hex
-from fairpool.domain.states import Transition, assert_transition
+from fairpool.domain.states import TRANSITIONS_BY_ID, Transition, assert_transition
 from fairpool.ports import (
     AuditLog,
     Clock,
@@ -450,6 +450,31 @@ class CheckoutEngine:
             from_state,
         )
 
+    async def recheck(
+        self, session: AsyncSession, *, buyer_order_id: UUID, transition_id: str
+    ) -> str | None:
+        """Take the locks and re-evaluate one whitelisted guard on the stored data.
+
+        A job that has already left the state a transition departs from still needs
+        the *held seat* half of that guard before it calls the provider again: a retry
+        of ``order.authorize`` must re-prove BO-03 (row lock, seat valid, lot
+        CHECKOUT_OPEN) and not only replay its key (I7). Returns ``None`` when the
+        named guard holds; nothing is written.
+        """
+        transition = TRANSITIONS_BY_ID.get(transition_id)
+        if transition is None or transition.machine != MACHINE:
+            raise ApplicationError("INTEGRITY_ERROR")
+        lot, order = await self._lock(session, buyer_order_id)
+        from_state = str(order.status)
+        request = TransitionRequest(
+            buyer_order_id=buyer_order_id,
+            to_state=transition.to_state,
+            trigger=transition.trigger,
+        )
+        snapshot = await self._load_snapshot(session, order)
+        facts = self._facts(lot, order, request, from_state, snapshot)
+        return checkout_guards.unmet_guard_reason(transition_id, facts)
+
     async def apply(self, session: AsyncSession, request: TransitionRequest) -> TransitionOutcome:
         """Move one buyer order to ``request.to_state`` inside the caller's transaction.
 
@@ -623,6 +648,16 @@ class CheckoutEngine:
         self, session: AsyncSession, order: BuyerOrder, observation: Observation
     ) -> bool:
         """True when the evidence reference is a resource row of this buyer order."""
+        if observation.kind == "charge" and observation.reference in {
+            f"vc:{order.id}",
+            f"bo:{order.id}",
+        }:
+            # vault-charge.md section 2: ``vc:{buyer_order_id}`` is the charge's own
+            # logical key, derived from this order's id and therefore an identity it
+            # owns. A create-time 403 (the adapter's definitive PERMISSION_DENIED or
+            # TOKEN_REVOKED) produces no provider resource, and BO-26 must still free
+            # the seat rather than strand it (section 7).
+            return True
         candidates = EVIDENCE_OWNERS.get(observation.kind)
         if not candidates:
             return False

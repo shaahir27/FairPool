@@ -515,4 +515,14 @@ class RestPayPalGateway:
         cap = result.captures[0]
         if cap.amount_cents != total_cents:
             raise PaymentError("UNKNOWN", "AMOUNT_MISMATCH")
-        return ChargeResult(result.id, cap.id, cap.status, None)
+        # BO-24 compares the provider's own captured amount and payee against the award
+        # and the stamped seller, so they must travel out of here (I3). Leaving them
+        # unset made the guard reject every real capture while the fake passed.
+        return ChargeResult(
+            result.id,
+            cap.id,
+            cap.status,
+            None,
+            amount_cents=cap.amount_cents,
+            payee_email=result.payee_email,
+        )

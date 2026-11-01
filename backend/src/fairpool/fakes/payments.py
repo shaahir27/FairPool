@@ -170,13 +170,28 @@ class FakePayPalGateway:
     ) -> ChargeResult:
         if self.outcome == "revoked" or payment_token_id in self.deleted:
             raise PaymentError("TERMINAL", "TOKEN_REVOKED")
-        key = f"vc:{buyer_order_id}"
+        # vault-charge.md section 2: one logical charge, two HTTP keys. The capture
+        # call is keyed separately from the create call, exactly as the adapter
+        # composes them, so a test can see the two identities differ.
+        create_key = f"vc:{buyer_order_id}:create"
+        capture_key = f"vc:{buyer_order_id}:capture"
         status = {"pending": "PENDING", "declined": "DECLINED"}.get(self.outcome, "COMPLETED")
+        payload = (payment_token_id, total_cents, payee)
         result = self._replay(
-            key,
-            (payment_token_id, total_cents, payee),
-            ChargeResult(self._id(key), self._id(key + ":capture"), status, None),
+            create_key,
+            payload,
+            ChargeResult(
+                self._id(create_key),
+                self._id(capture_key),
+                status,
+                None,
+                total_cents,
+                payee.email,
+            ),
         )
+        # The capture call carries its own request id (vault-charge.md section 2), so the
+        # fake remembers both identities and a replay can never look like a new charge.
+        self._replay(capture_key, payload, result)
         cap = PayPalCapture(result.capture_id, status, total_cents, True, None)
         self.captures[cap.id] = cap
         self.orders[result.order_id] = PayPalOrder(
@@ -195,5 +210,5 @@ class FakePayPalGateway:
             None,
             {"simulated": True},
         )
-        self._timeout(key)
+        self._timeout(create_key)
         return result

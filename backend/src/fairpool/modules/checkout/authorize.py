@@ -177,6 +177,11 @@ class CheckoutAuthorizeHandlers:
                 "paypal_order_id": None if record is None else record.paypal_order_id,
                 "approve_url": None if record is None else record.approve_url,
             }
+        # BO-01's guard first, under its locks and before any provider call: the stamped
+        # mode (a vault_charge lot has no buyer ladder), the lot status and the offer
+        # deadline are what the engine checks, and a refusal is a contracted error, not
+        # a provider call followed by a 500 (vault-charge.md section 3, I10).
+        await self._refuse_continue_if_unmet(session, buyer_order_id=order.id)
         lot = await session.scalar(select(Lot).where(Lot.id == order.lot_id))
         if lot is None:
             raise ApplicationError("INTEGRITY_ERROR")
@@ -203,21 +208,44 @@ class CheckoutAuthorizeHandlers:
         result = await self.router.gateway.create_order(request)
         # Persist the provider order before the transition that will name it (I9).
         await self._record_order(session, order, result, approval_channel="redirect")
-        await self.engine.apply(
-            session,
-            TransitionRequest(
-                buyer_order_id=buyer_order_id,
-                to_state="ORDER_CREATED",
-                trigger="buyer.continue",
-                actor="buyer",
-            ),
-        )
+        try:
+            await self.engine.apply(
+                session,
+                TransitionRequest(
+                    buyer_order_id=buyer_order_id,
+                    to_state="ORDER_CREATED",
+                    trigger="buyer.continue",
+                    actor="buyer",
+                ),
+            )
+        except IllegalTransition:
+            # The seat moved between the guard above and this write; the provider
+            # order is the only thing left behind and the client gets a contract code.
+            raise ApplicationError("ORDER_STATE_INVALID") from None
         return {
             "buyer_order_id": str(buyer_order_id),
             "status": str(BuyerOrderStatus.ORDER_CREATED),
             "paypal_order_id": result.id,
             "approve_url": result.approve_url,
         }
+
+    async def _refuse_continue_if_unmet(
+        self, session: AsyncSession, *, buyer_order_id: UUID
+    ) -> None:
+        """BO-01's guard, evaluated before the provider is called (I10, I15).
+
+        The engine decides it with its own locks; a refusal here is the contracted
+        ``ORDER_STATE_INVALID`` (or ``OFFER_EXPIRED`` when the offer window has
+        ended), never a provider order created for a seat that cannot use it.
+        """
+        decision = await self.engine.decide(
+            session,
+            buyer_order_id=buyer_order_id,
+            to_state="ORDER_CREATED",
+            trigger="buyer.continue",
+        )
+        if decision.illegal_pair or decision.reason is not None:
+            raise ApplicationError("ORDER_STATE_INVALID")
 
     # ------------------------------------------------ approval checks (BO-02)
 
@@ -238,9 +266,12 @@ class CheckoutAuthorizeHandlers:
         record = await self._latest_record(session, buyer_order_id)
         if record is None:
             raise ApplicationError("INTEGRITY_ERROR")
-        reason, result = await self._recheck(
-            session, order=order, record=record, trigger=trigger, actor="buyer"
-        )
+        try:
+            reason, result = await self._recheck(
+                session, order=order, record=record, trigger=trigger, actor="buyer"
+            )
+        except IllegalTransition:
+            raise await self._race_error(session, buyer_order_id) from None
         if reason is not None:
             # BO-18: a policy failure never authorizes and frees the seat.
             return {
@@ -248,24 +279,38 @@ class CheckoutAuthorizeHandlers:
                 "status": str(BuyerOrderStatus.REJECTED),
                 "reject_reason": reason,
             }
-        await self.engine.apply(
-            session,
-            TransitionRequest(
-                buyer_order_id=buyer_order_id,
-                to_state="APPROVED",
-                trigger=trigger,
-                observation=Observation(
-                    "approval",
-                    result.status,
-                    result.id,
-                    amount_cents=int(result.amount_cents),
-                    currency=result.currency,
-                    checks_passed=True,
+        try:
+            await self.engine.apply(
+                session,
+                TransitionRequest(
+                    buyer_order_id=buyer_order_id,
+                    to_state="APPROVED",
+                    trigger=trigger,
+                    observation=Observation(
+                        "approval",
+                        result.status,
+                        result.id,
+                        amount_cents=int(result.amount_cents),
+                        currency=result.currency,
+                        checks_passed=True,
+                    ),
+                    actor="buyer",
                 ),
-                actor="buyer",
-            ),
-        )
+            )
+        except IllegalTransition:
+            # The offer expired (or the seat moved) between the read above and the
+            # locked apply: the caller gets the contract's answer, not a 500 (M12).
+            raise await self._race_error(session, buyer_order_id) from None
         return {"buyer_order_id": str(buyer_order_id), "status": str(BuyerOrderStatus.APPROVED)}
+
+    async def _race_error(self, session: AsyncSession, buyer_order_id: UUID) -> ApplicationError:
+        """The contracted code for a transition the whitelist refused under the lock."""
+        status = await session.scalar(
+            select(BuyerOrder.status).where(BuyerOrder.id == buyer_order_id)
+        )
+        if status is not None and str(status) in {"EXPIRED", "DECLINED"}:
+            return ApplicationError("OFFER_EXPIRED")
+        return ApplicationError("ORDER_STATE_INVALID")
 
     async def checkout_return(
         self, session: AsyncSession, *, token: str | None, user_id: UUID | None = None
@@ -367,6 +412,11 @@ class CheckoutAuthorizeHandlers:
             status = str(BuyerOrderStatus.AUTHORIZING)
         if status != str(BuyerOrderStatus.AUTHORIZING):
             # AUTHORIZED, terminal or not yet approved: nothing this trigger may do.
+            return
+        if await self.engine.recheck(session, buyer_order_id=buyer_order_id, transition_id="BO-03"):
+            # I7: every authorize call re-proves the seat under the row lock, including
+            # a retry, so a seat released while a previous attempt timed out cannot be
+            # authorized now. Nothing is called and the row keeps its state.
             return
         expected = int(order.total_cents)
         try:

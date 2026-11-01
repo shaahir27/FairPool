@@ -26,10 +26,12 @@ module's :meth:`IntakeService.confirm` checks the proposal's owner, expiry and
 single use, then delegates, so a request confirmed through intake and through the
 manual form cannot differ.
 
-The turn history lives in this process, keyed by ``session_id``: the contracts give
-the request shape no field to carry it, ``intake_proposals`` records only complete
-proposals, and CR-4 adds no table for partial turns. A restart therefore costs a
-buyer a turn, never a wrong confirmation.
+The turn history lives in this process, keyed by the pair ``(user_id,
+session_id)``: the contracts give the request shape no field to carry it,
+``intake_proposals`` records only complete proposals, and CR-4 adds no table for
+partial turns. A restart therefore costs a buyer a turn, never a wrong
+confirmation, and a guessed ``session_id`` cannot read or reset another buyer's
+history or their three-turn budget.
 """
 
 from __future__ import annotations
@@ -70,8 +72,9 @@ MANUAL_FORM_INSTRUCTION: Final[str] = (
 )
 
 NO_CHARGE_NOTICE: Final[str] = (
-    "Nothing is charged now. PayPal places a hold only after a merchant and exact "
-    "price are known and you approve."
+    "Nothing is charged now. When you approve a specific offer on PayPal it places a "
+    "hold for that exact price; if this pool is saved-PayPal mode, your saved account "
+    "is instead charged once after the award and never above your maximum."
 )
 LOTS_MAY_DIFFER_NOTICE: Final[str] = (
     "Separate lots in this pool can end with different winning merchants and prices."
@@ -182,7 +185,9 @@ class IntakeService:
         self.model = model
         self.prompt_version = prompt_version
         self.manual = ManualIntakeService(audit)
-        self._history: OrderedDict[UUID, list[dict[str, Any]]] = OrderedDict()
+        # Keyed by owner and session: the session id arrives in the request body, so it
+        # alone must never select a history (a guessed id would mix buyers' turns).
+        self._history: OrderedDict[tuple[UUID, UUID], list[dict[str, Any]]] = OrderedDict()
 
     # ----------------------------------------------------------------- propose
 
@@ -197,28 +202,29 @@ class IntakeService:
     ) -> dict[str, Any]:
         """One conversation turn: a card, a question or the manual-form instruction."""
         sid = session_id or uuid4()
-        history = list(self._history.get(sid, []))
+        key = (user_id, sid)
+        history = list(self._history.get(key, []))
         pools = await self._candidates(session, message=message, override=pool_id_override)
         candidates = [_candidate(pool) for pool in pools]
 
         proposal = await self._ask(session, message=message, candidates=candidates, history=history)
         if proposal is None:
-            self._forget(sid)
+            self._forget(key)
             return self._reply(sid, _STATUS_NONE, MANUAL_FORM_INSTRUCTION)
 
         pool = self._matched_pool(pools, proposal)
         if pool is None:
             # ai-schemas.md 2.1: a pool outside the candidates, or not OPEN, is not a match.
-            self._forget(sid)
+            self._forget(key)
             return self._reply(sid, _STATUS_NONE, MANUAL_FORM_INSTRUCTION)
 
         template = {**pool.template, "pool_id": str(pool.id)}
         question = self._question(proposal, template) or self._model_question(proposal)
         if question is not None:
-            self._remember(sid, message, question)
+            self._remember(key, message, question)
             if len(history) + 1 >= MAX_TURNS:
                 # ai-schemas.md 2.8: three turns, then the manual form.
-                self._forget(sid)
+                self._forget(key)
                 return self._reply(sid, _STATUS_NONE, MANUAL_FORM_INSTRUCTION)
             return self._reply(sid, _STATUS_ASK, question)
 
@@ -226,13 +232,13 @@ class IntakeService:
         if validated is None:
             # Every listed check passed but the shared validator still rejects the
             # request: fail closed with the manual form, never store it (F19).
-            self._forget(sid)
+            self._forget(key)
             return self._reply(sid, _STATUS_NONE, MANUAL_FORM_INSTRUCTION)
 
         row = await self._persist(
             session, user_id=user_id, pool=pool, payload=self._payload(proposal)
         )
-        self._forget(sid)
+        self._forget(key)
         return self._reply(
             sid,
             _STATUS_READY,
@@ -566,17 +572,17 @@ class IntakeService:
 
     # ---------------------------------------------------------------- sessions
 
-    def _remember(self, sid: UUID, message: str, question: str) -> None:
-        self._history[sid] = [
-            *self._history.get(sid, []),
+    def _remember(self, key: tuple[UUID, UUID], message: str, question: str) -> None:
+        self._history[key] = [
+            *self._history.get(key, []),
             {"message": message, "question": question},
         ]
-        self._history.move_to_end(sid)
+        self._history.move_to_end(key)
         while len(self._history) > MAX_SESSIONS:
             self._history.popitem(last=False)
 
-    def _forget(self, sid: UUID) -> None:
-        self._history.pop(sid, None)
+    def _forget(self, key: tuple[UUID, UUID]) -> None:
+        self._history.pop(key, None)
 
     @staticmethod
     def _reply(

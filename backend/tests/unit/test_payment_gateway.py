@@ -248,3 +248,51 @@ async def test_tracker_requires_exact_single_match():
             [TrackerItem("O", "C", "UPS", "T"), TrackerItem("O", "OTHER", "UPS", "T")]
         )
     assert [r.ok for r in results] == [True, False]
+
+
+async def test_vault_charge_returns_the_provider_captured_amount_and_payee(monkeypatch):
+    """T04A02/BO-24: the real adapter must hand BO-24 the provider's own values.
+
+    The fake supplied them from the start, which is why the earlier suite passed while
+    every real capture would have been rejected: BO-24 compares these against the award
+    total and the stamped seller, and unset values fail that compare (I3).
+    """
+    monkeypatch.setattr("fairpool.adapters.paypal.gateway.asyncio.sleep", no_wait)
+
+    async def handle(req):
+        if req.url.path == "/v1/oauth2/token":
+            return httpx.Response(200, json={"access_token": "TOKEN", "expires_in": 32400})
+        # The vault order completes itself, so this single payload carries both the
+        # order and the capture the guard reads.
+        return httpx.Response(
+            201,
+            json={
+                "id": "ORDER-1",
+                "status": "COMPLETED",
+                "intent": "CAPTURE",
+                "purchase_units": [
+                    {
+                        "amount": {"currency_code": "USD", "value": "1.00"},
+                        "payee": {"email_address": "seller@example.test"},
+                        "payments": {
+                            "captures": [
+                                {
+                                    "id": "CAP-1",
+                                    "status": "COMPLETED",
+                                    "amount": {"currency_code": "USD", "value": "1.00"},
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await RestPayPalGateway(
+            make_settings(single_seller_email="seller@example.test"), client=client
+        ).charge_vault("buyer", "fictional-token", 100, request().payee)
+
+    assert result.capture_status == "COMPLETED"
+    assert result.amount_cents == 100, "BO-24 needs the captured amount, not None"
+    assert result.payee_email == "seller@example.test", "BO-24 needs the payee"

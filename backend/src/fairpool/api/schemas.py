@@ -602,7 +602,7 @@ class AdminPoolResponse(ResponseModel):
 
 class ForceAwardRequest(StrictModel):
     merchant_id: UUID
-    item_cents: int = Field(ge=0)
+    item_cents: int = Field(ge=1)
     tier_index: int = Field(ge=0)
     moq: int = Field(ge=1)
     valid_minutes: int = Field(ge=1)

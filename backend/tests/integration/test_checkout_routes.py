@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
+from fairpool.api.routers.checkout import HOLD_NOTICE, VAULT_NOTICE
 from fairpool.fakes.payments import FAKE_APPROVE_URL
 from tests.integration.test_join_receipts import login, settings_for
 from tests.integration.test_open_checkout import build_world, open_handler
@@ -121,7 +122,8 @@ async def test_the_offer_disclosure_shows_the_award_terms_and_is_owner_scoped(
     }
     # The lot is stamped single_seller, so DEP-4 requires the fallback notice.
     assert body["notices"]["fallback"]
-    assert body["notices"]["hold"] and body["notices"]["lots_may_differ"]
+    assert body["notices"]["hold"] == HOLD_NOTICE
+    assert body["notices"]["lots_may_differ"]
     assert body["offer_expires_at"]
 
     async with httpx.AsyncClient(transport=client._transport, base_url="https://api.test") as other:
@@ -157,6 +159,55 @@ async def test_continue_creates_the_provider_order_once_and_moves_the_seat(
     )
     assert replay.status_code == 200
     assert replay.json()["paypal_order_id"] == body["paypal_order_id"]
+
+
+async def test_continue_on_a_vault_lot_is_refused_before_any_provider_call(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """M8: the stamped mode is checked first, so the answer is a contract code, not a 500."""
+    world = await build_world(
+        db_session, seats=1, seated=1, waitlisted=0, mode="vault_charge", moq=1
+    )
+    await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
+    csrf = await sign_in(client, db_session, world, index=0, email="vault-continue@example.test")
+    buyer_order_id = await order_for(db_session, world, index=0)
+
+    response = await client.post(
+        f"/api/v1/offers/{buyer_order_id}/continue",
+        json={"shipping": SHIPPING},
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "ORDER_STATE_INVALID"
+    assert await order_status(db_session, buyer_order_id) == "OFFERED"
+    # No provider order was created or recorded: the guard ran before the gateway.
+    assert (
+        await db_session.scalar(
+            text("SELECT count(*) FROM paypal_orders WHERE buyer_order_id = :id"),
+            {"id": buyer_order_id},
+        )
+        == 0
+    )
+
+
+async def test_a_vault_offer_says_nothing_is_held(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """M10: vault mode holds nothing, so the offer notice must not claim a hold."""
+    world = await build_world(
+        db_session, seats=1, seated=1, waitlisted=0, mode="vault_charge", moq=1
+    )
+    await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
+    await sign_in(client, db_session, world, index=0, email="vault-offer@example.test")
+    buyer_order_id = await order_for(db_session, world, index=0)
+
+    response = await client.get(f"/api/v1/offers/{buyer_order_id}")
+
+    assert response.status_code == 200, response.text
+    notices = response.json()["notices"]
+    assert notices["hold"] == VAULT_NOTICE
+    assert notices["hold"] != HOLD_NOTICE
 
 
 async def test_approved_runs_the_checks_and_is_idempotent(

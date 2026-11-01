@@ -150,6 +150,74 @@ async def test_f1_authorize_timeout_stays_authorizing_then_replays_same_key(
     assert [row.kind for row in world.ports.ledger.entries] == ["AUTH_CREATED"]
 
 
+async def test_approving_after_the_offer_expired_answers_offer_expired(
+    db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """M12: losing the approval/expiry race is a contract error, never a 500.
+
+    The concurrent transaction in this test is the ``offer.expire`` timer: it commits
+    EXPIRED between the handler's read and the locked apply, so the whitelist has no
+    ORDER_CREATED to APPROVED edge left and ``IllegalTransition`` would have become a
+    500 at the route without the mapping.
+    """
+    world = await build_world(db_session, seats=1, seated=1, waitlisted=0)
+    (order_id,) = await open_offers(world)
+    handler = authorize_handler(world)
+    await handler.continue_order(db_session, buyer_order_id=order_id)
+    engine = world.ports.engine
+    original_apply = engine.apply
+
+    async def racing_apply(session: Any, request: Any) -> Any:
+        await session.execute(
+            text("UPDATE buyer_orders SET status = 'EXPIRED' WHERE id = :id"), {"id": order_id}
+        )
+        session.expire_all()
+        return await original_apply(session, request)
+
+    monkeypatch.setattr(engine, "apply", racing_apply)
+
+    with pytest.raises(ApplicationError) as raised:
+        await handler.approved(db_session, buyer_order_id=order_id)
+
+    assert raised.value.code == "OFFER_EXPIRED"
+    assert await order_status(db_session, order_id) == "EXPIRED"
+
+
+async def test_an_authorize_retry_rechecks_the_seat_under_the_row_lock(
+    db_session: AsyncSession,
+) -> None:
+    """M9: an authorize retry re-proves BO-03, so a seat released in the gap is safe."""
+    world = await build_world(db_session, seats=1, seated=1, waitlisted=0)
+    (order_id,) = await open_offers(world)
+    router = make_router()
+    handler = authorize_handler(world, router)
+    await handler.continue_order(db_session, buyer_order_id=order_id)
+    await handler.approved(db_session, buyer_order_id=order_id)
+    # The first attempt times out, which leaves the row AUTHORIZING with the seat held.
+    router.gateway.outcome = "timeout_after_send"
+    await handler.authorize(db_session, {"buyer_order_id": str(order_id)})
+    assert await order_status(db_session, order_id) == "AUTHORIZING"
+
+    # The seat is released before the retry runs (the release is final, F5).
+    await db_session.execute(
+        text(
+            "UPDATE allocations SET status = 'PRICED_OUT'::allocation_status, lot_id = NULL "
+            "WHERE entry_id = (SELECT entry_id FROM buyer_orders WHERE id = :id)"
+        ),
+        {"id": order_id},
+    )
+    router.gateway.outcome = "completed"
+    await handler.authorize(db_session, {"buyer_order_id": str(order_id)})
+
+    assert await order_status(db_session, order_id) == "AUTHORIZING"
+    auth = await db_session.scalar(
+        text("SELECT count(*) FROM paypal_authorizations WHERE buyer_order_id = :id"),
+        {"id": order_id},
+    )
+    assert auth == 0, "no authorization may exist for a seat that was released"
+    assert world.ports.ledger.entries == []
+
+
 # ---------------------------------------------------------------------- F5/F6
 
 
