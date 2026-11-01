@@ -1,0 +1,8 @@
+{
+  "executed": null,
+  "note": "No independent review has run on the Phase 4 diff. The implementing agent cannot review its own work and did not run a second agent, so this item is pending by fact, not by omission. Phase 3's review is not reused: it audited a different diff and its findings are already closed. Until a read-only reviewer audits the three Phase 4 commits against AGENTS.md, the CR-4 contracts and the tests, this file stays pending and IG-4 stays red.",
+  "recorded": "2026-11-01",
+  "reviewer": "none",
+  "scope": "Phase 4 diff main..phase-4 (e11a801, 9b6f452, ad656fb): money and payment invariants, state-machine discipline (LS-14 and the mode-aware LS-06), seat accounting and refill (I8), the new intake path and its AI boundary (I2), audit and public payload privacy, migration 0004 against the contracts, test quality and scope discipline.",
+  "status": "pending"
+}

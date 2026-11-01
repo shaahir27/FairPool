@@ -1,0 +1,11 @@
+{
+  "checks_run": [
+    "tools/check_migrations.py: create a disposable loopback database, alembic upgrade 0001, upgrade head, alembic check, downgrade base, upgrade head, alembic check, drop it",
+    "alembic check (no drift), twice, inside that round trip",
+    "the working fairpool_test database: revision 0004, 35 application tables plus alembic_version (36 total), 22 enum types, 12 user triggers"
+  ],
+  "executed": "2026-11-01",
+  "note": "Run in this session under APP_ENV=test with DATABASE_URL pointing at fairpool_test and the whole .env loaded. Printed 'No new upgrade operations detected.' twice and then 'Upgrade from 0001, fresh head and both Alembic drift checks passed'. Migration 0004 is the CR-4 change: intake_proposals, lots.refill_waves, awards.bid_revision_id nullable, and the mode-aware LS-06 trigger text. Migrations 0001 to 0003 were not edited.",
+  "recorded": "2026-11-01",
+  "status": "passed"
+}

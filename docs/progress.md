@@ -15,7 +15,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | Member B name and handle | second member's name and GitHub handle not yet recorded; @shaahir27 previously operated both workstreams |
 | ContextMatic plugin version (A, B) | Qoder: remote MCP ready (5 tools, 2026-10-30); Codex: .codex/config.toml staged; Antigravity: mcp_config.json present; no local version string |
 | PayPal AI Toolkit plugin version (A, B) | Codex: paypal@paypal-ai-toolkit 1.2.0, installed and enabled (2026-10-30); Qoder/Antigravity: not supported — do not add the write-capable MCP |
-| Current phase and gate | PH3 IN PROGRESS on branch `phase-3`; CR-3 approved and recorded as `contracts-v1.2`; IG-2 closed by owner exception (not tagged; automated acceptance pending) |
+| Current phase and gate | PH4 implemented on branch `phase-4` (three commits, unpushed); IG-4 NOT passed: independent review and remote CI are pending. PH3/IG-3 closed and tagged. |
 
 ## Gates
 
@@ -25,7 +25,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
 | IG-2 | DONE | owner | Closed on evidence, not by exception. `make gate-check GATE=ig-2` passes its automated chain and its whole evidence set; tagged `ig-2` with `contracts-v1.3`. The 95% threshold is met by recomputed fields (439 matched, 41 in review of 480 rows), the guard is proved by deterministic tests for every published variant, and the disclosures that keep this honest are in the evidence: 479 distinct live calls, 19 demo rows in review, and the owner's decision that contradictory demo cases may resolve to review. The earlier 2026-10-31 owner-exception closure is superseded. |
 | IG-3 | DONE | owner | Phase 3 merged to `main`; `make gate-check GATE=ig-3` passes the full automated chain and the evidence set; tagged `ig-3`. Two items pass on recorded owner decisions rather than executed work and say so in the file: `s11` on the APIMatic waiver (OD-P3-2, rescheduled to T10A04) and `s5` as a spike record. |
-| IG-4 | TODO | not yet | |
+| IG-4 | IN PROGRESS | not yet | Phase 4 code and IT-4 are complete on local branch `phase-4`; `tools/gate_check.py ig-4` exists and `--evidence-only` exits 2 on two items, by design. `migrations`, `local_checks` and `pipeline` are passed from output captured 2026-11-01. `independent_review` is pending because no independent review has run on the Phase 4 diff; `ci` is pending because the branch is unpushed and has no remote run. Not tagged. |
 | IG-5 | TODO | not yet | |
 | IG-6 | TODO | not yet | |
 | IG-7 | TODO | not yet | |
@@ -95,14 +95,14 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T04A01 | A | M | TODO | | lot.open_checkout handler |
-| T04A02 | A | L | TODO | | Approval checks and authorization flow (fake router) |
-| T04A03 | A | L | TODO | | Funding trigger and capture sweep (fake router) |
-| T04B01 | B | L | TODO | | Intake pipeline |
-| T04A04 | A | M | TODO | | Beacon adapter and pool.seed |
-| T04A05 | A | L | TODO | | Allocation and AllocationReadService |
-| T04A06 | A | S | TODO | | Public audit endpoint and keys |
-| T04X01 | AB | L | TODO | | First integration: pool to checkout |
+| T04A01 | A | M | DONE | phase-4 | lot.open_checkout creates one OFFERED order per seated entry under the lot lock, refills vacancies from the waitlist without overselling (I8, PT-08), and sets deadlines per mode: offer timer in authorize mode, funding deadline in vault mode |
+| T04A02 | A | L | DONE | phase-4 | FR-CK-05 approval checks (payee email, amount, currency, payer country, payer key) and order.authorize under the buyer-order lock; an unknown outcome stays AUTHORIZING and is never retried under a new key; rejected orders never authorize (F5) |
+| T04A03 | A | L | DONE | phase-4 | Funding trigger with CAPTURE_BUFFER, slot-limited capture sweep, PENDING never counted as paid; FUNDED only when completed captures from distinct buyers reach the MOQ (I5, PT-09, F7, F8) |
+| T04B01 | B | L | DONE | phase-4 | Intake: candidate search over public documents only, closed-schema AI parse, deterministic validation, one question per turn then the manual form, server-rendered card, and confirm that delegates to ManualIntakeService; CR-4 `intake_proposals` keeps a proposal owner-bound (F19) |
+| T04A04 | A | M | DONE | phase-4 | Beacon adapter and pool.seed: a demo pool takes the labelled demo seed, a live pool announces a drand round and re-queues instead of inventing a value (F27); fetch and signature verification remain `NotImplementedError`, which the S6 check records |
+| T04A05 | A | L | DONE | phase-4 | Allocation over the existing pure fairness code: zone order, lots with lot_order, undersized lots cancelled through LS-12, ordered waitlist, and the real AllocationReadService with next_candidates (PT-01, PT-02) |
+| T04A06 | A | S | DONE | phase-4 | Public audit now carries lots, beacon, seed_hex, seed_is_demo and the award summary with no personal data, salts, caps or entry ids. Edited `api/routers/public.py`, a B-owned file, under solo operation - recorded in Requests |
+| T04X01 | AB | L | DONE | phase-4 | The real AllocationReadService and MerchantDirectory are wired into checkout through `wiring.py`; force-award applies the CR-4 admin.force_award transition; IT-4 passes (1 passed) |
 
 ### PH5: Real PayPal path, auction core and merchant foundation
 
@@ -238,7 +238,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Q-2026-10-31-13 | implementation planning | OAuth states lack session binding and S1 does not establish arbitrary ID-token nonce validation. S5 requires verified receipts, but the current receiver stores unverified bodies and processing is scheduled later. Specify session/nonce verification and receipt-only scope without enabling absent money handlers. | T03B03/T03A03; db-schema.md oauth_states; api.md; PayPal S1/S5 evidence | resolved by CR-3: session-bound single-use state with OAUTH_STATE_TTL_S, PayPalIdentity port, nonce claimed only as far as S1 evidence supports; webhook ingest stores always and processes only when verified, no money handler enabled in Phase 3 |
 | Q-2026-10-31-14 | integration planning | S11 asks for live submit_bid/progress SDK smoke tests before those handlers exist. Recommend labelled contract-stub serialization smoke now, with real workflow smoke explicitly pending for its implementation phase; do not start a trial without owner approval. | spikes.md S11; T03B05 and later merchant/bid tasks | acceptance split recorded by OD-P3-2: offline generation and licence notes may be recorded; resolved by the owner on 2026-11-01: the trial is waived for IG-3 and rescheduled to T10A04 (OD-P3-2); no generation or licence claim is made |
 
-| Q-2026-11-01-15 | implementation planning | `docs/spike-results.md` S5's neighbour S6 is headed "RECORDED Oct 29" but its body is only the "Record:" template: no chain hash, round period, round number or verified round value. `decisions.md` section 4 records `BEACON_MODE=drand` and says signature checks succeeded. Reading (a): the values exist somewhere and were not pasted; reading (b): the spike was never completed. Phase 4 does not decide it: `pool.seed` uses the demo seed unless `DRAND_BASE_URL` and `DRAND_CHAIN_HASH` are configured, and a read-only drand check is attempted at IG-4. | `docs/spike-results.md` S6; `docs/decisions.md` section 4; `modules/pools/seed.py` | open; record a real round before claiming a live beacon |
+| Q-2026-11-01-15 | implementation planning | `docs/spike-results.md` S5's neighbour S6 is headed "RECORDED Oct 29" but its body is only the "Record:" template: no chain hash, round period, round number or verified round value. `decisions.md` section 4 records `BEACON_MODE=drand` and says signature checks succeeded. Reading (a): the values exist somewhere and were not pasted; reading (b): the spike was never completed. Phase 4 does not decide it: `pool.seed` uses the demo seed unless `DRAND_BASE_URL` and `DRAND_CHAIN_HASH` are configured, and a read-only drand check is attempted at IG-4. | `docs/spike-results.md` S6; `docs/decisions.md` section 4; `modules/pools/seed.py` | open, narrowed 2026-11-01: the read-only check found `DRAND_BASE_URL`/`DRAND_CHAIN_HASH` absent from `.env` (commented placeholders only) and from the environment, so S6 records `not configured` and no round was fetched or invented. It also found that `cryptography` 50.0.2 has no BLS12-381 verify primitive and `BeaconAnnouncement.fetch` raises `NotImplementedError`, so a configured chain would still need a BLS library and the fetch path before any signature claim is possible. `BEACON_MODE=drand` stays unexecutable here; record a real round before claiming a live beacon |
 
 ## Requests to the owner
 
@@ -265,8 +265,9 @@ Record planned versus actual days per phase and member at each gate. The plan is
 
 | Date | From | To | Request | Status |
 |---|---|---|---|---|
-| 2026-11-01 | A | B | `T04A06` now ships only the lot, beacon, seed and award content of the public audit payload; the route file `api/routers/public.py` stays B-owned and already carries the keys and close-time fields from Phase 3. Add the fields through the B-owned router rather than editing it from A. | OPEN (Phase 4) |
+| 2026-11-01 | A | B | `T04A06` now ships only the lot, beacon, seed and award content of the public audit payload; the route file `api/routers/public.py` stays B-owned and already carries the keys and close-time fields from Phase 3. Add the fields through the B-owned router rather than editing it from A. | SUPERSEDED by the row below: the content landed, but by editing B's file under solo operation |
 | 2026-11-01 | A | B | `db/safety.py` requires a loopback `*_test` database; the local stack has no `fairpool_test`, so `make test` errors on 36 tests unless it is created. Created locally on 2026-11-01; `make setup` should provision it so a clean clone is green. | OPEN |
+| 2026-11-01 | A (solo operator) | B | `api/routers/public.py` is B-owned in `api.md` section 2, and `T04A06` edited it in Phase 4 to add the `lots`, `beacon`, `seed_hex`, `seed_is_demo` and `award` content. The edit happened under solo operation (`@shaahir27` holds both lanes), so no other member's unmerged code was touched, but the file is still B's: when B returns as a separate owner, those changes need B's review rather than being treated as pre-approved. This supersedes the open Phase 4 row above. | RECORDED (solo operation) |
 
 ## Blockers
 
@@ -558,3 +559,64 @@ tables, `vault_tokens.cap_cents` bigint, the entry-window trigger on `clock_time
 `contracts-v1.2` are tagged. `ig-2` stays untagged with its Gemini evidence pending, and the
 uncommitted `phase2-gemini-v5` prompt bump in the tree still invalidates that stored
 fingerprint until the evaluation is re-run.
+
+## Phase 4 execution record (2026-11-01)
+
+Executed solo on branch `phase-4` in three authored commits, after the plan review that
+produced CR-4. Commit 4 (this record) is the gate, the evidence set and the docs. The work
+followed `verification-before-completion` (every number below was produced by a command run
+in this session, then written down) and `ponytail` (the diff is one tool plus documents, no
+production code). Neither `SKILL.md` was loaded through the skill tool and `graphify` was not
+queried, because the task named its files and the change touches no module logic; claiming a
+loaded skill the session cannot show is the kind of claim this file exists to prevent.
+
+1. `e11a801 CR-4` - contracts, plan and migration 0004 first, alone, so no dependent code
+   followed a shape the contracts did not allow. It records LS-14 (`admin.force_award`, demo
+   and test only), the mode-aware LS-06 without which a vault-mode lot could never reach
+   FUNDED, a nullable `awards.bid_revision_id` for a forced award with no bid behind it,
+   `intake_proposals` so a proposal is owner-bound before it can be confirmed, and
+   `lots.refill_waves` so "bounded by max_refill_waves" has a counter to read.
+2. `9b6f452` - seed, allocation, `lot.open_checkout`, approval/authorize, the vault charge,
+   the funding trigger and capture sweep, and the forced-award helper, all against the fake
+   router: its message records 794 tests at that point, F7 and F8 among them.
+3. `ad656fb` - intake with its closed schemas and deterministic validation, the Phase 4 HTTP
+   surface, the sixteen registered worker kinds with a registry test that compares the map
+   with the implemented set, the public audit content, and IT-4: its message records 834
+   tests. This session measures 836 on the same tree, so the two figures differ by two; the
+   measured 836 is what the README and `local_checks.json` use, and the discrepancy is noted
+   rather than smoothed over.
+
+Measured, not asserted: 836 backend tests pass with no skips (828 offline plus the 8 fault
+tests, which the gate also runs on their own; the live Elastic parity test executes locally
+because `ELASTICSEARCH_URL` and the client are present);
+`ruff check`, `ruff format --check` over 248 files, `mypy --strict` over 58 modules,
+`tools/check_imports.py`, `tools/validate_docs.py`, the ten-operation merchant OpenAPI,
+`tools/check_generated.py` and gitleaks (50 commits, no leaks) are clean; frontend lint, 14
+tests and the production build pass; `tools/check_migrations.py` passes the full round trip
+and `fairpool_test` reports revision 0004 with 35 application tables plus `alembic_version`.
+IT-4 re-run on its own: 1 passed in 4.67s.
+
+`tools/gate_check.py ig-4` now exists and reads `docs/evidence/phase4`; it runs the same
+migration verification and fault suite as ig-3 without changing ig-2 or ig-3. It exits 2 on
+`independent_review` and `ci` only, which is the true state: no independent review has run on
+this diff, and the branch is unpushed. `migrations`, `local_checks` and `pipeline` are passed
+because their output was captured here.
+
+**`ig-4` is not tagged.** A gate needs the integration test, `make gate-check` green, the tag
+pushed, and both lanes merged. Two items are missing and neither can be produced by the
+implementing agent: an independent read-only review of `main..phase-4`, and a remote CI run.
+`contracts-v1.4` is in the same position: `docs/contracts/README.md` line 5 already says it
+was "tagged after the Phase 4 change request", but no such tag exists and none was created,
+because tagging is owner-gated and was out of scope here. That sentence is inaccurate until
+the owner tags the CR-4 commit.
+
+Owner actions Phase 4 cannot close without:
+- push `phase-4` and run remote CI, then record the run id in `docs/evidence/phase4/ci.json`;
+- have an independent agent review the three commits and record its findings, or accept that
+  IG-4 stays open;
+- decide whether `contracts-v1.4` is tagged at the CR-4 commit or after the merge;
+- migrate the hosted Supabase database 0003 to 0004 and redeploy, since the hosted service
+  still runs the Phase 3 image and its `/ready` probe reports the revision it expects, not
+  this branch;
+- set `DRAND_BASE_URL` and `DRAND_CHAIN_HASH` (or keep the demo seed) and record a real S6
+  round; the 2026-11-01 check found them absent and recorded `not configured`.

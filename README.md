@@ -39,15 +39,18 @@ Last updated: **1 November 2026.**
 |---|---|
 | Phase 0, bootstrap and contract freeze | **Complete.** `contracts-v1` and `ig-0` are tagged. |
 | Phase 1, data, platform and shell foundations | **Complete — IT-1 green.** The database schema and migration, platform services, complete API contract, port fakes, hosted skeleton and S2 check are done. Tagged `ig-1`. |
-| Phase 2, core engines | **Merged; IG-2 closed by owner exception, not tagged.** PayPal raw-REST gateway, ledger, identity, catalog and the Gemini AI adapter with tests. Sandbox C-01 to C-07 pass; S4 verified levels 1-2; S8 selected Elastic. The resumed Gemini run recorded 479 of 480 case checks, so automated acceptance still reports pending. |
-| Phase 3, core engines II | **Implemented on branch `phase-3`; IG-3 not passed.** Buyer-order transition engine, offer expiry and seat control, pool join with signed receipts, withdrawal and SSE, pool close with the commitment Merkle root, PayPal Login linking, search with the Postgres fallback, and the fake vault permission lifecycle. `make gate-check GATE=ig-3` runs and exits red while five evidence items stay pending (see [docs/evidence/phase3/README.md](docs/evidence/phase3/README.md)). |
-| Phase 4 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
+| Phase 2, core engines | **Complete — IG-2 closed on automated evidence; tagged `ig-2`.** PayPal raw-REST gateway, ledger, identity, catalog and the Gemini AI adapter with tests. Sandbox C-01 to C-07 pass; S4 verified levels 1-2; S8 selected Elastic. The 95% field threshold is met by recomputed fields, and the disclosures that keep that honest are in the Phase 2 evidence. |
+| Phase 3, core engines II | **Complete — IT-3 green; tagged `ig-3`.** Buyer-order transition engine, offer expiry and seat control, pool join with signed receipts, withdrawal and SSE, pool close with the commitment Merkle root and the public signing key, PayPal Login linking, search with the Postgres fallback, and the fake vault permission lifecycle. Two evidence items pass on recorded owner decisions rather than executed work, and both say so in [docs/evidence/phase3/README.md](docs/evidence/phase3/README.md). |
+| Phase 4, core engines III and the first integration | **Implemented on local branch `phase-4`; IG-4 not passed.** Seed (the labelled demo seed, or an announced drand round), allocation into lots by zone with an ordered waitlist, the forced demo award, checkout opening that offers seats and refills from the waitlist, the vault-charge and authorize paths, funding to FUNDED, the intake pipeline and the public audit content — exercised end to end by IT-4 with the fake gateway and `FakeAI` only. `python tools/gate_check.py ig-4 --evidence-only` exits 2 on exactly two items: no independent review has run on the diff, and the branch is unpushed so no CI run exists. See [docs/evidence/phase4/README.md](docs/evidence/phase4/README.md). |
+| Phase 5 and later | Planned. See [docs/implementation-plan.md](docs/implementation-plan.md). |
 
-**What works now:** `make setup`, `make verify`, the 34-table Postgres schema through migration 0003, 672 backend tests plus one documented skip, 14 frontend tests, the API contract and its OpenAPI documents, the local Docker stack, the Phase 2 and Phase 3 engines, and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase. **What does not work yet:** charging a saved PayPal permission (the real save path is Phase 5, so a live-sandbox buyer cannot become eligible at close and the UI must say so), allocation, award, checkout, funding, refunds, fulfillment, the agent and merchant surfaces, and any real Elastic search call in CI (no credentials; the skip prints that reason).
+**What works now:** `make setup` and `make verify`; a 35-table Postgres schema plus `alembic_version` (22 enum types, 12 triggers) through migration 0004; **836 backend tests**, which include the **8 fault tests** the gate also runs on their own (828 without them), with no skips; **14 frontend tests**; the API contract and its OpenAPI documents; the local Docker stack; the Phase 2 to Phase 4 engines and the sixteen registered worker handlers; and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase. The tags that exist are `ig-0` to `ig-3` and `contracts-v1` to `contracts-v1.3`; `ig-4` and `contracts-v1.4` do not.
 
-**What does not work yet:** no buyer can join a pool, no merchant can bid, no offer or checkout exists, no application flow calls PayPal, and the live AI evaluation has not passed. The new API handlers are stubs that fail with the standard error envelope until later phases replace them. The frontend pages are labelled Phase 1 placeholders.
+**What does not work yet:** no real PayPal charge and no real authorization — the whole money path runs through the fake router, `WEBHOOKS_ENABLED` is false, and the webhook simulator evidence is mock evidence. There is no refund, and no void-driven failure path, so a lot that misses its minimum cannot yet be rolled back. There is no buyer checkout UI, no fulfillment, no agent or merchant surface, and no auction or bid engine: those handlers are unregistered and `PENDING` on purpose. The live Elastic parity test runs locally but skips in CI, which does not install the client, and the skip prints that reason. The hosted service still runs the Phase 3 image and its database is at 0003, because this branch was never deployed.
 
-The honest summary: this repository is the foundation and the frozen contract, not a live marketplace.
+**Vault charge is the default, not authorization.** `PAYMENT_MODE` defaults to `vault_charge`: the buyer saves a PayPal permission and the server charges the exact awarded amount after the award. The `authorize_capture` path, where the buyer approves an AUTHORIZE order per lot, is the fallback and does not run unless the mode is changed. In vault mode a live-sandbox buyer still cannot become eligible at close, because saving a permission for real is `T05A01` (`DEP-5`); today that path is fake-only and every screen that depends on it must say so.
+
+The honest summary: this repository now runs the Phase 4 pipeline against fakes, not against PayPal. No money has moved through the application.
 
 ---
 
@@ -273,7 +276,7 @@ make verify
 | `make test` | Backend unit/property/integration and frontend tests |
 | `make test-sandbox` | Non-interactive PayPal Sandbox contract tests (when they exist) |
 | `make test-sandbox-interactive` | Sandbox tests that need a human approval |
-| `make test-faults` | Fault-injection suite (later phases) |
+| `make test-faults` | Fault-injection suite (F5, F7, F8 and F16 today) |
 | `make ai-eval` | Real-model evaluation sets (later phases) |
 | `make imports` | Import-boundary check |
 | `make docs-check` | Documentation cross-check |
@@ -341,11 +344,11 @@ Never commit `.env`. The PayPal host guard accepts only `https://api-m.sandbox.p
 | Integration (Postgres, fakes) | `backend/tests/integration/` | yes |
 | Sandbox contract | `backend/tests/contract_sandbox/` | on demand |
 | Fault injection | `backend/tests/faults/` | on demand |
-| Concurrency | `backend/tests/concurrency/` | later phases |
+| Concurrency | `backend/tests/concurrency/` | yes |
 | AI evaluation | `backend/tests/ai_eval/` | on demand |
 | Frontend | `frontend/tests/` | yes |
 
-Current local count: **287 backend tests** and **14 frontend tests**. The fairness vectors, state machines, schema contract, triggers, platform services, route table, Merchant OpenAPI, port fakes, webhook stub and frontend boundaries are covered.
+Current local count: **836 backend tests** (828 of the offline suite plus the 8 fault tests, which `make test-faults` runs separately) and **14 frontend tests**. The fairness vectors, state machines, schema contract, triggers, platform services, route table, Merchant OpenAPI, port fakes, intake rules, allocation and funding engines, and frontend boundaries are covered.
 
 ---
 
@@ -379,7 +382,7 @@ Free-tier limits: the Render API sleeps after 15 minutes idle and there is no fr
 - [docs/progress.md](docs/progress.md) — current status, gates and open questions
 - [AGENTS.md](AGENTS.md) — rules for AI coding agents working in this repository
 
-The contracts in `docs/contracts/` are frozen at `contracts-v1.1`. Any change needs a contract change request and a new tag.
+The contracts in `docs/contracts/` are tagged `contracts-v1.3` on `main`. The Phase 4 change request (CR-4) is committed on `phase-4` and calls itself `contracts-v1.4`, but that tag does not exist yet; `docs/progress.md` records the gap rather than hiding it.
 
 ---
 

@@ -1,0 +1,18 @@
+{
+  "configuration": "APP_ENV=test, DATABASE_URL pointed at the loopback fairpool_test database, and the whole .env loaded so settings validation sees the owner's configured values. No PayPal call and no model call was made. The one external call is the live Elastic parity test, which ELASTICSEARCH_URL makes unavoidable and which the suite records below.",
+  "dependency_note": "The elasticsearch client and aiohttp are installed in this local venv only; the committed hashed requirements still do not carry them, so CI will skip the live parity test with its printed reason even though it executes here (OD-P3-3, D-P3-02).",
+  "executed": "2026-11-01",
+  "fault_tests": "8 passed, 3 deselected in 4.62s standalone and 4.59s on the final re-run (F5, F7, F8, F16; IG-4 adds F7 and F8), and 8 passed inside the full gate chain. They are also counted in the 836 above, so the two figures are not disjoint.",
+  "frontend": "eslint clean; vitest 2 files, 14 tests passed; vite build ok (59 modules, dist 185.80 kB JS)",
+  "gate_run": "`tools/gate_check.py ig-4` was run end to end once, not only with --evidence-only: ruff, format, mypy, pytest (828 passed, 15 deselected), import boundaries, docs (31 files), merchant OpenAPI, frontend lint and 14 tests, frontend build, alembic upgrade head and check, check_migrations, the fault suite, check_generated and gitleaks all passed, and the run then exited 2 on `independent_review` and `ci` only. `--evidence-only` prints the same two lines and exits 2.",
+  "gate_tooling": "tools/gate_check.py now knows ig-4, reads docs/evidence/phase4 and runs tools/check_migrations.py plus the fault suite exactly as ig-3 does. ig-2 and ig-3 evidence sets and command lists are unchanged, proved by running both with --evidence-only afterwards: each still exits 0.",
+  "migrations": "tools/check_migrations.py: 'Upgrade from 0001, fresh head and both Alembic drift checks passed'",
+  "note": "Every command below was run directly in this session, and no command is reported as passing from memory or from an earlier phase. The individual runs came first; the full `tools/gate_check.py ig-4` chain was then run once as the integration check, and its own output agrees with the individual runs.",
+  "offline_tests": "As the gate runs it (faults excluded): 828 passed, 15 deselected, 1 warning in 106.20s. With the marker expression that does not exclude faults: 836 passed, 7 deselected, 1 warning, measured twice at 115.88s and 104.65s, which is 828 plus the 8 fault tests. The deselections are the sandbox, sandbox_interactive and fault marks respectively.",
+  "pipeline_it4": "backend/tests/integration/test_pipeline_fakes.py: 1 passed in 4.67s, re-run on its own as pipeline.json requires",
+  "secrets": "gitleaks git --redact: 50 commits scanned, ~19.30 MB, no leaks found",
+  "skipped": "none. The live Elastic parity test did not skip in either run: ELASTICSEARCH_URL and the official client are present locally, so it called the cluster, as Phase 3 recorded.",
+  "static": "ruff check clean, ruff format --check clean (248 files), mypy --strict clean for domain/ and modules/ (58 files), tools/check_imports.py 0 violations, tools/validate_docs.py 31 files 0 errors 0 warnings, tools/export_merchant_openapi.py --check 10 operations, tools/check_generated.py frontend API types match OpenAPI",
+  "status": "passed",
+  "table_count": "fairpool_test at revision 0004: 35 application tables plus alembic_version, 22 enum types, 12 user triggers"
+}

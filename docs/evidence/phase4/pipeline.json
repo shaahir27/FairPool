@@ -1,0 +1,8 @@
+{
+  "command": ".venv/Scripts/python.exe -m pytest backend/tests/integration/test_pipeline_fakes.py -q",
+  "executed": "2026-11-01",
+  "fakes": "FakeAI and the fake payment gateway (FakePaymentRouter) are the only fakes in the provider position. PostgresAllocationRead, PostgresMerchantDirectory, PostgresJobQueue, PostgresAuditLog, PostgresIdempotencyStore and DbClock are the real implementations, and the test asserts the call counters on the two services the checkout handlers read, so a fixture fake cannot stand in for them.",
+  "note": "IT-4 re-run by hand in this session, not only inside the full suite: 1 passed in 4.67s. The one test is test_it4_pool_to_funded_lot_with_the_real_services. It walks create, publish, open, twelve buyers through intake, close, demo seed, allocation into two live lots plus one undersized lot cancelled through LS-12 with a seven-entry ordered waitlist, force-award, two seated caps priced out below the award total, lot.open_checkout creating five orders of which two are refills from the waitlist, vault charges through the fake gateway, both live lots FUNDED, the audit chain verified and the public audit payload recomputed from the published vector.",
+  "result": "1 passed in 4.67s",
+  "status": "passed"
+}

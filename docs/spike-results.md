@@ -111,6 +111,33 @@ that was the probe's bug, not PayPal's.
 
 Record: beacon endpoint and chain used, round period, a verified round value; number of US personal sandbox buyer accounts created (target six, D11). Then set `BEACON_MODE`.
 
+### S6 drand check, 2026-11-01: not configured (read-only, nothing above rewritten)
+
+**Result: `not configured`.** The check was whether `.env` carries `DRAND_BASE_URL`
+and `DRAND_CHAIN_HASH` (the two settings `config.py` requires before
+`BEACON_MODE=drand` is accepted). It does not. Both names appear only as commented
+placeholders under `# ---- S6 drand and buyers`, the process environment has no
+`DRAND*` variable, and `BEACON_MODE` is not set in `.env` either. No HTTP request was
+made to any drand endpoint, because the chain to ask about is precisely the value that
+is unset, and no chain hash, period, round number or randomness value is recorded
+here. The spike's `Record:` line above is still unmet; this note adds the check, not
+the data.
+
+**A second limit, found while checking.** Even with both variables set, signature
+verification is not available with the installed `cryptography` (50.0.2): its `ec`
+module exposes no BLS12-381 type at all (the nearest sizes are SECP384R1 and
+BrainpoolP384R1), and drand rounds are BLS signatures over BLS12-381. A verifying check
+therefore needs a dedicated BLS library, which is not a dependency and would be a
+contract-level decision, not something to add quietly. Separately,
+`BeaconAnnouncement.fetch` in `adapters/beacon/announcement.py` still raises
+`NotImplementedError`, so the current adapter can announce the round it would ask for
+but cannot fetch or verify it. Phase 4 therefore scores demo pools with the labelled
+demo seed and exercises the beacon path against the fake only.
+
+**What would close it.** Set `DRAND_BASE_URL` and `DRAND_CHAIN_HASH` to one named
+chain, run this check again read-only, and record the chain hash, period, round
+number, one randomness value and what was actually verified with which library.
+
 ## S8: Elastic hybrid search (G12). RECORDED Oct 31, 2026
 
 **Result.** The live cluster reports version 9.5.5 and an enterprise license expiring 2028-02-29. The local `.multilingual-e5-small-elasticsearch` endpoint failed with 429 because no ML node had capacity, so the managed `.jina-embeddings-v5-text-small` endpoint was used. A temporary 20-document index mapped `search_text` into `semantic_text`; the hybrid RRF query combined a BM25 `match` on the text field with a `semantic` query on the embedding field. Top-five recall was 10/10 on ten labelled queries, equal to the PostgreSQL baseline (10/10), at 205-387 ms per query. The temporary index was deleted. `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small` are set; similarity remains advisory and never changes a bid's status.
