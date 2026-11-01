@@ -1,10 +1,10 @@
 {
   "branch": "main",
-  "commit": "117d21f",
+  "commit": "cdc7043",
   "executed": "2026-11-01",
   "jobs_passed": 9,
-  "note": "Remote CI ran every job green on the commit that carries the Phase 2 capacity guards and the hardened IG-2 gate: lint, strict typing, the full suite (including the Alembic migration and drift check against a fresh fairpool_test service), import boundaries, docs, Merchant OpenAPI, frontend, secret scan and the compose smoke. This closes the evidence item IG-2 had been missing since October.",
+  "note": "Remote CI ran every job green on the commit that carries the Phase 2 capacity guards and the hardened IG-2 gate: lint, strict typing, the full suite (including the Alembic migration and drift check against a fresh fairpool_test service), import boundaries, docs, Merchant OpenAPI, frontend, secret scan and the compose smoke. This closes the evidence item IG-2 had been missing since October. Certified run is 41281110499 on cdc7043, the commit that carries the guard fix, the CR approval and the corrected disclosures; 41279757572 on 117d21f passed earlier.",
   "result": "success",
-  "run_id": 41279757572,
+  "run_id": 41281110499,
   "status": "passed"
 }
