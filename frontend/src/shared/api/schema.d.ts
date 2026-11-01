@@ -1287,16 +1287,14 @@ export interface components {
     schemas: {
         /** AdminForceAwardResponse */
         AdminForceAwardResponse: {
-            /**
-             * Award Id
-             * Format: uuid
-             */
-            award_id: string;
+            award: components["schemas"]["ForceAwardView"];
             /**
              * Lot Id
              * Format: uuid
              */
             lot_id: string;
+            /** Lot Status */
+            lot_status: string;
         };
         /** AdminLotView */
         AdminLotView: {
@@ -1879,6 +1877,22 @@ export interface components {
             tier_index: number;
             /** Valid Minutes */
             valid_minutes: number;
+        };
+        /** ForceAwardView */
+        ForceAwardView: {
+            /** Award Hash */
+            award_hash: string;
+            /** Item Cents */
+            item_cents: number;
+            /** Moq */
+            moq: number;
+            /** Tier Index */
+            tier_index: number;
+            /**
+             * Valid Until
+             * Format: date-time
+             */
+            valid_until: string;
         };
         /** FulfillmentRow */
         FulfillmentRow: {
@@ -3216,7 +3230,7 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

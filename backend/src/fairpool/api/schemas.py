@@ -608,9 +608,18 @@ class ForceAwardRequest(StrictModel):
     valid_minutes: int = Field(ge=1)
 
 
+class ForceAwardView(ResponseModel):
+    award_hash: str
+    item_cents: int
+    moq: int
+    tier_index: int
+    valid_until: datetime
+
+
 class AdminForceAwardResponse(ResponseModel):
     lot_id: UUID
-    award_id: UUID
+    award: ForceAwardView
+    lot_status: str
 
 
 class MockToggleRequest(StrictModel):

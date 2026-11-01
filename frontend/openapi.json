@@ -3,20 +3,23 @@
     "schemas": {
       "AdminForceAwardResponse": {
         "properties": {
-          "award_id": {
-            "format": "uuid",
-            "title": "Award Id",
-            "type": "string"
+          "award": {
+            "$ref": "#/components/schemas/ForceAwardView"
           },
           "lot_id": {
             "format": "uuid",
             "title": "Lot Id",
             "type": "string"
+          },
+          "lot_status": {
+            "title": "Lot Status",
+            "type": "string"
           }
         },
         "required": [
           "lot_id",
-          "award_id"
+          "award",
+          "lot_status"
         ],
         "title": "AdminForceAwardResponse",
         "type": "object"
@@ -1517,6 +1520,40 @@
           "valid_minutes"
         ],
         "title": "ForceAwardRequest",
+        "type": "object"
+      },
+      "ForceAwardView": {
+        "properties": {
+          "award_hash": {
+            "title": "Award Hash",
+            "type": "string"
+          },
+          "item_cents": {
+            "title": "Item Cents",
+            "type": "integer"
+          },
+          "moq": {
+            "title": "Moq",
+            "type": "integer"
+          },
+          "tier_index": {
+            "title": "Tier Index",
+            "type": "integer"
+          },
+          "valid_until": {
+            "format": "date-time",
+            "title": "Valid Until",
+            "type": "string"
+          }
+        },
+        "required": [
+          "award_hash",
+          "item_cents",
+          "moq",
+          "tier_index",
+          "valid_until"
+        ],
+        "title": "ForceAwardView",
         "type": "object"
       },
       "FulfillmentRow": {
@@ -4509,7 +4546,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {

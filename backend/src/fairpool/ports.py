@@ -117,6 +117,10 @@ class LotView:
     fund_deadline_s: int
     max_refill_waves: int
     pool_mode: str
+    # CR-4: the values the checkout handlers need; defaults keep older fakes valid.
+    pending_wait_s: int = 0
+    capture_grace_s: int = 0
+    refill_waves: int = 0
 
 
 @dataclass(frozen=True)
