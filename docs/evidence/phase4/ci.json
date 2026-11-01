@@ -1,10 +1,10 @@
 {
   "branch": "main",
-  "commit": "03a1483",
+  "commit": "babb4fd",
   "executed": "2026-11-01",
   "jobs_passed": 9,
-  "note": "Remote CI ran every job green on the commit that carries the whole of Phase 4: lint, strict typing, the full suite against a freshly migrated fairpool_test, the Alembic upgrade and drift check, import boundaries, docs, Merchant OpenAPI, frontend lint/tests/build, secret scan and the compose smoke. This is the CI half of the IG-4 evidence set.",
+  "note": "Remote CI ran every job green on the commit that closes the final review's regressions: lint, strict typing, the full suite against a freshly migrated fairpool_test, Alembic upgrade and drift, import boundaries, docs, Merchant OpenAPI, frontend, secret scan and compose.",
   "result": "success",
-  "run_id": 41307137778,
+  "run_id": 41315766795,
   "status": "passed"
 }
