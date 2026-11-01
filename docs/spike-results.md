@@ -88,6 +88,25 @@ Run `tools/fairpool_spike_check.py run --only s4`, run 8e91a3b6, app-owning Sand
 
 Record: public HTTPS listener reachable on 443; real lifecycle events received; signature verification result; duplicate delivery handling. Then set `WEBHOOKS_ENABLED`.
 
+Recorded Nov 1, 2026 (S5 completed as a spike; the Oct 28 record above is unchanged):
+the canonical listener `9WV04847640439813` is registered on
+`https://fairpool-api.onrender.com/webhooks/paypal` with exactly the seven V7 event
+types (the dashboard's `*` wildcard subscription could not be narrowed - PayPal's
+webhook PATCH answered 415 and then `INVALID_WEBHOOK_PATCH_REQUEST` for every
+documented shape - so it was deleted and re-registered through the API). A
+`simulate-event` delivery reached a tunnel listener after 33s with all five
+`PayPal-Auth-*` headers, and `POST /v1/notifications/verify-webhook-signature` built
+exactly as `gateway.verify_webhook` builds it answered
+`verification_status=SUCCESS`. Sending the raw body string instead of the parsed
+object answers 400 INVALID_REQUEST, which confirms the shape already in the adapter.
+Per P4 this is mock payload evidence for the verification and ingest path, not a real
+capture lifecycle: `CHECKOUT.ORDER.APPROVED` still needs a human approval, and
+`AUTHORIZATION.VOIDED`, `CAPTURE.PENDING` and `CAPTURE.DENIED` cannot be produced
+before the Phase 4-5 handlers exist. `WEBHOOKS_ENABLED` stays false because Phase 3
+registers no money-state handler. One false start is recorded so it is not repeated:
+a probe that built the verify body with hyphenated keys got 400 INVALID_REQUEST -
+that was the probe's bug, not PayPal's.
+
 ## S6: beacon and sandbox buyers (G6). RECORDED Oct 29, 2026
 
 Record: beacon endpoint and chain used, round period, a verified round value; number of US personal sandbox buyer accounts created (target six, D11). Then set `BEACON_MODE`.

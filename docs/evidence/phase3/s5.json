@@ -1,19 +1,44 @@
 {
+  "deployed_ingest_probe": "POST of an unsigned synthetic payload to the live endpoint returned HTTP 200 and stored the body with no processing enqueued, which is the CR-3 rule for an environment whose PAYPAL_WEBHOOK_ID is unset. Render still has no webhook id; the owner sets it.",
   "executed": "2026-11-01",
-  "owner_actions_required": [
-    "in the Sandbox dashboard, on the same app whose REST credentials are in .env: open Webhooks, delete the stale entry (and the one just created), or paste its id here",
-    "then I re-register the seven event types, store the returned id in .env, and record per-event-type verification results",
-    "one live buyer approval, which only a human can click, for CHECKOUT.ORDER.APPROVED"
-  ],
-  "prior_partial_evidence": "Oct 28-29 record retained unchanged in docs/spike-results.md: authorization-created, capture-completed and capture-refunded arrived and verified; a resend delivered the same event id twice; order-approved was not observed in the window.",
-  "status": "pending",
-  "verified_now": {
-    "PAYPAL_WEBHOOK_ID": "still the stale October value in .env; it was deliberately NOT overwritten because no id could be verified against the app",
-    "endpoint": "https://fairpool-api.onrender.com/webhooks/paypal answers; /health and /ready both HTTP 200",
-    "listener_creation": "POST /v1/notifications/webhooks with the seven contracted event types returned HTTP 201 once. Re-creating either URL afterwards returns HTTP 400 WEBHOOK_URL_ALREADY_EXISTS.",
-    "listener_lookup": "GET /v1/notifications/webhooks returns HTTP 200 with zero links for this app, so the created webhook's id could not be read back and is not known here.",
-    "sandbox_rest_credentials": "valid; client-credentials token obtained from api-m.sandbox.paypal.com (values never printed)",
-    "verify_signature_call": "gateway.verify_webhook sends webhook_id plus the five PayPal-Auth-* headers and the raw event, and needs no url field, so a query-string listener URL would still verify"
+  "listener": {
+    "event_types": [
+      "CHECKOUT.ORDER.APPROVED",
+      "PAYMENT.AUTHORIZATION.CREATED",
+      "PAYMENT.AUTHORIZATION.VOIDED",
+      "PAYMENT.CAPTURE.COMPLETED",
+      "PAYMENT.CAPTURE.DENIED",
+      "PAYMENT.CAPTURE.PENDING",
+      "PAYMENT.CAPTURE.REFUNDED"
+    ],
+    "note_on_the_previous_attempt": "The owner first registered the same URL with the dashboard wildcard '*' (all events). PayPal's webhook PATCH endpoint rejected every documented patch shape (415 then INVALID_WEBHOOK_PATCH_REQUEST), so the listener was deleted by the owner and re-registered through the API with the seven explicit types. The id changed to the one above, which is now in .env.",
+    "registration": "POST /v1/notifications/webhooks -> HTTP 201; GET by id -> HTTP 200 with exactly the seven types and no wildcard",
+    "requested_resource_version": "2.0; the read-back reports resource_version None",
+    "url": "https://fairpool-api.onrender.com/webhooks/paypal",
+    "webhook_id": "9WV04847640439813"
   },
-  "why_pending": "Signature verification cannot be executed without a webhook id that this app can see. PayPal registered a listener and then refused to list it, which is a dashboard-level inconsistency only the owner can clear. Four of the seven event types additionally cannot be produced until the Phase 4-5 authorize/capture/void handlers exist."
+  "outstanding_for_a_full_real_lifecycle": [
+    "the four types above need the Phase 4-5 authorize/capture/void handlers, or a hand-run sandbox lifecycle with a buyer login",
+    "PAYPAL_WEBHOOK_ID=9WV04847640439813 in the Render env group before the deployed ingest can verify anything"
+  ],
+  "per_event_type_verdicts": {
+    "CHECKOUT.ORDER.APPROVED": "not delivered within the window on Oct 28 and still not producible without a buyer approval; approval is therefore always confirmed by GET, never awaited",
+    "PAYMENT.AUTHORIZATION.CREATED": "verified real on Oct 28 (retained record, unchanged)",
+    "PAYMENT.AUTHORIZATION.VOIDED": "cannot be produced in Phase 3: no authorize handler exists yet (Phase 4-5)",
+    "PAYMENT.CAPTURE.COMPLETED": "verified real on Oct 28 (retained); signature path re-proven today against a simulated payload",
+    "PAYMENT.CAPTURE.DENIED": "cannot be produced on demand for the same reason",
+    "PAYMENT.CAPTURE.PENDING": "cannot be produced on demand; PayPal decides pending-ness, and no capture handler exists yet",
+    "PAYMENT.CAPTURE.REFUNDED": "verified real on Oct 28 (retained record, unchanged)"
+  },
+  "scope_of_this_pass": "S5 is a spike: its acceptance is to register the listener and record what the Sandbox actually does, per event type, including what cannot be produced. That is now done with executed evidence. It is NOT a claim that a real money lifecycle was verified today, and it does not enable webhook processing.",
+  "signature_verification": {
+    "comparison": "sending webhook_event as the raw body string instead returns HTTP 400 INVALID_REQUEST, so the shape in gateway.verify_webhook is the correct one and is now proven against a real PayPal-signed transmission",
+    "delivery": "arrived after 33s with all five PayPal-Auth-* headers, 1716-byte body",
+    "false_start_recorded": "an earlier run returned 400 INVALID_REQUEST because the request body was built with hyphenated keys (auth-algo) instead of the snake_case names PayPal expects. That was the probe's bug, not the product's, and is written down so nobody reads it as a PayPal limitation.",
+    "limitation": "P4 and spikes.md classify simulator events as mock: this proves signature verification and the ingest plumbing, not a real capture lifecycle. The temporary listener was deleted and the tunnel stopped; nothing was left registered.",
+    "method": "cloudflared quick tunnel to a local listener, POST /v1/notifications/simulate-event for PAYMENT.CAPTURE.COMPLETED, then POST /v1/notifications/verify-webhook-signature built exactly as adapters/paypal/gateway.py verify_webhook builds it",
+    "result": "HTTP 200 verification_status=SUCCESS with the production parsed-object shape"
+  },
+  "status": "passed",
+  "webhooks_enabled": "false, deliberately. T03A03's acceptance says set it true when the handler ships; Phase 3 registers no money-state handler, so enabling it would advertise a processing path that does not exist. Recorded as the answer to that acceptance item rather than as a value to flip."
 }

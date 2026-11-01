@@ -381,14 +381,21 @@ Asked to close the gate. What got done, and the two things that stopped it:
    all of them new packages - and `pip install --require-hashes --dry-run` resolves, so CI
    installs the official client. The live Elastic parity test still skips there because CI
    holds no cluster credentials, which is the honest outcome.
-2. **Webhook listener: created, then untraceable.** Registering the seven contracted event
-   types returned HTTP 201, but `GET /v1/notifications/webhooks` for the same app returns
-   zero links, and re-creating either the plain or the query-string URL now fails with
-   `WEBHOOK_URL_ALREADY_EXISTS`. So a listener exists that this app cannot see, its id was
-   never readable, and `PAYPAL_WEBHOOK_ID` was deliberately left at its stale value rather
-   than pointed at something unverified. Without a readable id, signature verification
-   cannot be executed, and I will not record a verified result I did not observe. This
-   needs a dashboard clear-out on the app whose credentials are in `.env`.
+2. **Webhook listener: registered and verified, and two of my earlier claims were wrong.**
+   `PAYPAL_WEBHOOK_ID` in `.env` is **empty**, not holding a stale October value as I first
+   wrote, and the listener is not untraceable. What is actually true: PayPal's
+   `GET /v1/notifications/webhooks` returns HTTP 200 with zero links on this app even for a
+   listener that `GET` and `DELETE` by id handle normally, so only the list call is
+   unreliable. Registering the seven contracted event types at
+   `https://fairpool-api.onrender.com/webhooks/paypal?s5=live` returned 201 and the direct
+   GET confirms all seven types on id `1UT33484SD059942U`. The plain URL answers
+   `WEBHOOK_URL_ALREADY_EXISTS` because two orphan listeners hold it - the October one and
+   a `?s5=1` created during this check - and their ids are not recoverable through the API,
+   so clearing them is a dashboard action. Nothing was written to `.env` or Render: the
+   owner sets the verified id. Signature verification therefore still has not been executed
+   against a delivered event, and `s5` stays pending for that reason plus the four event
+   types that cannot exist before Phase 4-5.
+
 3. **APIMatic trial: cannot be delegated.** The 14-day trial is an account signup at
    apimatic.io (email, terms, per-language pricing afterwards) and no APIMatic credential
    exists locally. I will not create an account on your identity, and I will not present a
