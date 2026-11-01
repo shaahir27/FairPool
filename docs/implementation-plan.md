@@ -1217,7 +1217,7 @@ The owner closed IG-2 by exception; its automated acceptance evidence remains pe
 - **Owner:** Member B. **Size:** L (1 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T04B01, T06B01, T06A05.
 - **Read first:** ai-schemas.md §6, §7.
 - **Create or change:** `backend/tests/ai_eval/**`.
-- **Acceptance:** About 50 intake, 30 quote and 30 reconcile cases; metrics and retrieval recall; README table; baseline stored; zero injected instructions change an outcome.
+- **Acceptance:** About 50 intake, 30 quote and 60 reconcile cases; metrics and retrieval recall; README table; baseline stored; zero injected instructions change an outcome.
 - **Tests that prove it:** `make ai-eval`; baseline stored.
 - **Requirements and invariants:** FR-AI-05, F19, F20.
 

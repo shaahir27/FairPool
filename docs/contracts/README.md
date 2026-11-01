@@ -2,7 +2,7 @@
 
 Contracts are the exact interfaces between modules and between the two members. They are what lets Member A and Member B work in parallel without waiting for each other's code. They are derived from `docs/system-design.md` and tightened where the design left bytes, columns or names open.
 
-Current version: `contracts-v1.2`, tagged after the Phase 3 change request (CR-3). Nothing in this folder changes after that tag except through a change request.
+Current version: `contracts-v1.3`, tagged after the Phase 2 AI acceptance change request. Nothing in this folder changes after that tag except through a change request.
 
 ## Files
 
@@ -52,9 +52,10 @@ Current version: `contracts-v1.2`, tagged after the Phase 3 change request (CR-3
 | contracts-v1 | 2026-10-30 | Initial freeze after full review; corrections C1-C15 and status consolidation recorded | @shaahir27 (owner) after independent agent review |
 
 | contracts-v1.1 | 2026-10-31 | Phase 2 provider, payment identity, rules vector/envelope, shipment association and evidence validation | @shaahir27 (owner) after independent review; merged into `main` and tagged |
+| contracts-v1.3 | 2026-11-01 | Phase 2 AI acceptance: 95% extraction threshold with bounded non-critical error and human-review fallback, safety checks absolute, contradictory demo cases may resolve to review (owner decision), v5-v8 validator revisions with a fail-closed capacity guard. Affects T02B03 and T09B02 | @shaahir27 (owner) after independent review; findings dispositioned in `docs/progress.md` |
 | contracts-v1.2 | 2026-11-01 | CR-3, Phase 3: `confirmed_requests` and `vault_setup_attempts` tables plus migration 0003, `oauth_states` session binding, `vault_tokens.cap_cents` widened to bigint, entry-window trigger on `clock_timestamp()`, `Clock.db_wall_now`, the `PaymentVault` and `PayPalIdentity` ports with attempt-scoped vault keys, join idempotency and rate-limit semantics, new `RULES_MISMATCH` and `INTEGRITY_ERROR` codes with `VAULT_SETUP_TTL_S`, `VAULT_REAL_SAVE_ENABLED`, `OAUTH_STATE_TTL_S`, `SEARCH_TIMEOUT_MS`, the deterministic-manual-confirmation and public-key/close-audit pull-forwards, and the honest S1/S5 webhook-verification states | @shaahir27 (owner) after independent agent review |
 
-### Proposed CR: Phase 2 AI acceptance threshold (2026-11-01)
+### Phase 2 AI acceptance CR (approved 2026-11-01)
 
 The owner requested 95% extraction accuracy as the Phase 2 acceptance threshold.
 The amendment allows bounded noncritical extraction errors and safe human-review
@@ -70,7 +71,25 @@ those even when the model omits its ambiguity marker. Each has two separate live
 conflict spots; accepted v4/v5 outputs are revalidated offline under v8. Other version
 changes require reevaluation. Affected tasks:
 T02B03 and T09B02; affected files: `ai-schemas.md`, the evaluator and IG-2 gate.
-Owner requested; independent review, merge and contract-version tag are pending.
+Owner approved on 2026-11-01, including one decision this review forced: **a
+contradictory demo case may end in human review instead of a definite rejection**,
+because review is the safe outcome when the quote itself is contradictory. The
+evidence records 41 reconcile rows in review, 19 of them demo cases, and four of
+those four expected a definite rejection under the old rule; that count is disclosed
+in `docs/evidence/phase2/README.md` rather than hidden by the threshold.
+
+Three corrections to what this CR first claimed, found by independent review:
+v5 to v8 are **validator** revisions - the system prompt text is unchanged, and the
+fingerprint field is a combined gate version, not a prompt history; the recorded
+"two live conflict spots" per version prove that the model **declines** to state a
+definite capacity, not that the guard fires, so guard coverage is proved by the
+deterministic tests that feed a definite value for every published variant (sentence
+break, en dash, parentheses, ampersand, "pcs", a spelled-out number, a bare
+"quantity" ambiguity, and the originally recorded "4 or 9" forms); and the v4
+baseline holds 479 distinct live calls, not 480, because one row is duplicated
+across runs 1 and 3.
+
+This CR is tagged `contracts-v1.3`.
 
 ### Phase 2 change request (owner-approved implementation plan, 2026-10-31)
 

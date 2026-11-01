@@ -393,3 +393,92 @@ async def test_conflicting_quote_capacity_cannot_be_accepted_as_definite(
             lot_requirement={},
         )
     assert len(logger.rows) == 2
+
+
+def _quote_payload(**overrides):
+    payload = {
+        "product_text": None,
+        "condition": None,
+        "bundle_contents": [],
+        "capacity": None,
+        "target_quantity": None,
+        "moq": None,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {"mode": None, "rate_bps_by_region": {}},
+        "delivery_sla_days": None,
+        "returns_days": None,
+        "valid_until": None,
+        "total_capacity": None,
+        "evidence_note": None,
+        "ambiguities": [],
+    }
+    payload.update(overrides)
+    return payload
+
+
+async def _parse_with(quote_text: str, payload: dict):
+    async def generate(**kwargs):
+        return SimpleNamespace(text=json.dumps(payload), usage_metadata=None, candidates=[])
+
+    ai = GeminiAI(
+        api_key="fictional",
+        model_parse="m",
+        model_sim="m",
+        logger=Logger(),
+        generate=generate,
+    )
+    return await ai.parse_quote(None, quote_text=quote_text, lot_requirement={})
+
+
+@pytest.mark.parametrize(
+    "quote_text, ambiguity_field",
+    [
+        ("capacity is 4. Or 9.", None),
+        ("capacity is 4\u20139", None),
+        ("capacity is 4 (or 9)", None),
+        ("capacity is 4 & 9", None),
+        ("capacity is 4 pcs or 9 pcs", None),
+        ("capacity is 4 or nine", None),
+        ("capacity is 4", "quantity"),
+    ],
+)
+async def test_every_ambiguity_variant_routes_to_review(quote_text, ambiguity_field):
+    """T05-safety: a definite capacity next to a second number is never accepted.
+
+    Each row here is a variant an independent review proved used to slip through:
+    a sentence break, an en dash, parentheses, an ampersand, "pcs", a spelled-out
+    number, and an ambiguity recorded under the alias "quantity". They must all end
+    in human review, because a wrong capacity either prices a buyer out or lets an
+    overpriced bid through and the value itself is well formed.
+    """
+    payload = _quote_payload(
+        capacity=4,
+        ambiguities=(
+            [{"field": ambiguity_field, "question": "Which quantity?"}] if ambiguity_field else []
+        ),
+    )
+    with pytest.raises(AIUnavailable):
+        await _parse_with(quote_text, payload)
+
+
+@pytest.mark.parametrize(
+    "quote_text, field, value",
+    [
+        ("capacity is 56 units and 2 weeks delivery", "capacity", 56),
+        ("delivery within 2 to 3 days", "delivery_sla_days", 2),
+        ("capacity is 4 and 9 is the MOQ", "capacity", 4),
+        ("capacity is 56 units in two weeks", "capacity", 56),
+    ],
+)
+async def test_ordinary_quotes_with_a_time_span_or_a_range_are_not_sent_to_review(
+    quote_text, field, value
+):
+    """The guard must not turn normal merchant wording into pointless reviews.
+
+    "56 units and 2 weeks delivery" is one capacity plus a delivery time; "2 to 3
+    days" is a normal SLA range; "9 is the MOQ" is a different field's number. Only
+    a second number that means a second quantity is a conflict.
+    """
+    parsed = await _parse_with(quote_text, _quote_payload(**{field: value}))
+    assert parsed[field] == value

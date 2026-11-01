@@ -1,5 +1,15 @@
 {
+  "checked_clean": [
+    "95% threshold recomputed from fields, not trusted",
+    "each evidence row bound to its case, input hash, model and version",
+    "accepted outputs revalidated under the current validator",
+    "legitimate single quantities and time spans are not sent to review"
+  ],
+  "disposition": "All four fixed: CR approved and tagged contracts-v1.3; guard extended for sentence breaks, en dashes, parentheses, ampersand, pcs, spelled-out numbers and quantity aliases, each with a deterministic test; claims corrected to say the live spots prove the model declines, not that the guard fires, and to disclose 479 distinct calls; the owner decided contradictory demo cases may resolve to review, which is now written into the contract with the counts disclosed.",
+  "executed": "2026-11-01",
+  "not_covered": "No live model call, no database write and no CI run was performed by the reviewer itself.",
+  "reviewer": "independent read-only review agent",
+  "scope": "The Phase 2 AI acceptance CR, the fail-closed capacity guard, the hardened IG-2 gate, and whether the evidence supports what the CR claims.",
   "status": "passed",
-  "reviewer": "independent contract_review agent",
-  "scope": "Contracts, authentication, payment identity, transactions, grounded flags, simulation facts, evaluation fingerprint and corpus labels. Reported blockers repaired; final focused rereview 38 tests passed. Live services and CI excluded."
+  "verdict_before_fixes": "No - four blockers: the contract was amended under a tag that forbids it, the recorded live spots never triggered the guard, one v4 row is a duplicated call, and demo cases were accepted in review against the contract text."
 }

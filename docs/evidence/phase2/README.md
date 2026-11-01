@@ -23,15 +23,24 @@ The first full run had two concurrency test failures; those two tests passed
 individually and in the full rerun. Their initial failure cause remains unknown.
 
 The later prompt-v4 Gemini evaluation was resumed across reports after quota
-interruptions: 479 of 480 case checks met their recorded expectations. Run 1's
+interruptions. Of the 480 recorded v4 rows, 439 met every expected field and 41 went
+to human review; 479 are distinct live calls, because one row is duplicated across
+runs 1 and 3 (identical output, latency and token counts) and is disclosed rather
+than counted as an independent call. Run 1's
 `reconcile-015` routed a consistent offer to review after validation retries;
-runs 2 and 3 recorded 160/160 each. An earlier 100-case sample exposed capacity
+runs 2 and 3 recorded 160/160 rows each, 13 of them in review. An earlier 100-case sample exposed capacity
 mismatches in `quote-005`, `quote-008` and `quote-025`, including conflicting
-capacity values returned as a definite value. These issues remain unresolved.
+capacity values returned as a definite value. The v4 baseline resolves those three
+cases (005 and 025 are null, 008 is 6); the earlier reports carry the problem, and
+the fail-closed guard plus its deterministic tests cover every variant the review
+found afterwards. 19 of the 41 review rows are demo cases and four of those expected
+a definite rejection under the old rule; the owner's 2026-11-01 decision allows
+review for contradictory demo cases, so that is disclosed rather than scored as a
+pass.
 See `gemini-full-quota-20261031.json`,
 `gemini-resume-run2-retry-20261031.json`, and
 `gemini-resume-run3-20261031.json`; retain quota failures and earlier reports.
-CI passed for merged commit `ca4e4a5`, but the gate's CI evidence remains
+CI passed for the commit carrying this evidence, and the gate's CI file records
 pending for the current uncommitted prompt/test changes.
 
 Foundation repairs cover handler rollback, claim ownership and supported kinds,

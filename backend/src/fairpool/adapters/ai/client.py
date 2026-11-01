@@ -8,7 +8,7 @@ import json
 import re
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Final
 
 from google.genai import Client
 from google.genai.types import HttpOptions, HttpRetryOptions
@@ -82,6 +82,84 @@ def cap_values(text: str) -> set[int]:
         return {cents(x) for x in actual}
     stated = re.findall(r"\b" + label + number, text, re.I)
     return {cents(x) for x in stated} if stated else monetary_values(text)
+
+
+_NUMBER_WORDS: Final[dict[str, int]] = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+}
+_NUMBER_TOKEN = r"(?:\d+|" + "|".join(_NUMBER_WORDS) + r")"
+_TIME_UNIT = r"(?:business\s+days?|days?|weeks?|months?|hours?)"
+# Two fields are time spans, where "2 to 3 days" is a normal range, not a conflict.
+_TIMESPAN_FIELDS: Final[frozenset[str]] = frozenset({"delivery_sla_days", "returns_days"})
+_FIELD_ALIASES: Final[dict[str, str]] = {
+    "target": "target_quantity",
+    "minimum_order_quantity": "moq",
+    "sla": "delivery_sla_days",
+    "delivery": "delivery_sla_days",
+    "returns": "returns_days",
+}
+
+
+def normalize_quantities(text: str) -> str:
+    """Neutralise punctuation that hides a second number from the guards.
+
+    An en dash, parentheses, an ampersand and the abbreviations "pcs"/"pieces" all
+    carry the same meaning as "or ... units" in a merchant quote, so the text is
+    flattened before matching instead of every pattern listing each variant.
+    """
+    flat = text.lower().replace("\u2013", "-").replace("\u2014", "-")
+    flat = flat.replace("&", " and ").replace("pcs", "units").replace("pieces", "units")
+    return re.sub(r"[()\[\]]", " ", flat)
+
+
+def number_value(token: str) -> int | None:
+    token = token.strip().lower()
+    if token.isdigit():
+        return int(token)
+    return _NUMBER_WORDS.get(token)
+
+
+def labelled_numbers(text: str, label: str) -> list[int]:
+    """Every number attached to this field's label, digits or spelled out."""
+    found = re.findall(
+        rf"\b(?:{label})\s*(?:is|:|=|of)?\s*(?:also\s+)?({_NUMBER_TOKEN})\b", text, re.I
+    )
+    return [value for token in found if (value := number_value(token)) is not None]
+
+
+def two_number_conflict(text: str, label: str, *, timespan: bool) -> bool:
+    """One labelled field followed by two numbers.
+
+    "4 or 9", "4-9", "4, 9" and "4 units or 9 units" are all conflicts for a count
+    field. A time field's range ("delivery within 2 to 3 days") is not, and neither is
+    a second number that carries its own time unit ("capacity is 56 units and 2 weeks
+    delivery"), because that is a different fact about a different field.
+    """
+    if timespan:
+        return False
+    pattern = (
+        rf"\b(?:{label})\s*(?:is|:|=|of)?\s*(?:also\s+)?{_NUMBER_TOKEN}\s*"
+        rf"(?:units?|items?)?\s*[,.;:]?\s*(?:or|to|and|/|-)\s*(?P<second>{_NUMBER_TOKEN})\b"
+        rf"(?!\s*(?:{_TIME_UNIT}|is\b|are\b))"
+    )
+    return re.search(pattern, text, re.I) is not None
+
+
+def ambiguity_field(value: object) -> str:
+    """Canonical field name for an ambiguity entry: "Capacity (units)" -> "capacity"."""
+    cleaned = re.sub(r"[^a-z0-9]+", "_", str(value).lower()).strip("_")
+    return _FIELD_ALIASES.get(cleaned, cleaned)
 
 
 def contradictions(text: str, fields: dict[str, Any]) -> dict[str, str]:
@@ -336,26 +414,25 @@ class GeminiAI:
                 "returns_days": r"returns?",
                 "total_capacity": r"total capacity",
             }
+            normalized = normalize_quantities(source)
             for key, label in labels.items():
-                if output[key] is not None and any(
-                    item.get("field", "").strip().lower() == key for item in output["ambiguities"]
+                if output[key] is None:
+                    continue
+                flagged = {ambiguity_field(item.get("field", "")) for item in output["ambiguities"]}
+                # A bare "quantity" ambiguity is a statement about the count itself, so it
+                # blocks every count field rather than only the one it was recorded under.
+                if (
+                    key in flagged
+                    or "quantity" in flagged
+                    or any(name.startswith(key + "_") for name in flagged)
                 ):
                     raise ValueError("Ambiguous field-specific quantity requires review")
-                if output[key] is not None and re.search(
-                    r"\b(?:" + label + r")\s*(?:is|:|=|of)?\s*(?:also\s+)?"
-                    r"[0-9]+\s*(?:units?|items?)?\s*[,;]?\s*(?:or|to|and|/|-)\s*[0-9]+\b",
-                    source,
-                    re.I,
-                ):
+                values = labelled_numbers(normalized, label)
+                if len(set(values)) > 1:
                     raise ValueError("Conflicting field-specific quantities require review")
-                values = re.findall(
-                    r"\b(?:" + label + r")\s*(?:is|:|=|of)?\s*(?:also\s+)?([0-9]+)\b",
-                    source,
-                    re.I,
-                )
-                if output[key] is not None and len({int(v) for v in values}) > 1:
+                if two_number_conflict(normalized, label, timespan=key in _TIMESPAN_FIELDS):
                     raise ValueError("Conflicting field-specific quantities require review")
-                if output[key] is not None and output[key] not in {int(v) for v in values}:
+                if output[key] not in values:
                     raise ValueError("Ungrounded field-specific quantity")
             if output["valid_until"] and output["valid_until"] not in source:
                 raise ValueError("Ungrounded validity")
