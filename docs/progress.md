@@ -371,6 +371,54 @@ checks still report pending evidence. See the current gate row and Phase 2
 verification record for the later Gemini evaluation. No paid deployment was
 performed.
 
+## IG-3 evidence verification (2026-11-01)
+
+Ordered work on the gate, executed rather than assumed:
+
+1. **Pushed and verified CI.** `main` advanced `88105a0..a57804a`; remote CI run
+   41271936679 finished in 2m9s with all nine jobs green, including Test (with the
+   Alembic migration and drift check on a fresh `fairpool_test`). `ci.json` is now
+   passed. No D-P3-01 flakiness appeared in CI.
+2. **Webhook listener verified read-only, no secret printed.** Sandbox client
+   credentials work (token obtained from `api-m.sandbox.paypal.com`).
+   `GET /v1/notifications/webhooks` returns HTTP 200 with **zero listeners**, and the
+   `PAYPAL_WEBHOOK_ID` held in `.env` matches nothing - it points at the temporary
+   listener deleted in October. So signature verification cannot be executed until a
+   listener is registered, which is a write to the owner's app and needs an explicit
+   go-ahead. `s5.json` stays pending with that recorded precisely; the October partial
+   record is untouched.
+3. **Elastic checked per `OD-P3-3`.** Credentials exist and the cluster answers
+   (version 9.5.5), so the live parity test ran for real and passed: the hybrid
+   retrieval returned its own document and the `SearchHit` shape matched Postgres.
+   Two findings came out of running it. The adapter indexes without an explicit refresh
+   and Elastic is near-real-time, so the test now polls for visibility - the contract
+   promises at-least-once indexing, never same-millisecond visibility. And `elasticsearch`
+   plus `aiohttp` are **not** in the committed requirements: they are installed in this
+   local venv only, so CI still skips that test with its printed reason. Putting them in
+   the lockfile is an owner decision, not something to fold into a phase commit. The run
+   created `fairpool-search-v1` on the cluster and deleted its test document, as S8 did.
+4. **APIMatic checked against `OD-P3-2`, which says do not start without the owner.**
+   No trial was started and no account was touched. What can be stated is unchanged:
+   `sdk/merchant-openapi.json` validates at exactly ten operations, so the original
+   October blocker ("no OpenAPI file exists") is gone, and generation plus licence terms
+   remain unrecorded. `s11.json` stays pending.
+5. **Suite re-run after the push:** 691 tests pass including the 8 fault tests, with the
+   live Elastic parity test now executing locally.
+6. **Deploy consequence recorded, nothing executed.** Pushing `main` leaves the hosted
+   API running its own image; `render.yaml` has no pre-deploy command and
+   `Dockerfile.api` runs uvicorn only, so nothing migrated the hosted Supabase schema.
+   The hosted database is still at revision 0002 while the code now says 0003, so the
+   deployed `/ready` probe will report migrations pending after its next rebuild, and no
+   Phase 3 endpoint should be exercised on the hosted URL before a deliberate, authorised
+   hosted migration. `healthCheckPath` is `/health`, so this does not break the container.
+
+**`ig-3` is not tagged.** The documented gate rule is integration test green +
+`make gate-check GATE=ig-3` green + tag pushed; the checker still refuses, on `s5` and
+`s11`, both owner-gated. `contracts-v1.2` is separately due - `contracts/README.md`
+section 0.2 requires tagging after a CR merges, and CR-3 has merged - and it has not been
+created because tagging was explicitly reserved until the gate requirements are met.
+
+
 ## Phase 3 independent review (2026-11-01)
 
 A read-only reviewer agent audited the `phase-3` diff against `AGENTS.md`, the
@@ -445,8 +493,8 @@ passes the full round trip on a disposable database.
 `make gate-check GATE=ig-3` now exists, runs the whole automated chain green
 (lint, strict typing, 682 offline tests, import boundaries, docs, OpenAPI,
 frontend lint/tests/build, Alembic round trip, migration verification, the fault
-suite, generated artifacts and gitleaks) and then exits 2, listing s5, s11 and ci
-as pending, because none of those can be executed here. That is the correct state: `ig-3`
+suite, generated artifacts and gitleaks) and then exits 2 on s5 and s11 only.
+ci is now passed: run 41271936679, nine jobs green on `a57804a`. That is the correct state: `ig-3`
 may not be tagged until those are real, and no evidence file was marked passed to
 make it look otherwise.
 

@@ -1,7 +1,18 @@
 {
-  "executed": "not executed in this session; the Oct 28 partial record stands and is not rewritten",
-  "recorded": "2026-11-01",
+  "executed": "2026-11-01",
+  "owner_actions_required": [
+    "register the seven event types on the Sandbox app and put the new webhook ID in .env (never in chat)",
+    "accept the per-event-type split so three verifiable types can be recorded now and four deferred to IG-5",
+    "one live buyer approval, which only a human can click"
+  ],
+  "prior_partial_evidence": "Oct 28-29 record retained unchanged in docs/spike-results.md: authorization-created, capture-completed and capture-refunded arrived and verified; a resend delivered the same event ID twice; order-approved was not observed in the window.",
   "status": "pending",
-  "what_phase_3_did": "CR-3 resolved the ingest rule: the raw body is always stored, an unconfigured PAYPAL_WEBHOOK_ID stores UNVERIFIED and enqueues nothing, and only a verified row may enqueue work. WEBHOOKS_ENABLED stays false and no money-state handler is registered.",
-  "why_pending": "Four of the seven contracted event types (CHECKOUT.ORDER.APPROVED, PAYMENT.AUTHORIZATION.VOIDED, PAYMENT.CAPTURE.PENDING, PAYMENT.CAPTURE.DENIED) cannot be produced until authorize/capture/void handlers exist in Phase 4-5, and a listener registration needs a public HTTPS URL plus the PayPal dashboard. spikes.md section S5 requires each event type to be judged separately, so an unrun type is pending, not passed."
+  "verified_now": {
+    "PAYPAL_WEBHOOK_ID": "set in .env but matches nothing - it is a dangling reference to the temporary S5 listener that was deleted (spike-results.md records 'Temporary webhook removed (204)')",
+    "WEBHOOKS_ENABLED": "not set in .env, contract default false; no money-state handler is registered in Phase 3",
+    "WEBHOOK_PUBLIC_URL": "fairpool-api.onrender.com; the deployed listener endpoint answers (health/ready both HTTP 200)",
+    "listener_registration": "GET /v1/notifications/webhooks -> HTTP 200 with 0 listeners registered on this app",
+    "sandbox_rest_credentials": "valid; client-credentials token obtained from api-m.sandbox.paypal.com (values never printed)"
+  },
+  "why_pending": "Nothing can be verified end to end until a listener actually exists: signature verification calls PayPal's verify endpoint with the registered webhook ID, and the configured ID no longer resolves. Registering a listener is a write to the owner's Sandbox app, so it needs the owner's go-ahead; producing the remaining four event types additionally needs the Phase 4-5 authorize/capture/void handlers."
 }

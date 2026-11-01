@@ -1,5 +1,22 @@
 {
-  "note": "CI is green for main at 88105a0 (nine jobs, 2026-11-01). The phase-3 branch has not been pushed, so no remote CI evidence exists for this work yet.",
-  "recorded": "2026-11-01",
-  "status": "pending"
+  "branch": "main",
+  "commit": "a57804a",
+  "duration": "2m9s",
+  "executed": "2026-11-01",
+  "jobs": [
+    "Lint",
+    "Typecheck",
+    "Test",
+    "Import boundaries",
+    "Docs check",
+    "Merchant OpenAPI check",
+    "Frontend",
+    "Secret scan",
+    "Compose"
+  ],
+  "jobs_passed": 9,
+  "note": "The merge commit was pushed and remote CI ran all nine jobs green, including the Alembic migration and drift job against a fresh fairpool_test service. This closes the CI half that IG-2 left pending.",
+  "result": "success",
+  "run_id": 41271936679,
+  "status": "passed"
 }

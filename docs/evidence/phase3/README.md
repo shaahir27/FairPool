@@ -16,10 +16,10 @@ directory and stays red while any required file has a status other than
 | `migrations.json` | passed | `tools/check_migrations.py` under `APP_ENV=test`: fresh database, 0001 to head, drift check, downgrade to base, head again, drift check again. |
 | `s10.json` | passed | Pinned Oct 28-29 read-only MCP evidence reused, with its limits stated. Nothing re-executed. |
 | `s12.json` | passed | Pinned Oct 28 tracker evidence reused, with its limits stated. Nothing re-executed. |
-| `s5.json` | pending | Four of the seven contracted webhook event types cannot be produced before the Phase 4-5 money handlers, and a listener needs a public URL plus dashboard registration. `spikes.md` S5 requires judging each event type separately, so unrun types are pending. |
+| `s5.json` | pending | Verified live on 2026-11-01: Sandbox credentials work, but the app has **zero** registered webhook listeners and the `PAYPAL_WEBHOOK_ID` in `.env` is a dangling reference to the temporary listener deleted in October. Four of seven event types also need the Phase 4-5 money handlers. Registering a listener writes to the owner's Sandbox app, so it waits for an explicit go-ahead. |
 | `s11.json` | pending | `IT-3` requires the APIMatic trial started in Phase 3; `OD-P3-2` forbids starting it without the owner. The OpenAPI document now exists and validates at ten operations, which was the original blocker. |
 | `independent_review.json` | passed | A read-only review agent audited the diff and returned 1 blocker, 4 majors and 8 minors. All are fixed or corrected, each with a named test; the table is in `docs/progress.md`. |
-| `ci.json` | pending | CI is green for `main` at `88105a0`; the `phase-3` branch has not been pushed, so there is no remote CI evidence for this work yet. |
+| `ci.json` | passed | The merge commit `a57804a` was pushed and remote CI ran all nine jobs green (run 41271936679, 2m9s), including the Alembic migration and drift job. |
 
 ## What Phase 3 does not claim
 
@@ -52,3 +52,20 @@ under the pool lock), one log-hygiene gap (uvicorn's access line printing an OAu
 exist. All are fixed, with the table in `docs/progress.md`. `s5`, `s11` and `ci` remain
 pending because they cannot be executed in this environment, not because they were
 skipped.
+
+## Elastic parity, executed 2026-11-01
+
+`test_backends_agree_on_the_same_public_documents` ran against the real Elastic
+cluster (version 9.5.5, official async client 9.5.1): the hybrid RRF query returned the
+document the test wrote, and its `SearchHit` matched the Postgres backend's exactly.
+That upgrades the Phase 3 search claim from "implemented, never executed" to executed -
+with one honest caveat: the client and `aiohttp` are installed in this local venv only.
+The committed requirements do not carry them, so CI still skips the test with its printed
+reason, and adding them to the lockfile is an owner decision rather than something to
+slip into a phase commit.
+
+## Gate state after verification
+
+`make gate-check GATE=ig-3` runs green through the whole automated chain and now fails
+only on `s5` and `s11`, both of which need owner actions listed in `docs/progress.md`.
+`ig-3` is therefore not tagged.

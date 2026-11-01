@@ -1,13 +1,16 @@
 {
-  "executed": "2026-11-01, re-run after the independent review fixes",
+  "elastic_live_parity": "EXECUTED against the real cluster for the first time: version 9.5.5, official async client 9.5.1, hybrid RRF query returned the document the test wrote and the SearchHit shape matched the Postgres backend exactly. Needs two packages (elasticsearch, aiohttp) that are installed in this local venv only - the committed requirements and hashes do not carry them, so CI still skips this test with its printed reason. Adding them to the lockfile is an owner decision.",
+  "elastic_refresh_observation": "The adapter indexes without an explicit refresh and Elastic is near-real-time, so the live test now polls for visibility. The contract promises at-least-once indexing, never same-millisecond visibility, so this is a test-accuracy fix, not a product defect; recorded here so nobody later reads the first failure as a broken adapter.",
+  "executed": "2026-11-01, re-run after pushing main",
   "fault_tests": "8 passed (F5, F16)",
   "frontend": "eslint clean, 14 tests passed, build ok",
   "migrations": "tools/check_migrations.py: 'Upgrade from 0001, fresh head and both Alembic drift checks passed'",
   "note": "All commands run by `make gate-check GATE=ig-3` passed on 2026-11-01; the gate then exited 2 only on the evidence items listed in this directory. No command was skipped.",
-  "offline_tests": "682 passed, 1 skipped, 15 deselected",
+  "offline_tests": "691 passed, 7 deselected (includes the 8 fault tests)",
   "recorded": "2026-11-01",
   "regression_discrimination": "test_f26_clock_skew.py::test_a_join_that_starts_before_close_and_inserts_after_is_refused was run against the pre-CR-3 now() trigger and FAILED, then against the clock_timestamp() trigger from migration 0003 and PASSED. It is a real regression test, not a tautology.",
   "secrets": "gitleaks git --redact over the branch: no leaks found (one path allowlist entry added for a fictional test product key, documented in .gitleaks.toml)",
+  "side_effects": "The live run created fairpool-search-v1 on the owner's cluster and deleted its test document afterwards, the way S8 did. The index itself remains; it is the index the deployed app uses.",
   "static": "ruff check clean, ruff format --check clean (215 files), mypy --strict clean for domain/ and modules/ (46 files), tools/check_imports.py 0 violations, tools/validate_docs.py 0 errors, tools/check_generated.py types match OpenAPI",
   "status": "passed"
 }
