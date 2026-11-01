@@ -246,6 +246,11 @@ class EntryCreateResponse(ResponseModel):
     receipt: EntryReceipt
 
 
+class EntryWithdrawResponse(ResponseModel):
+    entry_id: UUID
+    entry_status: str
+
+
 class AllocationView(ResponseModel):
     status: str
     zone_id: str
@@ -623,6 +628,16 @@ class SimRunRequest(StrictModel):
 class SimRunResponse(ResponseModel):
     sim_run_id: UUID
     pool_id: UUID
+
+
+class SearchReindexResponse(ResponseModel):
+    """One page of public documents re-enqueued for indexing (T03B02)."""
+
+    page: int
+    page_size: int
+    documents: int
+    enqueued: int
+    has_more: bool
 
 
 class AdminLotView(ResponseModel):

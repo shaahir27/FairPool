@@ -12,7 +12,7 @@ from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.jobs import PostgresJobQueue
 from fairpool.modules.pools.service import PoolService, rules_document
-from tests.integration.test_triggers import add_user
+from tests.integration.test_triggers import add_user, iso_in
 
 
 async def payload(db):
@@ -67,6 +67,36 @@ async def test_pool_publication_freezes_rules_and_enqueues_atomically(db_session
     assert set(jobs) == {"pool.open", "pool.close", "search.index"}
     await service.open(db_session, {"pool_id": str(pool.id)})
     assert pool.status == "PUBLISHED"  # A timer cannot open early.
+
+    # The overdue path (CR-3 notes 1 and 2): a pool whose window has already closed
+    # stays PUBLISHED under pool.open. The guard reads the wall clock AFTER the pool
+    # row lock, so a job that queued behind another writer across close_at cannot
+    # open a pool it is already too late to enter; closure is pool.close's catch-up.
+    await db_session.execute(
+        text(
+            "UPDATE pools SET timeline = jsonb_set(jsonb_set(timeline, '{open_at}', "
+            "to_jsonb(CAST(:open AS text))), '{close_at}', to_jsonb(CAST(:close AS text))) "
+            "WHERE id = :id"
+        ),
+        {"id": str(pool.id), "open": iso_in(-3600), "close": iso_in(-60)},
+    )
+    await db_session.refresh(pool)
+    await service.open(db_session, {"pool_id": str(pool.id)})
+    assert pool.status == "PUBLISHED"
+
+    # Late but still inside the window is the case that does open, and it too is
+    # decided on the post-lock wall clock.
+    await db_session.execute(
+        text(
+            "UPDATE pools SET timeline = jsonb_set(timeline, '{close_at}', "
+            "to_jsonb(CAST(:close AS text))) WHERE id = :id"
+        ),
+        {"id": str(pool.id), "close": iso_in(3600)},
+    )
+    await db_session.refresh(pool)
+    await service.open(db_session, {"pool_id": str(pool.id)})
+    assert pool.status == "OPEN"
+
     await service.cancel(db_session, pool.id, actor_id=admin)
     assert pool.status == "CANCELLED"
 

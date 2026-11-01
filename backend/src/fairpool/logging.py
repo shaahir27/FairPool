@@ -3,7 +3,10 @@
 Logs are newline-delimited JSON. Correlation IDs travel in contextvars so
 handlers never have to thread them through arguments. The redaction filter is
 the last line of defence for I14: it masks secret-shaped keys, agent tokens and
-PayPal approval URLs before a record is formatted.
+PayPal approval URLs before a record is formatted, and it is attached to
+uvicorn's own loggers as well, because their access line echoes the request
+query string (an OAuth ``code``/``state`` or a vault ``token``) that our root
+handler would never see (M3).
 """
 
 from __future__ import annotations
@@ -41,10 +44,17 @@ _CONTEXT_VARS: Final[dict[str, ContextVar[str | None]]] = {
     "paypal_debug_id": paypal_debug_id,
 }
 
+#: Loggers uvicorn creates and configures itself. Its access logger prints the full
+#: request line, query string included, so it is redacted like our own output (M3).
+UVICORN_LOGGERS: Final[tuple[str, ...]] = ("uvicorn.access", "uvicorn.error")
+
 # Keys that may never carry a value into a log record (AGENTS.md section 3 rule 2).
 _SENSITIVE_KEY = re.compile(
     r"(?:secret|token|assertion|password|approval|client_secret|payment_token|vault)",
     re.IGNORECASE,
+)
+_EXACT_SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
+    {"code", "state", "nonce", "payer_id", "access_token", "refresh_token", "setup_token_id"}
 )
 _APPROVAL_URL = re.compile(
     r"https://(?:www\.)?sandbox\.paypal\.com/"
@@ -54,6 +64,14 @@ _APPROVAL_URL = re.compile(
 )
 _BEARER = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=\-]+")
 _AGENT_TOKEN = re.compile(r"\b(?:fpd|fpm)_[A-Za-z0-9._\-]+")
+# An OAuth authorization code, the single-use state, the nonce and the PayPal
+# payer id arrive in a query string, so any access or error line that echoes the
+# URL would leak a live credential. \b keeps `from_state=` and `to_state=` (which
+# are diagnostics, not secrets) out of the mask.
+_OAUTH_PARAM = re.compile(
+    r"(?i)\b(code|state|nonce|PayerID|ba_token|auth_code)([\"']?\s*[=:]\s*)"
+    r"(\"[^\"]*\"|'[^']*'|[^\s,;&\"']+)"
+)
 _KEY_VALUE = re.compile(
     r"(?i)\b("
     r"[A-Za-z0-9_.\-]*(?:secret|token|assertion|password|approval|vault)[A-Za-z0-9_.\-]*"
@@ -74,7 +92,8 @@ def redact_text(text: str) -> str:
     masked = _APPROVAL_URL.sub(REDACTED_URL, text)
     masked = _BEARER.sub(f"Bearer {REDACTED}", masked)
     masked = _AGENT_TOKEN.sub(REDACTED, masked)
-    return _KEY_VALUE.sub(_mask_key_value, masked)
+    masked = _KEY_VALUE.sub(_mask_key_value, masked)
+    return _OAUTH_PARAM.sub(_mask_key_value, masked)
 
 
 class RedactionFilter(logging.Filter):
@@ -90,7 +109,7 @@ class RedactionFilter(logging.Filter):
             if key in _STANDARD_RECORD_KEYS or key == "message":
                 continue
             value = record.__dict__[key]
-            if _SENSITIVE_KEY.search(key):
+            if _SENSITIVE_KEY.search(key) or key in _EXACT_SENSITIVE_KEYS:
                 record.__dict__[key] = REDACTED
             elif isinstance(value, str):
                 record.__dict__[key] = redact_text(value)
@@ -123,10 +142,30 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
+def _redact_logger(name: str) -> None:
+    """Put the redaction filter on a logger uvicorn owns (M3).
+
+    ``uvicorn.access`` formats the whole request line, so the OAuth callback's
+    ``?code=...&state=...`` and a vault return's ``?token=...`` would otherwise be
+    printed verbatim: a filter on the root handler never sees those records, because
+    uvicorn attaches its own handler to its own logger and the record stops there.
+    Both the logger and any handler it already has get the filter, so the order of
+    ``configure_logging`` versus uvicorn's own logging setup does not matter.
+    """
+    target = logging.getLogger(name)
+    if not any(isinstance(existing, RedactionFilter) for existing in target.filters):
+        target.addFilter(RedactionFilter())
+    for handler in target.handlers:
+        if not any(isinstance(existing, RedactionFilter) for existing in handler.filters):
+            handler.addFilter(RedactionFilter())
+
+
 def configure_logging(level: str = "INFO") -> None:
     """Install the JSON handler once on the root logger."""
     root = logging.getLogger()
     root.setLevel(level.upper())
+    for name in UVICORN_LOGGERS:
+        _redact_logger(name)
     for handler in root.handlers:
         if getattr(handler, "_fairpool_json", False):
             return

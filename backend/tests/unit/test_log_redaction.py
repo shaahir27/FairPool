@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 from collections.abc import Iterator
@@ -18,6 +19,7 @@ from fairpool.logging import (
     JsonFormatter,
     RedactionFilter,
     buyer_order_id,
+    configure_logging,
     lot_id,
     paypal_debug_id,
     pool_id,
@@ -178,3 +180,105 @@ def test_redact_text_masks_urls_and_tokens_but_keeps_prose() -> None:
     assert "now" in masked
     assert "ORDER42" not in masked
     assert redact_text("lot opened for bidding") == "lot opened for bidding"
+
+
+#: The message template and argument shape uvicorn's access logger uses (H11Impl).
+UVICORN_ACCESS_TEMPLATE = '%s - "%s %s HTTP/%s" %d %s'
+UVICORN_ACCESS_ARGS: tuple[Any, ...] = (
+    "127.0.0.1:52000",
+    "GET",
+    "/api/v1/auth/paypal/return?code=OAUTHCODEVALUE&state=OAUTHSTATEVALUE",
+    "1.1",
+    302,
+    512,
+)
+
+
+def test_the_filter_masks_an_access_line_query_string() -> None:
+    """M3: the request line uvicorn prints carries a live OAuth code and state."""
+    record = logging.LogRecord(
+        name="uvicorn.access",
+        level=logging.INFO,
+        pathname="h11_impl.py",
+        lineno=483,
+        msg=UVICORN_ACCESS_TEMPLATE,
+        args=UVICORN_ACCESS_ARGS,
+        exc_info=None,
+    )
+
+    assert RedactionFilter().filter(record) is True
+
+    # What uvicorn's own plain formatter would have written.
+    line = record.getMessage()
+    assert "OAUTHCODEVALUE" not in line and "OAUTHSTATEVALUE" not in line
+    assert REDACTED in line and "/api/v1/auth/paypal/return" in line
+    # A vault return carries its single-use token the same way.
+    vault_args = (
+        "127.0.0.1:52000",
+        "GET",
+        "/api/v1/entries/e/vault/return?token=SETUPTOKENVALUE",
+        "1.1",
+        302,
+        512,
+    )
+    vault = logging.LogRecord(
+        name="uvicorn.access",
+        level=logging.INFO,
+        pathname="h11_impl.py",
+        lineno=483,
+        msg=UVICORN_ACCESS_TEMPLATE,
+        args=vault_args,
+        exc_info=None,
+    )
+    RedactionFilter().filter(vault)
+    assert "SETUPTOKENVALUE" not in vault.getMessage()
+
+    # The same shape through the shared text masker, which every path uses: this is
+    # the rule that had a separator the query string never contains.
+    masked = redact_text("redirect /return?code=PLAINCODE&state=PLAINSTATE ok")
+    assert "PLAINCODE" not in masked and "PLAINSTATE" not in masked
+    assert "redirect" in masked and "ok" in masked
+    # Diagnostics that merely mention a state are not secrets and stay readable.
+    assert (
+        redact_text("from_state=OFFERED to_state=APPROVED")
+        == "from_state=OFFERED to_state=APPROVED"
+    )
+
+
+def test_configure_logging_redacts_the_loggers_uvicorn_owns() -> None:
+    """The root handler is not enough: uvicorn writes through its own loggers (M3)."""
+    root = logging.getLogger()
+    access, error = logging.getLogger("uvicorn.access"), logging.getLogger("uvicorn.error")
+    saved = (root.handlers[:], access.handlers[:], error.handlers[:])
+    # The handler uvicorn's own logging config would have installed before we ran.
+    access_handler = logging.StreamHandler(io.StringIO())
+    access_handler.setFormatter(logging.Formatter("%(message)s"))
+    access.addHandler(access_handler)
+    buffer = io.StringIO()
+    later = logging.StreamHandler(buffer)
+    later.setFormatter(logging.Formatter("%(message)s"))
+    try:
+        configure_logging("INFO")
+        for target in (access, error):
+            assert any(isinstance(f, RedactionFilter) for f in target.filters), target.name
+        assert any(isinstance(f, RedactionFilter) for f in access_handler.filters)
+
+        access.info(UVICORN_ACCESS_TEMPLATE, *UVICORN_ACCESS_ARGS)
+        rendered = access_handler.stream.getvalue()  # type: ignore[union-attr]
+        assert "OAUTHCODEVALUE" not in rendered and "OAUTHSTATEVALUE" not in rendered
+
+        # A handler uvicorn adds after startup is covered on the next call, and the
+        # wiring is idempotent: it never stacks the same filter twice.
+        access.addHandler(later)
+        before = len(access.filters)
+        configure_logging("INFO")
+        assert len(access.filters) == before
+        assert any(isinstance(f, RedactionFilter) for f in later.filters)
+        access.log(logging.INFO, "GET /?code=LATEHANDLERSECRET")
+        assert "LATEHANDLERSECRET" not in buffer.getvalue()
+    finally:
+        root.handlers[:] = saved[0]
+        access.handlers[:] = saved[1]
+        error.handlers[:] = saved[2]
+        access.filters.clear()
+        error.filters.clear()

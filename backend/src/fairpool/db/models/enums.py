@@ -1,7 +1,8 @@
 """PostgreSQL enum types from docs/contracts/db-schema.md (T01A01).
 
-The database types are created once by migration 0001; models set
-``create_type=False`` so importing the metadata never emits DDL.
+The database types are created by migration 0001, with one later exception:
+``vault_setup_status``, the one-attempt state of CR-3, is created by migration 0003.
+Models set ``create_type=False`` so importing the metadata never emits DDL.
 """
 
 from __future__ import annotations
@@ -122,6 +123,15 @@ class VaultStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class VaultSetupStatus(StrEnum):
+    """One save-PayPal attempt (CR-3). QUARANTINED is a token that arrived too late."""
+
+    PENDING = "PENDING"
+    EXCHANGED = "EXCHANGED"
+    FAILED = "FAILED"
+    QUARANTINED = "QUARANTINED"
+
+
 class MerchantOnboarding(StrEnum):
     NONE = "NONE"
     PENDING = "PENDING"
@@ -206,6 +216,7 @@ ENUM_TYPES: dict[str, type[StrEnum]] = {
     "payment_router": PaymentRouter,
     "payment_mode": PaymentMode,
     "vault_status": VaultStatus,
+    "vault_setup_status": VaultSetupStatus,
     "merchant_onboarding": MerchantOnboarding,
     "flag_severity": FlagSeverity,
     "flag_code": FlagCode,

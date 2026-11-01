@@ -31,6 +31,7 @@ The first five rows are compared by test with the `states:` lists in `state-mach
 | payment_router | fake, single_seller, payee_email, platform |
 | payment_mode | authorize_capture, capture_only, vault_charge |
 | vault_status | SETUP_PENDING, ACTIVE, DELETED, FAILED |
+| vault_setup_status | PENDING, EXCHANGED, FAILED, QUARANTINED |
 | merchant_onboarding | NONE, PENDING, COMPLETE, DEMO |
 | flag_severity | BLOCKING, WARNING |
 | flag_code | BUNDLE_MISMATCH, CONDITION_MISMATCH, DELIVERY_CONFLICT, HIDDEN_FEE, QUANTITY_CONFLICT, RETURN_CONFLICT, LOW_SIMILARITY, OTHER |
@@ -58,7 +59,7 @@ Active buyer-order statuses (used by I8 and the partial unique index; see N1): O
 
 **sessions**: `id uuid PK`, `user_id uuid FK users`, `csrf_token text NOT NULL`, `expires_at timestamptz NOT NULL`, `revoked_at timestamptz NULL`.
 
-**oauth_states**: `state text PK`, `nonce text NOT NULL`, `user_id uuid FK users`, `expires_at timestamptz NOT NULL`.
+**oauth_states**: `state text PK`, `nonce text NOT NULL`, `user_id uuid FK users`, `session_id uuid FK sessions NOT NULL`, `expires_at timestamptz NOT NULL`, `consumed_at timestamptz NULL` (CR-3). `state` and `nonce` are high-entropy and single-use; a callback whose `state` row is missing, expired, already consumed, or bound to another session is rejected. The initiating session is bound at start so a callback cannot be replayed into a different browser session.
 
 **vault_tokens** (used when `PAYMENT_MODE=vault_charge`; one row per saved PayPal permission)
 
@@ -71,7 +72,7 @@ Active buyer-order statuses (used by I8 and the partial unique index; see N1): O
 | token_ciphertext | bytea NULL | AES-256-GCM of the PayPal payment token ID with `VAULT_TOKEN_KEY`; NULL until exchanged and after deletion |
 | token_nonce | bytea NULL | per-row nonce |
 | token_label | text NULL | last four characters only, for display |
-| cap_cents | int | the buyer's cap at consent time (FairPool-enforced) |
+| cap_cents | bigint | the buyer's cap at consent time (FairPool-enforced); widened from `int` by CR-3 so it matches `pool_entries.cap_cents` and cannot truncate a large cap |
 | consent_version | text | `VAULT_CONSENT_VERSION` at consent |
 | consent_text_sha256 | char(64) | hash of the exact rendered consent text |
 | consented_at | timestamptz | |
@@ -79,6 +80,22 @@ Active buyer-order statuses (used by I8 and the partial unique index; see N1): O
 | created_at | timestamptz | default now() |
 
 The ciphertext column is never selected by list queries, logged, or returned by any API (`vault-charge.md` section 5).
+
+**vault_setup_attempts** (CR-3; one row per save-PayPal attempt so a retry can never invent a new money-bearing identity)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| entry_id | uuid FK pool_entries | the entry the permission belongs to |
+| operation_key | text | the adapter idempotency key text for this attempt (`vs:{entry_id}:{attempt}`); UNIQUE |
+| status | vault_setup_status | `PENDING`, `EXCHANGED`, `FAILED`, `QUARANTINED` |
+| provider_setup_ciphertext | bytea NULL | AES-256-GCM of the provider setup identifier with `VAULT_TOKEN_KEY`; NULL until the callback stores it, NULL after deletion |
+| provider_setup_nonce | bytea NULL | per-row nonce |
+| expires_at | timestamptz | database clock at creation plus `VAULT_SETUP_TTL_S`; an expired attempt is `FAILED` |
+| consumed_at | timestamptz NULL | set once by the callback that exchanged it; a second callback on the same row is a replay, not a new exchange |
+| last_error | text NULL | error code only, never a payload |
+
+`QUARANTINED` means a token arrived after the entry withdrew or the pool closed: it is never copied to `vault_tokens` and is queued for deletion by the same `vd:{entry_id}` key. Deleting a permission deletes the provider resource first and only then clears the ciphertext columns. Indexes: `UNIQUE (operation_key)`; `(entry_id, status)`.
 
 **paypal_links**
 
@@ -120,6 +137,24 @@ Indexes: `UNIQUE (user_id) WHERE revoked_at IS NULL`; `UNIQUE (paypal_account_ke
 | published_at, closed_at | timestamptz NULL | |
 | created_by | uuid FK users | |
 | search_text | text | derived at publish from title, variant, condition, bundle contents and zone regions; `GIN (search_text gin_trgm_ops)` index serves the Postgres search fallback (INT-1) |
+
+**confirmed_requests** (CR-3; the durable record behind the `confirmed_request_id` the join API already accepts)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | returned as `confirmed_request_id` |
+| pool_id | uuid FK pools | the pool the request was built for |
+| user_id | uuid FK users | the buyer who confirmed it; owner-only |
+| rules_hash | char(64) | the frozen rules document the request was validated against |
+| canonical_request | jsonb | immutable, the same shape as `pool_entries.canonical_request` |
+| request_hash | char(64) | SHA-256 of the canonical JSON |
+| cap_cents | bigint | equals `max_total_cents` in the request |
+| zone_id | text | resolved from the request's delivery region against the frozen zone list |
+| consumed_at | timestamptz NULL | set by the join that created the entry |
+| consumed_by_entry_id | uuid FK pool_entries NULL | a replay of a consumed id returns this entry, it never creates a second one |
+| created_at | timestamptz | default now() (database clock) |
+
+Nothing in this table is mutable after creation except the two `consumed_*` columns. The canonical request is re-validated by the deterministic validator at join and again at pool close; a stored row that fails re-validation is an integrity error, not a silent rejection. Only the owner and the server ever read it — it is never indexed by search and never appears in a public payload (`FR-IG-01`, INT-1).
 
 **pool_entries**
 
@@ -259,7 +294,7 @@ Index: `UNIQUE (entry_id) WHERE status IN (active statuses)`; `(lot_id, status)`
 | trg_awards_immutable | Block UPDATE and DELETE on `awards` | I3 |
 | trg_webhook_raw_immutable | Block changing `raw_body` | P4 |
 | trg_pool_mode_immutable | Block changing `pools.mode` once status is not DRAFT | I12 |
-| trg_entry_insert_window | On insert into `pool_entries`, require the pool status OPEN and `now() < close_at` from `timeline` | I15, FR-SL-02 |
+| trg_entry_insert_window | On insert into `pool_entries`, require the pool status OPEN and the **database wall clock** strictly before `close_at` from `timeline`. CR-3 replaces the `now()` test with `clock_timestamp()`, because `now()` is fixed at transaction start and a join that waits on the pool lock across `close_at` would otherwise be admitted late. Audit rows, receipts and canonical records keep the stable transaction timestamp | I15, FR-SL-02 |
 | trg_entry_synthetic_matches_mode | `synthetic` must be false for LIVE_SANDBOX pools and true for SIMULATION pools | I12 |
 | trg_paypal_rows_live_only | Inserts into `paypal_orders`, `paypal_authorizations`, `paypal_captures`, `paypal_refunds` require the lot's pool to be LIVE_SANDBOX | I12 |
 | trg_shipments_funded_only | Inserts into `shipments` require the lot status FUNDED or CLOSED and the buyer order status CAPTURED, with `buyer_orders.lot_id = shipments.lot_id` (migration `0002`) | I4, FR-IG-08 |

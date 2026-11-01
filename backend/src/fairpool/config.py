@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     paypal_webhook_id: str = ""
     paypal_login_enabled: bool = False
     paypal_login_redirect_uri: str = ""
+    oauth_state_ttl_s: int = Field(default=600, ge=60, le=3600)
 
     payment_router: Literal["fake", "single_seller", "payee_email", "platform"] = "single_seller"
     payment_mode: Literal["vault_charge", "authorize_capture", "capture_only"] = "vault_charge"
@@ -88,6 +89,8 @@ class Settings(BaseSettings):
     vault_token_key: SecretStr | None = None
     vault_consent_version: str = "v1"
     vault_charge_concurrency: int = 5
+    vault_setup_ttl_s: int = Field(default=900, ge=60, le=3600)
+    vault_real_save_enabled: bool = False
     authorize_use_request_id: bool = True
     paypal_payload_level: int = Field(default=0, ge=0, le=3)
     paypal_approval_ui: Literal["sdk_popup", "redirect"] = "sdk_popup"
@@ -109,6 +112,7 @@ class Settings(BaseSettings):
     elasticsearch_api_key: SecretStr = SecretStr("")
     elastic_inference_id: str = ""
     elastic_index_prefix: str = "fairpool"
+    search_timeout_ms: int = Field(default=1500, ge=100, le=10000)
     similarity_check_enabled: bool = True
     mcp_enabled: bool = True
     merchant_api_enabled: bool = True

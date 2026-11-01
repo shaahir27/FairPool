@@ -138,9 +138,17 @@ Response: `{"session_id": "uuid", "status": "NEEDS_CLARIFICATION" | "READY_TO_CO
 
 `POST /api/v1/intake/confirm` `{"proposal_id": "uuid"}` returns `201 {"confirmed_request_id": "uuid", "canonical_request": {...}}`. `POST /api/v1/intake/manual` takes `{"pool_id", "delivery": {"region"}, "required_by", "max_total_cents", "firm", "preferences"}` and returns the same shape.
 
+The manual form is the deterministic half of intake and ships early (Phase 3, CR-3): it validates product and variant against the pool's frozen template, condition, a quantity of exactly one unit, `USD` only, a delivery region inside a frozen zone, `max_total_cents` as an integer-cents value inside the pool's cap band, absolute `required_by` dates, and only the firm terms the template supports. An unsupported firm term or a non-integer money value is a `422 VALIDATION_ERROR`, never a guess. Each confirmation writes an immutable `confirmed_requests` row bound to the confirming user, the pool and its frozen `rules_hash`; the full AI intake pipeline stays in Phase 4 (`T04B01`) and nothing about this endpoint depends on it.
+
+### Account link
+
+`GET /api/v1/paypal/login/start` requires an authenticated session and returns the authorize URL only. It writes a single-use `oauth_states` row with a high-entropy `state` and `nonce`, a database-clock expiry of `OAUTH_STATE_TTL_S` and the **initiating session id**. `GET /api/v1/paypal/login/callback` rejects a missing, expired, already-consumed or cross-session `state` before it exchanges a code; a consumed row is never reused. `error=access_denied` from the provider is a `400` decline with no row written.
+
+On success the provider account identifier is stored only as its HMAC with `HMAC_KEY` (`paypal_links.paypal_account_key`); the raw `user_id`/`sub` and the bearer token are never persisted, logged or returned. Under the recorded S1 outcome `DEDUPE_MODE=two_keys`, the login key and the checkout `payer_id` key are two separate identifiers, each deduplicated on its own, with no equality requirement and no prefix stripping; `full` additionally requires them to be equal and stays unavailable because equivalence was never proved, and `checkout_only` keeps the weaker disclosure wording. Relinking cannot evade participation: link, unlink and join serialise on a user-then-pool lock order, and `DELETE /api/v1/paypal/link` is blocked while an entry exists. Login identity and vault permissions are separate resources: unlinking never deletes a saved permission and deleting a permission never unlinks an account.
+
 ### Entry
 
-`POST /api/v1/pools/{pool_id}/entries` body `{"confirmed_request_id": "uuid"}`; returns `201` for a new entry or `200` for an existing one:
+`POST /api/v1/pools/{pool_id}/entries` body `{"confirmed_request_id": "uuid"}`; `Idempotency-Key` required; returns `201` for a new entry or `200` for an existing one:
 
 ```json
 {
@@ -156,7 +164,15 @@ Response: `{"session_id": "uuid", "status": "NEEDS_CLARIFICATION" | "READY_TO_CO
 }
 ```
 
-Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"consent_version": "v1", "cap_cents": 60000}` returns `{"approve_url": "https://...", "consent_version": "v1"}`; it fails with `VAULT_SETUP_EXPIRED` if started too long ago. The entry status adds `vault_status` and `vault_label` (last four characters) and never a token. `GET /api/v1/entries/{entry_id}/vault/return` is an untrusted browser redirect: the server looks up its own setup token, exchanges it, and redirects `302` to the entry page.
+Join rules (CR-3): the request is fetched by id **and owner** (a row belonging to another buyer is `404 NOT_FOUND`, the same answer as an unknown id, so the endpoint leaks no existence information); its stored `rules_hash` must equal the pool's frozen hash or the call is `409 RULES_MISMATCH`; the canonical request is re-validated by the same deterministic validator before anything is written; the pool must be `OPEN` and the database wall clock must still be strictly before `close_at` **after** the pool lock is held (`409 POOL_NOT_OPEN` / `409 POOL_CLOSED`). On success the entry, its salt, commitment, Ed25519 receipt and audit row are written in one transaction, and the receipt is signed over the same database timestamp that is stored, so a signature always verifies against the row it describes.
+
+A confirmed request that has already been consumed replays to the entry it created — `200` with that entry's original receipt — including after the cutoff, and it never creates a second entry, never reactivates a withdrawn one and never overwrites a cap, request or receipt. Withdrawal is `DELETE /api/v1/pools/{pool_id}/entries/me`, owner-only, legal only while the pool is `OPEN` and before `close_at`; it serialises against `pool.close` under the same pool lock, and a vault permission that arrives afterwards is quarantined for deletion rather than activated.
+
+Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"consent_version": "v1", "cap_cents": 60000}` returns `{"approve_url": "https://...", "consent_version": "v1"}`; it fails with `VAULT_SETUP_EXPIRED` if started too long ago. The entry status adds `vault_status` and `vault_label` (last four characters) and never a token. `GET /api/v1/entries/{entry_id}/vault/return` is an untrusted browser redirect: the server looks up its own setup token, exchanges it, and redirects `302` to the entry page. Until `T05A01` ships the real save path, `VAULT_REAL_SAVE_ENABLED=false` makes `POST .../vault` return `403 FEATURE_DISABLED` — a consented-but-unsaved permission must not be able to exist — and the entry status reports `vault_status` `SETUP_PENDING` only for the fake path used by tests and simulation (DEP-5).
+
+`GET /api/v1/public/keys` returns the receipt signing public key (base64url Ed25519) and arrives with Phase 3 so a buyer can verify a receipt; `GET /api/v1/public/pools/{pool_id}/audit` publishes `rules_hash`, `rules_document`, `pool_status`, `entries_root`, `entries_count`, the sorted `commitments` and `audit_checkpoints` once the pool is closed. Both are public, carry no personal data, no salts, no caps, and arrive in Phase 3; the `lots`, `beacon`, `seed_hex` and `award` fields of the same endpoint fill in with Phase 4 (`T04A06`) when that data exists.
+
+`GET /api/v1/pools/{pool_id}/events` (SSE) is public and emits only `pool_status`, `lot_status` and `tick`, computed with short read transactions on the database clock; no transaction and no lock is held for the life of a stream.
 
 `GET /api/v1/entries/{entry_id}/status`:
 

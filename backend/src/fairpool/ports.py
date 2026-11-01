@@ -37,14 +37,22 @@ __all__ = [
     "MerchantPrincipal",
     "Notifier",
     "PayeeRef",
+    "PayPalIdentity",
+    "PaymentVault",
+    "PaymentVaultProvider",
+    "ProviderProfile",
+    "ProviderTokens",
     "QuoteProposal",
     "ReconcileResult",
+    "SavedPermission",
     "SearchHit",
     "SearchIndexer",
     "SearchService",
     "SeatView",
+    "SetupRedirect",
     "SimilarityResult",
     "Totals",
+    "VaultPermission",
 ]
 
 
@@ -162,6 +170,10 @@ type ReconcileResult = dict[str, Any]
 @runtime_checkable
 class Clock(Protocol):
     async def db_now(self, session: AsyncSession) -> datetime: ...
+
+    async def db_wall_now(self, session: AsyncSession) -> datetime:
+        ...
+        # clock_timestamp(): read AFTER a lock is held before comparing to a deadline (CR-3).
 
 
 @runtime_checkable
@@ -361,3 +373,93 @@ class AllocationReadService(Protocol):
 @runtime_checkable
 class MerchantDirectory(Protocol):
     async def get_payee(self, session: AsyncSession, merchant_id: UUID) -> PayeeRef: ...
+
+
+@dataclass(frozen=True)
+class SetupRedirect:
+    """What a save-PayPal attempt hands the browser. The URL is never logged or audited."""
+
+    approve_url: str
+    setup_token_id: str
+
+
+@dataclass(frozen=True)
+class SavedPermission:
+    """A provider credential. Encrypt on arrival; never log, return, audit or prompt it."""
+
+    payment_token_id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class VaultPermission:
+    """A saved permission as the rest of the product may see it: never the token."""
+
+    entry_id: UUID
+    status: str
+    label: str | None
+
+
+@dataclass(frozen=True)
+class ProviderTokens:
+    access_token: str
+    expires_in: int
+
+
+@dataclass(frozen=True)
+class ProviderProfile:
+    """One identifier from the userinfo response; the raw value never reaches storage."""
+
+    account_id: str
+
+
+@runtime_checkable
+class PaymentVaultProvider(Protocol):
+    """The three provider steps only: takes no session, writes no row (CR-3).
+
+    ``attempt`` is the attempt identity the vault service stores inside
+    ``vault_setup_attempts.operation_key`` (the suffix of ``vs:{entry_id}:{attempt}``),
+    so the key of every step of one attempt is that row's key and two attempts of one
+    entry never share one (I9, ``vault-charge.md`` section 2).
+    """
+
+    async def start_setup(self, entry_id: UUID, attempt: str) -> SetupRedirect: ...
+
+    async def exchange(
+        self, entry_id: UUID, attempt: str, setup_token_id: str
+    ) -> SavedPermission: ...
+
+    async def delete(self, payment_token_id: str, attempt: str) -> None: ...
+
+
+@runtime_checkable
+class PaymentVault(Protocol):
+    """The vault service both lanes call; it owns the attempt and token rows (CR-3).
+
+    Provider I/O happens outside any transaction holding a pool, lot or entry
+    lock. Phase 3 and simulation use the fake provider only; the real one arrives
+    with T05A01 and stays refused by ``VAULT_REAL_SAVE_ENABLED`` until then.
+    """
+
+    async def start(self, session: AsyncSession, *, entry_id: UUID) -> SetupRedirect: ...
+
+    async def complete(
+        self, session: AsyncSession, *, entry_id: UUID, setup_token_id: str
+    ) -> VaultPermission: ...
+
+    async def withdraw(self, session: AsyncSession, *, entry_id: UUID) -> VaultPermission: ...
+
+    async def status(self, session: AsyncSession, *, entry_id: UUID) -> VaultPermission: ...
+
+
+@runtime_checkable
+class PayPalIdentity(Protocol):
+    """The two Log-in-with-PayPal reads, kept behind the adapter (CR-3, I1, I2).
+
+    ``modules.identity`` imports this port and no HTTP client, so the import
+    whitelist never has to widen for login.
+    """
+
+    async def exchange_code(self, code: str) -> ProviderTokens: ...
+
+    async def userinfo(self, access_token: str) -> ProviderProfile: ...

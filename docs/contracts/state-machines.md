@@ -6,6 +6,14 @@ Every transition runs in one database transaction with its audit record, ledger 
 
 Resolutions of design ambiguities are cited as N1 to N14 (`README.md`). Triggers `buyer.approved_callback` and `buyer.cancelled_callback` are the JavaScript SDK v6 `onApprove` and `onCancel` notifications posted to our server (INT-7); like `buyer.return`, they are only hints: the server always fetches the order from PayPal before acting.
 
+## Phase 3 clarifications (CR-3; the tables below are unchanged)
+
+1. **Deadline guards read the wall clock after the lock.** A guard written as `now >= open_at`, `now >= close_at`, `now < offer_expires_at` or `now < close_at` (PS-02, PS-03, ES-03, BO-01, BO-15 to BO-17) is evaluated with `Clock.db_wall_now` *after* the pool, lot or buyer-order row lock is held, because `now()` is fixed at transaction start and a transaction that waits on a lock across its deadline must not act on the stale time. Audit rows, receipts and canonical records keep the stable `db_now` timestamp. Admission is strictly before `close_at`; closure is at or after it.
+2. **An overdue PUBLISHED pool catches up through the whitelist.** `pool.open` never closes a pool: if it runs when wall time is already past `close_at`, it takes the pool lock, reads the wall clock, applies no transition and leaves the pool `PUBLISHED` (opening it would admit nothing, since the entry trigger refuses a row at or after `close_at`). The `pool.close` handler is what catches up: it takes the pool lock, reads the wall clock after it and applies PS-02 then PS-03 in order — never a direct status write. Late entry is impossible regardless, because the `pool_entries` insert trigger refuses a row at or after `close_at`.
+3. **ES-01 and ES-02 also carry the vault permission check.** Under `PAYMENT_MODE=vault_charge` an entry is eligible only with a recorded consent and an `ACTIVE` saved permission; without one, ES-02 stores reject reason `VAULT_MISSING`. Until `T05A01` ships the real save path only `FakePaymentVault` can produce `ACTIVE` (DEP-5), so a live-sandbox entry is expected to reject and must never be presented as eligible.
+4. **A `paypal:` field is metadata, never an instruction to call.** The engine validates the transition and its effects; the handler that owns the money operation performs the network call, so an unauthorized caller cannot trigger a payment by naming a transition (I2, I7).
+5. **An illegal transition is alerted, not only raised.** `IllegalTransition` fails the transaction and writes one structured `ERROR` log record naming the machine, the pair, the attempted trigger and the correlation ids; the alert is asserted by a test, and it is the same path the job runner's retry-exhaustion alert uses.
+
 ## Pool
 
 ```yaml

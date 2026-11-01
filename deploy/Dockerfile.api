@@ -23,4 +23,8 @@ USER fairpool
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn fairpool.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# --no-access-log: uvicorn's access line echoes the full request target, query string
+# included, so an OAuth callback's code/state or a vault return's token would reach the
+# container log. Our own structured logs carry the request and stay redacted (M3);
+# fairpool.logging also puts the redaction filter on uvicorn.error regardless.
+CMD ["sh", "-c", "uvicorn fairpool.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-access-log"]

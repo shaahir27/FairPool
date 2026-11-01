@@ -44,7 +44,7 @@ def test_all_contract_enums_exist_with_exact_values():
     actual = {
         name: tuple(member.value for member in enum_cls) for name, enum_cls in ENUM_TYPES.items()
     }
-    assert len(expected) == 21
+    assert len(expected) == 22
     assert actual == expected
 
 
@@ -54,10 +54,10 @@ def test_state_machine_states_equal_the_five_ordering_enums():
         assert values == MACHINES[machine_name].states, machine_name
 
 
-def test_all_32_tables_exist():
+def test_all_34_tables_exist():
     contract = set(re.findall(r"^\*\*([a-z_]+)\*\*", SCHEMA.read_text(encoding="utf-8"), re.M))
     model_tables = set(Base.metadata.tables)
-    assert len(contract) == 32
+    assert len(contract) == 34
     assert model_tables == contract
 
 

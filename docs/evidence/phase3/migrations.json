@@ -1,0 +1,11 @@
+{
+  "checks_run": [
+    "alembic upgrade head on fairpool_test",
+    "alembic check (no drift)",
+    "0003 adds confirmed_requests and vault_setup_attempts, binds oauth_states to the session, widens vault_tokens.cap_cents to bigint, replaces fn_entry_insert_window with clock_timestamp()"
+  ],
+  "executed": "2026-11-01",
+  "note": "Re-run under APP_ENV=test on 2026-11-01 after every Phase 3 lane merged: tools/check_migrations.py created a fresh random disposable loopback database, applied 0001 then head, checked drift, downgraded to base, upgraded to head again and checked drift again. Output: 'Upgrade from 0001, fresh head and both Alembic drift checks passed'. Migrations 0001 and 0002 untouched.",
+  "recorded": "2026-11-01",
+  "status": "passed"
+}

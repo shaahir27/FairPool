@@ -4,17 +4,35 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session
 from fairpool.db.models.catalog import Pool
 from fairpool.db.models.enums import PoolStatus
+from fairpool.db.session import create_engine
+from fairpool.modules.pools.events import stream_pool_events
 from fairpool.modules.pools.service import rules_document, summary
 
 router = APIRouter()
+
+
+def _search_service(request: Request):
+    """One routing search service per app: Postgres always, Elastic only if configured."""
+    from fairpool.modules.search.service import build_search_service
+
+    cached = getattr(request.app.state, "search_service", None)
+    if cached is not None:
+        return cached
+    settings = request.app.state.settings
+    if settings is None:
+        raise HTTPException(500, "INTERNAL_ERROR")
+    built = build_search_service(settings)
+    request.app.state.search_service = built
+    return built
 
 
 @router.get(
@@ -23,6 +41,7 @@ router = APIRouter()
     operation_id="pools_list",
 )
 async def pools_list(
+    request: Request,
     q: str | None = Query(None, max_length=200),
     status: str | None = Query(None),
     sort: str | None = Query(None),
@@ -34,16 +53,31 @@ async def pools_list(
         if status not in PoolStatus.__members__ or status == "DRAFT":
             raise HTTPException(422, "VALIDATION_ERROR")
         query = query.where(Pool.status == PoolStatus(status))
+    hits = None
     if q:
-        query = query.where(
-            Pool.search_text.ilike("%" + q.replace("%", "\\%").replace("_", "\\_") + "%")
+        # FR-IG-01: a `q` search goes through the search service, not a keyword LIKE.
+        # The service has already chosen its backend and fallen back to the Postgres
+        # trigram path if the configured one failed; retrieval never gates a result
+        # (INT-1), so an empty answer here means nothing matched, not that search broke.
+        hits = await _search_service(request).search(
+            db, q=q, kinds=["pool"], status=None, limit=limit or 20
         )
+        ids = [UUID(hit.doc_id) for hit in hits]
+        if not ids:
+            return []
+        query = query.where(Pool.id.in_(ids))
     if sort not in (None, "closing", "title"):
         raise HTTPException(422, "VALIDATION_ERROR")
     query = query.order_by(
         Pool.title if sort == "title" else Pool.timeline["close_at"].astext, Pool.id
     )
-    return [summary(p) for p in (await db.scalars(query.limit(limit or 20))).all()]
+    pools = list((await db.scalars(query.limit(limit or 20))).all())
+    if hits is not None:
+        # Keep the retrieval ranking the service produced; the SQL order above exists
+        # to make the unranked paths deterministic.
+        by_id = {pool.id: pool for pool in pools}
+        pools = [by_id[UUID(hit.doc_id)] for hit in hits if UUID(hit.doc_id) in by_id]
+    return [summary(p) for p in pools]
 
 
 @router.get(
@@ -78,8 +112,29 @@ async def pools_rules(pool_id: UUID, db: AsyncSession = Depends(database_session
     "/api/v1/pools/{pool_id}/events",
     operation_id="pools_events",
 )
-async def pools_events(pool_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def pools_events(pool_id: UUID, request: Request):
+    # Public feed (api.md "Server-sent events"): pool_status, lot_status and
+    # tick only; the generator opens short read sessions and holds no lock.
+    if not hasattr(request.app.state, "session_factory"):
+        settings = request.app.state.settings
+        if settings is None:
+            raise HTTPException(500, "INTERNAL_ERROR")
+        request.app.state.engine = create_engine(settings)
+        request.app.state.session_factory = async_sessionmaker(
+            request.app.state.engine, expire_on_commit=False
+        )
+    factory = request.app.state.session_factory
+    async with factory() as probe:
+        exists = await probe.scalar(
+            text("SELECT status FROM pools WHERE id = :id"), {"id": pool_id}
+        )
+    if exists is None or str(exists) == PoolStatus.DRAFT.value:
+        raise HTTPException(404, "NOT_FOUND")
+    return StreamingResponse(
+        stream_pool_events(factory, pool_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 async def public_pool(db: AsyncSession, pool_id: UUID) -> Pool:

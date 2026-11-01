@@ -100,9 +100,9 @@ def plain(value: Any) -> Any:
     return value.get_secret_value() if isinstance(value, SecretStr) else value
 
 
-def test_contract_has_sixty_variables() -> None:
-    assert len(contract_defaults()) == 60
-    assert len(Settings.model_fields) == 60
+def test_contract_has_variable_count() -> None:
+    assert len(contract_defaults()) == 64
+    assert len(Settings.model_fields) == 64
 
 
 def test_csv_env_values_are_parsed(monkeypatch: pytest.MonkeyPatch) -> None:

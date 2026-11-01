@@ -1,0 +1,7 @@
+{
+  "done": "The Merchant Agent API OpenAPI document exists and validates at exactly ten operations (sdk/merchant-openapi.json), which was the blocker recorded on Oct 28.",
+  "executed_now": false,
+  "recorded": "2026-11-01",
+  "status": "pending",
+  "why_pending": "IT-3 requires the APIMatic trial started in Phase 3 and Q-2026-10-31-14 forbids starting one without the owner (OD-P3-2). Generation, licensing terms and any live submit_bid/progress smoke are therefore unrecorded. IG-3 may not be tagged while this is open."
+}

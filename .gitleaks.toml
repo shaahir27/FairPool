@@ -13,4 +13,9 @@ paths = [
   '''tools/spike_check_tests/test_branches\.py''',
   '''tools/spike_check_tests/test_end_to_end\.py''',
   '''tools/spike_check_tests/test_modes\.py''',
+  # A fictional product key in the search fixtures ("zephyr-quixote-9k") reads as a
+  # high-entropy credential to the generic-api-key rule. It names no service, holds no
+  # credential and appears nowhere outside test data; renaming it would only move the
+  # false positive, so the fixture file is allowlisted by path, as the test vectors are.
+  '''backend/tests/integration/test_search_fallback\.py''',
 ]

@@ -37,8 +37,20 @@ async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
         request.app.state.session_factory = async_sessionmaker(
             request.app.state.engine, expire_on_commit=False
         )
-    async with request.app.state.session_factory.begin() as db:
-        yield db
+    # Not ``session_factory.begin()``: a route may own more than one transaction.
+    # ``domain-ports.md`` 4.4 and ``vault-charge.md`` 2 forbid provider I/O inside a
+    # transaction that holds a pool, lot or entry lock, and a savepoint release does
+    # not free a Postgres row lock, so such a route commits one phase and opens the
+    # next (M2, the withdrawal route). A failed request still writes nothing: the
+    # rollback below and the session close replace what ``begin()`` used to do.
+    async with request.app.state.session_factory() as db:
+        try:
+            yield db
+        except Exception:
+            await db.rollback()
+            raise
+        if db.in_transaction():
+            await db.commit()
 
 
 def identity_service(request: Request) -> IdentityService:

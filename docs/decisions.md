@@ -6,7 +6,7 @@ Rule for agents: never silently change a decision. If a decision must change, op
 
 ## 1. Approved departures from the idea text
 
-The idea text is `docs/fairpool-idea.md`. These four departures were proposed and approved ("Go"). In chat they were numbered D1 to D4; in these files they are DEP-1 to DEP-4 so they cannot be confused with the design decisions D1 to D11 below.
+The idea text is `docs/fairpool-idea.md`. These five departures were proposed and approved ("Go"). In chat they were numbered D1 to D4 (plus the CR-3 owner decision of Nov 1, DEP-5); in these files they are DEP-1 to DEP-5 so they cannot be confused with the design decisions D1 to D11 below.
 
 | ID | Departure | Idea text says | We build | Status |
 |---|---|---|---|---|
@@ -14,6 +14,7 @@ The idea text is `docs/fairpool-idea.md`. These four departures were proposed an
 | DEP-2 | Merchant quotes | AI parses a merchant free-text quote into fields | AI proposes the fields from a pasted quote; the merchant confirms them; only confirmed fields reach the auction rules | CONFIRMED |
 | DEP-3 | Bid fields | Bid has target quantity and evidence of eligibility and inventory | Both fields are present; evidence is merchant-declared and never verified by FairPool | CONFIRMED |
 | DEP-4 | Fallbacks | Authorization-first checkout, orders addressed to the winning merchant | Amended Oct 29 by the owner: the primary payment path is now vault-and-charge (`PAYMENT_MODE=vault_charge`): the buyer saves PayPal at join, FairPool charges once after the award, no hold exists. Authorization-first stays as the selectable fallback; the single stand-in sandbox seller is final (G4 failed, S7 rejected the alternative) and is labelled | CONFIRMED |
+| DEP-5 | Saving PayPal at join | "The buyer joins a pool and saves PayPal" in one step | CR-3 splits the step in time so Phase 3 is not blocked by the real save path: a join creates a `SUBMITTED` entry and receipt, consent and save are an explicit second step, and eligibility needs the `ACTIVE` permission at close. Until `T05A01` ships the real `POST /v3/vault/setup-tokens` path, `VAULT_REAL_SAVE_ENABLED=false` keeps `PaymentVault` on `FakePaymentVault` only, so **a live-sandbox buyer cannot become eligible in Phase 3 and every real entry rejects with `VAULT_MISSING`** — a stated limit, never presented as a pass. Every screen and README line that depends on it says so (rule 19) | CONFIRMED, owner 2026-11-01 |
 
 ## 2. Design decisions (from design section 21)
 
@@ -65,7 +66,7 @@ Values are recorded from `docs/spike-results.md`. A switch marked PENDING keeps 
 | `AUTHORIZE_USE_REQUEST_ID` | `true` | RESULT S2: replaying authorize with the same PayPal-Request-Id returned 200 with the same result | `true`, or `false` meaning GET-before-act |
 | `PAYMENT_ROUTER` | `single_seller` | RESULT S3 (Partner Referrals 403, assertion 401) and RESULT S7 (Oct 28): a separately selected seller could receive captures, but void and refund returned PERMISSION_DENIED. Final | `platform` (Router A, unavailable), `single_seller` (Router B, the only usable route, labelled under DEP-4), `payee_email` (**rejected by S7**: the adapter raises `NotEnabled`), `fake` (tests and simulation) |
 | `PLATFORM_FEE_ENABLED` | `false` | RESULT S3: 422 UNSUPPORTED_PAYMENT_INSTRUCTION (G9 failed) | Always `false` unless platform access is provisioned later |
-| `DEDUPE_MODE` | `two_keys` | RESULT S1 (Oct 28-29): basic Login with scope `openid` works and two sign-ins returned matching opaque identifiers (cross-login stability for the tested account and app); the account-attributes scope was rejected (`invalid_scope`); the userinfo `user_id` and the checkout `payer_id` strings differ | `full`, `two_keys`, `checkout_only` per design 7.4. Keep the login identifier and the checkout `payer_id` as separate provider identifiers; neither proves one human |
+| `DEDUPE_MODE` | `two_keys` | RESULT S1 (Oct 28-29): basic Login with scope `openid` works; the userinfo `user_id` and the checkout `payer_id` strings differ, so no prefix stripping is used. An earlier note here claimed two sign-ins returned matching identifiers; `docs/spike-results.md` records equivalence as **not established**, and by `AGENTS.md` section 2 the sandbox record wins (OD-P3-4) | `full`, `two_keys`, `checkout_only` per design 7.4. Keep the login identifier and the checkout `payer_id` as separate provider identifiers, each deduplicated on its own; `full` stays unavailable until equivalence is actually proved, and neither mode proves one human |
 | `PAYPAL_PAYLOAD_LEVEL` | `0` | RESULT S4 (Oct 31): levels 1-2 passed; level 3 (address lock) needs a human attestation and was not verified; level 4 is unavailable. The app stays at level 0 | Highest payload ladder level PayPal accepted (0 to 3; level 4 needs platform access and is unavailable) |
 | `WEBHOOKS_ENABLED` | `false` | RESULT S5 (Oct 28-29, partial): real `PAYMENT.AUTHORIZATION.CREATED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED` and vault token events arrived and verified; `CHECKOUT.ORDER.APPROVED` did not arrive within four minutes | `true` turns the handler on for the three verified types only, as a hint that triggers a GET; it never gates approval, and state changes are always confirmed by GET. Set `true` when task T03A03 ships the handler |
 | `BEACON_MODE` | `drand` | RESULT S6 (Oct 29, complete): the public beacon's signature checks succeeded and six distinct US buyer accounts approved USD 1.00 orders (six distinct payer IDs, no authorization or capture) | `drand` or `demo` |
@@ -117,6 +118,18 @@ Official sources consulted: Elastic hybrid search with `semantic_text` (elastic.
 ### 5.2 What this adds beyond the idea text
 
 Additions that the idea text does not mention (all consistent with its rules): Elastic search (INT-1), Zapier and FairPool MCP agent paths (INT-2, INT-3), merchant bot API and SDK (INT-9), PayPal MCP verification (INT-6), shipment tracking (INT-8), the JS SDK popup (INT-7). The idea's own buyer A2A lane (FR-SL-03) is the base for INT-2 and INT-3.
+
+
+## Phase 3 owner decisions (CR-3, 2026-11-01)
+
+| ID | Question | Decision | Why |
+|---|---|---|---|
+| OD-P3-1 | `IT-3` requires PT-14 to pass, but PT-14 is award-equivalence and `lot.award` is a Phase 5 handler | **Split, do not skip.** Phase 3 runs PT-14 over the pure rules engine that already exists (`domain/auction_rules.py` R1 to R9 plus `domain/fairness.py`) with the search port forced on, off and failing; the end-to-end half over real `lot.award` rows is asserted at `IG-5`. Both `IT-3` texts now say which half is owed | The property is meaningful without the handler, nothing is claimed that is not tested, and the gate stops contradicting itself |
+| OD-P3-2 | `IT-3` also requires the APIMatic trial to start in Phase 3, and `Q-2026-10-31-14` forbids starting one without the owner | **Not started; stays an open owner action on the IG-3 checklist.** S11 records what can be recorded offline — generation against `sdk/merchant-openapi.json` (exactly ten operations) and the licence terms — and marks the live submit/progress smoke tests pending | Starting a trial is an external, billable action with a clock on it. Recording it as a blocker is honest; silently dropping it from the gate is not |
+| OD-P3-3 | Which search backend Phase 3 must prove | **Build both paths behind one port.** Postgres `pg_trgm` is the always-runnable source of truth and carries the CI parity test; the Elastic hybrid path is implemented from the recorded S8 request shape and runs live only where `ELASTICSEARCH_URL` and `ELASTICSEARCH_API_KEY` exist, otherwise it is labelled as not executed. Cut candidate 2 in `implementation-plan.md` section 4 stays available | S8 ran against a cluster whose provenance and trial dates are not recorded, `BD-15` assumed a different one, and the plan says spend nothing without the owner |
+| OD-P3-4 | `spike-results.md` says cross-login stability was not established; `decisions.md` section 4 recorded matching identifiers on two sign-ins | **The sandbox record wins.** `DEDUPE_MODE=two_keys` stands, `full` stays unavailable because equivalence was never proved, and the section 4 note is corrected rather than relied on | Source-of-truth order in `AGENTS.md` section 2: verified sandbox behaviour beats a summary line |
+| OD-P3-5 | Branch and review model for Phase 3 | **One `phase-3` branch, at most four authored commits, the contract-only commit first, self-merge after green CI and an independent agent review** (`AGENTS.md` section 6, solo-operation history). `docs/progress.md` records the per-task status inside the first commit instead of one commit per task | The exception already documented for Phase 0 and Phase 2; it must be written down rather than assumed |
+
 
 
 ## Phase 4 onward: owner reassignment and task ID history (2026-10-31)

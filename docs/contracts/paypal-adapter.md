@@ -49,8 +49,8 @@ class PayPalGateway(Protocol):
     async def verify_webhook(self, headers: Mapping[str, str], raw_body: bytes) -> bool: ...
     async def list_webhooks(self) -> list[dict]: ...
     async def add_trackers(self, items: list[TrackerItem]) -> list[TrackerResult]: ...   # INT-8, Orders v2 track (S12 passed)
-    async def create_setup_token(self, entry_id: str, return_url: str, cancel_url: str) -> SetupToken: ...   # vault-charge.md, key vs:{entry_id}
-    async def create_payment_token(self, setup_token_id: str, entry_id: str) -> PaymentToken: ...           # key vp:{entry_id}
+    async def create_setup_token(self, entry_id: str, attempt: str, return_url: str, cancel_url: str) -> SetupToken: ...   # vault-charge.md, key vs:{entry_id}:{attempt} (CR-3)
+    async def create_payment_token(self, setup_token_id: str, entry_id: str, attempt: str) -> PaymentToken: ...           # key vp:{entry_id}:{attempt}
     async def delete_payment_token(self, payment_token_id: str, entry_id: str) -> None: ...                 # key vd:{entry_id}; 404 counts as deleted
     async def charge_vault(self, buyer_order_id: str, payment_token_id: str, total_cents: int, payee: Payee) -> ChargeResult: ...   # logical vc:{buyer_order_id}; HTTP UUIDv5 keys vc:{buyer_order_id}:create and :capture; one order, capture only if needed
 
@@ -147,9 +147,19 @@ Any failure moves the order to REJECTED (BO-18 or BO-19) with a reason from `con
 
 Persist every result before the next step. A money-moving call is never fire-and-forget.
 
-## 8. Webhooks
+## 7a. Login identity calls (CR-3)
 
+The adapter owns every call to a PayPal host, and that includes the two Log-in-with-PayPal ones: `POST /v1/oauth/token` with the authorization-code grant (client credentials only in the `Authorization` header, never in a query string or a log line) and `GET /v1/identity/openidconnect/userinfo?schema=openid` with the returned user access token. Scope is `openid` only — `account_attributes` was rejected with `invalid_scope` in S1 and stays unavailable until an app-config change is proved.
+
+`modules.identity` imports neither the adapter nor `httpx`: it receives a `PayPalIdentity` port (`exchange_code(code) -> ProviderTokens`, `userinfo(access_token) -> ProviderProfile`), and `wiring.py` — already inside the import checker's PayPal whitelist — builds the adapter implementation. The whitelist itself does not change (I1, I2).
+
+Never logged, stored, returned or audited: the authorization code, the access or refresh token, and the raw `user_id`/`sub`. Only `HMAC(HMAC_KEY, <identifier>)` is persisted, in `paypal_links.paypal_account_key`.
+
+Nonce, stated honestly: we generate and store a `nonce` in `oauth_states` and consume the row once, so a callback cannot be replayed into another session. S1 verified the **userinfo** path; it did not verify arbitrary ID-token nonce validation, so under this flow the nonce binds our own state row and is not presented as proof of ID-token freshness, and no cross-app or one-human-per-account claim is made (I13, FR-ID-02).
+
+## 8. Webhooks
 - Endpoint `POST /webhooks/paypal`: read the raw body, verify the signature (`verify_webhook` with `PAYPAL_WEBHOOK_ID`; method confirmed in S5), insert into `webhook_events` (unique event ID; a duplicate returns 200 and stops), return 200 quickly, enqueue `webhook.process`. Unverified: 400, audit, never processed (P4). Public HTTPS on port 443 (checklist 5.1).
+- Verification state machine, resolved for Phase 3 (CR-3): the raw body and sanitised headers are **always** stored first, whatever the signature says — that is the IT-1 behaviour and it must keep working. Then `PAYPAL_WEBHOOK_ID` decides the rest. With it empty (no listener registered, the state every test and the current deployment is in) the row is stored `UNVERIFIED`, the response is 200 and **no** `webhook.process` job is enqueued. With it configured, a body that fails verification is answered 400 and audited and is still never processed, and only a verified row may enqueue work. So "unverified is never a money signal" holds in every configuration, and no code path infers payment from event text (I4). `WEBHOOKS_ENABLED` stays `false` until T03A03's handler ships, and Phase 3 registers no money-state handler at all.
 - Subscribe to the seven event types of V7: `CHECKOUT.ORDER.APPROVED`, `PAYMENT.AUTHORIZATION.CREATED`, `PAYMENT.AUTHORIZATION.VOIDED`, `PAYMENT.CAPTURE.PENDING`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.CAPTURE.REFUNDED`.
 - Mapping: capture and authorization events carry the resource ID we stored; capture events carry the order ID under `supplementary_data.related_ids.order_id`; order events carry the order ID. After mapping, `GET` the resource and apply it through the state machine (monotonic). The event text is never used. Unmappable events go to the dead-letter list.
 - S5 (Oct 28) verified three real types: `PAYMENT.AUTHORIZATION.CREATED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`. `CHECKOUT.ORDER.APPROVED` did not arrive within four minutes, so approval is **never** awaited as a webhook: the approval step always GETs the order (section 6). With `WEBHOOKS_ENABLED=true` the handler processes only the verified types, as hints that trigger a GET. A verified signature does not replace checking the event's resource identity, amount, currency, seller and state. Duplicate delivery is real (a resend delivered the same event ID twice), so the unique event-ID insert above is required, not optional.

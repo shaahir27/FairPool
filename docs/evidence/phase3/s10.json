@@ -1,0 +1,7 @@
+{
+  "basis": "Pinned Oct 28-29 evidence reused as OD-P3 allows; local @paypal/mcp 1.8.1 read subset verified against REST; PAYPAL_MCP_VERIFICATION=paypal_read_subset.",
+  "executed_now": false,
+  "limits": "Hosted business read FAILED; dispute and shipment reads NOT TESTED; no write-capable MCP server in the backend (rule 22).",
+  "recorded": "2026-11-01",
+  "status": "passed"
+}

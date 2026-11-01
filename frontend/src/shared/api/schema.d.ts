@@ -509,7 +509,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Intake Manual */
+        /**
+         * Intake Manual
+         * @description The deterministic half of intake (CR-3 pull-forward from T04B01).
+         *
+         *     No AI is involved and nothing here depends on T02B03: the buyer's own form is
+         *     validated against the pool's frozen template and stored as the immutable
+         *     confirmed request the join endpoint consumes.
+         */
         post: operations["intake_manual"];
         delete?: never;
         options?: never;
@@ -1847,6 +1854,16 @@ export interface components {
             /** Vault Status */
             vault_status?: string | null;
         };
+        /** EntryWithdrawResponse */
+        EntryWithdrawResponse: {
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Entry Status */
+            entry_status: string;
+        };
         /** ForceAwardRequest */
         ForceAwardRequest: {
             /** Item Cents */
@@ -2567,6 +2584,22 @@ export interface components {
             rules_document: components["schemas"]["RulesDocument"];
             /** Rules Hash */
             rules_hash: string;
+        };
+        /**
+         * SearchReindexResponse
+         * @description One page of public documents re-enqueued for indexing (T03B02).
+         */
+        SearchReindexResponse: {
+            /** Documents */
+            documents: number;
+            /** Enqueued */
+            enqueued: number;
+            /** Has More */
+            has_more: boolean;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
         };
         /** ShipmentInput */
         ShipmentInput: {
@@ -3371,7 +3404,10 @@ export interface operations {
     };
     admin_search_reindex: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: {
                 "X-CSRF-Token"?: string | null;
             };
@@ -3386,7 +3422,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SearchReindexResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5167,6 +5203,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "X-CSRF-Token"?: string | null;
             };
             path: {
@@ -5252,7 +5289,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EntryWithdrawResponse"];
                 };
             };
             /** @description Validation Error */

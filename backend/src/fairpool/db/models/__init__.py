@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .auction import Award, Bid, BidFlag, BidRevision, Merchant, MerchantApiKey
-from .catalog import CatalogProduct, EntryReceipt, Pool, PoolEntry
+from .catalog import CatalogProduct, ConfirmedRequest, EntryReceipt, Pool, PoolEntry
 from .checkout import (
     BuyerOrder,
     LedgerEntry,
@@ -15,7 +15,15 @@ from .checkout import (
     WebhookEvent,
 )
 from .enums import ENUM_TYPES
-from .identity import Delegation, OAuthState, PayPalLink, Session, User, VaultToken
+from .identity import (
+    Delegation,
+    OAuthState,
+    PayPalLink,
+    Session,
+    User,
+    VaultSetupAttempt,
+    VaultToken,
+)
 from .platform import AiRun, AuditLog, IdempotencyKey, Job, Notification, SimRun
 from .pools import Allocation, Lot
 
@@ -29,6 +37,7 @@ __all__ = [
     "BidRevision",
     "BuyerOrder",
     "CatalogProduct",
+    "ConfirmedRequest",
     "Delegation",
     "ENUM_TYPES",
     "EntryReceipt",
@@ -51,6 +60,7 @@ __all__ = [
     "Shipment",
     "SimRun",
     "User",
+    "VaultSetupAttempt",
     "VaultToken",
     "WebhookEvent",
 ]
