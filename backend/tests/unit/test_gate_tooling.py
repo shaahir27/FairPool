@@ -1,3 +1,5 @@
+import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -132,13 +134,31 @@ def test_gate_rejects_unsupported_name_without_running_checks():
     assert result.returncode == 2 and "invalid choice" in result.stderr
 
 
-def test_ig2_rejects_pending_external_evidence():
-    result = subprocess.run(
-        [sys.executable, str(ROOT / "tools/gate_check.py"), "ig-2", "--evidence-only"],
-        capture_output=True,
-        text=True,
+def test_ig2_rejects_pending_external_evidence(tmp_path):
+    """A single non-passed evidence file must keep IG-2 red.
+
+    This used to assert the live repository had pending evidence, which made it a
+    test of the repo's state rather than of the gate: once every item passed, the
+    assertion became false for the wrong reason. It now builds a throwaway evidence
+    set so the refusal is proved independently of what happens to be recorded.
+    """
+    importlib_ok = importlib.util.spec_from_file_location(
+        "gate_under_test", ROOT / "tools" / "gate_check.py"
     )
-    assert result.returncode == 2 and "pending" in result.stdout
+    gate = importlib.util.module_from_spec(importlib_ok)
+    assert importlib_ok.loader is not None
+    importlib_ok.loader.exec_module(gate)
+    evidence = tmp_path / "docs" / "evidence" / "phase2"
+    evidence.mkdir(parents=True)
+    directory, required = gate.GATE_EVIDENCE["ig-2"]
+    assert directory == "phase2"
+    for name in required:
+        status = "pending" if name == "s13" else "passed"
+        (evidence / f"{name}.json").write_text(json.dumps({"status": status}), encoding="utf-8")
+
+    errors = gate.evidence_errors(root=tmp_path, gate="ig-2")
+    assert any("s13" in error and "pending" in error for error in errors), errors
+    assert not any("sandbox_contracts" in error for error in errors), errors
 
 
 def test_gemini_evidence_rejects_stale_fingerprint_and_duplicate_cases(tmp_path, monkeypatch):

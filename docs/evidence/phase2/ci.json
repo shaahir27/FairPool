@@ -1,4 +1,10 @@
 {
-  "status": "pending",
-  "reason": "Current Phase 2 changes have not run remote CI. Local checks are recorded separately."
+  "branch": "main",
+  "commit": "117d21f",
+  "executed": "2026-11-01",
+  "jobs_passed": 9,
+  "note": "Remote CI ran every job green on the commit that carries the Phase 2 capacity guards and the hardened IG-2 gate: lint, strict typing, the full suite (including the Alembic migration and drift check against a fresh fairpool_test service), import boundaries, docs, Merchant OpenAPI, frontend, secret scan and the compose smoke. This closes the evidence item IG-2 had been missing since October.",
+  "result": "success",
+  "run_id": 41279757572,
+  "status": "passed"
 }
