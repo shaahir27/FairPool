@@ -1,0 +1,1401 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v4",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "a0465928e24f5094a7baa28780bfd723792b235f94df301dd153d4d1604d663a"
+  },
+  "started_at": "2026-10-31T13:12:54.791114+00:00",
+  "status": "failed",
+  "reason": null,
+  "selection": {
+    "case_ids": [
+      "reconcile-044",
+      "reconcile-045",
+      "reconcile-046",
+      "reconcile-047",
+      "reconcile-048",
+      "reconcile-049",
+      "reconcile-050",
+      "reconcile-051",
+      "reconcile-052",
+      "reconcile-053",
+      "reconcile-054",
+      "reconcile-055",
+      "reconcile-056",
+      "reconcile-057",
+      "reconcile-058",
+      "reconcile-059",
+      "reconcile-060",
+      "simulation-001",
+      "simulation-002",
+      "simulation-003",
+      "simulation-004",
+      "simulation-005",
+      "simulation-006",
+      "simulation-007",
+      "simulation-008",
+      "simulation-009",
+      "simulation-010",
+      "simulation-011",
+      "simulation-012",
+      "simulation-013",
+      "simulation-014",
+      "simulation-015",
+      "simulation-016",
+      "simulation-017",
+      "simulation-018",
+      "simulation-019",
+      "simulation-020"
+    ],
+    "runs": 1
+  },
+  "results": [
+    {
+      "run": 1,
+      "case_id": "reconcile-044",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 2172,
+          "tokens_in": 566,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1233,
+          "tokens_in": 582,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-045",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "HIDDEN_FEE",
+            "severity": "BLOCKING",
+            "field": "delivered_price_cents",
+            "snippet": "Additional shipping USD 10.00 applies."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "8b9fecbc9a8fa019cd4e480574bdb4fdb1980fee4c67e85ed57c344d53dd043d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "HIDDEN_FEE",
+                "severity": "BLOCKING",
+                "field": "delivered_price_cents",
+                "snippet": "Additional shipping USD 10.00 applies."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1358,
+          "tokens_in": 569,
+          "tokens_out": 51
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-046",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1d3d4074c05410c50d2a5754b2bad63e5ceed97d992731c49f45c6f2cb94bb0d",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1062,
+          "tokens_in": 562,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1d3d4074c05410c50d2a5754b2bad63e5ceed97d992731c49f45c6f2cb94bb0d",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 827,
+          "tokens_in": 578,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-047",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "DELIVERY_CONFLICT",
+            "severity": "BLOCKING",
+            "field": "delivery_sla_days",
+            "snippet": "Delivery is 20 days"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "f20155926ea8bca09e22a19c8fa668ba0737098ad2c2255e65ae37ac10568dba",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "DELIVERY_CONFLICT",
+                "severity": "BLOCKING",
+                "field": "delivery_sla_days",
+                "snippet": "Delivery is 20 days"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1436,
+          "tokens_in": 569,
+          "tokens_out": 46
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-048",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "RETURN_CONFLICT",
+            "severity": "BLOCKING",
+            "field": "returns_days",
+            "snippet": "Returns is 2 days."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "d8746a303b1202eafdbcb00013c303484ba4722efabce763a51373f23e7c16ac",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "RETURN_CONFLICT",
+                "severity": "BLOCKING",
+                "field": "returns_days",
+                "snippet": "Returns is 2 days."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1407,
+          "tokens_in": 567,
+          "tokens_out": 42
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-049",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "HIDDEN_FEE",
+            "severity": "BLOCKING",
+            "field": "delivered_price_cents",
+            "snippet": "Additional shipping USD 10.00 applies."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "8b9fecbc9a8fa019cd4e480574bdb4fdb1980fee4c67e85ed57c344d53dd043d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "HIDDEN_FEE",
+                "severity": "BLOCKING",
+                "field": "delivered_price_cents",
+                "snippet": "Additional shipping USD 10.00 applies."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1313,
+          "tokens_in": 569,
+          "tokens_out": 51
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-050",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "BUNDLE_MISMATCH",
+            "severity": "BLOCKING",
+            "field": "bundle_contents",
+            "snippet": "Bundle excludes stand."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1d3d4074c05410c50d2a5754b2bad63e5ceed97d992731c49f45c6f2cb94bb0d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "BUNDLE_MISMATCH",
+                "severity": "BLOCKING",
+                "field": "bundle_contents",
+                "snippet": "Bundle excludes stand."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1297,
+          "tokens_in": 562,
+          "tokens_out": 65
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-051",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "56549d5578f2c887c1c9fcd43a7f2a772d5aada4a0ae41e81870caa49537c333",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1266,
+          "tokens_in": 564,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "56549d5578f2c887c1c9fcd43a7f2a772d5aada4a0ae41e81870caa49537c333",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1578,
+          "tokens_in": 580,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-052",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "12ac432af3df9626c4031b2fed5dc92acd1226fa73aefa650d6a0d3786cee74b",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1078,
+          "tokens_in": 564,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "12ac432af3df9626c4031b2fed5dc92acd1226fa73aefa650d6a0d3786cee74b",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 842,
+          "tokens_in": 580,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-053",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 952,
+          "tokens_in": 567,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1233,
+          "tokens_in": 583,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-054",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "86301d7f7ed79facce4ad48698bc8d63a77ff51dfe303884e34ebbddd3451f76",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 983,
+          "tokens_in": 564,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "86301d7f7ed79facce4ad48698bc8d63a77ff51dfe303884e34ebbddd3451f76",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 968,
+          "tokens_in": 580,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-055",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "50bd2dc5f4812be80ce210b34a4e3a8e0f4d16f1f1663c02b1501a0816d0ab75",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1093,
+          "tokens_in": 563,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "50bd2dc5f4812be80ce210b34a4e3a8e0f4d16f1f1663c02b1501a0816d0ab75",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 811,
+          "tokens_in": 579,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-056",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "56549d5578f2c887c1c9fcd43a7f2a772d5aada4a0ae41e81870caa49537c333",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1062,
+          "tokens_in": 564,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "56549d5578f2c887c1c9fcd43a7f2a772d5aada4a0ae41e81870caa49537c333",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 875,
+          "tokens_in": 580,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-057",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "12ac432af3df9626c4031b2fed5dc92acd1226fa73aefa650d6a0d3786cee74b",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1171,
+          "tokens_in": 564,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "12ac432af3df9626c4031b2fed5dc92acd1226fa73aefa650d6a0d3786cee74b",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1108,
+          "tokens_in": 580,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-058",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 889,
+          "tokens_in": 567,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": [\n    {\n      \"code\": \"HIDDEN_FEE\",\n      \"severity\": \"WARNING\",\n      \"field\": \"delivered_price_cents\",\n      \"snippet\": \"Maybe additional charges apply\"\n    }\n  ]\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Context-sensitive evidence requires human review",
+          "latency_ms": 1438,
+          "tokens_in": 583,
+          "tokens_out": 68
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-059",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "86301d7f7ed79facce4ad48698bc8d63a77ff51dfe303884e34ebbddd3451f76",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 844,
+          "tokens_in": 564,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "86301d7f7ed79facce4ad48698bc8d63a77ff51dfe303884e34ebbddd3451f76",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1187,
+          "tokens_in": 580,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-060",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "50bd2dc5f4812be80ce210b34a4e3a8e0f4d16f1f1663c02b1501a0816d0ab75",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1313,
+          "tokens_in": 563,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "50bd2dc5f4812be80ce210b34a4e3a8e0f4d16f1f1663c02b1501a0816d0ab75",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 984,
+          "tokens_in": 579,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-001",
+      "task": "SIM_TEXT",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 200.75; quantity: 1; required by: 2026-12-01; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1bc74875bc1e90e78058395d127866ea2d0e5c96748b305e284e0541b502db9b",
+          "output": {
+            "text": "Offer details: price: 200.75; quantity: 1; required by: 2026-12-01; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1077,
+          "tokens_in": 603,
+          "tokens_out": 60
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-002",
+      "task": "SIM_TEXT",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 201.75; quantity: 1; required by: 2026-12-02; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "8a7419846b24fabfa85ba5c03a90f271e994063c67bc6171fee7aef9469e782c",
+          "output": {
+            "text": "Offer details: price: 201.75; quantity: 1; required by: 2026-12-02; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1172,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-003",
+      "task": "SIM_TEXT",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 202.75; quantity: 1; required by: 2026-12-03; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "044f9665fe203cb9ca4c5a18dfb79882102338b0345f0ae97597c56907b7bb94",
+          "output": {
+            "text": "Offer details: price: 202.75; quantity: 1; required by: 2026-12-03; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 811,
+          "tokens_in": 603,
+          "tokens_out": 60
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-004",
+      "task": "SIM_TEXT",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 203.75; quantity: 1; required by: 2026-12-04; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ff72479b0068bde8332f83dda19142894e6cc1577438cad6355c1bfaca6baf48",
+          "output": {
+            "text": "Offer details: price: 203.75; quantity: 1; required by: 2026-12-04; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 875,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-005",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 204.75; quantity: 1; required by: 2026-12-05; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "b1de7a1d4709d34fb4e1d7f226ee1ffb06762a496a0de07db5c36877c658903d",
+          "output": {
+            "text": "Offer details: price: 204.75; quantity: 1; required by: 2026-12-05; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1031,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-006",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 205.75; quantity: 1; required by: 2026-12-06; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "788ca34fad101b34ee7b9ca50146d1f64059edc377bb95fe8203470f76881c02",
+          "output": {
+            "text": "Offer details: price: 205.75; quantity: 1; required by: 2026-12-06; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 920,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-007",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 206.75; quantity: 1; required by: 2026-12-07; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "0f22be866fa37a90ba2b7010d382c2d8ab9d8c56d93fd65729caa4a85ad1a8f6",
+          "output": {
+            "text": "Offer details: price: 206.75; quantity: 1; required by: 2026-12-07; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 827,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-008",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 207.75; quantity: 1; required by: 2026-12-08; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "69c9de3a263110505bf57c1da6b112d7bb038234944f9ea703a86533184428c6",
+          "output": {
+            "text": "Offer details: price: 207.75; quantity: 1; required by: 2026-12-08; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1264,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-009",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 208.75; quantity: 1; required by: 2026-12-09; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ebcb74ee084cd782cd756dffc397a59b6296aa977a70346328c53f6499c5468d",
+          "output": {
+            "text": "Please supply price: 208.75; quantity: 1; required by: 2026-12-09; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 780,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-010",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 209.75; quantity: 1; required by: 2026-12-10; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "dcc53380d91d8919c07f052ff95c0e89cafdf1c99ccc6d9f62ce383864980d21",
+          "output": {
+            "text": "Offer details: price: 209.75; quantity: 1; required by: 2026-12-10; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 860,
+          "tokens_in": 603,
+          "tokens_out": 60
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-011",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 210.75; quantity: 1; required by: 2026-12-11; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1a84b84b4c8b3965476bb10c4f5d6af8bea1c9cec8c422b51c2128d118b9f8fa",
+          "output": {
+            "text": "Offer details: price: 210.75; quantity: 1; required by: 2026-12-11; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 906,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-012",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 211.75; quantity: 1; required by: 2026-12-12; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "976645e2095dbc4500870eb8cd0342154f4d1898244921236d83f438d0652f21",
+          "output": {
+            "text": "Please supply price: 211.75; quantity: 1; required by: 2026-12-12; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 938,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-013",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 212.75; quantity: 1; required by: 2026-12-13; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "57f97d862f773e7b1fafa4142b512a0a03defce6cf779954dc5191c96212b0fc",
+          "output": {
+            "text": "Offer details: price: 212.75; quantity: 1; required by: 2026-12-13; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 969,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-014",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 213.75; quantity: 1; required by: 2026-12-14; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "e3f78958e0a0f03342d6edbefeb1942e45a1b514673b558400f5c7bfe703828f",
+          "output": {
+            "text": "Please supply price: 213.75; quantity: 1; required by: 2026-12-14; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 844,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-015",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 214.75; quantity: 1; required by: 2026-12-15; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "d76adfaa2312485666b9e859077f83a8cee21642741af38f237eae7270d6fab9",
+          "output": {
+            "text": "Please supply price: 214.75; quantity: 1; required by: 2026-12-15; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 969,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-016",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 215.75; quantity: 1; required by: 2026-12-16; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "4275ff8109db18540e9515b4c30a27689a561f1ce4a89011176c01b1748de5b4",
+          "output": {
+            "text": "Offer details: price: 215.75; quantity: 1; required by: 2026-12-16; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 891,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-017",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 216.75; quantity: 1; required by: 2026-12-17; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "2312c98c7e617016dc60aaddcdcabc62a04f2c0d6cc10d422dad4a252310ae2b",
+          "output": {
+            "text": "Please supply price: 216.75; quantity: 1; required by: 2026-12-17; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 858,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-018",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Offer details: price: 217.75; quantity: 1; required by: 2026-12-18; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "f6c6065ad56ac7298b8fbad9309deddb0911bcb27145c9d86bcc82e55cc7747a",
+          "output": {
+            "text": "Offer details: price: 217.75; quantity: 1; required by: 2026-12-18; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 922,
+          "tokens_in": 603,
+          "tokens_out": 55
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-019",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 218.75; quantity: 1; required by: 2026-12-19; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "e48dc8fe489a215d34fba03c37e3e6ca5cb498f7cb3b4565f644d7d71331249d",
+          "output": {
+            "text": "Please supply price: 218.75; quantity: 1; required by: 2026-12-19; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 922,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "simulation-020",
+      "task": "SIM_TEXT",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": "Please supply price: 219.75; quantity: 1; required by: 2026-12-20; condition: NEW; terms: shipping and tax included; returns days: 14",
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "SIM_TEXT",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "e6bdc105ea5709476ca65a71f8dd13115b3f3ba21fa53ced48982844e4b121d8",
+          "output": {
+            "text": "Please supply price: 219.75; quantity: 1; required by: 2026-12-20; condition: NEW; terms: shipping and tax included; returns days: 14"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1016,
+          "tokens_in": 603,
+          "tokens_out": 54
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "fingerprint": {
+        "model_parse": "gemini-3.5-flash-lite",
+        "model_sim": "gemini-3.5-flash-lite",
+        "prompt_version": "phase2-gemini-v4",
+        "schema_version": "phase2-v1",
+        "dataset_revision": "phase2-synthetic-v2",
+        "dataset_sha256": "a0465928e24f5094a7baa28780bfd723792b235f94df301dd153d4d1604d663a"
+      },
+      "started_at": "2026-10-31T13:12:20.968155+00:00",
+      "status": "pending",
+      "reason": null,
+      "selection": {
+        "case_ids": [
+          "reconcile-044",
+          "reconcile-045",
+          "reconcile-046",
+          "reconcile-047",
+          "reconcile-048",
+          "reconcile-049",
+          "reconcile-050",
+          "reconcile-051",
+          "reconcile-052",
+          "reconcile-053",
+          "reconcile-054",
+          "reconcile-055",
+          "reconcile-056",
+          "reconcile-057",
+          "reconcile-058",
+          "reconcile-059",
+          "reconcile-060",
+          "simulation-001",
+          "simulation-002",
+          "simulation-003",
+          "simulation-004",
+          "simulation-005",
+          "simulation-006",
+          "simulation-007",
+          "simulation-008",
+          "simulation-009",
+          "simulation-010",
+          "simulation-011",
+          "simulation-012",
+          "simulation-013",
+          "simulation-014",
+          "simulation-015",
+          "simulation-016",
+          "simulation-017",
+          "simulation-018",
+          "simulation-019",
+          "simulation-020"
+        ],
+        "runs": 1
+      },
+      "results": [
+        {
+          "run": 1,
+          "case_id": "reconcile-044",
+          "task": "RECONCILE",
+          "demo": false,
+          "expected_fields": 2,
+          "matched_fields": 0,
+          "output": null,
+          "review": true,
+          "errors": [],
+          "attempts": [
+            {
+              "task": "RECONCILE",
+              "model": "gemini-3.5-flash-lite",
+              "prompt_version": "phase2-gemini-v4/phase2-v1",
+              "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+              "output": null,
+              "ok": false,
+              "error": "PROVIDER_UNAVAILABLE",
+              "latency_ms": 514,
+              "tokens_in": 0,
+              "tokens_out": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "exact_extraction_field_accuracy": 0.0,
+  "exact_extraction_case_accuracy": 0.0,
+  "completed_at": "2026-10-31T13:17:44.225248+00:00"
+}

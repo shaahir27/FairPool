@@ -1,0 +1,4223 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v4",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "592fa573ca17759b7a7a5ed6b8d8ad0892cad04263911d6e04e2cf4f7aa329e1"
+  },
+  "started_at": "2026-10-31T12:10:01.375521+00:00",
+  "status": "pending",
+  "reason": null,
+  "selection": {
+    "case_ids": [
+      "intake-021",
+      "intake-041",
+      "intake-022",
+      "intake-042",
+      "intake-023",
+      "intake-043",
+      "intake-024",
+      "intake-044",
+      "intake-025",
+      "intake-045",
+      "intake-026",
+      "intake-046",
+      "intake-027",
+      "intake-047",
+      "intake-028",
+      "intake-048",
+      "intake-009",
+      "intake-029",
+      "intake-049",
+      "intake-010",
+      "intake-030",
+      "intake-050",
+      "quote-001",
+      "quote-021",
+      "quote-002",
+      "quote-022",
+      "quote-003",
+      "quote-023",
+      "quote-004",
+      "quote-024",
+      "quote-005",
+      "quote-025",
+      "quote-006",
+      "quote-026",
+      "quote-007",
+      "quote-027",
+      "quote-008",
+      "quote-028",
+      "quote-009",
+      "quote-029",
+      "quote-010",
+      "quote-030",
+      "reconcile-001",
+      "reconcile-003",
+      "reconcile-005",
+      "reconcile-007",
+      "reconcile-009",
+      "reconcile-011",
+      "reconcile-013",
+      "reconcile-015",
+      "reconcile-018",
+      "reconcile-020",
+      "reconcile-022",
+      "reconcile-024",
+      "reconcile-026",
+      "reconcile-028",
+      "reconcile-030",
+      "reconcile-031",
+      "reconcile-033",
+      "reconcile-035",
+      "reconcile-037",
+      "reconcile-039",
+      "reconcile-042",
+      "reconcile-044",
+      "reconcile-046",
+      "reconcile-048",
+      "reconcile-050",
+      "reconcile-051",
+      "reconcile-053",
+      "reconcile-055",
+      "reconcile-058",
+      "reconcile-060",
+      "simulation-001",
+      "simulation-002",
+      "simulation-003",
+      "simulation-004",
+      "simulation-005",
+      "simulation-006",
+      "simulation-007",
+      "simulation-008",
+      "simulation-009",
+      "simulation-010",
+      "simulation-011",
+      "simulation-012",
+      "simulation-013",
+      "simulation-014",
+      "simulation-015",
+      "simulation-016",
+      "simulation-017",
+      "simulation-018",
+      "simulation-019",
+      "simulation-020"
+    ],
+    "runs": 1
+  },
+  "results": [
+    {
+      "run": 1,
+      "case_id": "intake-009",
+      "task": "INTAKE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "166.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "7243bc4b4f1d9a6ba3e7a80d578c7de2e2f91058c82a1b29c3e8c07d87df506b",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "166.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1797,
+          "tokens_in": 522,
+          "tokens_out": 124
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-010",
+      "task": "INTAKE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "173.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "77829f8c3e485283496353646cf0682898aea42b17e21c850bd7a733efc814fc",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "173.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1531,
+          "tokens_in": 541,
+          "tokens_out": 124
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-021",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 5,
+      "matched_fields": 5,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": "NY"
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "pool_id",
+            "question": "Could you please specify which color variant of the monitor you prefer (black or white)?"
+          }
+        ],
+        "clarifying_question": "Could you please specify which color variant of the monitor you prefer (black or white)?"
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9b12e177982195ca76ef4dfe92267ca8a1fceaa4c6df7b9d322dc516c51ba45b",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": "NY"
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "pool_id",
+                "question": "Could you please specify which color variant of the monitor you prefer (black or white)?"
+              }
+            ],
+            "clarifying_question": "Could you please specify which color variant of the monitor you prefer (black or white)?"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1390,
+          "tokens_in": 640,
+          "tokens_out": 130
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-022",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 4,
+      "matched_fields": 4,
+      "output": {
+        "pool_id": "00000000-0000-4000-8000-000000000001",
+        "match_confidence": "high",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": "NY"
+        },
+        "required_by": "2026-12-20",
+        "max_total": {
+          "amount": "257.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1287a13a2b7e6d8e2c1955597af7a4da8f0d0f1be3b29bf8b9468646ec5b9af7",
+          "output": {
+            "pool_id": "00000000-0000-4000-8000-000000000001",
+            "match_confidence": "high",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": "NY"
+            },
+            "required_by": "2026-12-20",
+            "max_total": {
+              "amount": "257.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1313,
+          "tokens_in": 666,
+          "tokens_out": 135
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-023",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "300",
+          "currency": "EUR"
+        },
+        "firm_requirements": [
+          "New monitor please",
+          "Reference AW"
+        ],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "b1763d83663e34e66f016091af6b5d54e6d5e14a75b7b912698e9d4faa35e844",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "300",
+              "currency": "EUR"
+            },
+            "firm_requirements": [
+              "New monitor please",
+              "Reference AW"
+            ],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1734,
+          "tokens_in": 509,
+          "tokens_out": 93
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-024",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 3,
+      "matched_fields": 3,
+      "output": {
+        "pool_id": "00000000-0000-4000-8000-000000000001",
+        "match_confidence": "high",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "271.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "d48c3359c24305072d2c7e9eac610e9b54b1b63de5b6eb400f0e9bcefac676ec",
+          "output": {
+            "pool_id": "00000000-0000-4000-8000-000000000001",
+            "match_confidence": "high",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "271.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1922,
+          "tokens_in": 654,
+          "tokens_out": 124
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-025",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "condition",
+            "question": "Do you require new or refurbished condition?"
+          }
+        ],
+        "clarifying_question": "Do you require new or refurbished condition?"
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "62505d3e55043b0a1af7e93cf17d53a7c0c70082ba685e364a9459232ca2ae4a",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "condition",
+                "question": "Do you require new or refurbished condition?"
+              }
+            ],
+            "clarifying_question": "Do you require new or refurbished condition?"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1516,
+          "tokens_in": 504,
+          "tokens_out": 106
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-026",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "285.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "quantity",
+            "question": "Quantity is one per entry; requests for more require clarification. Did you mean 1 monitor?"
+          }
+        ],
+        "clarifying_question": "Quantity is one per entry; requests for more require clarification. Did you mean 1 monitor?"
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "f07b600fb216d0c4be290c9c339b79ab5bbc442d99e0feba5fd1a8a996ac03de",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "285.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "quantity",
+                "question": "Quantity is one per entry; requests for more require clarification. Did you mean 1 monitor?"
+              }
+            ],
+            "clarifying_question": "Quantity is one per entry; requests for more require clarification. Did you mean 1 monitor?"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1797,
+          "tokens_in": 510,
+          "tokens_out": 186
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-027",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "0943a99aa092eb8ca51d90913350f27e26432df750b4363e9c3b298be303db9a",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 4766,
+          "tokens_in": 538,
+          "tokens_out": 116
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-028",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "299.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "155650ee1641b98839da6fc0a6fbcc1536bb8cd309f18d91dcd570707f9237f1",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "299.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1452,
+          "tokens_in": 535,
+          "tokens_out": 124
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-029",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "306.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "2845e168f93fc9d723fc3e75cbc434dffa979c8269989c9077b31c23017f9f9a",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "306.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1811,
+          "tokens_in": 522,
+          "tokens_out": 87
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-030",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "313.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "pool_id",
+            "question": "Could you please specify the correct pool ID for this request?"
+          }
+        ],
+        "clarifying_question": "Could you please specify the correct pool ID for this request?"
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "0dfc88554d447bd2b0abf30b14a7ad1cec17ea1da81af6d3e74be92f346043a1",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "313.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "pool_id",
+                "question": "Could you please specify the correct pool ID for this request?"
+              }
+            ],
+            "clarifying_question": "Could you please specify the correct pool ID for this request?"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1608,
+          "tokens_in": 541,
+          "tokens_out": 123
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-041",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 4,
+      "matched_fields": 4,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": "NY"
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "max_total",
+            "question": "No budget specified; what is the maximum total amount?"
+          }
+        ],
+        "clarifying_question": "No budget specified; what is the maximum total amount?"
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "55351dfa0d1317fdb48bb7f39e887938711f6b5e5bbfa0cf13a731b481d05e02",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": "NY"
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "max_total",
+                "question": "No budget specified; what is the maximum total amount?"
+              }
+            ],
+            "clarifying_question": "No budget specified; what is the maximum total amount?"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1608,
+          "tokens_in": 506,
+          "tokens_out": 116
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-042",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 4,
+      "matched_fields": 4,
+      "output": {
+        "pool_id": "00000000-0000-4000-8000-000000000001",
+        "match_confidence": "high",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": "NY"
+        },
+        "required_by": "2026-12-20",
+        "max_total": {
+          "amount": "397.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "2033ff989c2bd576885a5da82a0959c3fb4b0cc9b6404cdfc953cd48f6248674",
+          "output": {
+            "pool_id": "00000000-0000-4000-8000-000000000001",
+            "match_confidence": "high",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": "NY"
+            },
+            "required_by": "2026-12-20",
+            "max_total": {
+              "amount": "397.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1671,
+          "tokens_in": 666,
+          "tokens_out": 135
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-043",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "300",
+          "currency": "EUR"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "33f43b4d60e19c47acaa7d9c9255daa029dbaabc57d56bff27bf87d493e1a6ed",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "300",
+              "currency": "EUR"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1655,
+          "tokens_in": 510,
+          "tokens_out": 122
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-044",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 3,
+      "matched_fields": 3,
+      "output": {
+        "pool_id": "00000000-0000-4000-8000-000000000001",
+        "match_confidence": "high",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "411.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "3e0644244f56bddb44099fb8a0c4149e545ef876d8999caa86724197ce3b94d4",
+          "output": {
+            "pool_id": "00000000-0000-4000-8000-000000000001",
+            "match_confidence": "high",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "411.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1625,
+          "tokens_in": 654,
+          "tokens_out": 124
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-045",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "condition",
+            "question": "Is the condition new or refurbished?"
+          }
+        ],
+        "clarifying_question": "Please clarify whether you require new or refurbished condition."
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "3c000a833c89d99210be6fa459de19f64e151526df4fd6a108d12c8ed146733d",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "condition",
+                "question": "Is the condition new or refurbished?"
+              }
+            ],
+            "clarifying_question": "Please clarify whether you require new or refurbished condition."
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1282,
+          "tokens_in": 504,
+          "tokens_out": 156
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-046",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "425.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "quantity",
+            "question": "The user requested two monitors, but the quantity must be one per entry; requests for more require clarification."
+          }
+        ],
+        "clarifying_question": "Would you like to split this into two separate requests as only one monitor is allowed per entry?"
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "c9fcb0f35a01683be1cd3f7d2c43b5a4f32215e537310cdb2b6ea85523ac7974",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "425.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "quantity",
+                "question": "The user requested two monitors, but the quantity must be one per entry; requests for more require clarification."
+              }
+            ],
+            "clarifying_question": "Would you like to split this into two separate requests as only one monitor is allowed per entry?"
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1469,
+          "tokens_in": 510,
+          "tokens_out": 137
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-047",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "aae85b5a25e0b86529331ebfda9b6c20a143269ca6cfecc53277d489f430fa68",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1172,
+          "tokens_in": 538,
+          "tokens_out": 65
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-048",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "439.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "aae8065c79331b6969fae872e2217db366648ae3db4ef2b19a890648e8dd92ba",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "439.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1938,
+          "tokens_in": 535,
+          "tokens_out": 87
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-049",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "446.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "3bb2b2ee00e3437d862535d105f1ebdccfc87718e64a3bfcb460d3788894874a",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "446.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1766,
+          "tokens_in": 522,
+          "tokens_out": 124
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "intake-050",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": null,
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "453.25",
+          "currency": "USD"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "6be66b4d0d435c8681d5010d7220137aa42913251909d61ada858bc074b67ab5",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": null,
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "453.25",
+              "currency": "USD"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1891,
+          "tokens_in": 541,
+          "tokens_out": 87
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-001",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 7,
+      "matched_fields": 7,
+      "output": {
+        "product_text": "Reference QA.",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 8,
+        "target_quantity": null,
+        "moq": 2,
+        "tiers": [
+          {
+            "min_qty": 2,
+            "item_price": "150.50"
+          }
+        ],
+        "shipping_by_zone": {
+          "US-EAST": "10.00"
+        },
+        "tax": {
+          "mode": "INCLUDED",
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": 7,
+        "returns_days": 14,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "267a3255edff12221a63a97a41e20363d95faa2b42e3bef4f64dc1d249b88843",
+          "output": {
+            "product_text": "Reference QA.",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 8,
+            "target_quantity": null,
+            "moq": 2,
+            "tiers": [
+              {
+                "min_qty": 2,
+                "item_price": "150.50"
+              }
+            ],
+            "shipping_by_zone": {
+              "US-EAST": "10.00"
+            },
+            "tax": {
+              "mode": "INCLUDED",
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": 7,
+            "returns_days": 14,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1844,
+          "tokens_in": 558,
+          "tokens_out": 210
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-002",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 6,
+      "matched_fields": 6,
+      "output": {
+        "product_text": "Reference QB",
+        "condition": "NEW",
+        "bundle_contents": [],
+        "capacity": 12,
+        "target_quantity": null,
+        "moq": 3,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "153.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": "INCLUDED",
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ed9a76982948f10b4b31beb255abee804805945bfa56c19eb4977711d43f9b4f",
+          "output": {
+            "product_text": "Reference QB",
+            "condition": "NEW",
+            "bundle_contents": [],
+            "capacity": 12,
+            "target_quantity": null,
+            "moq": 3,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "153.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": "INCLUDED",
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1797,
+          "tokens_in": 540,
+          "tokens_out": 116
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-003",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 6,
+      "matched_fields": 6,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 10,
+        "target_quantity": null,
+        "moq": 2,
+        "tiers": [
+          {
+            "min_qty": 2,
+            "item_price": "156.50"
+          },
+          {
+            "min_qty": 5,
+            "item_price": "90.00"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "d54c9317cfa9d021269cbb5f7ef9958f1dd32525178e6614a770e45bdfa221ef",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 10,
+            "target_quantity": null,
+            "moq": 2,
+            "tiers": [
+              {
+                "min_qty": 2,
+                "item_price": "156.50"
+              },
+              {
+                "min_qty": 5,
+                "item_price": "90.00"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1781,
+          "tokens_in": 548,
+          "tokens_out": 217
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-004",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 12,
+      "matched_fields": 12,
+      "output": {
+        "product_text": "We can supply monitors. No price, shipping, tax, capacity or delivery terms are confirmed. Reference QD.",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "tiers",
+            "question": "What are the item prices and tiers?"
+          },
+          {
+            "field": "capacity",
+            "question": "What is the capacity?"
+          },
+          {
+            "field": "delivery_sla_days",
+            "question": "What are the delivery terms?"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "8c8d70665a67bea8a19aaf8e2090b103bdd7e17aa9c9f351908dd6dfe1043b8e",
+          "output": {
+            "product_text": "We can supply monitors. No price, shipping, tax, capacity or delivery terms are confirmed. Reference QD.",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "tiers",
+                "question": "What are the item prices and tiers?"
+              },
+              {
+                "field": "capacity",
+                "question": "What is the capacity?"
+              },
+              {
+                "field": "delivery_sla_days",
+                "question": "What are the delivery terms?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2016,
+          "tokens_in": 529,
+          "tokens_out": 186
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-005",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 3,
+      "matched_fields": 2,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 4,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Capacity is stated as 4 and also as 9 in a conflicting note. Which capacity is correct?"
+          },
+          {
+            "field": "tiers",
+            "question": "No final price is agreed."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [
+        "Field mismatch: capacity"
+      ],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "bf7924675c0566bb70f003ce35cfb38750d83a30955d76127314efcbe519f456",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 4,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Capacity is stated as 4 and also as 9 in a conflicting note. Which capacity is correct?"
+              },
+              {
+                "field": "tiers",
+                "question": "No final price is agreed."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1516,
+          "tokens_in": 532,
+          "tokens_out": 160
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-006",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "product_text": null,
+        "condition": "NEW",
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "165.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "57ceec2b9aa135261041ef59a8a1e36592436217921b00aa98dade624dfac93a",
+          "output": {
+            "product_text": null,
+            "condition": "NEW",
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "165.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2172,
+          "tokens_in": 549,
+          "tokens_out": 186
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-007",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "168.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": 30,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "dbab5713709d63a5eda7ee4f4d25b9bd28b950c9dbc94c219729b4301f316d96",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "168.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": 30,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1672,
+          "tokens_in": 544,
+          "tokens_out": 186
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-008",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 1,
+      "output": {
+        "product_text": "Unicode merchant \u0399: model 4090, invoice 202611; item price USD 171.50. Capacity 6. Reference QH.",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "171.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "currency",
+            "question": "Is the currency explicitly USD?"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [
+        "Field mismatch: capacity"
+      ],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "5a5af5de6753390064bb20566bd1d17f904c44f342a38b4ec843f20e62e37d5e",
+          "output": {
+            "product_text": "Unicode merchant \u0399: model 4090, invoice 202611; item price USD 171.50. Capacity 6. Reference QH.",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "171.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "currency",
+                "question": "Is the currency explicitly USD?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2000,
+          "tokens_in": 550,
+          "tokens_out": 255
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-009",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "product_text": "Item price USD 174.50. Reference QI.",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "174.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "409ba40b0e070a6f24bf69ff391a0ad2088052eef877de1acb0a4535e01ae191",
+          "output": {
+            "product_text": "Item price USD 174.50. Reference QI.",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "174.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1531,
+          "tokens_in": 553,
+          "tokens_out": 197
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-010",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 4,
+      "matched_fields": 4,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "177.50"
+          }
+        ],
+        "shipping_by_zone": {
+          "US-EAST": "12.00"
+        },
+        "tax": {
+          "mode": "RATE_TABLE",
+          "rate_bps_by_region": {
+            "NY": 875
+          }
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "7396dad7e9e25d3fdf4ecad96d1c30bd540f3acb1202e3bfc934b3a216c69331",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "177.50"
+              }
+            ],
+            "shipping_by_zone": {
+              "US-EAST": "12.00"
+            },
+            "tax": {
+              "mode": "RATE_TABLE",
+              "rate_bps_by_region": {
+                "NY": 875
+              }
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1577,
+          "tokens_in": 550,
+          "tokens_out": 216
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-021",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 7,
+      "matched_fields": 7,
+      "output": {
+        "product_text": "Reference QU",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 8,
+        "target_quantity": null,
+        "moq": 2,
+        "tiers": [
+          {
+            "min_qty": 2,
+            "item_price": "210.50"
+          }
+        ],
+        "shipping_by_zone": {
+          "US-EAST": "10.00"
+        },
+        "tax": {
+          "mode": "INCLUDED",
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": 7,
+        "returns_days": 14,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fccd6a08dcf3353c28311bf2b9e9d30dc59f10dbf469f8f5ed7a1a0161ef59e9",
+          "output": {
+            "product_text": "Reference QU",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 8,
+            "target_quantity": null,
+            "moq": 2,
+            "tiers": [
+              {
+                "min_qty": 2,
+                "item_price": "210.50"
+              }
+            ],
+            "shipping_by_zone": {
+              "US-EAST": "10.00"
+            },
+            "tax": {
+              "mode": "INCLUDED",
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": 7,
+            "returns_days": 14,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1842,
+          "tokens_in": 558,
+          "tokens_out": 210
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-022",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 6,
+      "matched_fields": 6,
+      "output": {
+        "product_text": "Reference QV.",
+        "condition": "NEW",
+        "bundle_contents": [],
+        "capacity": 12,
+        "target_quantity": null,
+        "moq": 3,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "213.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": "INCLUDED",
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "844a19b4121dfb2421ec01b605eb202d7d5dadd1e2da2c1e3a02b676fd16ea45",
+          "output": {
+            "product_text": "Reference QV.",
+            "condition": "NEW",
+            "bundle_contents": [],
+            "capacity": 12,
+            "target_quantity": null,
+            "moq": 3,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "213.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": "INCLUDED",
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1920,
+          "tokens_in": 540,
+          "tokens_out": 192
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-023",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 6,
+      "matched_fields": 6,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 10,
+        "target_quantity": null,
+        "moq": 2,
+        "tiers": [
+          {
+            "min_qty": 2,
+            "item_price": "216.50"
+          },
+          {
+            "min_qty": 5,
+            "item_price": "90.00"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "currency",
+            "question": "Is the currency USD?"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "3ec132cd2752f0ead59c6f51c657f9e1bb619ddc16ee03a8b1ee9d4eab1f1190",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 10,
+            "target_quantity": null,
+            "moq": 2,
+            "tiers": [
+              {
+                "min_qty": 2,
+                "item_price": "216.50"
+              },
+              {
+                "min_qty": 5,
+                "item_price": "90.00"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "currency",
+                "question": "Is the currency USD?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1655,
+          "tokens_in": 549,
+          "tokens_out": 245
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-024",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 12,
+      "matched_fields": 12,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "tiers",
+            "question": "What are the item prices and quantities for the tiers?"
+          },
+          {
+            "field": "shipping_by_zone",
+            "question": "What are the shipping costs by zone?"
+          },
+          {
+            "field": "tax",
+            "question": "What is the tax mode and rate?"
+          },
+          {
+            "field": "capacity",
+            "question": "What is the capacity?"
+          },
+          {
+            "field": "delivery_sla_days",
+            "question": "What is the delivery SLA in days?"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "e4c19785f9dae392081762e15451f956318d5e1007877769c516ed82cd616ecf",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "tiers",
+                "question": "What are the item prices and quantities for the tiers?"
+              },
+              {
+                "field": "shipping_by_zone",
+                "question": "What are the shipping costs by zone?"
+              },
+              {
+                "field": "tax",
+                "question": "What is the tax mode and rate?"
+              },
+              {
+                "field": "capacity",
+                "question": "What is the capacity?"
+              },
+              {
+                "field": "delivery_sla_days",
+                "question": "What is the delivery SLA in days?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1593,
+          "tokens_in": 530,
+          "tokens_out": 178
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-025",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 3,
+      "matched_fields": 2,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 4,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Capacity is stated as 4 and 9."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [
+        "Field mismatch: capacity"
+      ],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1364e231bf63cf3660f04de862401e39ddfb9396635274463af8896c74b82e4c",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 4,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Capacity is stated as 4 and 9."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1014,
+          "tokens_in": 533,
+          "tokens_out": 131
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-026",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "product_text": "Real item price USD 225.50; condition is new. Reference QZ.",
+        "condition": "NEW",
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "225.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "eaed850859f8227a7698e1253df06905ec6daab52d6366a0fc5958ed1894e657",
+          "output": {
+            "product_text": "Real item price USD 225.50; condition is new. Reference QZ.",
+            "condition": "NEW",
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "225.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2218,
+          "tokens_in": 549,
+          "tokens_out": 205
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-027",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "228.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": 30,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "bfa961e4580cbb48d41ef0c238f5aebf4fe29b51a626b1a57fa4ae78ec884e4b",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "228.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": 30,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1764,
+          "tokens_in": 544,
+          "tokens_out": 186
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-028",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "product_text": "model 4090",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 6,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "231.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "currency",
+            "question": "Is the currency USD?"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "12c1d008fc7ac3093e500d1d1f19a00fa8ff53a3ab51e95401256fd41aeed6b8",
+          "output": {
+            "product_text": "model 4090",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 6,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "231.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "currency",
+                "question": "Is the currency USD?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2108,
+          "tokens_in": 551,
+          "tokens_out": 219
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-029",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "product_text": "Item price USD 234.50. Reference Q].",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "234.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "22bc398671acc60f0fd1d70838b0c10651d7bbd6f1cd062fb1c9b2d4f5ffd443",
+          "output": {
+            "product_text": "Item price USD 234.50. Reference Q].",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "234.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1954,
+          "tokens_in": 554,
+          "tokens_out": 198
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-030",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 4,
+      "matched_fields": 4,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "237.50"
+          }
+        ],
+        "shipping_by_zone": {
+          "US-EAST": "12.00"
+        },
+        "tax": {
+          "mode": "RATE_TABLE",
+          "rate_bps_by_region": {
+            "NY": 875
+          }
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "919779693944a091c59d7a970a209d81e04dacff65f853e64114d7dadd6533f1",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "237.50"
+              }
+            ],
+            "shipping_by_zone": {
+              "US-EAST": "12.00"
+            },
+            "tax": {
+              "mode": "RATE_TABLE",
+              "rate_bps_by_region": {
+                "NY": 875
+              }
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1438,
+          "tokens_in": 550,
+          "tokens_out": 152
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-001",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "555a7c22c71a2eaecbbe58c5bbb328fa0fc752f50ca7c758027b8e47e12bc98a",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1391,
+          "tokens_in": 588,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-003",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9d900b421f1a15fecb7836f1d6ecc83b624089f69d489ae533e1d9d0a2e17ec1",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1312,
+          "tokens_in": 576,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9d900b421f1a15fecb7836f1d6ecc83b624089f69d489ae533e1d9d0a2e17ec1",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1532,
+          "tokens_in": 592,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-005",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "650ce8cdb9defcb3a7a11ce661dd8bd89a2e72e5df986209c6ad04b9d409658f",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1125,
+          "tokens_in": 573,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-007",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "bc0d43d345fbc2fb13bde086b3086f3bdda52d7a6bac92c8966ac2733a86646a",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1515,
+          "tokens_in": 588,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-009",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [
+        "Required extraction unavailable"
+      ],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9d900b421f1a15fecb7836f1d6ecc83b624089f69d489ae533e1d9d0a2e17ec1",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1327,
+          "tokens_in": 576,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9d900b421f1a15fecb7836f1d6ecc83b624089f69d489ae533e1d9d0a2e17ec1",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1311,
+          "tokens_in": 592,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-011",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1a7c243f22becbc81b87ff6c93434fad87bc10329e4087d83bb90ea3b7a73af0",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1282,
+          "tokens_in": 573,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-013",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "0c715d98d67ca6227ec966fb57859847dd9c60ce0dabbe0f87e4eddd5f095f14",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1422,
+          "tokens_in": 588,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-015",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9d900b421f1a15fecb7836f1d6ecc83b624089f69d489ae533e1d9d0a2e17ec1",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1079,
+          "tokens_in": 576,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-018",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "c3563df558dcbf47923d2fe5eeaebd1b679438f83ebc22d732fa8584bd92bde6",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1235,
+          "tokens_in": 582,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-020",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9a8aa033e96c20a26a023e98e94098d0de5f89beaa6ce9d4fd5a48af3f0aab62",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1047,
+          "tokens_in": 571,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-022",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ecde3a12524f0f622c2c9c848998b0f40c5f69df7ae702e4c4a1ecd0a4d9a517",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1358,
+          "tokens_in": 573,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-024",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "7cfa86f9052254c6a69d638f9d7c34297c38a3dbc7de65e4eb1b17d100cbe6c8",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1233,
+          "tokens_in": 582,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-026",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "e514e34896a71161f4bdecec8b32a336cfb89696a735aeace008601b69984c04",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1531,
+          "tokens_in": 571,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-028",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1fb5d2f65a86e950d6a75e835cd011ec3e9443011a65ab4c00bce4c0a687ece5",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1250,
+          "tokens_in": 573,
+          "tokens_out": 16
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-030",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "5b99ef7346eec24560d501789a0ad5317ca3d1ce587b6de4c0b0be57e6ca1ae3",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 952,
+          "tokens_in": 582,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-031",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "CONDITION_MISMATCH",
+            "severity": "BLOCKING",
+            "field": "condition",
+            "snippet": "Condition is refurbished."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "03ad97979627a4565c0f3c5e702c778fe623c066ea21217bbdffef816f7dc9ef",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1422,
+          "tokens_in": 565,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "03ad97979627a4565c0f3c5e702c778fe623c066ea21217bbdffef816f7dc9ef",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "CONDITION_MISMATCH",
+                "severity": "BLOCKING",
+                "field": "condition",
+                "snippet": "Condition is refurbished."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1108,
+          "tokens_in": 581,
+          "tokens_out": 39
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-033",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "HIDDEN_FEE",
+            "severity": "BLOCKING",
+            "field": "delivered_price_cents",
+            "snippet": "Additional shipping USD 10.00 applies."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "8b9fecbc9a8fa019cd4e480574bdb4fdb1980fee4c67e85ed57c344d53dd043d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "HIDDEN_FEE",
+                "severity": "BLOCKING",
+                "field": "delivered_price_cents",
+                "snippet": "Additional shipping USD 10.00 applies."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 937,
+          "tokens_in": 569,
+          "tokens_out": 51
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-035",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "QUANTITY_CONFLICT",
+            "severity": "BLOCKING",
+            "field": "moq",
+            "snippet": "MOQ is 20"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9232985b0a05a8e30b41ef24eef6c82788aa171a59028ac4466326f5836b2ced",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1375,
+          "tokens_in": 568,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "9232985b0a05a8e30b41ef24eef6c82788aa171a59028ac4466326f5836b2ced",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "QUANTITY_CONFLICT",
+                "severity": "BLOCKING",
+                "field": "moq",
+                "snippet": "MOQ is 20"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1343,
+          "tokens_in": 584,
+          "tokens_out": 43
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-037",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "HIDDEN_FEE",
+            "severity": "BLOCKING",
+            "field": "delivered_price_cents",
+            "snippet": "Additional shipping USD 10.00 applies."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "8b9fecbc9a8fa019cd4e480574bdb4fdb1980fee4c67e85ed57c344d53dd043d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "HIDDEN_FEE",
+                "severity": "BLOCKING",
+                "field": "delivered_price_cents",
+                "snippet": "Additional shipping USD 10.00 applies."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 859,
+          "tokens_in": 569,
+          "tokens_out": 51
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-039",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "QUANTITY_CONFLICT",
+            "severity": "BLOCKING",
+            "field": "capacity",
+            "snippet": "Capacity is 3"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "b64948bb9546abc28d003a9156cea21982c6ec494f1fee64491f943d439f60f9",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "QUANTITY_CONFLICT",
+                "severity": "BLOCKING",
+                "field": "capacity",
+                "snippet": "Capacity is 3"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1562,
+          "tokens_in": 566,
+          "tokens_out": 40
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-042",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "BUNDLE_MISMATCH",
+            "severity": "BLOCKING",
+            "field": "bundle_contents",
+            "snippet": "Bundle excludes stand."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1d3d4074c05410c50d2a5754b2bad63e5ceed97d992731c49f45c6f2cb94bb0d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "BUNDLE_MISMATCH",
+                "severity": "BLOCKING",
+                "field": "bundle_contents",
+                "snippet": "Bundle excludes stand."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1405,
+          "tokens_in": 562,
+          "tokens_out": 65
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-044",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "QUANTITY_CONFLICT",
+            "severity": "BLOCKING",
+            "field": "capacity",
+            "snippet": "Capacity is 3."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1016,
+          "tokens_in": 566,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "QUANTITY_CONFLICT",
+                "severity": "BLOCKING",
+                "field": "capacity",
+                "snippet": "Capacity is 3."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1030,
+          "tokens_in": 582,
+          "tokens_out": 64
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-046",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "BUNDLE_MISMATCH",
+            "severity": "BLOCKING",
+            "field": "bundle_contents",
+            "snippet": "Bundle excludes stand."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1d3d4074c05410c50d2a5754b2bad63e5ceed97d992731c49f45c6f2cb94bb0d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "BUNDLE_MISMATCH",
+                "severity": "BLOCKING",
+                "field": "bundle_contents",
+                "snippet": "Bundle excludes stand."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2093,
+          "tokens_in": 562,
+          "tokens_out": 65
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-048",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "RETURN_CONFLICT",
+            "severity": "BLOCKING",
+            "field": "returns_days",
+            "snippet": "Returns is 2 days."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "d8746a303b1202eafdbcb00013c303484ba4722efabce763a51373f23e7c16ac",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "RETURN_CONFLICT",
+                "severity": "BLOCKING",
+                "field": "returns_days",
+                "snippet": "Returns is 2 days."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2079,
+          "tokens_in": 567,
+          "tokens_out": 42
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-050",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": false,
+        "flags": [
+          {
+            "code": "BUNDLE_MISMATCH",
+            "severity": "BLOCKING",
+            "field": "bundle_contents",
+            "snippet": "Bundle excludes stand."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "1d3d4074c05410c50d2a5754b2bad63e5ceed97d992731c49f45c6f2cb94bb0d",
+          "output": {
+            "consistent": false,
+            "flags": [
+              {
+                "code": "BUNDLE_MISMATCH",
+                "severity": "BLOCKING",
+                "field": "bundle_contents",
+                "snippet": "Bundle excludes stand."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1250,
+          "tokens_in": 562,
+          "tokens_out": 65
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-051",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "56549d5578f2c887c1c9fcd43a7f2a772d5aada4a0ae41e81870caa49537c333",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1125,
+          "tokens_in": 564,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "56549d5578f2c887c1c9fcd43a7f2a772d5aada4a0ae41e81870caa49537c333",
+          "output": null,
+          "ok": false,
+          "error": "PROVIDER_UNAVAILABLE",
+          "latency_ms": 20000,
+          "tokens_in": 0,
+          "tokens_out": 0
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-053",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": [{\"code\": \"HIDDEN_FEE\", \"severity\": \"BLOCKING\", \"field\": \"delivered_price_cents\", \"snippet\": \"Maybe additional charges apply; not yet agreed.\"}]}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Context-sensitive evidence requires human review",
+          "latency_ms": 1092,
+          "tokens_in": 567,
+          "tokens_out": 49
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1562,
+          "tokens_in": 583,
+          "tokens_out": 10
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-055",
+      "task": "RECONCILE",
+      "demo": true,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "50bd2dc5f4812be80ce210b34a4e3a8e0f4d16f1f1663c02b1501a0816d0ab75",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1156,
+          "tokens_in": 563,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "50bd2dc5f4812be80ce210b34a4e3a8e0f4d16f1f1663c02b1501a0816d0ab75",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": [\n    {\n      \"code\": \"DELIVERY_CONFLICT\",\n      \"severity\": \"BLOCKING\",\n      \"field\": \"delivery\",\n      \"snippet\": \"Shipping is TBD.\"\n    }\n  ]\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ungrounded flag",
+          "latency_ms": 1781,
+          "tokens_in": 579,
+          "tokens_out": 64
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-058",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": []}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1327,
+          "tokens_in": 567,
+          "tokens_out": 10
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "ded0beb8b88b969372d54cef98bc98d5fca3e9ec4248d0f1f9e4bc75fc817a33",
+          "output": {
+            "invalid_response": "{\"consistent\": false, \"flags\": [{\"code\": \"HIDDEN_FEE\", \"severity\": \"WARNING\", \"field\": \"delivered_price_cents\", \"snippet\": \"Maybe additional charges apply; not yet agreed.\"}]}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Context-sensitive evidence requires human review",
+          "latency_ms": 1516,
+          "tokens_in": 583,
+          "tokens_out": 48
+        }
+      ]
+    }
+  ]
+}

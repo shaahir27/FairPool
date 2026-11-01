@@ -1,0 +1,143 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "prompt_version": "phase2-gemini-v6",
+  "schema_version": "phase2-v1",
+  "results": [
+    {
+      "quote_text": "Capacity is 4 or 9; please confirm.",
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Is capacity 4 or 9?"
+          }
+        ]
+      },
+      "review": false,
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v6/phase2-v1",
+          "input_hash": "985fbc5f4ee77ec54252fa788b15a1329638232ad826a43ecd619532e93005fc",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Is capacity 4 or 9?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2327,
+          "tokens_in": 500,
+          "tokens_out": 181
+        }
+      ],
+      "passed": true
+    },
+    {
+      "quote_text": "Capacity is 4, but capacity is also 9 in a conflicting note.",
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Capacity is conflicting: 4 or 9?"
+          }
+        ]
+      },
+      "review": false,
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v6/phase2-v1",
+          "input_hash": "79db73d896ad6f3b89e92dc5d0754cfebf9bbea331f8b7fcbc13f69f72dc1a8a",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Capacity is conflicting: 4 or 9?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1922,
+          "tokens_in": 505,
+          "tokens_out": 130
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

@@ -102,7 +102,7 @@ Files (Phase 2 baseline; T09B02 extends the same production-path evaluation):
 - `backend/tests/ai_eval/data/quote_cases.jsonl`: about 30 merchant quotes. Each line `{"id", "lot_requirement", "quote_text", "expected_fields"}`.
 - `backend/tests/ai_eval/data/reconcile_cases.jsonl`: 60 cases (30 consistent, 20 explicit contradictions and 10 ambiguous) built from synthetic quotes with deliberate mismatches (extra bundle item, wrong condition, hidden fee, injected instruction). Each line `{"id", "lot_requirement", "structured", "text", "expected_flags": [codes], "must_not_qualify": true}`.
 
-Metrics: per-field exact match for enums, integers and dates; ambiguity recall (did it ask when it should); false-confirmation rate (confirmed something wrong); for reconcile, flag-code recall and precision and the count of injected instructions that changed the outcome (must be zero). The README publishes the measured numbers. Phase 2 requires three complete live runs, at least 95% exact extraction accuracy, zero accepted malformed outputs, invented monetary values, unauthorized IDs, unsupported blocking flags or successful injections. Every contradiction must be flagged or routed to review; ambiguous cases remain unresolved. All supplied simulation facts must be preserved. Retain every failure and retry; no acceptance claim while a required check is pending.
+Metrics: per-field exact match for enums, integers and dates; ambiguity recall (did it ask when it should); false-confirmation rate (confirmed something wrong); for reconcile, flag-code recall and precision and the count of injected instructions that changed the outcome (must be zero). The README publishes the measured numbers. Phase 2 requires three complete live runs, at least 95% exact extraction accuracy, zero accepted malformed outputs, invented monetary values, unauthorized IDs, unsupported blocking flags or successful injections. Non-demo extraction errors are permitted only for condition, quantity, region, date and non-monetary quote quantities; every error remains reported. Review is acceptable for a non-demo reconciliation case, including a consistent offer, but a provider outage is not an accepted review. Every contradiction must be flagged or routed to review; ambiguous cases remain unresolved. All supplied simulation facts must be preserved and all demo cases must meet their expectations. Retain every failure and retry; no acceptance claim while a required check is pending. This revision is the owner-requested proposed CR in `contracts/README.md`, pending independent review and merge.
 
 ## 7. Retrieval and similarity (INT-1, FR-IG-01)
 
@@ -132,6 +132,20 @@ The synthetic evaluation corpus has 50 intake, 30 quote, 60 reconciliation
 (30 consistent, 20 contradictions, 10 ambiguous), and 20 simulation cases.
 Run the full live corpus three times and retain every result and retry with
 model/prompt/schema/dataset fingerprint. Changing the model invalidates acceptance.
+The owner-approved exception for the v5 capacity-validation change uses the
+recorded v4 three-run baseline plus v5 live spot checks covering all 50 intake
+and 30 quote cases and `reconcile-009`. Both use the same model, schema and
+dataset. Report the baseline and v5 results separately; do not call the v4
+results a full live run of v5. Independent review identified a single-label
+capacity ambiguity; v6 adds a fail-closed guard. A second review found a case
+where a field was marked ambiguous but retained a definite value; v7 rejects it.
+A third found punctuation and unit variants even without the model marking an
+ambiguity; v8 rejects those specific source patterns. Verify each version with
+separately labelled live conflict spots and revalidate accepted v4/v5 outputs
+offline using the v8 production validator. Do not describe v4/v5 results as a
+full v8 run or claim all possible ambiguous wording is recognized.
+Further model, prompt, schema or dataset changes
+require fresh evaluation unless approved in another contract change.
 Zero observed false positives is a measured result, not a future guarantee.
 Unpaid Gemini evaluation uses fictional inputs only; confidential data requires
 an appropriate paid service under Google's terms.

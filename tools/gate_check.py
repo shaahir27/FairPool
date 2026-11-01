@@ -49,7 +49,15 @@ def gemini_errors(evidence: Path, root: Path) -> list[str]:
     report = json.loads(path.read_text(encoding="utf-8"))
     if report.get("status") != "passed" or len(report.get("results", [])) != 480:
         errors.append("Gemini: three complete accepted live runs pending")
-    from evaluate_gemini import DATASET_REVISION
+    from evaluate_gemini import (
+        DATASET_REVISION,
+        acceptance_errors,
+        current_validator_errors,
+        evidence_row_errors,
+        v6_conflict_spot_errors,
+        v7_conflict_spot_errors,
+        v8_conflict_spot_errors,
+    )
     from fairpool.adapters.ai.client import PROMPT_VERSION
     from fairpool.adapters.ai.schemas import SCHEMA_VERSION
 
@@ -59,6 +67,7 @@ def gemini_errors(evidence: Path, root: Path) -> list[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line
     ]
+    labelled_cases = {case["id"]: case for case in dataset}
     expected = {
         "prompt_version": PROMPT_VERSION,
         "schema_version": SCHEMA_VERSION,
@@ -66,13 +75,76 @@ def gemini_errors(evidence: Path, root: Path) -> list[str]:
         "dataset_sha256": hashlib.sha256(json.dumps(dataset, sort_keys=True).encode()).hexdigest(),
     }
     fingerprint = report.get("fingerprint", {})
-    if any(fingerprint.get(k) != v for k, v in expected.items()):
+    baseline_v4 = (
+        PROMPT_VERSION == "phase2-gemini-v8"
+        and fingerprint.get("prompt_version") == "phase2-gemini-v4"
+    )
+    baseline_expected = (
+        {**expected, "prompt_version": "phase2-gemini-v4"} if baseline_v4 else expected
+    )
+    if any(fingerprint.get(k) != v for k, v in baseline_expected.items()):
         errors.append("Gemini: stale prompt/schema/dataset fingerprint")
+    if baseline_v4:
+        spot = report.get("v5_spot_checks", {})
+        spot_fingerprint = spot.get("fingerprint", {})
+        spot_results = spot.get("results", [])
+        required_ids = {c["id"] for c in dataset if c["task"] in {"INTAKE", "QUOTE"}}
+        required_ids.add("reconcile-009")
+        spot_ids = [r.get("case_id") for r in spot_results]
+        extraction = [r for r in spot_results if r.get("task") in {"INTAKE", "QUOTE"}]
+        total = sum(r.get("expected_fields", 0) for r in extraction)
+        matched = sum(r.get("matched_fields", 0) for r in extraction)
+        if (
+            any(
+                spot_fingerprint.get(k) != v
+                for k, v in {**expected, "prompt_version": "phase2-gemini-v5"}.items()
+            )
+            or any(
+                spot_fingerprint.get(k) != fingerprint.get(k) for k in ("model_parse", "model_sim")
+            )
+            or not required_ids.issubset(set(spot_ids))
+            or len(spot_ids) != len(set(spot_ids))
+            or not total
+            or matched / total < 0.95
+            or acceptance_errors(spot_results)
+            or evidence_row_errors(spot_results, labelled_cases, spot_fingerprint)
+            or any(
+                str(a.get("error", "")).startswith("PROVIDER_UNAVAILABLE")
+                for r in spot_results
+                for a in r.get("attempts", [])
+            )
+        ):
+            errors.append("Gemini: missing or failed v5 spot checks")
+        model = fingerprint.get("model_parse", "")
+        if v6_conflict_spot_errors(report.get("v6_conflict_spots", {}), model):
+            errors.append("Gemini: missing or failed v6 conflict spot checks")
+        if v7_conflict_spot_errors(report.get("v7_conflict_spots", {}), model):
+            errors.append("Gemini: missing or failed v7 conflict spot checks")
+        if v8_conflict_spot_errors(report.get("v8_conflict_spots", {}), model):
+            errors.append("Gemini: missing or failed v8 conflict spot checks")
+        if current_validator_errors(report.get("results", []), labelled_cases, model) or (
+            current_validator_errors(spot_results, labelled_cases, model)
+        ):
+            errors.append("Gemini: current validator rejected previous accepted outputs")
     identities = {(r.get("run"), r.get("case_id")) for r in report.get("results", [])}
     if identities != {(run, c["id"]) for run in range(1, 4) for c in dataset}:
         errors.append("Gemini: incomplete or duplicate run/case identities")
-    if any(r.get("errors") for r in report.get("results", [])):
+    results = report.get("results", [])
+    if (
+        evidence_row_errors(results, labelled_cases, fingerprint)
+        or acceptance_errors(results)
+        or any(
+            str(a.get("error", "")).startswith("PROVIDER_UNAVAILABLE")
+            for r in results
+            for a in r.get("attempts", [])
+        )
+    ):
         errors.append("Gemini: unresolved evaluation failures")
+    extraction = [r for r in results if r.get("task") in {"INTAKE", "QUOTE"}]
+    expected_fields = sum(r.get("expected_fields", 0) for r in extraction)
+    matched_fields = sum(r.get("matched_fields", 0) for r in extraction)
+    if not expected_fields or matched_fields / expected_fields < 0.95:
+        errors.append("Gemini: extraction accuracy below 95% or missing")
     for key, variable in (("model_parse", "AI_MODEL_PARSE"), ("model_sim", "AI_MODEL_SIM")):
         if fingerprint.get(key) != os.environ.get(variable, "gemini-3.5-flash-lite"):
             errors.append("Gemini: model changed since evaluation")

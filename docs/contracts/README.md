@@ -54,6 +54,24 @@ Current version: `contracts-v1.2`, tagged after the Phase 3 change request (CR-3
 | contracts-v1.1 | 2026-10-31 | Phase 2 provider, payment identity, rules vector/envelope, shipment association and evidence validation | @shaahir27 (owner) after independent review; merged into `main` and tagged |
 | contracts-v1.2 | 2026-11-01 | CR-3, Phase 3: `confirmed_requests` and `vault_setup_attempts` tables plus migration 0003, `oauth_states` session binding, `vault_tokens.cap_cents` widened to bigint, entry-window trigger on `clock_timestamp()`, `Clock.db_wall_now`, the `PaymentVault` and `PayPalIdentity` ports with attempt-scoped vault keys, join idempotency and rate-limit semantics, new `RULES_MISMATCH` and `INTEGRITY_ERROR` codes with `VAULT_SETUP_TTL_S`, `VAULT_REAL_SAVE_ENABLED`, `OAUTH_STATE_TTL_S`, `SEARCH_TIMEOUT_MS`, the deterministic-manual-confirmation and public-key/close-audit pull-forwards, and the honest S1/S5 webhook-verification states | @shaahir27 (owner) after independent agent review |
 
+### Proposed CR: Phase 2 AI acceptance threshold (2026-11-01)
+
+The owner requested 95% extraction accuracy as the Phase 2 acceptance threshold.
+The amendment allows bounded noncritical extraction errors and safe human-review
+fallbacks, while retaining safety checks, demo-case requirements and provider
+availability. The owner additionally accepted the recorded v4 three-run baseline
+with v5 spot checks for the narrowly scoped capacity-validation change. The model,
+schema and dataset must match; the v5 spots cover all intake and quote cases plus
+the known reconciliation review case. Independent review found a single-label
+capacity ambiguity; v6 adds a fail-closed guard, separately verified by two live
+conflict spots. A second review found ambiguity-marked definite quantities; v7
+rejects them. A third review found punctuation and unit variants; v8 handles
+those even when the model omits its ambiguity marker. Each has two separate live
+conflict spots; accepted v4/v5 outputs are revalidated offline under v8. Other version
+changes require reevaluation. Affected tasks:
+T02B03 and T09B02; affected files: `ai-schemas.md`, the evaluator and IG-2 gate.
+Owner requested; independent review, merge and contract-version tag are pending.
+
 ### Phase 2 change request (owner-approved implementation plan, 2026-10-31)
 
 Scope: T02A01 to T02A04 and T02B01 to T02B05. The owner approved Gemini,

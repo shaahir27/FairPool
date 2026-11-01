@@ -1,0 +1,96 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v4",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "a0465928e24f5094a7baa28780bfd723792b235f94df301dd153d4d1604d663a"
+  },
+  "started_at": "2026-10-31T13:09:41.155880+00:00",
+  "status": "pending",
+  "reason": null,
+  "selection": {
+    "case_ids": [
+      "reconcile-044",
+      "reconcile-045",
+      "reconcile-046",
+      "reconcile-047",
+      "reconcile-048",
+      "reconcile-049",
+      "reconcile-050",
+      "reconcile-051",
+      "reconcile-052",
+      "reconcile-053",
+      "reconcile-054",
+      "reconcile-055",
+      "reconcile-056",
+      "reconcile-057",
+      "reconcile-058",
+      "reconcile-059",
+      "reconcile-060",
+      "simulation-001",
+      "simulation-002",
+      "simulation-003",
+      "simulation-004",
+      "simulation-005",
+      "simulation-006",
+      "simulation-007",
+      "simulation-008",
+      "simulation-009",
+      "simulation-010",
+      "simulation-011",
+      "simulation-012",
+      "simulation-013",
+      "simulation-014",
+      "simulation-015",
+      "simulation-016",
+      "simulation-017",
+      "simulation-018",
+      "simulation-019",
+      "simulation-020"
+    ],
+    "runs": 1
+  },
+  "results": [
+    {
+      "run": 1,
+      "case_id": "reconcile-044",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+          "output": {
+            "invalid_response": "{\n  \"consistent\": false,\n  \"flags\": []\n}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Ops review required",
+          "latency_ms": 1547,
+          "tokens_in": 566,
+          "tokens_out": 16
+        },
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "fc1f003997a7ff332927c9afab7bec21c2e5e3b10c89bffff0985f9a72b33e29",
+          "output": null,
+          "ok": false,
+          "error": "PROVIDER_UNAVAILABLE",
+          "latency_ms": 436,
+          "tokens_in": 0,
+          "tokens_out": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v4",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "ac301baccebc9ea993b0a1a89edecafd1b1a9ee760d22c15741b5a512b55b0b6"
+  },
+  "started_at": "2026-10-31T11:51:23.234357+00:00",
+  "status": "failed",
+  "reason": null,
+  "selection": {
+    "case_ids": [
+      "intake-002"
+    ],
+    "runs": 1
+  },
+  "results": [
+    {
+      "run": 1,
+      "case_id": "intake-002",
+      "task": "INTAKE",
+      "demo": true,
+      "expected_fields": 4,
+      "matched_fields": 0,
+      "output": null,
+      "review": true,
+      "errors": [
+        "Required extraction unavailable"
+      ],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v4/phase2-v1",
+          "input_hash": "b09abcca05db37c253769ad7593cfd1a74741f5e16f44dcbc3d9c237b7796323",
+          "output": null,
+          "ok": false,
+          "error": "PROVIDER_UNAVAILABLE",
+          "latency_ms": 219,
+          "tokens_in": 0,
+          "tokens_out": 0
+        }
+      ]
+    }
+  ],
+  "exact_extraction_field_accuracy": 0.0,
+  "exact_extraction_case_accuracy": 0.0,
+  "completed_at": "2026-10-31T11:51:23.520249+00:00"
+}

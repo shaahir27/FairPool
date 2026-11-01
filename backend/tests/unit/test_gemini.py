@@ -342,3 +342,54 @@ def test_known_numbers_cannot_be_swapped_into_unrelated_quote_fields():
         ai._meaning(
             "QUOTE", quote, {}, "Capacity is 8; returns is 14 days. No tax terms confirmed."
         )
+
+
+@pytest.mark.parametrize(
+    "quote_text",
+    [
+        "Capacity is 4, but capacity is also 9 in a conflicting note.",
+        "Capacity is 4 or 9; please confirm.",
+        "Capacity is 4, or 9; please confirm.",
+        "Capacity is 4 units or 9 units; please confirm.",
+    ],
+)
+@pytest.mark.parametrize("include_ambiguity", [False, True])
+async def test_conflicting_quote_capacity_cannot_be_accepted_as_definite(
+    quote_text, include_ambiguity
+):
+    quote = {
+        "product_text": None,
+        "condition": None,
+        "bundle_contents": [],
+        "capacity": 4,
+        "target_quantity": None,
+        "moq": None,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {"mode": None, "rate_bps_by_region": {}},
+        "delivery_sla_days": None,
+        "returns_days": None,
+        "valid_until": None,
+        "total_capacity": None,
+        "evidence_note": None,
+        "ambiguities": (
+            [{"field": "capacity", "question": "Which capacity is correct?"}]
+            if include_ambiguity
+            else []
+        ),
+    }
+
+    async def generate(**kwargs):
+        return SimpleNamespace(text=json.dumps(quote), usage_metadata=None, candidates=[])
+
+    logger = Logger()
+    ai = GeminiAI(
+        api_key="fictional", model_parse="m", model_sim="m", logger=logger, generate=generate
+    )
+    with pytest.raises(AIUnavailable):
+        await ai.parse_quote(
+            None,
+            quote_text=quote_text,
+            lot_requirement={},
+        )
+    assert len(logger.rows) == 2

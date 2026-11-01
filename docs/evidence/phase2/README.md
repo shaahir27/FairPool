@@ -4,6 +4,24 @@ Phase 2 was merged into `main`. On 2026-10-31 the owner explicitly closed IG-2
 by exception; the `ig-2` tag has not been created, and automated acceptance
 checks still report pending evidence. Closure does not mean those checks passed.
 
+On 2026-11-01 the owner requested a 95% extraction threshold with safe review
+and accepted the v4 live baseline plus separate v5 spot checks for the capacity
+validation fix. The proposed contract revision and evaluator changes are not
+yet independently reviewed or merged. The reconstructed report records 480 v4
+cases and 89 v5 spots; each measured 100% on its labelled extraction fields.
+The v4 case sent to review and the quota-interrupted attempts remain recorded;
+the v5 spots are not represented as a full v5 evaluation. Under the proposed
+rules the Gemini evidence check passes; current-revision CI evidence is pending.
+Independent review found additional ambiguous-capacity variants. The v6, v7 and
+v8 guards each have two separately labelled live spot checks; the v8 validator
+also rechecks every accepted v4/v5 output offline. These do not constitute full
+live evaluations of those versions or prove coverage of all ambiguous wording.
+
+On the isolated PostgreSQL rerun, the local gate completed its backend, frontend,
+migration, generated-artifact and secret checks, then stopped on pending CI.
+The first full run had two concurrency test failures; those two tests passed
+individually and in the full rerun. Their initial failure cause remains unknown.
+
 The later prompt-v4 Gemini evaluation was resumed across reports after quota
 interruptions: 479 of 480 case checks met their recorded expectations. Run 1's
 `reconcile-015` routed a consistent offer to review after validation retries;

@@ -1,0 +1,143 @@
+{
+  "model": "gemini-3.5-flash-lite",
+  "prompt_version": "phase2-gemini-v8",
+  "schema_version": "phase2-v1",
+  "results": [
+    {
+      "quote_text": "Capacity is 4, or 9; please confirm.",
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Is capacity 4 or 9?"
+          }
+        ]
+      },
+      "review": false,
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v8/phase2-v1",
+          "input_hash": "05f493ffbb077dae43303f7ced3a184916f38e7b70ffdc633c490135bef043eb",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Is capacity 4 or 9?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2092,
+          "tokens_in": 501,
+          "tokens_out": 181
+        }
+      ],
+      "passed": true
+    },
+    {
+      "quote_text": "Capacity is 4 units or 9 units; please confirm.",
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Is the capacity 4 units or 9 units?"
+          }
+        ]
+      },
+      "review": false,
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v8/phase2-v1",
+          "input_hash": "418a558bd7fc1515555652ab63ff568f9113ddf66eef550cc3a645e63a09168b",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Is the capacity 4 units or 9 units?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1953,
+          "tokens_in": 502,
+          "tokens_out": 184
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

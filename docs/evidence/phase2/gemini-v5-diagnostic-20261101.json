@@ -1,0 +1,395 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v5",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "2ac56cb38ea3180a0d98763474d15e7d965465b0680d60442dbfccd8851f7c49"
+  },
+  "started_at": "2026-11-01T05:24:17.790040+00:00",
+  "status": "passed",
+  "reason": null,
+  "selection": {
+    "case_ids": [
+      "intake-001",
+      "quote-005",
+      "quote-008",
+      "quote-025",
+      "reconcile-015"
+    ],
+    "runs": 1
+  },
+  "results": [
+    {
+      "run": 1,
+      "case_id": "intake-001",
+      "task": "INTAKE",
+      "demo": true,
+      "expected_fields": 5,
+      "matched_fields": 5,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": "NY"
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": null,
+          "currency": null
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [
+          {
+            "field": "pool_id",
+            "question": "Which variant of the monitor would you like? Reference AA does not specify."
+          }
+        ],
+        "clarifying_question": "Which variant of the monitor would you like? Reference AA does not specify."
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v5/phase2-v1",
+          "input_hash": "1bb8175022e4c903a2946f0434b7f10b5e78da3a0a2ba1dee6ea323bdce955d2",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": "NY"
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": null,
+              "currency": null
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [
+              {
+                "field": "pool_id",
+                "question": "Which variant of the monitor would you like? Reference AA does not specify."
+              }
+            ],
+            "clarifying_question": "Which variant of the monitor would you like? Reference AA does not specify."
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 2516,
+          "tokens_in": 640,
+          "tokens_out": 104
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-005",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 3,
+      "matched_fields": 3,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Capacity has conflicting statements of 4 and 9."
+          },
+          {
+            "field": "tiers",
+            "question": "No final price is agreed."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v5/phase2-v1",
+          "input_hash": "bf7924675c0566bb70f003ce35cfb38750d83a30955d76127314efcbe519f456",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Capacity has conflicting statements of 4 and 9."
+              },
+              {
+                "field": "tiers",
+                "question": "No final price is agreed."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1906,
+          "tokens_in": 532,
+          "tokens_out": 147
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-008",
+      "task": "QUOTE",
+      "demo": true,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "product_text": "model 4090",
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": 6,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price": "171.50"
+          }
+        ],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "currency",
+            "question": "Currency ambiguity must be stated."
+          },
+          {
+            "field": "condition",
+            "question": "Condition not stated in quote_text."
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v5/phase2-v1",
+          "input_hash": "5a5af5de6753390064bb20566bd1d17f904c44f342a38b4ec843f20e62e37d5e",
+          "output": {
+            "product_text": "model 4090",
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": 6,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [
+              {
+                "min_qty": 1,
+                "item_price": "171.50"
+              }
+            ],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "currency",
+                "question": "Currency ambiguity must be stated."
+              },
+              {
+                "field": "condition",
+                "question": "Condition not stated in quote_text."
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1922,
+          "tokens_in": 550,
+          "tokens_out": 172
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "quote-025",
+      "task": "QUOTE",
+      "demo": false,
+      "expected_fields": 3,
+      "matched_fields": 3,
+      "output": {
+        "product_text": null,
+        "condition": null,
+        "bundle_contents": [],
+        "capacity": null,
+        "target_quantity": null,
+        "moq": null,
+        "tiers": [],
+        "shipping_by_zone": {},
+        "tax": {
+          "mode": null,
+          "rate_bps_by_region": {}
+        },
+        "delivery_sla_days": null,
+        "returns_days": null,
+        "valid_until": null,
+        "total_capacity": null,
+        "evidence_note": null,
+        "ambiguities": [
+          {
+            "field": "capacity",
+            "question": "Is capacity 4 or 9?"
+          },
+          {
+            "field": "tiers",
+            "question": "What is the final price?"
+          }
+        ]
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v5/phase2-v1",
+          "input_hash": "1364e231bf63cf3660f04de862401e39ddfb9396635274463af8896c74b82e4c",
+          "output": {
+            "invalid_response": "{\"product_text\": null, \"condition\": null, \"bundle_contents\": [], \"capacity\": 4, \"target_quantity\": null, \"moq\": null, \"tiers\": [], \"shipping_by_zone\": {}, \"tax\": {\"mode\": null, \"rate_bps_by_region\": {}}, \"delivery_sla_days\": null, \"returns_days\": null, \"valid_until\": null, \"total_capacity\": null, \"evidence_note\": null, \"ambiguities\": [{\"field\": \"capacity\", \"question\": \"Capacity is mentioned as 4 and also 9. Which capacity is correct?\"}, {\"field\": \"tiers\", \"question\": \"No price is stated. What is the item price or tier structure?\"}]}"
+          },
+          "ok": false,
+          "error": "VALIDATION_FAILED: ValueError: Conflicting field-specific quantities require review",
+          "latency_ms": 1920,
+          "tokens_in": 533,
+          "tokens_out": 162
+        },
+        {
+          "task": "QUOTE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v5/phase2-v1",
+          "input_hash": "1364e231bf63cf3660f04de862401e39ddfb9396635274463af8896c74b82e4c",
+          "output": {
+            "product_text": null,
+            "condition": null,
+            "bundle_contents": [],
+            "capacity": null,
+            "target_quantity": null,
+            "moq": null,
+            "tiers": [],
+            "shipping_by_zone": {},
+            "tax": {
+              "mode": null,
+              "rate_bps_by_region": {}
+            },
+            "delivery_sla_days": null,
+            "returns_days": null,
+            "valid_until": null,
+            "total_capacity": null,
+            "evidence_note": null,
+            "ambiguities": [
+              {
+                "field": "capacity",
+                "question": "Is capacity 4 or 9?"
+              },
+              {
+                "field": "tiers",
+                "question": "What is the final price?"
+              }
+            ]
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1937,
+          "tokens_in": 549,
+          "tokens_out": 207
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "case_id": "reconcile-015",
+      "task": "RECONCILE",
+      "demo": false,
+      "expected_fields": 2,
+      "matched_fields": 2,
+      "output": {
+        "consistent": true,
+        "flags": []
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "RECONCILE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v5/phase2-v1",
+          "input_hash": "9d900b421f1a15fecb7836f1d6ecc83b624089f69d489ae533e1d9d0a2e17ec1",
+          "output": {
+            "consistent": true,
+            "flags": []
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1327,
+          "tokens_in": 576,
+          "tokens_out": 10
+        }
+      ]
+    }
+  ],
+  "exact_extraction_field_accuracy": 1.0,
+  "exact_extraction_case_accuracy": 1.0,
+  "completed_at": "2026-11-01T05:24:49.358018+00:00"
+}
