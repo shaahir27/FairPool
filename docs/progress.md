@@ -375,8 +375,8 @@ performed.
 
 Ordered work on the gate, executed rather than assumed:
 
-1. **Pushed and verified CI.** `main` advanced `88105a0..a57804a`; remote CI run
-   41271936679 finished in 2m9s with all nine jobs green, including Test (with the
+1. **Pushed and verified CI.** `main` advanced `88105a0..a57804a`; remote CI runs
+   41271936679 and 41272459105 finished with all nine jobs green, including Test (with the
    Alembic migration and drift check on a fresh `fairpool_test`). `ci.json` is now
    passed. No D-P3-01 flakiness appeared in CI.
 2. **Webhook listener verified read-only, no secret printed.** Sandbox client

@@ -1,6 +1,6 @@
 {
   "branch": "main",
-  "commit": "a57804a",
+  "commit": "ba04d67",
   "duration": "2m9s",
   "executed": "2026-11-01",
   "jobs": [
@@ -15,8 +15,8 @@
     "Compose"
   ],
   "jobs_passed": 9,
-  "note": "The merge commit was pushed and remote CI ran all nine jobs green, including the Alembic migration and drift job against a fresh fairpool_test service. This closes the CI half that IG-2 left pending.",
+  "note": "The merge commit was pushed and remote CI ran all nine jobs green, including the Alembic migration and drift job against a fresh fairpool_test service. This closes the CI half that IG-2 left pending. Certified run is 41272459105 on ba04d67 (9 jobs, success); 41271936679 on a57804a also passed.",
   "result": "success",
-  "run_id": 41271936679,
+  "run_id": 41272459105,
   "status": "passed"
 }
