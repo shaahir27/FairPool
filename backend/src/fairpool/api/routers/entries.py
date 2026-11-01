@@ -42,23 +42,30 @@ JOIN_RATE_LIMIT = 10
 JOIN_RATE_WINDOW_S = 60.0
 
 
-class JoinRateLimiter:
-    """Same shape as ``AuthRateLimiter``, keyed by session user (CR-3)."""
+class UserRateLimiter:
+    """One sliding window per session user; ``config-and-errors.md`` section 3 limits.
 
-    def __init__(self) -> None:
+    Same shape as ``AuthRateLimiter`` (auth.py) but keyed by the authenticated user
+    rather than the client address. The intake route reuses this class with its own
+    limit instead of carrying a third copy of the window.
+    """
+
+    def __init__(self, *, limit: int = JOIN_RATE_LIMIT, window_s: float = JOIN_RATE_WINDOW_S):
+        self.limit = limit
+        self.window_s = window_s
         self.clients: OrderedDict[str, deque[float]] = OrderedDict()
 
     def check(self, user_id: str, now: float) -> None:
         # shortcut: per-process limits; require shared enforcement before multi-process deployment.
         hits = self.clients.setdefault(user_id, deque())
         self.clients.move_to_end(user_id)
-        while hits and now - hits[0] >= JOIN_RATE_WINDOW_S:
+        while hits and now - hits[0] >= self.window_s:
             hits.popleft()
-        if len(hits) >= JOIN_RATE_LIMIT:
+        if len(hits) >= self.limit:
             raise HTTPException(
                 429,
                 "RATE_LIMITED",
-                headers={"Retry-After": str(max(1, int(JOIN_RATE_WINDOW_S - (now - hits[0])) + 1))},
+                headers={"Retry-After": str(max(1, int(self.window_s - (now - hits[0])) + 1))},
             )
         hits.append(now)
         if len(self.clients) > 4096:
@@ -72,7 +79,7 @@ async def rate_limit_join(
     settings = request.app.state.settings
     if settings is not None and settings.rate_limit_enabled:
         if not hasattr(request.app.state, "join_limiter"):
-            request.app.state.join_limiter = JoinRateLimiter()
+            request.app.state.join_limiter = UserRateLimiter()
         request.app.state.join_limiter.check(str(principal.user_id), time.monotonic())
     return principal
 

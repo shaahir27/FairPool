@@ -5236,6 +5236,7 @@
     },
     "/api/v1/checkout/cancel": {
       "get": {
+        "description": "api.md: an ORDER_CREATED order moves to DECLINED (BO-22), then redirect.",
         "operationId": "checkout_cancel",
         "parameters": [
           {
@@ -5352,6 +5353,7 @@
     },
     "/api/v1/checkout/config": {
       "get": {
+        "description": "Public SDK values only: no secret, no token, no amount (api.md section 4.1).",
         "operationId": "checkout_config",
         "responses": {
           "200": {
@@ -5370,6 +5372,7 @@
     },
     "/api/v1/checkout/return": {
       "get": {
+        "description": "The provider redirect: the token only finds our row, then PayPal's GET decides.",
         "operationId": "checkout_return",
         "parameters": [
           {
@@ -5731,6 +5734,7 @@
     },
     "/api/v1/intake/confirm": {
       "post": {
+        "description": "Confirm a proposal into the canonical request the join endpoint consumes.",
         "operationId": "intake_confirm",
         "parameters": [
           {
@@ -5854,6 +5858,7 @@
     },
     "/api/v1/intake/messages": {
       "post": {
+        "description": "One turn: a confirmation card, one clarifying question, or the manual form.",
         "operationId": "intake_messages",
         "parameters": [
           {
@@ -6186,6 +6191,7 @@
     },
     "/api/v1/me/orders": {
       "get": {
+        "description": "Every order of this buyer with the receipt that goes with it.",
         "operationId": "me_orders",
         "parameters": [
           {
@@ -7377,6 +7383,7 @@
     },
     "/api/v1/offers/{buyer_order_id}": {
       "get": {
+        "description": "The offer disclosure: catalog terms, awarded totals and the buyer's cap.",
         "operationId": "offers_get",
         "parameters": [
           {
@@ -7438,6 +7445,7 @@
     },
     "/api/v1/offers/{buyer_order_id}/approved": {
       "post": {
+        "description": "The SDK ``onApprove`` hint: verify it names our order, then run the checks.",
         "operationId": "offers_approved",
         "parameters": [
           {
@@ -7509,6 +7517,7 @@
     },
     "/api/v1/offers/{buyer_order_id}/cancelled": {
       "post": {
+        "description": "The SDK ``onCancel`` hint: ORDER_CREATED moves to DECLINED (BO-22), idempotently.",
         "operationId": "offers_cancelled",
         "parameters": [
           {
@@ -7578,6 +7587,7 @@
     },
     "/api/v1/offers/{buyer_order_id}/continue": {
       "post": {
+        "description": "BO-01: create the provider order once and hand the browser its approval URL.\n\n``payload.shipping`` is validated by the schema and, per N14/T05A01, not stored\nyet; the browser still sends no amount: the total is the stored order's (I3).",
         "operationId": "offers_continue",
         "parameters": [
           {
@@ -7649,6 +7659,7 @@
     },
     "/api/v1/offers/{buyer_order_id}/decline": {
       "post": {
+        "description": "BO-21 from OFFERED, BO-22 from ORDER_CREATED; the engine decides which.",
         "operationId": "offers_decline",
         "parameters": [
           {
@@ -7708,6 +7719,7 @@
     },
     "/api/v1/orders/{buyer_order_id}": {
       "get": {
+        "description": "The order status page: state, its history and the provider resource states.",
         "operationId": "orders_get",
         "parameters": [
           {

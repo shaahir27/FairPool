@@ -19,6 +19,11 @@ from fairpool.domain.payments import (
     TrackerResult,
 )
 
+#: A simulated approval link on a host that is never called. The real gateway always
+#: returns one, and api.md's offer disclosure requires the browser to receive one, so
+#: the fake returns a well-formed URL instead of ``None``.
+FAKE_APPROVE_URL = "https://paypal-approval.invalid/checkoutnow?token="
+
 
 class FakePayPalGateway:
     def __init__(self, *, outcome: str = "completed") -> None:
@@ -65,7 +70,7 @@ class FakePayPalGateway:
                 req.payee.merchant_id,
                 "FAKE-PAYER",
                 "US",
-                None,
+                FAKE_APPROVE_URL + self._id(key),
                 [],
                 [],
                 None,

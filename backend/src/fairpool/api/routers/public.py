@@ -4,14 +4,16 @@
 exactly what the close transaction wrote: ``rules_hash``, ``rules_document``,
 ``pool_status``, ``entries_root``, ``entries_count``, the sorted commitments and the
 audit checkpoints (``api.md`` "Public audit"; I11: the list is published before any
-seed exists). ``lots``, ``beacon``, ``seed_hex``, ``seed_is_demo`` and ``award`` stay
-at their empty schema defaults until Phase 4 (``T04A06``) produces that data: they
-are never invented or guessed here.
+seed exists). It also carries the ``lots`` with their awards, the announced ``beacon``
+and the ``seed_hex``/``seed_is_demo`` pair once the seed exists (T04A06); all of them
+are gated on the close, because a seed or an allocation that predates the published
+commitment list would describe a pool buyers are still entering.
 
-Nothing personal crosses this route. It returns hashes only: no salts, no caps, no
-user or entry ids, no addresses (FR-SL-06, I13). Before the pool closes, the
-commitment list and the audit checkpoints are withheld entirely, because publishing
-either early would let anyone read the pool's internals while buyers are still
+Nothing personal crosses this route. It returns hashes and public catalog data only:
+no salts, no caps, no user or entry ids, no addresses, and no entry ranks beyond the
+lot's own range (FR-SL-06, I13). Before the pool closes, the commitment list, the
+checkpoints, the lots and the seed are withheld entirely, because publishing any of
+them early would let anyone read the pool's internals while buyers are still
 entering it.
 """
 
@@ -82,6 +84,61 @@ async def _checkpoints(db: AsyncSession, pool_id: UUID) -> list[dict[str, Any]]:
     return [{"action": str(action), "hash": str(chain_hash)} for action, chain_hash in rows]
 
 
+async def _lots(db: AsyncSession, pool_id: UUID) -> list[dict[str, Any]]:
+    """The pool's lots with their award, and the rank span each lot covers.
+
+    ``rank_range`` is ``[lowest, highest]`` of the ranks the lot's allocations hold
+    and is empty for a lot that holds none (a cancelled lot, or one allocated before
+    its zone filled). The ranks are the pool's own ordering, not buyer data: no entry
+    id, cap or user is readable from them.
+    """
+    lots = (
+        await db.execute(
+            text(
+                "SELECT l.id, l.zone_id, l.lot_order, l.seats, l.status::text AS status, "
+                "a.item_cents, a.tier_index, a.award_hash, a.valid_until, m.display_name "
+                "FROM lots l "
+                "LEFT JOIN awards a ON a.id = l.award_id "
+                "LEFT JOIN merchants m ON m.id = a.merchant_id "
+                "WHERE l.pool_id = :pool ORDER BY l.lot_order"
+            ),
+            {"pool": str(pool_id)},
+        )
+    ).all()
+    spans = (
+        await db.execute(
+            text(
+                "SELECT lot_id, min(rank), max(rank) FROM allocations "
+                "WHERE pool_id = :pool AND lot_id IS NOT NULL GROUP BY lot_id"
+            ),
+            {"pool": str(pool_id)},
+        )
+    ).all()
+    by_lot = {row[0]: [int(row[1]), int(row[2])] for row in spans}
+    return [
+        {
+            "lot_id": row.id,
+            "zone_id": str(row.zone_id),
+            "lot_order": int(row.lot_order),
+            "seats": int(row.seats),
+            "status": str(row.status),
+            "rank_range": by_lot.get(row.id, []),
+            "award": (
+                None
+                if row.award_hash is None
+                else {
+                    "merchant_display_name": str(row.display_name or ""),
+                    "item_cents": int(row.item_cents),
+                    "tier_index": int(row.tier_index),
+                    "award_hash": str(row.award_hash),
+                    "valid_until": row.valid_until,
+                }
+            ),
+        }
+        for row in lots
+    ]
+
+
 @router.get(
     "/api/v1/public/pools/{pool_id}/audit",
     response_model=schemas.PublicAuditResponse,
@@ -103,6 +160,12 @@ async def public_audit(pool_id: UUID, db: AsyncSession = Depends(database_sessio
         # After close only: the sorted list is the published record of who was
         # eligible, and before the snapshot exists there is nothing to publish.
         "commitments": await _commitments(db, pool_id) if closed else [],
+        # The seed and the lots exist only after the close (pool.seed and
+        # pool.allocate run after the published list), so they follow the same gate.
+        "beacon": pool.beacon if closed else None,
+        "seed_hex": pool.seed_hex if closed else None,
+        "seed_is_demo": bool(pool.seed_is_demo) if closed else False,
+        "lots": await _lots(db, pool_id) if closed else [],
         # After close only, and on the status rather than on a column (api.md "Public
         # audit" frames both as what the close publishes): the checkpoint chain of a
         # pool that is still open is a running internal log, not an audit surface, and

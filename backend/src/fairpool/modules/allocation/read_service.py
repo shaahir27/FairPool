@@ -81,9 +81,18 @@ def _seat(row: Any) -> SeatView:
 
 
 class PostgresAllocationRead:
-    """The real ``AllocationReadService``; see the module docstring."""
+    """The real ``AllocationReadService``; see the module docstring.
+
+    ``calls`` records the method names this instance served. It exists so a test can
+    assert that the real service -- not ``FakeAllocationRead`` -- is the one wired
+    into checkout (IT-4, T04X01).
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
 
     async def get_lot(self, session: AsyncSession, lot_id: UUID) -> LotView:
+        self.calls.append("get_lot")
         row = (
             await session.execute(
                 text(
@@ -119,6 +128,7 @@ class PostgresAllocationRead:
         )
 
     async def get_award(self, session: AsyncSession, lot_id: UUID) -> AwardView:
+        self.calls.append("get_award")
         award = await session.scalar(select(Award).where(Award.lot_id == lot_id))
         if award is None:
             raise ApplicationError("NOT_FOUND")
@@ -144,6 +154,7 @@ class PostgresAllocationRead:
         )
 
     async def list_seated(self, session: AsyncSession, lot_id: UUID) -> list[SeatView]:
+        self.calls.append("list_seated")
         rows = (
             await session.execute(
                 select(
@@ -169,6 +180,7 @@ class PostgresAllocationRead:
         self, session: AsyncSession, lot_id: UUID, count: int
     ) -> list[SeatView]:
         """Flip up to ``count`` affordable waitlisted allocations to SEATED (N12)."""
+        self.calls.append("next_candidates")
         if count <= 0:
             return []
         lot = await self.get_lot(session, lot_id)

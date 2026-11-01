@@ -67,3 +67,36 @@ class PostgresAuditLog:
         if seq is None:
             raise RuntimeError("audit insert returned no sequence")
         return int(seq)
+
+    async def verify_chain(self, session: AsyncSession) -> bool:
+        """Recompute the chain from the rows themselves (fairness-and-hashing.md §8).
+
+        ``FakeAuditLog`` carries the same method, so a test can check a pipeline's
+        chain the same way whether its rows live in memory or in Postgres (IT-4). Each
+        hash is recomputed from ``prev_hash`` and the stored row; the stored ``hash``
+        column is only compared with, never trusted.
+        """
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT prev_hash, hash, actor, action, subject_type, subject_id, "
+                    "payload, created_at FROM audit_log ORDER BY seq"
+                )
+            )
+        ).all()
+        prev_hash = ZERO_HASH
+        for row in rows:
+            if str(row.prev_hash) != prev_hash:
+                return False
+            document = {
+                "actor": str(row.actor),
+                "action": str(row.action),
+                "subject_type": str(row.subject_type),
+                "subject_id": None if row.subject_id is None else str(row.subject_id),
+                "payload": dict(row.payload),
+                "created_at": row.created_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            }
+            if audit_hash(prev_hash, document) != str(row.hash):
+                return False
+            prev_hash = str(row.hash)
+        return True

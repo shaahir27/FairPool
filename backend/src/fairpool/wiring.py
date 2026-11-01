@@ -1,12 +1,62 @@
-"""Composition root: select simulation before constructing network dependencies."""
+"""Composition root: select simulation before constructing network dependencies.
+
+``checkout_services`` builds every checkout dependency exactly once -- one engine,
+one allocation read service, one merchant directory, one router over one gateway --
+and both the HTTP routes and the worker handlers use those objects. That is what
+makes a test that counts calls on them count the real ones (T04X01, IT-4).
+
+``worker_handlers`` registers the kinds Phase 4 actually implements and nothing
+else. Everything else stays PENDING and unclaimed on purpose: an enqueue is not
+evidence that work happened, and registering a half-handler would let a queue look
+like a feature (``domain-ports.md`` section 5, CR-3).
+"""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Final
 
 from fairpool.adapters.paypal.gateway import RestPayPalGateway
 from fairpool.config import Settings
+from fairpool.domain.errors import ApplicationError
 from fairpool.domain.payments import NotEnabled, Payee
 from fairpool.fakes.payments import FakePayPalGateway
 from fairpool.ports import AwardView, PayeeRef
+
+if TYPE_CHECKING:
+    from fairpool.infra.crypto import AesGcmCipher
+    from fairpool.modules.allocation.read_service import PostgresAllocationRead
+    from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
+    from fairpool.modules.checkout.engine import CheckoutEngine
+    from fairpool.modules.checkout.funding import FundingService
+    from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
+    from fairpool.modules.checkout.refill import RefillService
+    from fairpool.modules.checkout.vault_charge import VaultChargeHandler
+    from fairpool.modules.merchants.directory import PostgresMerchantDirectory
+
+#: ``domain-ports.md`` section 5 kinds this phase implements, in registration order.
+#: A kind is here because its handler exists, and a handler is registered because
+#: its kind is here: ``tests/unit/test_worker_registry.py`` proves both directions.
+IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
+    {
+        "pool.open",
+        "pool.close",
+        "pool.seed",
+        "pool.allocate",
+        "search.index",
+        "lot.open_checkout",
+        "offer.expire",
+        "order.vault_charge",
+        "order.authorize",
+        "order.capture",
+        "capture.poll",
+        "lot.try_fund",
+        "lot.refill",
+        "lot.finalize_close",
+        "order.resolve",
+        "reconciler.sweep",
+    }
+)
 
 
 @dataclass
@@ -39,6 +89,125 @@ def payment_router(
         "single_seller",
         RestPayPalGateway(settings),
         Payee(settings.single_seller_email, settings.single_seller_merchant_id or None),
+    )
+
+
+class _VaultKeyMissing:
+    """The cipher when ``VAULT_TOKEN_KEY`` is absent.
+
+    ``PAYMENT_MODE=vault_charge`` requires the key (config-and-errors.md), so this
+    stands only for the modes where ``order.vault_charge`` is never enqueued. If one
+    ever runs anyway, the failure is an allowlisted code, never a plaintext token.
+    """
+
+    def open(self, nonce: bytes, ciphertext: bytes) -> str:
+        del nonce, ciphertext
+        raise ApplicationError("INTERNAL_ERROR")
+
+
+def _vault_cipher(settings: Settings) -> AesGcmCipher | _VaultKeyMissing:
+    from fairpool.infra.crypto import AesGcmCipher
+
+    if settings.vault_token_key is None:
+        return _VaultKeyMissing()
+    return AesGcmCipher.from_config_value(settings.vault_token_key.get_secret_value())
+
+
+def merchant_directory(settings: Settings) -> PostgresMerchantDirectory:
+    from fairpool.modules.merchants.directory import PostgresMerchantDirectory
+
+    return PostgresMerchantDirectory(
+        payment_router=settings.payment_router,
+        single_seller_email=settings.single_seller_email,
+        single_seller_merchant_id=settings.single_seller_merchant_id,
+    )
+
+
+@dataclass
+class CheckoutServices:
+    """Every Phase 4 checkout dependency, built once per process or per app."""
+
+    engine: CheckoutEngine
+    allocations: PostgresAllocationRead
+    directory: PostgresMerchantDirectory
+    router: PaymentRouter
+    authorize: CheckoutAuthorizeHandlers
+    open_checkout: OpenCheckoutHandler
+    refill: RefillService
+    funding: FundingService
+    vault_charge: VaultChargeHandler
+
+
+def checkout_services(settings: Settings) -> CheckoutServices:
+    from fairpool.infra.audit import PostgresAuditLog
+    from fairpool.infra.clock import DbClock
+    from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.allocation.read_service import PostgresAllocationRead
+    from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
+    from fairpool.modules.checkout.funding import FundingService
+    from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
+    from fairpool.modules.checkout.refill import RefillService
+    from fairpool.modules.checkout.vault_charge import VaultChargeHandler
+    from fairpool.modules.ledger.service import PostgresLedger
+    from fairpool.modules.notify.service import PostgresNotifier
+
+    engine = checkout_engine(settings)
+    allocations = PostgresAllocationRead()
+    directory = merchant_directory(settings)
+    router = payment_router(settings)
+    return CheckoutServices(
+        engine=engine,
+        allocations=allocations,
+        directory=directory,
+        router=router,
+        authorize=CheckoutAuthorizeHandlers(
+            engine=engine,
+            clock=DbClock(),
+            jobs=PostgresJobQueue(),
+            allocations=allocations,
+            directory=directory,
+            router=router,
+            hmac_key=settings.hmac_key.get_secret_value(),
+            allowed_payer_countries=settings.allowed_payer_countries,
+            dedupe_mode=settings.dedupe_mode,
+            public_base_url=settings.public_base_url,
+            payload_level=settings.paypal_payload_level,
+        ),
+        open_checkout=OpenCheckoutHandler(
+            clock=DbClock(),
+            audit=PostgresAuditLog(),
+            jobs=PostgresJobQueue(),
+            notifier=PostgresNotifier(),
+            allocations=allocations,
+        ),
+        refill=RefillService(
+            clock=DbClock(),
+            audit=PostgresAuditLog(),
+            jobs=PostgresJobQueue(),
+            allocations=allocations,
+        ),
+        funding=FundingService(
+            engine=engine,
+            clock=DbClock(),
+            audit=PostgresAuditLog(),
+            jobs=PostgresJobQueue(),
+            notifier=PostgresNotifier(),
+            ledger=PostgresLedger(),
+            allocations=allocations,
+            gateway=router.gateway,
+            capture_concurrency=settings.capture_concurrency,
+            capture_buffer=settings.capture_buffer,
+        ),
+        vault_charge=VaultChargeHandler(
+            engine=engine,
+            clock=DbClock(),
+            jobs=PostgresJobQueue(),
+            allocations=allocations,
+            directory=directory,
+            router=router,
+            cipher=_vault_cipher(settings),
+            concurrency=settings.vault_charge_concurrency,
+        ),
     )
 
 
@@ -81,32 +250,63 @@ def checkout_engine(settings: Settings):
     )
 
 
-def worker_handlers(settings: Settings):
-    """Only the kinds Phase 3 actually implements (T03A02, T03B02, T03B04).
+def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None):
+    """The kinds in :data:`IMPLEMENTED_JOB_KINDS`, and nothing else.
 
-    Everything else stays PENDING and unclaimed on purpose: an enqueue is not
-    evidence that work happened, and registering a half-handler would let a queue
-    look like a feature.
+    ``checkout`` lets a caller share one checkout graph with the worker (IT-4 builds
+    it, counts calls on the real services, and passes it here); the worker itself
+    builds its own when none is given.
     """
+    from fairpool.adapters.beacon.announcement import BeaconAnnouncement
     from fairpool.infra.audit import PostgresAuditLog
     from fairpool.infra.clock import DbClock
     from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.allocation.service import AllocationService
     from fairpool.modules.checkout.expiry import OfferExpiry
     from fairpool.modules.notify.service import PostgresNotifier
     from fairpool.modules.pools.close import PoolCloseService
+    from fairpool.modules.pools.seed import PoolSeedService
+    from fairpool.modules.pools.service import PoolService
+    from fairpool.modules.reconciler.resolve import Reconciler
     from fairpool.modules.search.handlers import search_index_handler
     from fairpool.modules.search.indexer import build_search_indexer
 
     clock, audit, jobs = DbClock(), PostgresAuditLog(), PostgresJobQueue()
-    expiry = OfferExpiry(engine=checkout_engine(settings), jobs=jobs)
+    beacon = BeaconAnnouncement(
+        mode=settings.beacon_mode,
+        base_url=settings.drand_base_url,
+        chain_hash=settings.drand_chain_hash,
+    )
+    pools = PoolService(clock, audit, jobs, beacon)
     close = PoolCloseService(
         clock, audit, jobs, PostgresNotifier(), payment_mode=settings.payment_mode
     )
+    seed = PoolSeedService(clock, audit, jobs, beacon)
+    allocation = AllocationService(clock, audit)
+    surface = checkout if checkout is not None else checkout_services(settings)
+    expiry = OfferExpiry(engine=surface.engine, jobs=jobs)
+    reconciler = Reconciler(clock=clock, jobs=jobs)
+
+    async def sweep(session, payload) -> None:
+        await reconciler.sweep(session, payload)
+
     return {
-        "pool.open": pool_service(settings).open,
+        "pool.open": pools.open,
         "pool.close": close.close,
-        "offer.expire": expiry.expire,
+        "pool.seed": seed.seed,
+        "pool.allocate": allocation.allocate,
         "search.index": search_index_handler(build_search_indexer(settings)),
+        "lot.open_checkout": surface.open_checkout.open,
+        "offer.expire": expiry.expire,
+        "order.vault_charge": surface.vault_charge.charge,
+        "order.authorize": surface.authorize.authorize,
+        "order.capture": surface.funding.capture,
+        "capture.poll": surface.funding.poll,
+        "lot.try_fund": surface.funding.try_fund,
+        "lot.refill": surface.refill.refill,
+        "lot.finalize_close": surface.funding.finalize_close,
+        "order.resolve": reconciler.resolve,
+        "reconciler.sweep": sweep,
     }
 
 

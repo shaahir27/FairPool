@@ -370,7 +370,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Checkout Cancel */
+        /**
+         * Checkout Cancel
+         * @description api.md: an ORDER_CREATED order moves to DECLINED (BO-22), then redirect.
+         */
         get: operations["checkout_cancel"];
         put?: never;
         post?: never;
@@ -404,7 +407,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Checkout Config */
+        /**
+         * Checkout Config
+         * @description Public SDK values only: no secret, no token, no amount (api.md section 4.1).
+         */
         get: operations["checkout_config"];
         put?: never;
         post?: never;
@@ -421,7 +427,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Checkout Return */
+        /**
+         * Checkout Return
+         * @description The provider redirect: the token only finds our row, then PayPal's GET decides.
+         */
         get: operations["checkout_return"];
         put?: never;
         post?: never;
@@ -492,7 +501,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Intake Confirm */
+        /**
+         * Intake Confirm
+         * @description Confirm a proposal into the canonical request the join endpoint consumes.
+         */
         post: operations["intake_confirm"];
         delete?: never;
         options?: never;
@@ -533,7 +545,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Intake Messages */
+        /**
+         * Intake Messages
+         * @description One turn: a confirmation card, one clarifying question, or the manual form.
+         */
         post: operations["intake_messages"];
         delete?: never;
         options?: never;
@@ -617,7 +632,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Me Orders */
+        /**
+         * Me Orders
+         * @description Every order of this buyer with the receipt that goes with it.
+         */
         get: operations["me_orders"];
         put?: never;
         post?: never;
@@ -924,7 +942,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Offers Get */
+        /**
+         * Offers Get
+         * @description The offer disclosure: catalog terms, awarded totals and the buyer's cap.
+         */
         get: operations["offers_get"];
         put?: never;
         post?: never;
@@ -943,7 +964,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Offers Approved */
+        /**
+         * Offers Approved
+         * @description The SDK ``onApprove`` hint: verify it names our order, then run the checks.
+         */
         post: operations["offers_approved"];
         delete?: never;
         options?: never;
@@ -960,7 +984,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Offers Cancelled */
+        /**
+         * Offers Cancelled
+         * @description The SDK ``onCancel`` hint: ORDER_CREATED moves to DECLINED (BO-22), idempotently.
+         */
         post: operations["offers_cancelled"];
         delete?: never;
         options?: never;
@@ -977,7 +1004,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Offers Continue */
+        /**
+         * Offers Continue
+         * @description BO-01: create the provider order once and hand the browser its approval URL.
+         *
+         *     ``payload.shipping`` is validated by the schema and, per N14/T05A01, not stored
+         *     yet; the browser still sends no amount: the total is the stored order's (I3).
+         */
         post: operations["offers_continue"];
         delete?: never;
         options?: never;
@@ -994,7 +1027,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Offers Decline */
+        /**
+         * Offers Decline
+         * @description BO-21 from OFFERED, BO-22 from ORDER_CREATED; the engine decides which.
+         */
         post: operations["offers_decline"];
         delete?: never;
         options?: never;
@@ -1009,7 +1045,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Orders Get */
+        /**
+         * Orders Get
+         * @description The order status page: state, its history and the provider resource states.
+         */
         get: operations["orders_get"];
         put?: never;
         post?: never;

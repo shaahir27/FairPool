@@ -112,6 +112,22 @@ async def admin_lot_force_award(
             )
         )
     ).all()
+    # A seat refilled from the waitlist is priced from the award it joins, so a flat
+    # award prices every candidate of the lot's zone, not only today's seated rows:
+    # ``open_checkout.create_offer`` reads a total for the seat it is about to offer
+    # and cannot offer a seat the award does not price. Waitlisted rows keep their
+    # lot_id NULL, so this read is scoped by zone rather than by the lot column.
+    candidates = (
+        await db.execute(
+            select(Allocation.entry_id)
+            .join(PoolEntry, PoolEntry.id == Allocation.entry_id)
+            .where(
+                Allocation.pool_id == lot.pool_id,
+                Allocation.zone_id == lot.zone_id,
+                Allocation.status.in_([AllocationStatus.SEATED, AllocationStatus.WAITLISTED]),
+            )
+        )
+    ).all()
     totals = {
         str(entry_id): {
             "item_cents": item_cents,
@@ -119,7 +135,7 @@ async def admin_lot_force_award(
             "tax_cents": 0,
             "total_cents": item_cents,
         }
-        for entry_id, _ in seated
+        for (entry_id,) in candidates
     }
     document = {
         "v": 1,
