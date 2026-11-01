@@ -25,7 +25,7 @@ from fairpool.infra.crypto import AesGcmCipher, key_from_config_value
 from fairpool.modules.allocation.read_service import PostgresAllocationRead
 from fairpool.modules.checkout.vault_charge import VaultChargeHandler, _slot_key
 from fairpool.modules.reconciler.resolve import Reconciler
-from tests.integration.test_funding import funding_service
+from tests.integration.test_funding import capture_status, funding_service
 from tests.integration.test_open_checkout import (
     FakeRouter,
     World,
@@ -129,15 +129,6 @@ async def order_status(session: AsyncSession, buyer_order_id: UUID) -> str:
     )
 
 
-async def capture_status(session: AsyncSession, buyer_order_id: UUID) -> str:
-    return str(
-        await session.scalar(
-            text("SELECT status FROM paypal_captures WHERE buyer_order_id = :id"),
-            {"id": buyer_order_id},
-        )
-    )
-
-
 async def test_vault_charge_completes_and_records_the_ledger(
     db_session: AsyncSession,
 ) -> None:
@@ -153,10 +144,7 @@ async def test_vault_charge_completes_and_records_the_ledger(
         world.ports.ledger.entries[0].amount_cents
         == world.totals[str(world.entry_ids[0])]["total_cents"]
     )
-    capture_status = await db_session.scalar(
-        text("SELECT status FROM paypal_captures WHERE buyer_order_id = :id"), {"id": order_id}
-    )
-    assert str(capture_status) == "COMPLETED"
+    assert await capture_status(db_session, order_id) == "COMPLETED"
     assert router.gateway.captures  # the fake produced one capture resource
     assert [job.kind for job in world.ports.jobs.jobs].count("lot.try_fund") == 1
 
@@ -430,6 +418,125 @@ async def test_a_timed_out_charge_the_provider_declined_is_resolved_to_failed(
     assert world.ports.ledger.entries == []
     assert await capture_status(db_session, order_id) == "DECLINED"
     assert [job.kind for job in world.ports.jobs.jobs].count("lot.refill") == 1
+
+
+class ReadBackContradictsGateway(FakePayPalGateway):
+    """The charge answer is unreadable; the read-back proves a capture we cannot accept.
+
+    ``amount_delta`` moves the provider's captured amount and ``payee_email`` replaces
+    (or, when ``None``, drops) the payee the order GET reports, which is exactly the
+    evidence BO-24 refuses on every sweep.
+    """
+
+    def __init__(self, *, amount_delta: int = 0, payee_email: str | None = None) -> None:
+        super().__init__(outcome="completed")
+        self.amount_delta = amount_delta
+        self.read_back_payee = payee_email
+        self.answered = False
+        self.charge_calls = 0
+
+    async def charge_vault(
+        self, buyer_order_id: str, payment_token_id: str, total_cents: int, payee: Any
+    ) -> ChargeResult:
+        self.charge_calls += 1
+        result = await super().charge_vault(buyer_order_id, payment_token_id, total_cents, payee)
+        if not self.answered:
+            self.answered = True
+            # The provider took the charge; only our answer was unreadable.
+            return replace(result, capture_status="UNKNOWN")
+        return result
+
+    async def get_order(self, paypal_order_id: str) -> Any:
+        order = await super().get_order(paypal_order_id)
+        (capture,) = order.captures
+        adjusted = replace(capture, amount_cents=capture.amount_cents + self.amount_delta)
+        return replace(order, captures=[adjusted], payee_email=self.read_back_payee)
+
+
+def router_with(gateway: FakePayPalGateway) -> FakeRouter:
+    """A router whose stamped seller is the payee the tests expect (V2)."""
+    return FakeRouter(gateway=gateway, seller=Payee(email="seller@example.test", merchant_id=None))
+
+
+@pytest.mark.parametrize(
+    ("gateway_kwargs", "reason"),
+    [
+        ({"amount_delta": 1, "payee_email": "seller@example.test"}, "AMOUNT_MISMATCH"),
+        ({"payee_email": "someone-else@example.test"}, "PAYEE_MISMATCH"),
+    ],
+)
+async def test_a_read_back_that_contradicts_the_award_fails_the_seat_once(
+    db_session: AsyncSession, gateway_kwargs: dict[str, Any], reason: str
+) -> None:
+    """FIX 2: contradicted evidence settles CAPTURE_FAILED with its reason, not a loop.
+
+    A COMPLETED capture for another amount or payee never satisfies BO-24, so the sweep
+    fails the seat on the provider's own facts: the reason is stored, BO-26's vacancy
+    and refill run, no ledger fact is written, and the row is terminal for the next
+    sweep instead of refusing again.
+    """
+    world, _, _, _ = await vault_world(db_session, seats=1)
+    gateway = ReadBackContradictsGateway(**gateway_kwargs)
+    handler = vault_handler(world, router_with(gateway))
+    order_id = await first_order(db_session, world)
+    await handler.charge(db_session, {"buyer_order_id": str(order_id)})
+    assert await order_status(db_session, order_id) == "CAPTURING"
+    world.ports.jobs.jobs.clear()
+
+    await sweep_to(world, handler, order_id)
+
+    assert await order_status(db_session, order_id) == "CAPTURE_FAILED"
+    stored = await db_session.scalar(
+        text("SELECT reject_reason FROM buyer_orders WHERE id = :id"), {"id": order_id}
+    )
+    assert str(stored) == reason
+    assert world.ports.ledger.entries == []
+    assert [job.kind for job in world.ports.jobs.jobs].count("lot.refill") == 1
+    audit_text = json.dumps(world.ports.audit.rows)
+    assert reason in audit_text, "the reason is recorded with the transition"
+
+    world.ports.clock.advance(121)
+    assert await reconciler_for(world, handler).sweep(db_session, {}) == 0
+    assert await order_status(db_session, order_id) == "CAPTURE_FAILED"
+
+
+async def test_a_read_back_with_no_payee_is_bounded_then_fails_as_unverifiable(
+    db_session: AsyncSession,
+) -> None:
+    """FIX 2: no payee to compare is retried inside a bounded window, then terminal.
+
+    Three sweeps each a capture grace apart: the first two keep the row CAPTURING
+    because the provider's answer could still be completed later, and the third
+    settles CAPTURE_FAILED with UNVERIFIABLE in the audit evidence (the contracted
+    reject-reason list has no such code, so none is invented).
+    """
+    world, _, _, _ = await vault_world(db_session, seats=1)
+    gateway = ReadBackContradictsGateway(payee_email=None)
+    handler = vault_handler(world, router_with(gateway))
+    order_id = await first_order(db_session, world)
+    await handler.charge(db_session, {"buyer_order_id": str(order_id)})
+    assert await order_status(db_session, order_id) == "CAPTURING"
+    assert gateway.charge_calls == 1
+    reconciler = reconciler_for(world, handler)
+
+    for expected in ("CAPTURING", "CAPTURING"):
+        world.ports.clock.advance(121)
+        assert await reconciler.sweep(db_session, {}) == 1
+        await reconciler.resolve(db_session, {"buyer_order_id": str(order_id)})
+        assert await order_status(db_session, order_id) == expected
+
+    world.ports.clock.advance(121)
+    assert await reconciler.sweep(db_session, {}) == 1
+    await reconciler.resolve(db_session, {"buyer_order_id": str(order_id)})
+
+    assert await order_status(db_session, order_id) == "CAPTURE_FAILED"
+    assert gateway.charge_calls == 1, "the read-back never became a second charge"
+    stored = await db_session.scalar(
+        text("SELECT reject_reason FROM buyer_orders WHERE id = :id"), {"id": order_id}
+    )
+    assert stored is None, "UNVERIFIABLE is not a contracted reject reason"
+    assert "UNVERIFIABLE" in json.dumps(world.ports.audit.rows)
+    assert world.ports.ledger.entries == []
 
 
 class WrongAmountGateway(FakePayPalGateway):

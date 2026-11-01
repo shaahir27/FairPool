@@ -1487,7 +1487,7 @@
         "additionalProperties": false,
         "properties": {
           "item_cents": {
-            "minimum": 0.0,
+            "minimum": 1.0,
             "title": "Item Cents",
             "type": "integer"
           },

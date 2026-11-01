@@ -72,9 +72,12 @@ MANUAL_FORM_INSTRUCTION: Final[str] = (
 )
 
 NO_CHARGE_NOTICE: Final[str] = (
-    "Nothing is charged now. When you approve a specific offer on PayPal it places a "
-    "hold for that exact price; if this pool is saved-PayPal mode, your saved account "
-    "is instead charged once after the award and never above your maximum."
+    # Mode-neutral on purpose: under PAYMENT_MODE=vault_charge no hold is ever placed,
+    # and the card cannot know a lot's stamped mode yet, so it promises no charge and
+    # no hold at all (Q-2026-11-01-19; api.md's sentence needs a change request).
+    "Nothing is charged now. A merchant and an exact price are confirmed first, you are "
+    "never charged above the maximum you set here, and any payment follows your own "
+    "approval of that offer."
 )
 LOTS_MAY_DIFFER_NOTICE: Final[str] = (
     "Separate lots in this pool can end with different winning merchants and prices."

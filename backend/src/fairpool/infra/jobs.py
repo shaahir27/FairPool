@@ -64,6 +64,11 @@ class PostgresJobQueue(JobQueue):
                 # a capture that completes before the deadline timer pulls funding
                 # forward instead of waiting for it (domain-ports.md section 5, I5).
                 "DO UPDATE SET run_at = LEAST(jobs.run_at, EXCLUDED.run_at) "
+                # Only a PENDING row may absorb the event. A RUNNING handler may have
+                # read its counts already, so merging into it would lose the event and
+                # leave the lot with no future trigger; the WHERE makes this statement
+                # return no row in that case and the insert below takes over.
+                "WHERE jobs.status = 'PENDING' "
                 "RETURNING id"
             ),
             {
@@ -75,9 +80,29 @@ class PostgresJobQueue(JobQueue):
                 "dedupe_key": dedupe_key,
             },
         )
+        if inserted is None:
+            # The key belongs to a RUNNING job, so this enqueue is its own job with no
+            # dedupe key: it is guaranteed to run, and the running job's own
+            # concurrency_key still serialises the two (domain-ports.md section 5).
+            await session.execute(
+                text(
+                    "INSERT INTO jobs "
+                    "(id, kind, run_at, payload, concurrency_key, dedupe_key) "
+                    "VALUES (:id, :kind, COALESCE(CAST(:run_at AS timestamptz), now()), "
+                    "CAST(:payload AS jsonb), :concurrency_key, NULL)"
+                ),
+                {
+                    "id": job_id,
+                    "kind": kind,
+                    "run_at": run_at,
+                    "payload": json.dumps(payload),
+                    "concurrency_key": concurrency_key,
+                },
+            )
+            return job_id
         # ``DO UPDATE`` returns the row that already owned the key, so the caller still
-        # sees ``None`` for "this enqueue was coalesced into an existing job".
-        return job_id if inserted is not None and inserted == job_id else None
+        # sees ``None`` for "this enqueue was coalesced into a pending job".
+        return job_id if inserted == job_id else None
 
     async def claim(
         self,

@@ -41,21 +41,27 @@ class FakeJobQueue:
         dedupe_key: str | None = None,
     ) -> UUID | None:
         self.calls.append(f"enqueue:{kind}")
+        coalesced_key = dedupe_key
         if dedupe_key is not None:
             for existing in self.jobs:
-                if existing.dedupe_key == dedupe_key and existing.status in {"PENDING", "RUNNING"}:
+                if existing.dedupe_key == dedupe_key and existing.status == "PENDING":
                     # Same rule as ``infra/jobs.py``: the coalesced event is not lost,
                     # the earlier run_at wins (domain-ports.md section 5).
                     moment = run_at or self.clock.now
                     existing.run_at = min(existing.run_at, moment)
                     return None
+                if existing.dedupe_key == dedupe_key and existing.status == "RUNNING":
+                    # A running handler may have read its counts already, so this event
+                    # gets its own row with no dedupe key instead of being merged into
+                    # it (``infra/jobs.py`` enqueue).
+                    coalesced_key = None
         job = FakeJob(
             id=uuid4(),
             kind=kind,
             payload=dict(payload),
             run_at=run_at or self.clock.now,
             concurrency_key=concurrency_key,
-            dedupe_key=dedupe_key,
+            dedupe_key=coalesced_key,
         )
         self.jobs.append(job)
         return job.id

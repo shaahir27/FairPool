@@ -809,7 +809,12 @@ def test_both_fallback_modes_keep_the_checkout_ladder(fallback_mode: str) -> Non
 
 
 def test_refund_edges_work_in_every_mode() -> None:
-    """T03A01 acceptance 7: refunds are mode-independent (LS-10, vault-charge.md 7)."""
+    """T03A01 acceptance 7: the mode-independent edges work in every stamped mode.
+
+    ``MODE_INDEPENDENT`` is the refund pair (BO-13/BO-14) plus the capture polls
+    (BO-09/BO-10): a capture that already exists is polled the same way whatever the
+    mode, and LS-10 refunds every completed capture (vault-charge.md section 7).
+    """
     for mode in ("vault_charge", "authorize_capture", "capture_only"):
         for transition_id in sorted(checkout_guards.MODE_INDEPENDENT):
             assert (

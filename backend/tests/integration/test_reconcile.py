@@ -19,6 +19,9 @@ end over the real fakes and the Postgres rows, one test per acceptance bullet:
 
 from __future__ import annotations
 
+import asyncio
+import threading
+import time
 from dataclasses import replace
 from typing import Any
 from uuid import UUID, uuid4
@@ -40,9 +43,9 @@ from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
 from fairpool.modules.checkout.vault_charge import VaultChargeHandler
 from fairpool.modules.reconciler.resolve import Reconciler
 from tests.integration.test_authorize_flow import authorize_handler, open_offers
+from tests.integration.test_funding import capture_status
 from tests.integration.test_open_checkout import FakeRouter, World, build_world
 from tests.integration.test_vault_charge import (
-    capture_status,
     first_order,
     order_status,
     vault_handler,
@@ -368,3 +371,98 @@ async def test_the_sweep_cron_enqueues_one_coalescing_job_per_tick(
             await session.execute(
                 text("DELETE FROM jobs WHERE kind = :kind"), {"kind": worker.RECONCILER_KIND}
             )
+
+
+# ------------------------------------------------------- the cron thread (FIX 4)
+
+
+def cron_engine() -> Any:
+    """The engine the cron thread creates for itself, built from the test database."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from fairpool.db.session import normalize_database_url
+    from tests.conftest import database_url
+
+    url, connect_args = normalize_database_url(database_url())
+    return create_async_engine(url, connect_args=connect_args, poolclass=NullPool)
+
+
+async def delete_cron_rows(engine: AsyncEngine) -> None:
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory.begin() as session:
+        await session.execute(
+            text("DELETE FROM jobs WHERE kind = :kind"), {"kind": worker.RECONCILER_KIND}
+        )
+
+
+async def test_the_reconciler_thread_enqueues_one_coalesced_sweep(
+    db_engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FIX 4: ``start_reconciler_thread`` makes one tick, and its stop event ends it.
+
+    The thread owns its engine, so the test hands it the test database's URL and
+    watches the queue: a single tick enqueues ``reconciler.sweep`` with the contract's
+    one concurrency key and dedupe key, and setting the event stops the thread within
+    its interval instead of waiting for it (``domain-ports.md`` section 5).
+    """
+    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    await delete_cron_rows(db_engine)
+    monkeypatch.setattr(worker, "create_engine", lambda *args, **kwargs: cron_engine())
+    monkeypatch.setattr(worker, "get_settings", lambda: None)
+    stop = threading.Event()
+    thread = worker.start_reconciler_thread(stop, interval_s=60.0)
+    try:
+        rows: list[Any] = []
+        for _ in range(250):
+            async with factory() as session:
+                rows = (
+                    await session.execute(
+                        text(
+                            "SELECT status, concurrency_key, dedupe_key FROM jobs "
+                            "WHERE kind = :kind"
+                        ),
+                        {"kind": worker.RECONCILER_KIND},
+                    )
+                ).all()
+            if rows:
+                break
+            await asyncio.sleep(0.02)
+        assert len(rows) == 1, "one tick, one job"
+        assert tuple(rows[0]) == ("PENDING", worker.RECONCILER_KEY, worker.RECONCILER_KEY)
+    finally:
+        stop.set()
+        thread.join(timeout=10)
+    assert not thread.is_alive(), "the stop event ends the cron without its interval"
+    await delete_cron_rows(db_engine)
+
+
+def test_a_failing_tick_is_logged_and_never_kills_the_cron(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """FIX 4: a tick that cannot enqueue is named in the log, not raised out of the thread."""
+    messages: list[str] = []
+
+    async def broken(factory: Any) -> None:
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr(worker, "create_engine", lambda *args, **kwargs: cron_engine())
+    monkeypatch.setattr(worker, "get_settings", lambda: None)
+    monkeypatch.setattr(worker, "reconciler_tick", broken)
+    monkeypatch.setattr(
+        worker.logger,
+        "error",
+        lambda message, *args, **kwargs: messages.append(message % args),
+    )
+    stop = threading.Event()
+    thread = worker.start_reconciler_thread(stop, interval_s=60.0)
+    try:
+        for _ in range(250):
+            if messages:
+                break
+            time.sleep(0.02)
+        assert messages == ["worker.reconciler_tick.failed type=RuntimeError"]
+    finally:
+        stop.set()
+        thread.join(timeout=10)
+    assert not thread.is_alive()

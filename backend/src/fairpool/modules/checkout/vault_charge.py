@@ -24,7 +24,9 @@ is what ``order.resolve`` runs for it. It reads the provider resource back by th
 stored order id (or replays the logical charge under the same key when the provider
 never returned an id) and applies the outcome with that same identity, so an unknown
 outcome is settled by evidence and never by a second charge (vault-charge.md
-section 7).
+section 7). Evidence that contradicts the award is not retried forever either: the
+seat is failed with its reason, and an answer with no payee to compare against is
+retried only inside a bounded window (``UNVERIFIABLE_SWEEPS``).
 
 The saved payment token is a credential: it is decrypted here, passed to the
 gateway, and never written to a log record, audit payload, notification or return
@@ -35,6 +37,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from datetime import timedelta
 from typing import Any, Final, Protocol
 from uuid import UUID, uuid4
 
@@ -67,6 +70,13 @@ SLOT_NAMESPACE: Final[str] = "fairpool/vault-charge-slot/v1"
 
 #: How soon a charge retries when every slot is busy.
 SLOT_RETRY_S: Final[int] = 5
+
+#: An unverifiable read-back may span this many ``capture_grace_s`` windows from the
+#: moment the order entered CAPTURING before the seat is settled CAPTURE_FAILED, so
+#: ``order.resolve`` terminates instead of failing every sweep forever. The count is
+#: this window rather than ``current_attempt``: that column is the re-quote counter
+#: (N9) and moving it would change the charge's own identity (Q-2026-11-01-20).
+UNVERIFIABLE_SWEEPS: Final[int] = 3
 
 _INT64_SPAN: Final[int] = 1 << 63
 
@@ -185,7 +195,9 @@ class VaultChargeHandler:
         provider resource is read back by the order id persisted when the provider
         answered; when it never answered, the charge is replayed under the same
         logical key ``vc:{buyer_order_id}``, so the provider sees one operation and a
-        replay returns the original (never a second charge, I9).
+        replay returns the original (never a second charge, I9). A read-back that can
+        never satisfy BO-24 is settled CAPTURE_FAILED within a bounded window instead of
+        being refused on every sweep (``_settle_evidence``).
         """
         order = await session.scalar(select(BuyerOrder).where(BuyerOrder.id == buyer_order_id))
         if order is None:
@@ -220,7 +232,91 @@ class VaultChargeHandler:
             # read back, so the row stays CAPTURING and the alert names the order.
             logger.error("checkout.vault_charge.reconcile_unavailable buyer_order_id=%s", order.id)
             return
+        await self._settle_evidence(session, order=order, result=result, payee=payee)
+
+    async def _settle_evidence(
+        self, session: AsyncSession, *, order: BuyerOrder, result: ChargeResult, payee: Payee
+    ) -> None:
+        """Settle a read-back, and end it when the evidence can never satisfy BO-24.
+
+        A COMPLETED capture whose amount or payee contradicts the award fails the
+        guard on every sweep, so leaving the row CAPTURING would make ``order.resolve``
+        fail every interval forever. Two contradictions are definitive and settle
+        CAPTURE_FAILED at once; a capture with no payee to compare against is retried
+        for a bounded window first (Q-2026-11-01-20). A provider that holds nothing
+        still keeps the row where it is, because nothing was contradicted (B2).
+        """
+        status = str(result.capture_status or "")
+        if status != checkout_guards.CAPTURE_COMPLETED:
+            await self._settle(session, order=order, result=result, payee=payee)
+            return
+        total_cents = int(order.total_cents)
+        problem = self._contradiction(result, payee=payee, total_cents=total_cents)
+        if problem is not None and problem != "UNVERIFIABLE":
+            await self._fail_on_evidence(session, order=order, result=result, reason=problem)
+            return
+        if problem == "UNVERIFIABLE":
+            view = await self.allocations.get_lot(session, order.lot_id)
+            grace_s = int(getattr(view, "capture_grace_s", 120))
+            wall_now = await self.clock.db_wall_now(session)
+            horizon = order.updated_at + timedelta(seconds=grace_s * UNVERIFIABLE_SWEEPS)
+            if wall_now < horizon:
+                logger.error(
+                    "checkout.vault_charge.unverifiable buyer_order_id=%s "
+                    "capture_id=%s retry_until=%s",
+                    order.id,
+                    result.capture_id,
+                    horizon.isoformat(),
+                )
+                return
+            await self._fail_on_evidence(session, order=order, result=result, reason=problem)
+            return
         await self._settle(session, order=order, result=result, payee=payee)
+
+    def _contradiction(self, result: ChargeResult, *, payee: Payee, total_cents: int) -> str | None:
+        """BO-24's amount and payee checks as a reason code, from the provider's values."""
+        if result.amount_cents is not None and int(result.amount_cents) != total_cents:
+            return "AMOUNT_MISMATCH"
+        if result.payee_email is None:
+            return "UNVERIFIABLE"
+        return None if self._payee_matches(result.payee_email, payee) else "PAYEE_MISMATCH"
+
+    async def _fail_on_evidence(
+        self,
+        session: AsyncSession,
+        *,
+        order: BuyerOrder,
+        result: ChargeResult,
+        reason: str,
+    ) -> None:
+        """BO-26 for a capture this seat may not treat as paid, with its reason recorded.
+
+        The evidence carries the charge's own logical key, as the create-time 403 path
+        does, because a refused capture is not a resource this order may pay against.
+        No capture row and no ledger fact are written: the money that moved is not
+        this seat's payment, so the ledger cannot balance it and ``lot.finalize_close``
+        must not see a completed capture it can never reconcile. The provider's capture
+        id is logged for the refund path that owns it.
+        """
+        logger.error(
+            "checkout.vault_charge.capture_refused buyer_order_id=%s capture_id=%s reason=%s",
+            order.id,
+            result.capture_id,
+            reason,
+        )
+        observation = self._charge_observation(f"vc:{order.id}", error_code=reason)
+        await self.engine.apply(
+            session,
+            TransitionRequest(
+                buyer_order_id=order.id,
+                to_state="CAPTURE_FAILED",
+                trigger="job:order.vault_charge",
+                observation=observation,
+                # Only the two contracted codes are stored as a reject reason
+                # (config-and-errors.md section 5); UNVERIFIABLE rides the evidence.
+                reject_reason=(reason if reason in checkout_guards.REJECT_REASONS else None),
+            ),
+        )
 
     # ------------------------------------------------------------- settlement
 

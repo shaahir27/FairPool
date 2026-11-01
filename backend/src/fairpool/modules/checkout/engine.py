@@ -648,10 +648,7 @@ class CheckoutEngine:
         self, session: AsyncSession, order: BuyerOrder, observation: Observation
     ) -> bool:
         """True when the evidence reference is a resource row of this buyer order."""
-        if observation.kind == "charge" and observation.reference in {
-            f"vc:{order.id}",
-            f"bo:{order.id}",
-        }:
+        if observation.kind == "charge" and observation.reference == f"vc:{order.id}":
             # vault-charge.md section 2: ``vc:{buyer_order_id}`` is the charge's own
             # logical key, derived from this order's id and therefore an identity it
             # owns. A create-time 403 (the adapter's definitive PERMISSION_DENIED or
@@ -920,6 +917,9 @@ class CheckoutEngine:
                 "reference": request.observation.reference,
                 "amount_cents": request.observation.amount_cents,
                 "source": request.observation.source,
+                # The reason a seat was failed on evidence of its own, such as
+                # AMOUNT_MISMATCH or UNVERIFIABLE (vault-charge.md section 7).
+                "error_code": request.observation.error_code,
             }
         await self.audit.append(
             session,

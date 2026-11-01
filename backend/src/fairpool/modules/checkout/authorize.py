@@ -235,8 +235,8 @@ class CheckoutAuthorizeHandlers:
         """BO-01's guard, evaluated before the provider is called (I10, I15).
 
         The engine decides it with its own locks; a refusal here is the contracted
-        ``ORDER_STATE_INVALID`` (or ``OFFER_EXPIRED`` when the offer window has
-        ended), never a provider order created for a seat that cannot use it.
+        ``ORDER_STATE_INVALID``, never a provider order created for a seat that
+        cannot use it. An ended offer window is refused with the same code.
         """
         decision = await self.engine.decide(
             session,

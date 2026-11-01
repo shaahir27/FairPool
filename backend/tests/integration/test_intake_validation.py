@@ -386,6 +386,27 @@ async def test_candidate_retrieval_feeds_the_model(db_session: AsyncSession) -> 
 # --------------------------------------------------------------- confirmation
 
 
+async def test_the_intake_card_notice_does_not_promise_a_hold(
+    db_session: AsyncSession,
+) -> None:
+    """Q-2026-11-01-19: the primary mode places no hold, so the card promises none.
+
+    ``api.md``'s ``no_charge`` sentence says PayPal places a hold; under
+    ``PAYMENT_MODE=vault_charge`` nothing is ever held (vault-charge.md section 1) and
+    the card cannot know a lot's stamped mode yet, so its notice must not claim one.
+    """
+    pool_id = await open_pool(db_session)
+    user_id = await buyer(db_session, "notice")
+    intake, _ = service(FakeAI(), pool_id=pool_id)
+    await script(intake, db_session, user_id=user_id, pool_id=pool_id, overrides={})
+
+    answer = await intake.propose(db_session, user_id=user_id, message=MESSAGE)
+
+    notice = answer["confirmation_card"]["notices"]["no_charge"]
+    assert notice.lower().startswith("nothing is charged now")
+    assert "hold" not in notice.lower()
+
+
 async def test_a_valid_proposal_confirms_the_canonical_request(
     db_session: AsyncSession,
 ) -> None:
