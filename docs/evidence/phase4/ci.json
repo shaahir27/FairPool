@@ -1,7 +1,10 @@
 {
-  "branch": "phase-4",
-  "commit": "ad656fb",
-  "note": "This branch is unpushed and no remote CI run exists for it. Phase 4 is three local commits (e11a801 CR-4, 9b6f452 engines, ad656fb intake/wiring/IT-4) on top of main at 14ed859, so the only CI facts available are for Phase 3 (run 41272459105 on ba04d67). Nothing here claims a CI result for Phase 4. The status flips to passed only when the branch is pushed, remote CI runs all nine jobs green on the merged commit, and the run id is recorded here.",
-  "recorded": "2026-11-01",
-  "status": "pending"
+  "branch": "main",
+  "commit": "03a1483",
+  "executed": "2026-11-01",
+  "jobs_passed": 9,
+  "note": "Remote CI ran every job green on the commit that carries the whole of Phase 4: lint, strict typing, the full suite against a freshly migrated fairpool_test, the Alembic upgrade and drift check, import boundaries, docs, Merchant OpenAPI, frontend lint/tests/build, secret scan and the compose smoke. This is the CI half of the IG-4 evidence set.",
+  "result": "success",
+  "run_id": 41307137778,
+  "status": "passed"
 }

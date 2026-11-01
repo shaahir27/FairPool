@@ -1,8 +1,25 @@
 {
-  "executed": null,
-  "note": "No independent review has run on the Phase 4 diff. The implementing agent cannot review its own work and did not run a second agent, so this item is pending by fact, not by omission. Phase 3's review is not reused: it audited a different diff and its findings are already closed. Until a read-only reviewer audits the three Phase 4 commits against AGENTS.md, the CR-4 contracts and the tests, this file stays pending and IG-4 stays red.",
-  "recorded": "2026-11-01",
-  "reviewer": "none",
-  "scope": "Phase 4 diff main..phase-4 (e11a801, 9b6f452, ad656fb): money and payment invariants, state-machine discipline (LS-14 and the mode-aware LS-06), seat accounting and refill (I8), the new intake path and its AI boundary (I2), audit and public payload privacy, migration 0004 against the contracts, test quality and scope discipline.",
-  "status": "pending"
+  "blockers": [
+    "capture.poll cannot resolve a vault PENDING: the mode guard refuses BO-09/BO-10 on a vault lot, so the job raises IllegalTransition forever and the seat stays CAPTURE_PENDING.",
+    "An unknown/timed-out vault or capture outcome dead-ends: no attempt or provider order is persisted and the reconciler never sweeps CAPTURING, so a buyer can be charged at PayPal while the order sits CAPTURING with no GET.",
+    "A create-time 403 marks the token DELETED and returns without BO-26, vacancy or refill, leaving a stuck seat."
+  ],
+  "executed": "2026-11-01",
+  "majors": [
+    "try_fund dedupe swallows authorization/capture events: the deadline timer owns try_fund:{lot} and ON CONFLICT DO NOTHING drops earlier ones, so the capture buffer never starts early.",
+    "finalize_close closes a lot while a capture is still PENDING; LS-11 requires the capture window over and the ledger balanced.",
+    "capture.poll records the order and ledger but never updates paypal_captures.status, so stored money state is false.",
+    "Refill during FUNDING creates an offer that BO-01/BO-03 cannot continue (they require CHECKOUT_OPEN).",
+    "Vault mode calls the provider's create-order before the mode guard refuses BO-01, turning a refusal into a 500.",
+    "order.authorize retries call the provider without taking the row lock, so I7 is not re-checked.",
+    "Buyer notices say PayPal places a hold, which is false in vault mode; the api.md/vault-charge conflict has no Q entry.",
+    "BO-24 payee and amount checks are self-referential: both values come from the order, not the provider result.",
+    "An approval/expiry race returns INTERNAL_ERROR because the status check happens before the lock and IllegalTransition has no API mapping."
+  ],
+  "next_step": "Fix the three blockers and majors 4-6, re-run IT-4 without rewriting fund_deadline_at, then run this review again on the new commit. The gate stays red until this file says passed on a real review.",
+  "not_covered": "The reviewer ran no pytest, no provider call and no database write. Its verdict is static analysis plus reading the tests.",
+  "reviewer": "independent read-only review agent",
+  "scope": "Phase 4 diff 14ed859..03a1483: vault money path, seat accounting under the lot lock, replay/idempotency, force-award via LS-14, intake owner binding and privacy, wiring registry, evidence honesty, test quality.",
+  "status": "pending",
+  "verdict": "NO - IG-4 must not be tagged on 03a1483. Three blockers and nine majors were found; they are listed below verbatim so the next pass fixes them rather than rediscovering them."
 }
