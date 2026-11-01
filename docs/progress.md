@@ -24,7 +24,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
 | IG-2 | DONE (owner exception) | not tagged | Owner explicitly closed IG-2 on 2026-10-31 despite outstanding acceptance checks. The current Gemini evaluation recorded 479/480 case checks passing across resumed segments; one consistent offer required review. Earlier capacity parsing errors remain unresolved. CI is green for the current `main` head `88105a0` (nine jobs, 2026-11-01), which closes the pending-CI half; the gate checker still reports the Gemini evidence pending, so this closure is not an automated acceptance pass. |
-| IG-3 | IN PROGRESS | not tagged | Phase 3 code is complete on branch `phase-3` and `make gate-check GATE=ig-3` runs the full automated chain green, then exits 2: `docs/evidence/phase3/` holds s5, s11 and ci as pending. The independent review ran and its findings are dispositioned. Nothing is marked passed that was not executed. |
+| IG-3 | DONE | owner | Phase 3 merged to `main`; `make gate-check GATE=ig-3` passes the full automated chain and the evidence set; tagged `ig-3`. Two items pass on recorded owner decisions rather than executed work and say so in the file: `s11` on the APIMatic waiver (OD-P3-2, rescheduled to T10A04) and `s5` as a spike record. |
 | IG-4 | TODO | not yet | |
 | IG-5 | TODO | not yet | |
 | IG-6 | TODO | not yet | |
@@ -89,7 +89,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | T03B02 | B | M | DONE | | Search service and indexer (Postgres live; Elastic implemented, never executed here — `OD-P3-3`) |
 | T03B03 | B | M | DONE | | PayPal Login link flow (port + fake provider; no real PayPal identity client exists yet) |
 | T03B04 | B | S | DONE | | Pool close, plus the close-time public audit fields |
-| T03B05 | B | S | BLOCKED | | Spike S11 APIMatic generation — the OpenAPI document now exists and validates at ten operations; the trial is an open owner action (`OD-P3-2`) |
+| T03B05 | B | S | DONE | | Spike S11 closed on the owner waiver recorded in OD-P3-2 (2026-11-01): no trial, no generation. The ten-operation OpenAPI document is validated; trial, generation and licensing move to T10A04 |
 
 ### PH4: Core engines III and the first integration
 
@@ -236,7 +236,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Q-2026-10-31-11 | implementation planning | Phase 3 close must publish commitments, but audit/key routes are stubs; overdue pool.open can leave PUBLISHED unable to follow PS-03. Recommend bringing forward close-time public reads and an atomic whitelisted OPEN/CLOSED catch-up with no late admission. | T03B04/T04A06; api.md public audit/keys; state-machines.md PS-02/PS-03 | resolved by CR-3: signing-key route and close-time audit fields move to T03B01/T03B04; overdue pools catch up through PS-02 then PS-03 under the pool lock with no late admission |
 | Q-2026-10-31-12 | gate planning | The owner closed IG-2 by exception on 2026-10-31. Gemini acceptance and CI evidence remain pending; PT-14's full award comparison also needs a later award engine. | implementation-plan.md PH3 entry; testing-strategy.md PT-14/IT-3; Phase 2 evidence | owner exception recorded; CI now green at 88105a0 (2026-11-01); Gemini acceptance still pending; PT-14 split by OD-P3-1 |
 | Q-2026-10-31-13 | implementation planning | OAuth states lack session binding and S1 does not establish arbitrary ID-token nonce validation. S5 requires verified receipts, but the current receiver stores unverified bodies and processing is scheduled later. Specify session/nonce verification and receipt-only scope without enabling absent money handlers. | T03B03/T03A03; db-schema.md oauth_states; api.md; PayPal S1/S5 evidence | resolved by CR-3: session-bound single-use state with OAUTH_STATE_TTL_S, PayPalIdentity port, nonce claimed only as far as S1 evidence supports; webhook ingest stores always and processes only when verified, no money handler enabled in Phase 3 |
-| Q-2026-10-31-14 | integration planning | S11 asks for live submit_bid/progress SDK smoke tests before those handlers exist. Recommend labelled contract-stub serialization smoke now, with real workflow smoke explicitly pending for its implementation phase; do not start a trial without owner approval. | spikes.md S11; T03B05 and later merchant/bid tasks | acceptance split recorded by OD-P3-2: offline generation and licence notes may be recorded; the trial and live smoke tests stay an open owner action, and IG-3 may not close without it |
+| Q-2026-10-31-14 | integration planning | S11 asks for live submit_bid/progress SDK smoke tests before those handlers exist. Recommend labelled contract-stub serialization smoke now, with real workflow smoke explicitly pending for its implementation phase; do not start a trial without owner approval. | spikes.md S11; T03B05 and later merchant/bid tasks | acceptance split recorded by OD-P3-2: offline generation and licence notes may be recorded; resolved by the owner on 2026-11-01: the trial is waived for IG-3 and rescheduled to T10A04 (OD-P3-2); no generation or licence claim is made |
 
 ## Requests to the owner
 
@@ -541,3 +541,18 @@ Owner actions IG-3 cannot pass without:
 - confirm the sandbox webhook listener and URL for `T03A03`, and accept that
   four event types are physically unobservable until Phase 4-5;
 - push `phase-3` and run remote CI before any tag; the branch is local.
+
+## IG-3 closed (2026-11-01)
+
+Hosted database first, then the gate. Supabase went 0002 to 0003 after a data snapshot of
+all 33 tables (5 rows) and a pre-check showing `oauth_states`, `vault_tokens`,
+`pool_entries` and `buyer_orders` were empty - which is what makes the `session_id NOT
+NULL` addition safe. `pg_dump` 16 could not dump a server running 17.11, so the snapshot
+went through the app's own connection helper instead. Verified after: revision 0003, 35
+tables, `vault_tokens.cap_cents` bigint, the entry-window trigger on `clock_timestamp()`,
+`alembic check` clean, and the live `/ready` probe back to `migrations: ok`.
+
+`make gate-check GATE=ig-3` then passed its automated chain and evidence set, so `ig-3` and
+`contracts-v1.2` are tagged. `ig-2` stays untagged with its Gemini evidence pending, and the
+uncommitted `phase2-gemini-v5` prompt bump in the tree still invalidates that stored
+fingerprint until the evaluation is re-run.

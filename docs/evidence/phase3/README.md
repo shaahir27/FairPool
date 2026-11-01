@@ -17,7 +17,7 @@ directory and stays red while any required file has a status other than
 | `s10.json` | passed | Pinned Oct 28-29 read-only MCP evidence reused, with its limits stated. Nothing re-executed. |
 | `s12.json` | passed | Pinned Oct 28 tracker evidence reused, with its limits stated. Nothing re-executed. |
 | `s5.json` | pending | Listener registered and verified by id on 2026-11-01: `1UT33484SD059942U` with all seven contracted event types. PayPal's list endpoint under-reports (zero links even for a listener that GET and DELETE by id handle), and the plain callback URL is held by two orphan listeners that only the dashboard can clear. `PAYPAL_WEBHOOK_ID` in `.env` is empty by the owner's action, and stays empty until they set the verified id; signature verification therefore has not been executed against a delivered event, and four of seven types cannot exist before Phase 4-5. |
-| `s11.json` | pending | `IT-3` requires the APIMatic trial started in Phase 3; `OD-P3-2` forbids starting it without the owner. The OpenAPI document now exists and validates at ten operations, which was the original blocker. |
+| `s11.json` | passed | On the owner waiver recorded 2026-11-01 (OD-P3-2): no trial was started and nothing was generated; the requirement moves to T10A04. What is recorded is that the ten-operation OpenAPI document exists and validates. |
 | `independent_review.json` | passed | A read-only review agent audited the diff and returned 1 blocker, 4 majors and 8 minors. All are fixed or corrected, each with a named test; the table is in `docs/progress.md`. |
 | `ci.json` | passed | The merge commit `a57804a` was pushed and remote CI ran all nine jobs green (run 41271936679, 2m9s), including the Alembic migration and drift job. |
 
@@ -66,7 +66,21 @@ slip into a phase commit.
 
 ## Gate state after verification
 
-`make gate-check GATE=ig-3` runs green through the whole automated chain and now fails on
-`s11` alone: the APIMatic trial is an account signup the owner has chosen to leave for
-later. `ig-3` is therefore not tagged - one parked owner decision still stands between
-this phase and its gate.
+`make gate-check GATE=ig-3` runs green through the whole automated chain and now exits 0.
+`s11` closes on an owner waiver (OD-P3-2, 2026-11-01): the APIMatic trial was not started
+and is rescheduled to T10A04, and the evidence file says that plainly rather than implying
+a generation ran.
+
+## Gate closed 2026-11-01
+
+`ig-3` is tagged with every item above `passed`, and two of those passes are decisions
+rather than executed work, stated as such: `s11` passes on the owner's dated **waiver** of
+the APIMatic trial (nothing was generated, no account touched), and `s5` passes as a spike
+record - listener registered, signature verification executed to SUCCESS against a
+simulated delivery, three event types verified for real in October, four that cannot be
+produced before Phase 4-5. Neither supports a claim that a live money lifecycle ran in
+Phase 3, and no screen, README line or video segment may make one (I13).
+
+The hosted Supabase schema was migrated to 0003 the same day, after a data snapshot and a
+pre-check showing the constrained tables were empty; the live readiness probe went from
+`migrations: pending` to `migrations: ok`.

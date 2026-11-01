@@ -1,8 +1,8 @@
 {
+  "basis": "Owner waiver recorded in docs/decisions.md OD-P3-2 on 2026-11-01: the APIMatic trial is not started and the requirement is removed from IG-3, rescheduled to T10A04 where the generated SDKs are actually shipped.",
+  "carried_forward": "T10A04 owns trial start, generation, licensing and the smoke test, still behind the same owner-approval gate.",
   "executed": "2026-11-01",
-  "owner_action_required": "start the trial and hand me the account/API token in .env, or reply with a one-line waiver to record as an owner decision",
-  "recorded_offline": "sdk/merchant-openapi.json exists and validates at exactly ten operations, so the October blocker ('no merchant API or OpenAPI file exists') is resolved. tools/export_merchant_openapi.py --check passes in CI.",
-  "status": "pending",
-  "trial": "NOT STARTED. The APIMatic 14-day trial is a self-service account signup at apimatic.io/pricing (email registration, terms acceptance, per-language paid tiers after the trial). An agent cannot create an account on the owner's identity, and no APIMatic credential exists in .env, so this cannot be delegated to me.",
-  "why_pending": "IT-3 names the trial as a Phase 3 item. Either the owner starts it and I run generation plus record the licence terms, or the owner waives it in writing and IT-3 is amended. A simulated or partial generation would be a fake result and is refused by AGENTS.md rule 18."
+  "status": "passed",
+  "what_was_not_executed": "No APIMatic trial was started, no account was touched, no Python or TypeScript SDK was generated, and no licence terms were recorded. Nothing here claims otherwise, and no simulated generation is presented as a result.",
+  "what_was_recorded": "sdk/merchant-openapi.json exists and validates at exactly ten operations, and tools/export_merchant_openapi.py --check passes in CI. The October blocker ('no merchant API or OpenAPI file exists') is therefore resolved."
 }
