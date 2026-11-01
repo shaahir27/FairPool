@@ -631,6 +631,27 @@ async def test_reindex_response_model_matches_the_route() -> None:
 # --- live parity: explicit about what was not run (OD-P3-3) -----------------------
 
 
+async def _await_elastic_document(
+    live: ElasticSearchBackend, doc_id: str, attempts: int = 20
+) -> list[SearchHit]:
+    """Poll for a document this test just wrote.
+
+    The adapter indexes without an explicit refresh, and Elastic is near-real-time: a
+    document becomes searchable on the index's own refresh interval, not on write. The
+    contract promises at-least-once indexing, never same-millisecond visibility, so the
+    live parity check waits instead of asserting an instant nobody committed to.
+    """
+    hits: list[SearchHit] = []
+    for _ in range(attempts):
+        hits = await live.search(
+            None, q="quixote 9k", kinds=[POOL_DOC, LOT_DOC], status=None, limit=10
+        )
+        if any(hit.doc_id == doc_id for hit in hits):
+            return hits
+        await asyncio.sleep(0.5)
+    return hits
+
+
 async def test_backends_agree_on_the_same_public_documents(db_session: AsyncSession) -> None:
     """Live Elastic parity; recorded as not executed when no cluster is configured.
 
@@ -677,9 +698,7 @@ async def test_backends_agree_on_the_same_public_documents(db_session: AsyncSess
                 content="Fictional zephyr pool monitor-27-4k black NEW monitor NY",
             )
         )
-        elastic_hits = await live.search(
-            None, q="quixote 9k", kinds=[POOL_DOC, LOT_DOC], status=None, limit=10
-        )
+        elastic_hits = await _await_elastic_document(live, str(pool_id))
     finally:
         # S8 deleted its temporary documents the same way: a live run leaves nothing behind.
         await live.delete(doc_kind=POOL_DOC, doc_id=pool_id)
