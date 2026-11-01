@@ -447,6 +447,52 @@ async def test_an_unknown_start_outcome_reuses_the_same_identity(
     assert rows[0][1] == "PENDING" and rows[0][2] is None
     assert rows[0][3] == VaultProviderUnknown.code
     assert provider.calls.count(f"start_setup:{entry_id}") == 2
+    # M1: the identity of the stored row is the identity the provider is called with,
+    # so the replay reserves the same key rather than minting a second one (I9).
+    assert provider.operation_keys == [f"vs:{entry_id}:1", f"vs:{entry_id}:1"]
+
+
+async def test_two_attempts_of_one_entry_reach_the_provider_under_two_keys(
+    db_session: AsyncSession,
+) -> None:
+    """M1, I9: the attempt identity travels to the provider boundary.
+
+    ``vault-charge.md`` section 2 fixes ``vs:{entry_id}:{attempt}`` and
+    ``vp:{entry_id}:{attempt}``, and one attempt row owns both keys. Before CR-3 the
+    port carried only the entry, so a second save of one entry sent a second setup
+    token under a key that had already been used with a different body - the exact
+    idempotency reuse the invariant forbids. These are the two provider-facing facts:
+    two attempts of one entry produce two distinct keys, and a replay of an
+    unknown-outcome attempt replays the original key.
+    """
+    provider = FakePaymentVaultProvider()
+    pool_id = await insert_pool(db_session)
+    entry_id = await joined_entry(db_session, pool_id, tag="opkeys")
+    subject = service(provider)
+
+    redirect = await subject.start(db_session, entry_id=entry_id)
+    provider.exchange_outcome = "decline"
+    with pytest.raises(ApplicationError) as raised:
+        await subject.complete(
+            db_session, entry_id=entry_id, setup_token_id=redirect.setup_token_id
+        )
+    assert raised.value.code == "VAULT_REQUIRED"
+
+    # The failed attempt is not replaced: a new save is a new row and a new identity.
+    await subject.start(db_session, entry_id=entry_id)
+
+    assert [row[0] for row in await attempt_rows(db_session, entry_id)] == [
+        f"vs:{entry_id}:1",
+        f"vs:{entry_id}:2",
+    ]
+    assert provider.operation_keys == [
+        f"vs:{entry_id}:1",
+        f"vp:{entry_id}:1",
+        f"vs:{entry_id}:2",
+    ]
+    # One entry, three provider operations, three distinct entry-scoped keys: the entry
+    # id alone is never the whole identity (I9, paypal-adapter.md section 2).
+    assert len(set(provider.operation_keys)) == 3
 
 
 async def test_an_unknown_exchange_outcome_never_activates_and_reserves_the_identity(
@@ -797,6 +843,220 @@ async def test_no_provider_step_runs_while_a_pool_or_entry_lock_is_held(
     assert "LOCKED" not in observed.values() and "ERROR" not in observed.values()
 
 
+async def test_the_withdraw_route_commits_the_entry_before_the_provider_deletes(
+    db_engine: AsyncEngine,
+) -> None:
+    """M2, in order and from outside the request: entry durable, then provider I/O.
+
+    ``join.withdraw`` locks ``users`` and then the pool, and releasing a savepoint does
+    not release a Postgres row lock, so a route that called the provider afterwards on
+    the same transaction would keep ``pool.close`` waiting behind a network round trip
+    (``domain-ports.md`` 4.4, ``vault-charge.md`` 2). The route therefore commits phase
+    one and runs ``vault.withdraw`` on a fresh short transaction.
+
+    A second connection looks while the provider delete is in flight and must see both
+    halves of that: the entry row already ``WITHDRAWN`` (so the entry transaction
+    committed before the call) and the pool and entry rows open for the lock strength
+    ``pool.close`` takes (so a close is not blocked by the in-flight provider step).
+    """
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    provider = FakePaymentVaultProvider()
+    observed: dict[str, Any] = {}
+    entry_id = uuid.uuid4()
+    pool_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
+
+    async with maker() as route_session:
+        app = create_app(
+            settings_for(
+                payment_mode="vault_charge",
+                vault_token_key=vault_key(),
+                vault_real_save_enabled=True,
+            )
+        )
+        app.state.vault_provider = provider
+
+        async def session() -> AsyncIterator[AsyncSession]:
+            # The production dependency commits what the route left uncommitted; the
+            # route's own mid-request commit is the behaviour under test.
+            yield route_session
+            if route_session.in_transaction():
+                await route_session.commit()
+
+        app.dependency_overrides[database_session] = session
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="https://api.test"
+            ) as client:
+                csrf = await login(client, "withdraw-order@example.test")
+                user_id = uuid.UUID((await client.get("/api/v1/me")).json()["user_id"])
+                pool_id = await insert_pool(route_session)
+                confirmed = await manual_confirm(route_session, user_id, pool_id)
+                joined = await client.post(
+                    f"/api/v1/pools/{pool_id}/entries",
+                    json={"confirmed_request_id": str(confirmed)},
+                    headers={"Idempotency-Key": "withdraw-order", "X-CSRF-Token": csrf},
+                )
+                assert joined.status_code == 201, joined.text
+                entry_id = uuid.UUID(str(joined.json()["entry_id"]))
+                assert (await start(client, csrf, entry_id)).status_code == 200, "vault start"
+                returned = await client.get(f"/api/v1/entries/{entry_id}/vault/return")
+                assert returned.status_code == 302, returned.text
+
+                async def probe(step: str) -> None:
+                    async with db_engine.connect() as connection:
+                        transaction = await connection.begin()
+                        try:
+                            seen = await connection.scalar(
+                                text("SELECT status FROM pool_entries WHERE id = :i"),
+                                {"i": entry_id},
+                            )
+                            await connection.execute(
+                                text("SELECT id FROM pools WHERE id = :i FOR NO KEY UPDATE NOWAIT"),
+                                {"i": pool_id},
+                            )
+                            await connection.execute(
+                                text(
+                                    "SELECT id FROM pool_entries WHERE id = :i "
+                                    "FOR NO KEY UPDATE NOWAIT"
+                                ),
+                                {"i": entry_id},
+                            )
+                        except DBAPIError as exc:
+                            observed[step] = (
+                                "LOCKED" if "could not obtain lock" in str(exc) else "ERROR"
+                            )
+                        else:
+                            observed[step] = (str(seen), "FREE")
+                        finally:
+                            await transaction.rollback()
+                    # The delete has not been recorded yet: this runs inside that call.
+                    observed[f"recorded_before:{step}"] = list(provider.deleted_ids)
+
+                provider.on_call = probe
+                try:
+                    withdrawn = await client.delete(
+                        f"/api/v1/pools/{pool_id}/entries/me", headers={"X-CSRF-Token": csrf}
+                    )
+                finally:
+                    provider.on_call = None
+                assert withdrawn.status_code == 200, withdrawn.text
+                assert withdrawn.json()["entry_status"] == "WITHDRAWN"
+                assert withdrawn.json()["vault_status"] == "DELETED"
+
+                # Both phases are durable in their own transactions.
+                row = (
+                    await route_session.execute(
+                        text(
+                            "SELECT e.status, t.status, t.token_ciphertext FROM pool_entries e "
+                            "JOIN vault_tokens t ON t.entry_id = e.id WHERE e.id = :i"
+                        ),
+                        {"i": entry_id},
+                    )
+                ).first()
+                assert str(row[0]) == "WITHDRAWN" and str(row[1]) == "DELETED"
+                assert row[2] is None
+        finally:
+            if pool_id is not None:
+                async with db_engine.begin() as connection:
+                    await connection.execute(
+                        text("DELETE FROM vault_tokens WHERE entry_id = :e"), {"e": entry_id}
+                    )
+                    await connection.execute(
+                        text("DELETE FROM vault_setup_attempts WHERE entry_id = :e"),
+                        {"e": entry_id},
+                    )
+                await wipe_join_data(db_engine, pool_id, [user_id] if user_id else [])
+
+    delete_step = f"delete:{TOKEN_PREFIX}{entry_id}"
+    # Committed first, then the provider: the entry row is already WITHDRAWN and the
+    # pool lock is free while the provider delete is in flight.
+    assert observed[delete_step] == ("WITHDRAWN", "FREE")
+    assert observed[f"recorded_before:{delete_step}"] == []
+    assert provider.deleted_ids == [f"{TOKEN_PREFIX}{entry_id}"]
+
+
+async def test_a_failed_provider_delete_leaves_the_committed_withdrawal_alone(
+    db_engine: AsyncEngine,
+) -> None:
+    """M2's other half: phase 2 failing cannot undo phase 1, which is already durable.
+
+    The entry transition is a fact with its audit row; an unreachable provider is an
+    operational failure the buyer retries, not a reason to roll the withdrawal back.
+    """
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    provider = FakePaymentVaultProvider(delete_outcome="unavailable")
+    entry_id = uuid.uuid4()
+    pool_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
+
+    async with maker() as route_session:
+        app = create_app(
+            settings_for(
+                payment_mode="vault_charge",
+                vault_token_key=vault_key(),
+                vault_real_save_enabled=True,
+            )
+        )
+        app.state.vault_provider = provider
+
+        async def session() -> AsyncIterator[AsyncSession]:
+            yield route_session
+            if route_session.in_transaction():
+                await route_session.commit()
+
+        app.dependency_overrides[database_session] = session
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="https://api.test"
+            ) as client:
+                csrf = await login(client, "withdraw-fail@example.test")
+                user_id = uuid.UUID((await client.get("/api/v1/me")).json()["user_id"])
+                pool_id = await insert_pool(route_session)
+                confirmed = await manual_confirm(route_session, user_id, pool_id)
+                joined = await client.post(
+                    f"/api/v1/pools/{pool_id}/entries",
+                    json={"confirmed_request_id": str(confirmed)},
+                    headers={"Idempotency-Key": "withdraw-fail", "X-CSRF-Token": csrf},
+                )
+                entry_id = uuid.UUID(str(joined.json()["entry_id"]))
+                assert (await start(client, csrf, entry_id)).status_code == 200
+                assert (
+                    await client.get(f"/api/v1/entries/{entry_id}/vault/return")
+                ).status_code == 302
+
+                failed = await client.delete(
+                    f"/api/v1/pools/{pool_id}/entries/me", headers={"X-CSRF-Token": csrf}
+                )
+                assert failed.status_code == 502
+                assert failed.json()["error"]["code"] == "PAYPAL_UNAVAILABLE"
+
+                # Phase 1 is already durable: a fresh transaction reads the withdrawal,
+                # while the failed provider step left the credential tracked (ACTIVE).
+                async with maker() as check:
+                    state = (
+                        await check.execute(
+                            text(
+                                "SELECT e.status, t.status FROM pool_entries e "
+                                "JOIN vault_tokens t ON t.entry_id = e.id WHERE e.id = :i"
+                            ),
+                            {"i": entry_id},
+                        )
+                    ).first()
+                assert str(state[0]) == "WITHDRAWN" and str(state[1]) == "ACTIVE"
+        finally:
+            if pool_id is not None:
+                async with db_engine.begin() as connection:
+                    await connection.execute(
+                        text("DELETE FROM vault_tokens WHERE entry_id = :e"), {"e": entry_id}
+                    )
+                    await connection.execute(
+                        text("DELETE FROM vault_setup_attempts WHERE entry_id = :e"),
+                        {"e": entry_id},
+                    )
+                await wipe_join_data(db_engine, pool_id, [user_id] if user_id else [])
+
+
 # ----------------------------------------------------------------------- fake
 
 
@@ -811,6 +1071,7 @@ def test_the_fake_is_a_provider_that_builds_no_network_client() -> None:
         "setup_tokens",
         "payment_tokens",
         "deleted_ids",
+        "operation_keys",
         "on_call",
     }
     # Nothing on the fake is a client, session or transport of any kind.
@@ -865,20 +1126,20 @@ def test_only_the_attempt_and_token_tables_are_written_by_the_vault_service() ->
 async def test_the_fake_issues_inert_local_identifiers(db_session: AsyncSession) -> None:
     entry_id = uuid.uuid4()
     provider = FakePaymentVaultProvider()
-    redirect = await provider.start_setup(entry_id)
+    redirect = await provider.start_setup(entry_id, "1")
     assert redirect.setup_token_id == f"{SETUP_PREFIX}{entry_id}"
     assert redirect.approve_url == f"{INVALID_HOST}{redirect.setup_token_id}"
 
-    permission = await provider.exchange(entry_id, redirect.setup_token_id)
+    permission = await provider.exchange(entry_id, "1", redirect.setup_token_id)
     assert permission.payment_token_id == f"{TOKEN_PREFIX}{entry_id}"
     assert permission.label == permission.payment_token_id[-4:]
 
-    await provider.delete(permission.payment_token_id)
+    await provider.delete(permission.payment_token_id, "1")
     assert provider.deleted_ids == [permission.payment_token_id]
 
     # A setup token the fake never issued for this entry exchanges nothing.
     with pytest.raises(VaultProviderUnknown):
-        await provider.exchange(entry_id, "someone-elses-token")
+        await provider.exchange(entry_id, "1", "someone-elses-token")
 
 
 async def test_status_reports_only_a_status_and_a_four_character_label(

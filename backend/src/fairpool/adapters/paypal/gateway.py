@@ -432,12 +432,12 @@ class RestPayPalGateway:
         return results
 
     async def create_setup_token(
-        self, entry_id: str, return_url: str, cancel_url: str
+        self, entry_id: str, attempt: str, return_url: str, cancel_url: str
     ) -> SetupToken:
         data = await self._request(
             "POST",
             "/v3/vault/setup-tokens",
-            key=f"vs:{entry_id}",
+            key=f"vs:{entry_id}:{attempt}",
             body={
                 "payment_source": {
                     "paypal": {
@@ -453,11 +453,13 @@ class RestPayPalGateway:
         assert_sandbox_host(approval, SANDBOX_CHECKOUT_HOST)
         return SetupToken(data["id"], approval)
 
-    async def create_payment_token(self, setup_token_id: str, entry_id: str) -> PaymentToken:
+    async def create_payment_token(
+        self, setup_token_id: str, entry_id: str, attempt: str
+    ) -> PaymentToken:
         data = await self._request(
             "POST",
             "/v3/vault/payment-tokens",
-            key=f"vp:{entry_id}",
+            key=f"vp:{entry_id}:{attempt}",
             body={"payment_source": {"token": {"id": setup_token_id, "type": "SETUP_TOKEN"}}},
         )
         return PaymentToken(data["id"], data["id"][-4:])

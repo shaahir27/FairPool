@@ -178,6 +178,10 @@ class PoolCloseService:
         )
         if to_status == "CLOSED":
             # PS-03's second effect, in the same transaction as the transition.
+            # domain-ports.md section 5 gives pool.seed no dedupe key: one close enqueues
+            # exactly one seed, and the pool concurrency key is what keeps two seeds for
+            # one pool from running together. A dedupe key here would silently drop a
+            # second close-time seed the contract says must be enqueued.
             run_at = await self.clock.db_now(session)
             await self.jobs.enqueue(
                 session,
@@ -185,7 +189,6 @@ class PoolCloseService:
                 {"pool_id": str(pool.id)},
                 run_at=run_at,
                 concurrency_key=f"pool:{pool.id}",
-                dedupe_key=f"pool.seed:{pool.id}",
             )
 
     # -------------------------------------------------------------- the sweep

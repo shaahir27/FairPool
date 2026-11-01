@@ -18,7 +18,7 @@ directory and stays red while any required file has a status other than
 | `s12.json` | passed | Pinned Oct 28 tracker evidence reused, with its limits stated. Nothing re-executed. |
 | `s5.json` | pending | Four of the seven contracted webhook event types cannot be produced before the Phase 4-5 money handlers, and a listener needs a public URL plus dashboard registration. `spikes.md` S5 requires judging each event type separately, so unrun types are pending. |
 | `s11.json` | pending | `IT-3` requires the APIMatic trial started in Phase 3; `OD-P3-2` forbids starting it without the owner. The OpenAPI document now exists and validates at ten operations, which was the original blocker. |
-| `independent_review.json` | pending | Written once the independent review of contracts, lock order, unknown outcomes, account and permission binding, privacy and evidence claims has been dispositioned. |
+| `independent_review.json` | passed | A read-only review agent audited the diff and returned 1 blocker, 4 majors and 8 minors. All are fixed or corrected, each with a named test; the table is in `docs/progress.md`. |
 | `ci.json` | pending | CI is green for `main` at `88105a0`; the `phase-3` branch has not been pushed, so there is no remote CI evidence for this work yet. |
 
 ## What Phase 3 does not claim
@@ -41,3 +41,14 @@ directory and stays red while any required file has a status other than
 was run twice: once with the pre-CR-3 trigger restored in the test database, where it
 **failed**, and once with the `clock_timestamp()` trigger migration 0003 installs, where it
 **passed**. The assertion is only worth anything because it can tell those two states apart.
+
+## What the review changed
+
+The independent pass found one user-visible defect (`POST /api/v1/intake/manual`
+returned 500 because a raw UUID reached Starlette's JSON encoder, and no test had ever
+posted to that route), one latent concurrency problem (withdrawal doing provider I/O
+under the pool lock), one log-hygiene gap (uvicorn's access line printing an OAuth
+`code` and `state`), and a CR-3 contract sentence that named a type which does not
+exist. All are fixed, with the table in `docs/progress.md`. `s5`, `s11` and `ci` remain
+pending because they cannot be executed in this environment, not because they were
+skipped.

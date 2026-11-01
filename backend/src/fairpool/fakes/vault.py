@@ -56,6 +56,13 @@ class FakePaymentVaultProvider:
     setup_tokens: dict[str, str] = field(default_factory=dict, repr=False)
     payment_tokens: dict[str, str] = field(default_factory=dict, repr=False)
     deleted_ids: list[str] = field(default_factory=list, repr=False)
+    #: The ``PayPal-Request-Id`` key text each setup/exchange step would carry, in call
+    #: order. A test asserts two attempts of one entry produce two of these and a retry
+    #: of an unknown attempt reuses the original (I9, vault-charge.md section 2). The
+    #: identifiers below stay entry-keyed: they are local inert stand-ins, while the
+    #: operation key is the value the real provider reserves per attempt. The delete
+    #: step is not recorded here: ``paypal-adapter.md`` section 2 keys it ``vd:{entry_id}``.
+    operation_keys: list[str] = field(default_factory=list, repr=False)
     #: Awaited at the moment the fake would be waiting on a host, so a test can look
     #: at the database while a provider step is "in flight".
     on_call: Callable[[str], Awaitable[None]] | None = field(default=None, repr=False)
@@ -65,8 +72,9 @@ class FakePaymentVaultProvider:
         if self.on_call is not None:
             await self.on_call(name)
 
-    async def start_setup(self, entry_id: UUID) -> SetupRedirect:
+    async def start_setup(self, entry_id: UUID, attempt: str) -> SetupRedirect:
         await self._step(f"start_setup:{entry_id}")
+        self.operation_keys.append(f"vs:{entry_id}:{attempt}")
         if self.start_outcome == "unknown":
             raise VaultProviderUnknown
         if self.start_outcome == "decline":
@@ -77,8 +85,9 @@ class FakePaymentVaultProvider:
             approve_url=f"{INVALID_HOST}{setup_token_id}", setup_token_id=setup_token_id
         )
 
-    async def exchange(self, entry_id: UUID, setup_token_id: str) -> SavedPermission:
+    async def exchange(self, entry_id: UUID, attempt: str, setup_token_id: str) -> SavedPermission:
         await self._step(f"exchange:{entry_id}")
+        self.operation_keys.append(f"vp:{entry_id}:{attempt}")
         if self.setup_tokens.get(setup_token_id) != str(entry_id):
             # A setup token this fake never issued for this entry exchanges nothing.
             raise VaultProviderUnknown
@@ -93,7 +102,7 @@ class FakePaymentVaultProvider:
             label=payment_token_id[-4:],
         )
 
-    async def delete(self, payment_token_id: str) -> None:
+    async def delete(self, payment_token_id: str, attempt: str) -> None:
         await self._step(f"delete:{payment_token_id}")
         if self.delete_outcome == "unavailable":
             raise VaultProviderUnavailable

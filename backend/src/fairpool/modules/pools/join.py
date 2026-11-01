@@ -109,17 +109,35 @@ class JoinService:
         user_id: UUID,
         confirmed_request_id: UUID,
         idempotency_key: str,
+        delegation_id: UUID | None = None,
     ) -> JoinOutcome:
         """Join a pool in one savepoint: a planned error rolls the savepoint
         back (nothing is written, no idempotency key is burned) and raises
-        ``ApplicationError`` with the contract code (config-and-errors.md §4)."""
+        ``ApplicationError`` with the contract code (config-and-errors.md §4).
+
+        ``delegation_id`` is the identity path of the agent lane (F15, I6): the entry
+        is recorded as agent-submitted and bound to that ``delegations`` row. The
+        ``/agent/v1`` HTTP lane of Phase 7 is what authenticates the token and enforces
+        its scope and cap; here the service only refuses a delegation that is not this
+        user's own, so one buyer's agent can never act as another's.
+        """
         async with session.begin_nested():
+            if delegation_id is not None:
+                owned = await session.scalar(
+                    text("SELECT id FROM delegations WHERE id = :id AND user_id = :user"),
+                    {"id": delegation_id, "user": user_id},
+                )
+                if owned is None:
+                    # api.md "Agent": a delegation that is not this principal's own is
+                    # not a delegation at all for this call.
+                    raise ApplicationError("DELEGATION_INVALID")
             return await self._join_inner(
                 session,
                 pool_id=pool_id,
                 user_id=user_id,
                 confirmed_request_id=confirmed_request_id,
                 idempotency_key=idempotency_key,
+                delegation_id=delegation_id,
             )
 
     async def _join_inner(
@@ -130,6 +148,7 @@ class JoinService:
         user_id: UUID,
         confirmed_request_id: UUID,
         idempotency_key: str,
+        delegation_id: UUID | None = None,
     ) -> JoinOutcome:
         # Owner-only fetch: another buyer's id and an unknown id answer alike (404).
         cr = await session.scalar(
@@ -235,7 +254,9 @@ class JoinService:
             cap_cents=cr.cap_cents,
             zone_id=cr.zone_id,
             status=EntryStatus.SUBMITTED,
-            submitted_via=SubmittedVia.human,
+            # F15: the delegation-backed identity is recorded, not inferred later.
+            submitted_via=SubmittedVia.agent if delegation_id else SubmittedVia.human,
+            delegation_id=delegation_id,
             received_at=received_at,
             # I12: synthetic is derived from the pool mode, never taken from a client.
             synthetic=locked_pool.mode == PoolMode.SIMULATION,
@@ -268,7 +289,7 @@ class JoinService:
                         "request_hash": str(cr.request_hash),
                         "commitment": digest,
                         "zone_id": cr.zone_id,
-                        "via": "human",
+                        "via": str(entry.submitted_via),
                     },
                 )
         except IntegrityError as exc:

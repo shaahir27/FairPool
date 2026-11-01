@@ -596,6 +596,9 @@ async def test_seed_is_enqueued_once_with_the_pool_concurrency_key(
     assert len(seeds) == 1
     assert seeds[0].payload == {"pool_id": str(pool_id)}
     assert seeds[0].concurrency_key == f"pool:{pool_id}"
+    # m3: domain-ports.md section 5 gives pool.seed no dedupe key. A key here would
+    # coalesce a seed the contract says must be enqueued.
+    assert seeds[0].dedupe_key is None
 
 
 # ------------------------------------------------------------------- late join
@@ -767,11 +770,32 @@ async def test_public_audit_withholds_the_list_until_the_pool_closes(
 ) -> None:
     pool_id = await insert_pool(db_session)
     await joined_entry(db_session, pool_id, tag="openpool")
+    # A real checkpoint exists while the pool is open: the route is withholding it,
+    # not reporting an empty chain.
+    await PostgresAuditLog().append(
+        db_session,
+        actor="worker",
+        action="pool.open",
+        subject_type="pool",
+        subject_id=str(pool_id),
+        payload={},
+    )
     body = (await client.get(f"/api/v1/public/pools/{pool_id}/audit")).json()
     assert body["pool_status"] == "OPEN"
     assert body["entries_root"] is None
     assert body["commitments"] == []
     assert body["entries_count"] is None
+    # m4: the checkpoint chain is post-close too. An open pool has audit rows - publish
+    # and open - but they are internal history, so the public surface is empty and not
+    # a running log of the pool's actions (api.md "Public audit").
+    assert body["audit_checkpoints"] == []
+    published = (
+        await db_session.execute(
+            text("SELECT count(*) FROM audit_log WHERE subject_type='pool' AND subject_id=:i"),
+            {"i": str(pool_id)},
+        )
+    ).scalar()
+    assert int(published) > 0
 
 
 async def test_public_audit_answers_404_for_unknown_and_draft_pools(

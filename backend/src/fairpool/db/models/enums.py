@@ -1,7 +1,8 @@
 """PostgreSQL enum types from docs/contracts/db-schema.md (T01A01).
 
-The database types are created once by migration 0001; models set
-``create_type=False`` so importing the metadata never emits DDL.
+The database types are created by migration 0001, with one later exception:
+``vault_setup_status``, the one-attempt state of CR-3, is created by migration 0003.
+Models set ``create_type=False`` so importing the metadata never emits DDL.
 """
 
 from __future__ import annotations

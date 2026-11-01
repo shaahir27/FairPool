@@ -22,10 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
-from fairpool.api.errors import error_response
 from fairpool.config import Settings
 from fairpool.db.models.catalog import PoolEntry
-from fairpool.domain.errors import ApplicationError
 from fairpool.fakes.vault import FakePaymentVaultProvider
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
@@ -42,11 +40,6 @@ router = APIRouter()
 #: config-and-errors.md section 3: POST /api/v1/pools/{pool_id}/entries is 10/min/user.
 JOIN_RATE_LIMIT = 10
 JOIN_RATE_WINDOW_S = 60.0
-
-# These two planned codes are not yet in the shared map in api/errors.py (a
-# Member A file); the envelope is rendered directly here so the statuses leave
-# this route exactly as config-and-errors.md section 4 fixes them.
-_DIRECT_ERROR_STATUS = {"RULES_MISMATCH": 409, "INTEGRITY_ERROR": 500}
 
 
 class JoinRateLimiter:
@@ -99,14 +92,6 @@ def _join_service(request: Request) -> JoinService:
         )
         request.app.state.join_service = cached
     return cached
-
-
-def _planned_error(exc: ApplicationError) -> JSONResponse | None:
-    """Render the codes the shared exception handler does not know yet."""
-    status = _DIRECT_ERROR_STATUS.get(exc.code)
-    if status is None:
-        return None
-    return error_response(status_code=status, code=exc.code, message="The entry request failed.")
 
 
 # ------------------------------------------------------------------ vault wiring
@@ -189,19 +174,13 @@ async def entries_join(
         raise HTTPException(400, "IDEMPOTENCY_KEY_REQUIRED")
     if len(idempotency_key) > 128:
         raise HTTPException(422, "VALIDATION_ERROR")
-    try:
-        outcome = await _join_service(request).join(
-            db,
-            pool_id=pool_id,
-            user_id=principal.user_id,
-            confirmed_request_id=payload.confirmed_request_id,
-            idempotency_key=idempotency_key,
-        )
-    except ApplicationError as exc:
-        response = _planned_error(exc)
-        if response is not None:
-            return response
-        raise
+    outcome = await _join_service(request).join(
+        db,
+        pool_id=pool_id,
+        user_id=principal.user_id,
+        confirmed_request_id=payload.confirmed_request_id,
+        idempotency_key=idempotency_key,
+    )
     # The receipt payload is returned as the exact JSON bytes that were
     # signed; FastAPI must not re-serialise the timestamp (fairness §1).
     return JSONResponse(status_code=outcome.status_code, content=outcome.body)
@@ -257,19 +236,18 @@ async def entries_me_delete(
     principal: Annotated[Principal, Security(require_session)],
     db: AsyncSession = Depends(database_session),
 ):
-    try:
-        outcome = await _join_service(request).withdraw(
-            db, pool_id=pool_id, user_id=principal.user_id
-        )
-    except ApplicationError as exc:
-        response = _planned_error(exc)
-        if response is not None:
-            return response
-        raise
-    # api.md: withdrawal "also deletes the saved PayPal permission in vault mode".
-    # It runs after the entry is WITHDRAWN and inside the same request transaction,
-    # so a permission that still arrives is quarantined rather than activated, and a
-    # buyer who never saved anything gets the documented no-op back (idempotent).
+    # Phase 1 is the entry withdrawal alone. ``join.withdraw`` takes the ``users``
+    # row lock and then the pool row lock, and a savepoint release keeps both to the
+    # end of the transaction, so this commit is what frees them: no provider call may
+    # run while a pool lock is held (domain-ports.md 4.4, vault-charge.md 2, I9).
+    outcome = await _join_service(request).withdraw(db, pool_id=pool_id, user_id=principal.user_id)
+    await db.commit()
+    # Phase 2 is the provider step, on a fresh short transaction with no pool, lot or
+    # entry lock held: api.md says withdrawal "also deletes the saved PayPal permission
+    # in vault mode". A permission that still arrives afterwards is quarantined by the
+    # callback, and a buyer who never saved anything gets the documented no-op back
+    # (idempotent). If the provider fails the entry stays WITHDRAWN: phase 1 is already
+    # durable and an unreachable provider is retried by the delete route, not undone.
     if outcome.body.get("entry_id") and _settings(request).vault_token_key is not None:
         permission = await _vault_service(request).withdraw(
             db, entry_id=UUID(str(outcome.body["entry_id"]))
@@ -304,13 +282,7 @@ async def vault_start(
         settings.vault_consent_version
     ):
         raise HTTPException(422, "VALIDATION_ERROR")
-    try:
-        redirect = await _vault_service(request).start(db, entry_id=entry.id)
-    except ApplicationError as exc:
-        response = _planned_error(exc)
-        if response is not None:
-            return response
-        raise
+    redirect = await _vault_service(request).start(db, entry_id=entry.id)
     # The response carries the approve URL and the version only: never a setup or
     # payment token identifier, and the URL is not logged (rule 27).
     return JSONResponse(
@@ -334,13 +306,7 @@ async def vault_return(
     payer_id: str | None = Query(None, alias="PayerID"),
 ):
     entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
-    try:
-        await _vault_service(request).complete(db, entry_id=entry.id, setup_token_id=token or "")
-    except ApplicationError as exc:
-        response = _planned_error(exc)
-        if response is not None:
-            return response
-        raise
+    await _vault_service(request).complete(db, entry_id=entry.id, setup_token_id=token or "")
     # No status, no label and no identifier in the redirect target (rule 27).
     base = _settings(request).frontend_base_url.rstrip("/")
     return RedirectResponse(url=f"{base}/entries/{entry.id}", status_code=302)
@@ -356,13 +322,7 @@ async def vault_delete(
     db: AsyncSession = Depends(database_session),
 ):
     entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
-    try:
-        permission = await _vault_service(request).withdraw(db, entry_id=entry.id)
-    except ApplicationError as exc:
-        response = _planned_error(exc)
-        if response is not None:
-            return response
-        raise
+    permission = await _vault_service(request).withdraw(db, entry_id=entry.id)
     return JSONResponse(
         status_code=200,
         content={

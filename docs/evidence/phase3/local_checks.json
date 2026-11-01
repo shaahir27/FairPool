@@ -1,10 +1,10 @@
 {
-  "executed": "2026-11-01",
+  "executed": "2026-11-01, re-run after the independent review fixes",
   "fault_tests": "8 passed (F5, F16)",
   "frontend": "eslint clean, 14 tests passed, build ok",
   "migrations": "tools/check_migrations.py: 'Upgrade from 0001, fresh head and both Alembic drift checks passed'",
   "note": "All commands run by `make gate-check GATE=ig-3` passed on 2026-11-01; the gate then exited 2 only on the evidence items listed in this directory. No command was skipped.",
-  "offline_tests": "659 passed, 1 skipped, 15 deselected",
+  "offline_tests": "682 passed, 1 skipped, 15 deselected",
   "recorded": "2026-11-01",
   "regression_discrimination": "test_f26_clock_skew.py::test_a_join_that_starts_before_close_and_inserts_after_is_refused was run against the pre-CR-3 now() trigger and FAILED, then against the clock_timestamp() trigger from migration 0003 and PASSED. It is a real regression test, not a tautology.",
   "secrets": "gitleaks git --redact over the branch: no leaks found (one path allowlist entry added for a fictional test product key, documented in .gitleaks.toml)",

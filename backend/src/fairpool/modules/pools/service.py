@@ -162,11 +162,17 @@ class PoolService:
         return pool
 
     async def open(self, session: AsyncSession, payload: dict[str, Any]) -> None:
+        # ``_get`` holds the pool row lock (FOR UPDATE) for the rest of this handler.
         pool = await self._get(session, UUID(payload["pool_id"]))
         if pool.status != PoolStatus.PUBLISHED:
             return
-        now = await self.clock.db_now(session)
+        # CR-3 note 1 (PS-02): the window test reads the wall clock AFTER the lock,
+        # because ``now()`` is fixed at transaction start and a handler that queued
+        # behind another writer across ``open_at`` - or across ``close_at`` - must not
+        # decide on that stale time. The audit row keeps the stable ``db_now``
+        # timestamp, which is what ``_transition`` writes.
+        wall_now = await self.clock.db_wall_now(session)
         opens = datetime.fromisoformat(pool.timeline["open_at"].replace("Z", "+00:00"))
         close = datetime.fromisoformat(pool.timeline["close_at"].replace("Z", "+00:00"))
-        if opens <= now < close:
+        if opens <= wall_now < close:
             await self._transition(session, pool, "OPEN", "worker")

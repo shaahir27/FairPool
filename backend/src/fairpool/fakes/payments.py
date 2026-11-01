@@ -146,12 +146,16 @@ class FakePayPalGateway:
         return [TrackerResult(x.capture_id, True, None, None) for x in items]
 
     async def create_setup_token(
-        self, entry_id: str, return_url: str, cancel_url: str
+        self, entry_id: str, attempt: str, return_url: str, cancel_url: str
     ) -> SetupToken:
-        return SetupToken(self._id(f"vs:{entry_id}"), "https://www.sandbox.paypal.com/simulated")
+        return SetupToken(
+            self._id(f"vs:{entry_id}:{attempt}"), "https://www.sandbox.paypal.com/simulated"
+        )
 
-    async def create_payment_token(self, setup_token_id: str, entry_id: str) -> PaymentToken:
-        return PaymentToken(self._id(f"vp:{entry_id}"), "FAKE")
+    async def create_payment_token(
+        self, setup_token_id: str, entry_id: str, attempt: str
+    ) -> PaymentToken:
+        return PaymentToken(self._id(f"vp:{entry_id}:{attempt}"), "FAKE")
 
     async def delete_payment_token(self, payment_token_id: str, entry_id: str) -> None:
         self.deleted.add(payment_token_id)

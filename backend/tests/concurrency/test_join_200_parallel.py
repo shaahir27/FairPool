@@ -1,15 +1,16 @@
-"""T03B01: PT-13 / F14 / F15 — 200 parallel joins, one entry per user and key.
+"""T03B01: PT-13 / F14 / F15 — parallel joins, one entry per user and key.
 
 Runs with ``RATE_LIMIT_ENABLED=false`` (config-and-errors.md §3, CR-3): the
 unique constraints on ``(pool_id, user_id)`` and
-``(pool_id, paypal_account_key)`` are what this test proves, not the limiter.
-200 concurrent join transactions race over one pool: 100 buyers, each
-submitting twice through an independent transaction (the F14 "same buyer,
-many tabs and lanes" shape). Exactly one entry per buyer may exist. F15 is
-asserted over the two identity paths that exist today — the buyer session
-path and a second submission through the same entry service for the same
-account — because the ``/agent/v1`` HTTP lane arrives in Phase 7 (IG-7
-re-asserts it there).
+``(pool_id, paypal_account_key)`` are what these tests prove, not the limiter.
+``test_f14_concurrent_joins_one_entry`` is the 200-parallel-joins test the task
+row names: 200 concurrent join transactions race over one pool — 100 buyers, each
+submitting twice through an independent transaction (the F14 "same buyer, many
+tabs" shape) — and exactly one entry per buyer may exist.
+``test_f15_agent_and_human_same_account_one_entry`` covers the two identity paths
+of one account through the same entry service: the buyer session and a
+``delegations`` row (the ``/agent/v1`` HTTP lane arrives in Phase 7 and re-asserts
+it at IG-7).
 
 Data is committed on a dedicated engine: the joins must be real, concurrent,
 separate transactions. The disposable ``*_test`` database is wiped afterwards.
@@ -18,6 +19,7 @@ separate transactions. The disposable ``*_test`` database is wiped afterwards.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import uuid
 
@@ -27,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 
 from fairpool.db.safety import require_test_database
 from fairpool.db.session import normalize_database_url
+from fairpool.domain.errors import ApplicationError
 from fairpool.domain.hashing import verify_ed25519
 from fairpool.modules.pools.receipts import public_key_b64url, signing_seed
 from tests.integration.test_join_receipts import (
@@ -58,7 +61,7 @@ async def engine() -> AsyncEngine:
         await created.dispose()
 
 
-async def test_200_parallel_joins_leave_exactly_one_entry_per_buyer(engine: AsyncEngine):
+async def test_f14_concurrent_joins_one_entry(engine: AsyncEngine) -> None:
     maker = async_sessionmaker(engine, expire_on_commit=False)
     pool_tag = uuid.uuid4()
     users = [uuid.uuid4() for _ in range(BUYERS)]
@@ -155,33 +158,165 @@ async def test_200_parallel_joins_leave_exactly_one_entry_per_buyer(engine: Asyn
         ).one()
     assert row == (BUYERS, BUYERS, BUYERS, BUYERS)
 
-    # F15: the same buyer submitting a third time through the same entry
-    # service (the shape the agent lane will use) gets the one entry.
-    by_user: dict[uuid.UUID, str] = {}
-    for (user, _cr), (_code, body) in zip(requests, results, strict=True):
-        by_user.setdefault(user, body["entry_id"])
-    probe_user = users[0]
-    async with maker() as session, session.begin():
-        third_cr = await manual_confirm(session, probe_user, pool_id, max_total_cents=59000)
-    async with maker() as session, session.begin():
-        replay = await service.join(
-            session,
-            pool_id=pool_id,
-            user_id=probe_user,
-            confirmed_request_id=third_cr,
-            idempotency_key=str(uuid.uuid4()),
-        )
-    assert replay.status_code == 200
-    assert replay.body["already_entered"] is True
-    assert replay.body["entry_id"] == by_user[probe_user]
-
+    # F14's last word: one entry row per buyer in the database, not in the answers.
     async with maker() as session:
         final_count = await session.scalar(
             text("SELECT count(*) FROM pool_entries WHERE pool_id = :p"), {"p": pool_id}
         )
     assert final_count == BUYERS
 
-    # Cleanup of the committed fixture data (audit rows stay: append-only).
+    await _wipe(engine, pool_id, pool_tag)
+
+
+async def test_f15_agent_and_human_same_account_one_entry(engine: AsyncEngine) -> None:
+    """F15 (I6): one buyer session and one ``delegations`` row over one entry service.
+
+    The two identity paths of the same linked PayPal account must land on the same
+    single entry, whichever path got there first and whether or not they race. The
+    ``/agent/v1`` HTTP lane is Phase 7 work, so this drives the same
+    ``JoinService.join`` with a real ``delegations`` row (the entry service records the
+    delegation id and ``submitted_via``; token authentication and cap enforcement are
+    that lane's job, not invented here).
+    """
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    tag = uuid.uuid4()
+    scenarios = ("agent-first", "human-first", "racing")
+
+    async with maker() as session, session.begin():
+        pool_id = await open_pool(session)
+        players: dict[str, dict[str, uuid.UUID]] = {}
+        for name in scenarios:
+            user = uuid.uuid4()
+            await session.execute(
+                text(
+                    "INSERT INTO users (id, email, password_hash, display_name) "
+                    "VALUES (:id, :email, 'hash', 'Buyer')"
+                ),
+                {"id": user, "email": f"f15-{name}-{tag}@example.test"},
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO paypal_links (id, user_id, paypal_account_key) "
+                    "VALUES (:id, :user, :account)"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "user": user,
+                    "account": f"F15ACCT-{tag}-{name}",
+                },
+            )
+            delegation = uuid.uuid4()
+            await session.execute(
+                text(
+                    "INSERT INTO delegations (id, user_id, token_hash, scope, max_cap_cents, "
+                    "expires_at) VALUES (:id, :user, :hash, CAST(:scope AS jsonb), :cap, "
+                    "now() + interval '1 hour')"
+                ),
+                {
+                    "id": delegation,
+                    "user": user,
+                    "hash": f"f15-token-hash-{tag}-{name}",
+                    "scope": json.dumps({"pool_ids": [str(pool_id)], "category": None}),
+                    "cap": 60_000,
+                },
+            )
+            players[name] = {
+                "user": user,
+                "delegation": delegation,
+                "human_cr": await manual_confirm(session, user, pool_id, max_total_cents=51_000),
+                "agent_cr": await manual_confirm(session, user, pool_id, max_total_cents=52_000),
+            }
+        await session.execute(
+            text("UPDATE pools SET require_paypal_link = true WHERE id = :p"), {"p": pool_id}
+        )
+
+    service = join_service()
+
+    async def join(player: dict[str, uuid.UUID], *, via_agent: bool, key: str) -> tuple[int, dict]:
+        async with maker() as session, session.begin():
+            outcome = await service.join(
+                session,
+                pool_id=pool_id,
+                user_id=player["user"],
+                confirmed_request_id=player["agent_cr"] if via_agent else player["human_cr"],
+                idempotency_key=key,
+                delegation_id=player["delegation"] if via_agent else None,
+            )
+        return outcome.status_code, outcome.body
+
+    async def entry_row(player: dict[str, uuid.UUID]) -> tuple[str, str | None]:
+        async with maker() as session:
+            row = (
+                await session.execute(
+                    text(
+                        "SELECT submitted_via, delegation_id::text FROM pool_entries "
+                        "WHERE pool_id = :p AND user_id = :u"
+                    ),
+                    {"p": pool_id, "u": player["user"]},
+                )
+            ).one()
+        return str(row[0]), row[1]
+
+    try:
+        # The agent path first: the entry carries the delegation, and the buyer's own
+        # session then answers already_entered over the same receipt.
+        agent_first = players["agent-first"]
+        code, body = await join(agent_first, via_agent=True, key="f15-agent-first")
+        assert code == 201 and body["already_entered"] is False
+        session_code, session_body = await join(agent_first, via_agent=False, key="f15-agent-then")
+        assert session_code == 200 and session_body["already_entered"] is True
+        assert session_body["entry_id"] == body["entry_id"]
+        assert await entry_row(agent_first) == ("agent", str(agent_first["delegation"]))
+
+        # The buyer session first: the delegation-backed path cannot open a second door.
+        human_first = players["human-first"]
+        code, body = await join(human_first, via_agent=False, key="f15-human-first")
+        assert code == 201
+        agent_code, agent_body = await join(human_first, via_agent=True, key="f15-human-then")
+        assert agent_code == 200 and agent_body["entry_id"] == body["entry_id"]
+        assert await entry_row(human_first) == ("human", None)
+
+        # Both paths at once: one entry row, and the loser replays the winner.
+        racing = players["racing"]
+        results = await asyncio.gather(
+            join(racing, via_agent=False, key="f15-race-human"),
+            join(racing, via_agent=True, key="f15-race-agent"),
+        )
+        assert sorted(code for code, _ in results) == [200, 201]
+        assert results[0][1]["entry_id"] == results[1][1]["entry_id"]
+        assert results[0][1]["receipt"] == results[1][1]["receipt"]
+
+        async with maker() as session:
+            rows = (
+                await session.execute(
+                    text(
+                        "SELECT count(*), count(DISTINCT paypal_account_key) FROM pool_entries "
+                        "WHERE pool_id = :p"
+                    ),
+                    {"p": pool_id},
+                )
+            ).one()
+            # A delegation that is not the caller's own is refused, never recorded.
+            other = players["racing"]
+            stranger = players["human-first"]
+        assert rows == (3, 3)
+        with pytest.raises(ApplicationError) as refused:
+            async with maker() as session, session.begin():
+                await service.join(
+                    session,
+                    pool_id=pool_id,
+                    user_id=other["user"],
+                    confirmed_request_id=other["agent_cr"],
+                    idempotency_key="f15-stranger",
+                    delegation_id=stranger["delegation"],
+                )
+        assert refused.value.code == "DELEGATION_INVALID"
+    finally:
+        await _wipe(engine, pool_id, tag)
+
+
+async def _wipe(engine: AsyncEngine, pool_id: uuid.UUID, tag: uuid.UUID) -> None:
+    """Delete the committed fixture rows (audit rows stay: the chain is append-only)."""
     async with engine.begin() as conn:
         await conn.execute(
             text(
@@ -198,12 +333,16 @@ async def test_200_parallel_joins_leave_exactly_one_entry_per_buyer(engine: Asyn
             text("DELETE FROM idempotency_keys WHERE key LIKE :pattern"),
             {"pattern": f"entries_join:{pool_id}:%"},
         )
+        await conn.execute(
+            text("DELETE FROM delegations WHERE token_hash LIKE :pattern"),
+            {"pattern": f"%{tag}%"},
+        )
         await conn.execute(text("DELETE FROM pools WHERE id = :p"), {"p": pool_id})
         await conn.execute(
             text("DELETE FROM paypal_links WHERE paypal_account_key LIKE :pattern"),
-            {"pattern": f"%{pool_tag}%"},
+            {"pattern": f"%{tag}%"},
         )
         await conn.execute(
             text("DELETE FROM users WHERE email LIKE :pattern"),
-            {"pattern": f"%{pool_tag}%"},
+            {"pattern": f"%{tag}%"},
         )

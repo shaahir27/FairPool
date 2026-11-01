@@ -11,7 +11,9 @@ Rules this module implements:
   ``vs:{entry_id}:{attempt}`` and the exchange key of the same attempt); reopening
   an attempt whose outcome is unknown reuses **that row and that identity**, and a
   genuinely new attempt is a new row with the previous one ``FAILED``, never
-  silently replaced;
+  silently replaced. The attempt identity stored in that row's ``operation_key`` is
+  what every provider step is called with, so two attempts of one entry can never
+  share one ``PayPal-Request-Id`` (I9);
 * the browser callback carries a token id and is never authority for anything
   else: the server matches its own live, unexpired, unconsumed attempt for the
   caller's own entry, fences it once with a conditional ``UPDATE`` so two callbacks
@@ -127,13 +129,40 @@ def label_of(payment_token_id: str) -> str:
     return payment_token_id[-LABEL_LENGTH:]
 
 
+def setup_operation_key(entry_id: UUID, attempt: str) -> str:
+    """The ``vault_setup_attempts.operation_key`` of one attempt (``vs:{entry}:{n}``)."""
+    return f"vs:{entry_id}:{attempt}"
+
+
+def attempt_identity(operation_key: str, entry_id: UUID) -> str:
+    """The attempt identity carried by a stored operation key.
+
+    One row owns the identity of both provider steps (CR-3), so the identity handed to
+    ``PaymentVaultProvider`` is exactly the suffix of the key this row already stores:
+    the provider composes ``vs:{entry_id}:{attempt}`` back out of it and a retry of the
+    same row replays the same key instead of minting a new one (I9).
+    """
+    prefix = f"vs:{entry_id}:"
+    if not operation_key.startswith(prefix) or len(operation_key) == len(prefix):
+        # A key this service never wrote cannot be replayed as an operation identity.
+        raise ApplicationError("INTEGRITY_ERROR")
+    return operation_key[len(prefix) :]
+
+
 async def has_active_permission(session: AsyncSession, *, entry_id: UUID, cap_cents: int) -> bool:
     """Close-time eligibility test (CR-3 note 3): recorded consent and ACTIVE.
 
-    Mirrors the charge precheck (BO-27) so a buyer is never told they are eligible
-    for something that could not be charged. A permission whose stored cap is not
-    the entry's cap is not the permission this buyer consented to, so it fails
-    closed.
+    Stricter than the charge precheck (BO-27), on purpose. BO-27 gates one charge on
+    the live facts - seat valid, lot CHECKOUT_OPEN, award valid, token ACTIVE, the
+    award total at or under the buyer's cap - and never compares the token's stored
+    cap to the entry's, because the amount it checks is the total it is about to
+    charge. This test runs at close, when there is no total yet: the entry's frozen
+    cap is the only amount standing in for a future award, so a permission whose
+    stored cap is not that entry's cap is not the permission this buyer consented to
+    for this pool, and it fails closed. Close is the gate that decides who is told
+    they are eligible, so an over-permissive check here would promise a charge the
+    precheck may later price out; a charge that passes BO-27 on its own facts is
+    unaffected by this rule.
     """
     row = (
         await session.execute(
@@ -308,7 +337,7 @@ class VaultService:
                 id=uuid4(),
                 entry_id=entry_id,
                 # This row owns the identity of both provider steps for the attempt.
-                operation_key=f"vs:{entry_id}:{int(previous or 0) + 1}",
+                operation_key=setup_operation_key(entry_id, str(int(previous or 0) + 1)),
                 status=VaultSetupStatus.PENDING,
                 expires_at=now + timedelta(seconds=self.setup_ttl_s),
             )
@@ -318,7 +347,9 @@ class VaultService:
         await self._record_consent(session, entry=entry, now=now)
 
         try:
-            redirect = await self.provider.start_setup(entry_id)
+            redirect = await self.provider.start_setup(
+                entry_id, attempt_identity(attempt.operation_key, entry_id)
+            )
         except VaultProviderDeclined:
             attempt.status = VaultSetupStatus.FAILED
             attempt.last_error = VaultProviderDeclined.code
@@ -387,6 +418,8 @@ class VaultService:
         if attempt is None:
             # Nothing of ours is waiting: the redirect authorises no exchange.
             raise ApplicationError("NOT_FOUND")
+        # The identity this attempt row already stores; the same one the setup call used.
+        attempt_id = attempt_identity(attempt.operation_key, entry_id)
         if attempt.status == VaultSetupStatus.EXCHANGED:
             return await self.status(session, entry_id=entry_id)
         if attempt.consumed_at is not None:
@@ -417,7 +450,7 @@ class VaultService:
             stored_setup = self.cipher.open(
                 attempt.provider_setup_nonce, attempt.provider_setup_ciphertext
             )
-            await self._provider_delete(stored_setup)
+            await self._provider_delete(stored_setup, attempt_id)
             return VaultPermission(entry_id, str(VaultStatus.DELETED), None)
 
         stored = self.cipher.open(attempt.provider_setup_nonce, attempt.provider_setup_ciphertext)
@@ -438,7 +471,7 @@ class VaultService:
             return await self.status(session, entry_id=entry_id)
 
         try:
-            permission = await self.provider.exchange(entry_id, stored)
+            permission = await self.provider.exchange(entry_id, attempt_id, stored)
         except VaultProviderDeclined:
             attempt.status = VaultSetupStatus.FAILED
             attempt.last_error = VaultProviderDeclined.code
@@ -491,7 +524,13 @@ class VaultService:
             stored = self.cipher.open(token.token_nonce, token.token_ciphertext)
             # A provider 404 counts as deleted, so an already-gone resource returns
             # normally; only a real failure keeps the ciphertext and stops here.
-            await self._provider_delete(stored)
+            # The attempt identity is the one that produced this permission: a live
+            # token row always has an attempt row behind it (vault-charge.md section 2),
+            # and one without is an integrity break rather than an invented key.
+            attempt = await self._latest_attempt(session, entry_id)
+            if attempt is None:
+                raise ApplicationError("INTEGRITY_ERROR")
+            await self._provider_delete(stored, attempt_identity(attempt.operation_key, entry_id))
 
         token.token_ciphertext = None
         token.token_nonce = None
@@ -506,9 +545,9 @@ class VaultService:
         )
         return VaultPermission(entry_id, str(token.status), token.token_label)
 
-    async def _provider_delete(self, token_id: str) -> None:
+    async def _provider_delete(self, token_id: str, attempt: str) -> None:
         try:
-            await self.provider.delete(token_id)
+            await self.provider.delete(token_id, attempt)
         except VaultProviderDeclined:
             # The contracted 404-as-deleted outcome (domain-ports.md §4.4).
             return

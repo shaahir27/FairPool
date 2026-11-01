@@ -24,7 +24,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | IG-0 | DONE | owner | tagged `ig-0`; CI green (run 41086853451); T00A02 complete; Codex PayPal 1.2.0 skills loaded (SSE MCP unavailable in Codex 0.164.0); public visibility deferred to T10A02/T11X01 |
 | IG-1 | DONE | owner | tagged `ig-1`; IT-1 green locally and hosted: API https://fairpool-api.onrender.com, frontend https://fairpool-frontend.onrender.com; `/health` and `/ready` 200; webhook 200 with the raw body stored; Supabase free Postgres; Render Postgres deleted |
 | IG-2 | DONE (owner exception) | not tagged | Owner explicitly closed IG-2 on 2026-10-31 despite outstanding acceptance checks. The current Gemini evaluation recorded 479/480 case checks passing across resumed segments; one consistent offer required review. Earlier capacity parsing errors remain unresolved. CI is green for the current `main` head `88105a0` (nine jobs, 2026-11-01), which closes the pending-CI half; the gate checker still reports the Gemini evidence pending, so this closure is not an automated acceptance pass. |
-| IG-3 | IN PROGRESS | not tagged | Phase 3 code is complete on branch `phase-3` and `make gate-check GATE=ig-3` runs the full automated chain green, then exits 2: `docs/evidence/phase3/` holds independent_review, s5, s11 and ci as pending. Nothing was marked passed to close a gate. |
+| IG-3 | IN PROGRESS | not tagged | Phase 3 code is complete on branch `phase-3` and `make gate-check GATE=ig-3` runs the full automated chain green, then exits 2: `docs/evidence/phase3/` holds s5, s11 and ci as pending. The independent review ran and its findings are dispositioned. Nothing is marked passed that was not executed. |
 | IG-4 | TODO | not yet | |
 | IG-5 | TODO | not yet | |
 | IG-6 | TODO | not yet | |
@@ -371,6 +371,46 @@ checks still report pending evidence. See the current gate row and Phase 2
 verification record for the later Gemini evaluation. No paid deployment was
 performed.
 
+## Phase 3 independent review (2026-11-01)
+
+A read-only reviewer agent audited the `phase-3` diff against `AGENTS.md`, the
+CR-3 contracts and the tests. It found 1 BLOCKER, 4 MAJOR and 8 MINOR issues, all
+dispositioned below. None touched a money or safety invariant.
+
+| ID | Finding | Disposition | Proof |
+|---|---|---|---|
+| B1 | `POST /api/v1/intake/manual` returned 500 - a raw `uuid.UUID` reached Starlette's `json.dumps`, and no test had ever posted to the route | Fixed: ids stringified as `join.py` already does; every other `JSONResponse(content=...)` on the branch audited | `tests/integration/test_intake_manual_route.py`, which fails on the unfixed code and passes after |
+| M2 | The withdraw route ran provider I/O while still holding the `users` and `pools` row locks, because a savepoint release does not free them | Fixed as two phases: commit the entry withdrawal, then delete the permission on a fresh short transaction | ordering test in `tests/integration/test_vault_lifecycle.py` |
+| M3 | uvicorn's access logger prints the full request target, so `?code=`, `?state=` and `?token=` could reach an unredacted log; our filter only covered the root handler | Fixed both ways: filter attached to `uvicorn.access`/`uvicorn.error`, `--no-access-log` in `deploy/Dockerfile.api`. While fixing it a second latent bug surfaced: `_OAUTH_PARAM` required a literal quote, so `code=`/`state=` were never masked anywhere | `tests/unit/test_log_redaction.py` |
+| M4 | CR-3 text invented `PaymentRouter.charge_vault -> CaptureResult`; that type does not exist and the router has no such method | Contract corrected to reality (`ChargeResult` on the gateway, called by the `order.vault_charge` handler); no method added to satisfy a doc line | `docs/contracts/domain-ports.md` section 4.4 |
+| M1 | The attempt-scoped keys CR-3 requires (`vs:{entry}:{attempt}`, `vp:{entry}:{attempt}`) could not reach the provider, so two save attempts of one entry collided on one idempotency key | Fixed: attempt identity threaded through `PaymentVaultProvider`, its fake, the gateway and `fakes/payments.py`, using the identity the attempt row already stores | two-attempts and retry-reuses-identity tests in `test_vault_lifecycle.py` |
+| m1 | `has_active_permission` claimed in its docstring to mirror BO-27 while being stricter | Docstring corrected to the close-time rule and why it differs; charge behaviour untouched | - |
+| m2 | `pool.open` decided on `db_now` after the lock while CR-3 note 1 requires `db_wall_now` | Fixed; the audit row keeps `db_now` | extended `tests/integration/test_pools.py` |
+| m3 | `pool.seed` was enqueued with a dedupe key the job table says it does not have | Removed; the concurrency key kept | `test_close_commitments.py` |
+| m4 | Public audit published `audit_checkpoints` before closure | Gated on CLOSED or later | the `test_public_audit_*` tests |
+| m5 | A stale local error override in `entries.py` duplicated the shared map under a comment claiming the codes were missing from it | Deleted; the shared handler is used | join tests unchanged status codes |
+| m6 | `enums.py` header claimed migration 0001 creates every enum type | Qualified for `vault_setup_status` (0003) | - |
+| m7 | Docs named tests that did not exist: `test_illegal_transitions.py`, the F14/F15 function names, `test_f26_clock_skew_database_clock_only` | Real tests added or renamed so every documented name resolves | `tests/unit/test_illegal_transitions.py`, `test_f14_*`, `test_f15_*`, the F26 function |
+| m8 | F15's stated "delegations row" half was not exercised - only a second human request | Made real: a `delegations` row drives the same entry service | `test_f15_agent_and_human_same_account_one_entry` |
+
+Checked and found clean: integer-cent money everywhere (the only float is the
+contract-permitted search score); no module outside `adapters/paypal/` calls
+authorize/capture/void/refund; the engine makes no network call and treats a `paypal:`
+field as metadata; "paid" only ever from a validated COMPLETED capture, never
+`order.status` (V8); every whitelisted status change goes through `assert_transition`
+with raise-and-alert and no direct `UPDATE ... SET status`; the wall clock is read after
+the lock in engine, join, withdraw and close while receipts keep `db_now`; no seat is
+released while AUTHORIZING, CAPTURING or CAPTURE_PENDING (PT-12); replay is distinguished
+from illegal and conflicting with no duplicated effect (PT-10); vacancies come from rows
+with one deduplicated refill and `lot_failing` excluded (I8); synthetic data never reaches
+PayPal and the fakes build no HTTP client (I12); search is retrieval-only, drops stale or
+private hits and never gates (PT-14); DEP-5 refuses before any half-write; and no Phase
+4+ surface crept in.
+
+Both failures this review caught were mine in origin: a route wired without a
+route-level test, and a contract sentence the code could not carry. That is the argument
+for the gate demanding an independent pass instead of trusting the implementing agent.
+
 ## Phase 3 execution record (2026-11-01)
 
 Executed solo on branch `phase-3` in three authored commits, after the plan
@@ -395,7 +435,7 @@ test), `graphify` (navigation; it needed grep fallback for line-level facts).
    the worker registry for exactly the four implemented kinds, plus PT-13,
    PT-14 (Phase 3 form), F14, F15, F16 and the privacy tests.
 
-Measured, not asserted: 659 offline tests and 8 fault tests pass, one test is
+Measured, not asserted: 682 offline tests and 8 fault tests pass, one test is
 skipped with a printed reason (no Elastic credentials), `ruff check`,
 `ruff format --check`, `mypy --strict` over `domain/` and `modules/`,
 `tools/check_imports.py`, `tools/validate_docs.py`, frontend lint, 14 frontend
@@ -403,10 +443,10 @@ tests and the frontend build are all clean, and `tools/check_migrations.py`
 passes the full round trip on a disposable database.
 
 `make gate-check GATE=ig-3` now exists, runs the whole automated chain green
-(lint, strict typing, 659 offline tests, import boundaries, docs, OpenAPI,
+(lint, strict typing, 682 offline tests, import boundaries, docs, OpenAPI,
 frontend lint/tests/build, Alembic round trip, migration verification, the fault
-suite, generated artifacts and gitleaks) and then exits 2, listing
-independent_review, s5, s11 and ci as pending. That is the correct state: `ig-3`
+suite, generated artifacts and gitleaks) and then exits 2, listing s5, s11 and ci
+as pending, because none of those can be executed here. That is the correct state: `ig-3`
 may not be tagged until those are real, and no evidence file was marked passed to
 make it look otherwise.
 

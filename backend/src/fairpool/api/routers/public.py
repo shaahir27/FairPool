@@ -10,13 +10,14 @@ are never invented or guessed here.
 
 Nothing personal crosses this route. It returns hashes only: no salts, no caps, no
 user or entry ids, no addresses (FR-SL-06, I13). Before the pool closes, the
-commitment list is withheld entirely, because publishing it early would let anyone
-rank buyers before the rules snapshot is fixed.
+commitment list and the audit checkpoints are withheld entirely, because publishing
+either early would let anyone read the pool's internals while buyers are still
+entering it.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,11 +27,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.api import schemas
 from fairpool.api.deps import database_session
 from fairpool.db.models.catalog import EntryReceipt, Pool, PoolEntry
-from fairpool.db.models.enums import EntryStatus
+from fairpool.db.models.enums import EntryStatus, PoolStatus
 from fairpool.modules.pools.receipts import public_key_b64url, signing_seed
 from fairpool.modules.pools.service import rules_document
 
 router = APIRouter()
+
+#: PS-03 and the states after it. The close is what makes the checkpoint chain and the
+#: commitment list a published record (api.md "Public audit", CR-3 review m4);
+#: CANCELLED is deliberately absent - a cancelled pool never reached that record.
+AFTER_CLOSE_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        str(PoolStatus.CLOSED),
+        str(PoolStatus.SEEDED),
+        str(PoolStatus.ALLOCATED),
+        str(PoolStatus.RUNNING),
+        str(PoolStatus.COMPLETED),
+    }
+)
 
 
 async def _commitments(db: AsyncSession, pool_id: UUID) -> list[str]:
@@ -89,7 +103,14 @@ async def public_audit(pool_id: UUID, db: AsyncSession = Depends(database_sessio
         # After close only: the sorted list is the published record of who was
         # eligible, and before the snapshot exists there is nothing to publish.
         "commitments": await _commitments(db, pool_id) if closed else [],
-        "audit_checkpoints": await _checkpoints(db, pool_id),
+        # After close only, and on the status rather than on a column (api.md "Public
+        # audit" frames both as what the close publishes): the checkpoint chain of a
+        # pool that is still open is a running internal log, not an audit surface, and
+        # publishing it as soon as ``rules_hash`` existed leaked the pool's action
+        # history to anonymous readers during its own open window.
+        "audit_checkpoints": (
+            await _checkpoints(db, pool_id) if str(pool.status) in AFTER_CLOSE_STATUSES else []
+        ),
     }
 
 

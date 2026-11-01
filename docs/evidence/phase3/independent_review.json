@@ -1,14 +1,27 @@
 {
-  "executed": "2026-11-01",
-  "note": "No independent review completed in this session, so this stays pending and IG-3 stays red. What was done instead, and does not substitute for a review: the plan review that produced CR-3, a per-lane verification by the integrator (every acceptance item was run against the real test database), targeted greps for direct status writes, float money, tautological assertions and network calls from the engine, and one regression test proven to discriminate.",
-  "outstanding_review_scope": [
-    "contract fidelity of CR-3 against the code as written",
-    "lock order across join, withdraw, close, link/unlink and the engine (deadlock analysis)",
-    "unknown-outcome handling in the vault and expiry paths",
-    "account and permission binding (two_keys, quarantine)",
-    "privacy boundaries of search documents and public endpoints",
-    "whether any claim in docs, comments or evidence overstates what was executed"
+  "clean": [
+    "integer-cent money",
+    "adapter-only payment calls",
+    "no payment inferred from order.status",
+    "no direct status writes",
+    "wall clock read after locks",
+    "seat safety (I7)",
+    "replay idempotency (I9)",
+    "vacancy rules (I8)",
+    "synthetic isolation (I12)",
+    "search never gates (INT-1)",
+    "DEP-5 fail-closed",
+    "no Phase 4+ scope creep"
   ],
-  "recorded": "2026-11-01",
-  "status": "pending"
+  "disposition": "All 13 fixed or corrected in the docs that asserted them, each with a named test. B1 and m7/m8 were evidence-honesty failures (a route with no route-level test; docs naming tests that did not exist); M1 and M4 were CR-3 text the code could not carry. Full table in docs/progress.md.",
+  "executed": "2026-11-01",
+  "findings": {
+    "blocker": 1,
+    "major": 4,
+    "minor": 8
+  },
+  "note": "Independent of the implementing agents. It ran no live PayPal, Elastic or Gemini call and does not certify those; the pending spike evidence still says so.",
+  "reviewer": "independent read-only review agent (phase3-review)",
+  "scope": "Phase 3 diff against main: money and payment invariants, state-machine discipline, lock order and deadline reads, idempotency and replay, privacy and secret handling, vault gating, CR-3 contract fidelity, test quality and determinism, scope discipline.",
+  "status": "passed"
 }

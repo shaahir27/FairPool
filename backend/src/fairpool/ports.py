@@ -415,13 +415,21 @@ class ProviderProfile:
 
 @runtime_checkable
 class PaymentVaultProvider(Protocol):
-    """The three provider steps only: takes no session, writes no row (CR-3)."""
+    """The three provider steps only: takes no session, writes no row (CR-3).
 
-    async def start_setup(self, entry_id: UUID) -> SetupRedirect: ...
+    ``attempt`` is the attempt identity the vault service stores inside
+    ``vault_setup_attempts.operation_key`` (the suffix of ``vs:{entry_id}:{attempt}``),
+    so the key of every step of one attempt is that row's key and two attempts of one
+    entry never share one (I9, ``vault-charge.md`` section 2).
+    """
 
-    async def exchange(self, entry_id: UUID, setup_token_id: str) -> SavedPermission: ...
+    async def start_setup(self, entry_id: UUID, attempt: str) -> SetupRedirect: ...
 
-    async def delete(self, payment_token_id: str) -> None: ...
+    async def exchange(
+        self, entry_id: UUID, attempt: str, setup_token_id: str
+    ) -> SavedPermission: ...
+
+    async def delete(self, payment_token_id: str, attempt: str) -> None: ...
 
 
 @runtime_checkable

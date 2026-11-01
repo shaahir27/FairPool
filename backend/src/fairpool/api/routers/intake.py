@@ -58,12 +58,16 @@ async def intake_manual(
         db,
         user_id=principal.user_id,
         pool_id=payload.pool_id,
-        payload=payload.model_dump(mode="json"),
+        # The frozen validator accepts buyer-chosen fields only; ``pool_id`` selects
+        # the pool and is not part of the request it validates.
+        payload=payload.model_dump(mode="json", exclude={"pool_id"}),
     )
+    # A raw Response skips FastAPI's jsonable_encoder, so every value must already
+    # be JSON-native: ids are text here exactly as the join lane writes them.
     return JSONResponse(
         status_code=201,
         content={
-            "confirmed_request_id": record.id,
+            "confirmed_request_id": str(record.id),
             "canonical_request": record.canonical_request,
         },
     )

@@ -152,7 +152,7 @@ Member B never imports checkout code. The two members meet only at HTTP (`api.md
 
 ### 4.4 Vault permission port (Member A implements at T05A01; Member B calls the fake from IG-3, CR-3)
 
-`charge_vault` was already on both the real gateway and `FakePaymentRouter`; it is named here so the port surface is auditable, and the save/withdraw half is added because join, close and withdraw need it and nothing declared it before.
+The save/withdraw half is declared here because join, close and withdraw need it and nothing declared it before. The charge half is **not** a router method: `charge_vault` lives on the gateway — `RestPayPalGateway` and `FakePayPalGateway` both carry it (`paypal-adapter.md` section 2) and it returns `ChargeResult` (`domain/payments.py`: `order_id`, `capture_id`, `capture_status`, `error`). The `order.vault_charge` handler calls it on the gateway its router carries, inside the BO-23 to BO-27 transaction; `PaymentRouter` itself only selects the payee and shows a fallback label (`wiring.py`). There is no `CaptureResult` anywhere in the codebase, and the port never had one.
 
 ```python
 @dataclass(frozen=True)
@@ -166,15 +166,21 @@ class SavedPermission:
     label: str                # last four characters only
 
 class PaymentRouter(Protocol):
-    def payee_for(self, award, payee_ref) -> Payee: ...
-    def label(self) -> str: ...
-    async def charge_vault(self, session, *, buyer_order_id, amount_cents,
-                           idempotency_key: str) -> CaptureResult: ...   # BO-23 to BO-27
+    name: str                                  # fake | single_seller (| payee_email | platform, disabled)
+    gateway: PayPalGateway                     # the only object that can call a host
+    def payee_for(self, award: AwardView, payee_ref: PayeeRef) -> Payee: ...
+    def label(self) -> str | None: ...         # fallback label shown to users, or None
 
 class PaymentVaultProvider(Protocol):        # provider-facing: takes no session, does no database write
-    async def start_setup(self, entry_id: UUID) -> SetupRedirect: ...
-    async def exchange(self, entry_id: UUID, setup_token_id: str) -> SavedPermission: ...
-    async def delete(self, payment_token_id: str) -> None: ...           # provider 404 counts as deleted
+    # ``attempt`` is the attempt identity the vault service already stores in
+    # ``vault_setup_attempts.operation_key`` (the suffix of ``vs:{entry_id}:{attempt}``), so
+    # the key of every step of one attempt is that row's key and two attempts of one entry
+    # never share one (I9, vault-charge.md section 2). The delete key stays ``vd:{entry_id}``
+    # (entry-scoped and idempotent, 404-as-deleted); the argument is carried so one attempt's
+    # operations are traceable as a set, not to change that key.
+    async def start_setup(self, entry_id: UUID, attempt: str) -> SetupRedirect: ...
+    async def exchange(self, entry_id: UUID, attempt: str, setup_token_id: str) -> SavedPermission: ...
+    async def delete(self, payment_token_id: str, attempt: str) -> None: ...   # provider 404 counts as deleted
 
 @dataclass(frozen=True)
 class VaultPermission:
@@ -189,7 +195,7 @@ class PaymentVault(Protocol):                # the vault service both lanes may 
     async def status(self, session, *, entry_id: UUID) -> VaultPermission: ...
 ```
 
-Rules: `PaymentVault` owns the database side — the `vault_setup_attempts` row, the encrypted `vault_tokens` row, the quarantine decision — and calls `PaymentVaultProvider` for the three provider steps **outside** any transaction that holds a pool, lot or entry lock, then writes the result in its own transaction with its audit row. `FakePaymentVaultProvider` is the only provider implementation Phase 3 and the simulation may use (`I12`): it issues local, inert approve URLs and token ids, is scriptable to ACTIVE, decline and unknown-outcome paths, and records calls so a test can prove no network client was built for a synthetic entry. Under `PAYMENT_MODE=vault_charge` with real saving not yet shipped, `VAULT_REAL_SAVE_ENABLED=false` makes `start` refuse with `FEATURE_DISABLED` rather than half-save; nothing else changes (see `decisions.md` DEP-5).
+Rules: `PaymentVault` owns the database side — the `vault_setup_attempts` row, the encrypted `vault_tokens` row, the quarantine decision — and calls `PaymentVaultProvider` for the three provider steps **outside** any transaction that holds a pool, lot or entry lock, then writes the result in its own transaction with its audit row. A route that takes those locks and then needs a provider step commits the locked phase first (`entries_me_delete`, CR-3 review M2): a savepoint release does not release a Postgres row lock, so `pool.close` would otherwise wait behind a provider round trip. `FakePaymentVaultProvider` is the only provider implementation Phase 3 and the simulation may use (`I12`): it issues local, inert approve URLs and token ids, is scriptable to ACTIVE, decline and unknown-outcome paths, records its calls and the operation key of each setup and exchange step so a test can prove no network client was built for a synthetic entry and that two attempts never share a key. Under `PAYMENT_MODE=vault_charge` with real saving not yet shipped, `VAULT_REAL_SAVE_ENABLED=false` makes `start` refuse with `FEATURE_DISABLED` rather than half-save; nothing else changes (see `decisions.md` DEP-5).
 
 
 
