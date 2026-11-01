@@ -65,6 +65,8 @@ class Lot(Base):
     refill_cutoff_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # CR-4: waves are data, not a counter invented in code.
+    refill_waves: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     funded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")

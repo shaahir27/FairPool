@@ -60,8 +60,8 @@ lot:
     - {id: LS-02, from: [BIDDING], to: BID_CLOSED, trigger: "job:lot.bid_close", guard: "now >= bid_close_at; late bids already rejected", effects: [audit, "job:lot.award"]}
     - {id: LS-03, from: [BID_CLOSED], to: AWARDED, trigger: "job:lot.award", guard: "all lower lot_order lots are past BID_CLOSED; a bid passes R1 to R9; award snapshot written; router and mode stamped (N8)", effects: [audit, "job:lot.open_checkout", notify]}
     - {id: LS-04, from: [BID_CLOSED], to: CANCELLED, trigger: "job:lot.award", guard: "no feasible bid; no money exists", effects: [audit, notify]}
-    - {id: LS-05, from: [AWARDED], to: CHECKOUT_OPEN, trigger: "job:lot.open_checkout", guard: "award exists; priced-out seats released; offers created within seats (I8)", effects: [audit, "job:offer.expire", "job:lot.try_fund", notify]}
-    - {id: LS-06, from: [CHECKOUT_OPEN], to: FUNDING, trigger: "job:lot.try_fund", guard: "authorized count A >= min(seats, moq + CAPTURE_BUFFER), or fund_deadline_at passed and A >= moq", effects: [audit, "job:order.capture"]}
+    - {id: LS-05, from: [AWARDED], to: CHECKOUT_OPEN, trigger: "job:lot.open_checkout", guard: "award exists; priced-out seats released; offers created within seats (I8); in vault_charge every seat order is OFFERED and its charge is enqueued instead of an offer timer", effects: [audit, "job:offer.expire", "job:lot.try_fund", notify]}
+    - {id: LS-06, from: [CHECKOUT_OPEN], to: FUNDING, trigger: "job:lot.try_fund", guard: "authorize_capture: authorized count A >= min(seats, moq + CAPTURE_BUFFER), or fund_deadline_at passed and A >= moq; vault_charge: completed captures from distinct buyers >= moq, read from the ledger (there is no authorization in that mode)", effects: [audit, "job:order.capture"]}
     - {id: LS-07, from: [FUNDING], to: FUNDED, trigger: "job:lot.try_fund", guard: "completed captures from distinct buyers >= moq, read from the ledger (I5)", effects: [audit, notify, "job:lot.finalize_close"]}
     - {id: LS-08, from: [CHECKOUT_OPEN], to: FAILING, trigger: "job:lot.try_fund", guard: "fund_deadline_at passed with A < moq, or winning offer expired, or ops abort", effects: [audit, "job:lot.finalize_fail", notify]}
     - {id: LS-09, from: [FUNDING], to: FAILING, trigger: "job:lot.try_fund", guard: "sweep resolved with completed < moq and no refill possible, or winning offer expired, or ops abort", effects: [audit, "job:lot.finalize_fail", notify]}
@@ -69,6 +69,7 @@ lot:
     - {id: LS-11, from: [FUNDED], to: CLOSED, trigger: "job:lot.finalize_close", guard: "capture window over; ledger balanced; merchant notified", effects: [audit]}
     - {id: LS-12, from: [PLANNED], to: CANCELLED, trigger: "job:pool.allocate", guard: "entries available below min_seats (N2)", effects: [audit]}
     - {id: LS-13, from: [AWARDED], to: CANCELLED, trigger: admin.abort, guard: "checkout not yet open; no money exists (N3)", effects: [audit, notify]}
+    - {id: LS-14, from: [PLANNED, BIDDING, BID_CLOSED], to: AWARDED, trigger: admin.force_award, guard: "AP_ENV local or test, or MOCK_TOGGLES_ENABLED; an award snapshot exists for the lot; bid rules are not consulted because no bid exists; no money exists yet; payment router and mode stamped (N8); priced-out seats released", effects: [audit, "job:lot.open_checkout", notify]}
 ```
 
 ## Buyer order (seat)

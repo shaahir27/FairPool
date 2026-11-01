@@ -185,3 +185,25 @@ class ConfirmedRequest(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
+
+
+class IntakeProposal(Base):
+    """CR-4: the owner-bound, single-use proposal behind intake confirm."""
+
+    __tablename__ = "intake_proposals"
+    __table_args__ = (Index("ix_intake_proposals_user_pool", "user_id", "pool_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    pool_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("pools.id"), nullable=False
+    )
+    proposal: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    rules_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )

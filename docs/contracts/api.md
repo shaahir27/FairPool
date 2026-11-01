@@ -231,6 +231,13 @@ Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"
 ### Admin helpers
 
 - `POST /api/v1/admin/lots/{lot_id}/force-award` body `{"merchant_id": "uuid", "item_cents": 47000, "tier_index": 0, "moq": 2, "valid_minutes": 60}` writes an award as `lot.award` would, for test and demo only. Enabled only when `APP_ENV` is `local` or `test` or `MOCK_TOGGLES_ENABLED` is true; otherwise `403 FEATURE_DISABLED`.
+
+It answers `201 {"lot_id", "award": {"award_hash", "item_cents", "moq", "tier_index", "valid_until"}, "lot_status": "AWARDED"}`. In flat delivered mode the awarded total is `item_cents` per seat, so the body carries no breakdown (`flat-delivered-bids.md`). The helper applies the whitelisted `admin.force_award` transition; it never writes a status directly, and every step is audited.
+
+`POST /api/v1/admin/reconciler/run` takes no body and returns `202 {"enqueued": <n>}`, the number of stale orders it re-queued. It re-enqueues only existing triggers: `order.authorize` for `APPROVED`, `offer.expire` for an expired offer. It never invents a transition.
+
+`POST /api/v1/offers/{buyer_order_id}/cancelled` takes no body and returns the same shape as `/approved`: `{"buyer_order_id", "status": "DECLINED", "reason": null}`. It is a hint like the SDK's `onCancel`; a second call returns the same result.
+
 - `POST /api/v1/admin/mock` body `{"kind": "paypal_mock_response" | "force_capture_failure" | "delay_webhooks", "value": "string|null", "ttl_s": 300}`; only when `MOCK_TOGGLES_ENABLED`. Anything shown on screen while a mock is active carries a visible MOCK label.
 - `POST /api/v1/admin/sim/run` body `{"entries": 10000, "merchants": 5, "seed": 42}` returns `202 {"sim_run_id": "uuid", "pool_id": "uuid"}`; the pool is `SIMULATION` mode.
 

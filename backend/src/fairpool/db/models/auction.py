@@ -127,8 +127,10 @@ class Award(Base):
     lot_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("lots.id"), unique=True, nullable=False
     )
-    bid_revision_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("bid_revisions.id"), nullable=False
+    # CR-4: NULL for a forced demo award, which has no bid behind it; award_hash covers the
+    # key with a null value and the row stays immutable.
+    bid_revision_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("bid_revisions.id"), nullable=True
     )
     merchant_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False

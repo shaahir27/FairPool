@@ -138,6 +138,21 @@ Indexes: `UNIQUE (user_id) WHERE revoked_at IS NULL`; `UNIQUE (paypal_account_ke
 | created_by | uuid FK users | |
 | search_text | text | derived at publish from title, variant, condition, bundle contents and zone regions; `GIN (search_text gin_trgm_ops)` index serves the Postgres search fallback (INT-1) |
 
+**intake_proposals** (CR-4; the owner-bound, single-use proposal behind `POST /api/v1/intake/confirm`)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | returned to the browser as `proposal_id` |
+| user_id | uuid FK users | the buyer who asked; only this user may confirm it |
+| pool_id | uuid FK pools | the matched pool, already validated as OPEN and in the candidate list |
+| proposal | jsonb | the validated structured proposal, never raw AI output |
+| rules_hash | char(64) | the pool's frozen hash at proposal time |
+| expires_at | timestamptz | database clock at creation plus the intake window; past it confirmation is `REQUEST_INVALID` |
+| consumed_at | timestamptz NULL | set when `confirmed_requests` is written; a second confirm replays the same request |
+| created_at | timestamptz | default now() |
+
+`ai_runs` records what the model did; this table records what the buyer was shown and may still confirm. They are separate concerns, and only this one is owner-bound. Raw AI output is never stored here.
+
 **confirmed_requests** (CR-3; the durable record behind the `confirmed_request_id` the join API already accepts)
 
 | Column | Type | Notes |
@@ -197,7 +212,8 @@ Indexes: `UNIQUE (pool_id, user_id)`; `UNIQUE (pool_id, paypal_account_key) WHER
 | payment_mode | payment_mode NULL | stamped at award (N8) |
 | award_id | uuid NULL FK awards | |
 | bid_open_at, bid_close_at | timestamptz | |
-| fund_deadline_at, refill_cutoff_at | timestamptz NULL | set at checkout open |
+| fund_deadline_at, refill_cutoff_at | timestamptz NULL | set at checkout open; `refill_cutoff_at` equals `fund_deadline_at`, the last moment a refill could still fund (CR-4) |
+| refill_waves | integer | default 0; incremented once per refill wave under the lot lock and capped by the timeline's `max_refill_waves` (CR-4) |
 | funded_at | timestamptz NULL | |
 
 Indexes: `UNIQUE (pool_id, zone_id, lot_index)`; `UNIQUE (pool_id, lot_order)`.
@@ -221,7 +237,7 @@ Indexes: `UNIQUE (pool_id, entry_id)`; `UNIQUE (pool_id, zone_id, rank)`; `(lot_
 |---|---|---|
 | id | uuid PK | |
 | lot_id | uuid UNIQUE FK lots | |
-| bid_revision_id | uuid FK | |
+| bid_revision_id | uuid FK bid_revisions NULL | NULL for a forced award: no bid exists, and `award_hash` covers the key with `null` (CR-4) |
 | merchant_id | uuid FK | |
 | tier_index | integer | |
 | item_cents | bigint | |

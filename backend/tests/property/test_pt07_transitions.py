@@ -80,8 +80,8 @@ def test_a_trigger_selects_only_listed_transitions(
 
 
 def test_transition_table_integrity() -> None:
-    assert len(TRANSITIONS) == 64
-    assert len({transition.id for transition in TRANSITIONS}) == 64
+    assert len(TRANSITIONS) == 65
+    assert len({transition.id for transition in TRANSITIONS}) == 65
     for transition in TRANSITIONS:
         machine = states.MACHINES[transition.machine]
         assert transition in machine.transitions

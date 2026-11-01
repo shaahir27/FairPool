@@ -108,6 +108,7 @@ class LotView:
     status: str; payment_router: str | None; payment_mode: str | None
     fund_deadline_at: datetime | None; refill_cutoff_at: datetime | None
     offer_window_s: int; fund_deadline_s: int; max_refill_waves: int; pool_mode: str
+    pending_wait_s: int; capture_grace_s: int; refill_waves: int   # CR-4
 
 @dataclass(frozen=True)
 class SeatView:

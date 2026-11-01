@@ -37,7 +37,7 @@ UNLISTED_PAIRS: tuple[tuple[str, str, str], ...] = (
     ("pool", "CLOSED", "OPEN"),  # a closed pool does not reopen
     ("entry", "ELIGIBLE", "WITHDRAWN"),  # ES-03 starts at SUBMITTED only
     ("entry", "WITHDRAWN", "ELIGIBLE"),  # a withdrawal is never reversed
-    ("lot", "PLANNED", "AWARDED"),  # bidding and BID_CLOSED come first
+    ("lot", "PLANNED", "FUNDING"),  # checkout opens only after an award
     ("buyer_order", "OFFERED", "CAPTURED"),  # money exists only after authorize
     ("buyer_order", "CAPTURED", "OFFERED"),  # a capture is terminal for the offer
 )
@@ -48,6 +48,7 @@ LISTED_PAIRS: tuple[tuple[str, str, str, str], ...] = (
     ("pool", "PUBLISHED", "OPEN", "job:pool.open"),
     ("entry", "SUBMITTED", "ELIGIBLE", "job:pool.close"),
     ("lot", "PLANNED", "BIDDING", "job:lot.bid_open"),
+    ("lot", "PLANNED", "AWARDED", "admin.force_award"),
 )
 
 

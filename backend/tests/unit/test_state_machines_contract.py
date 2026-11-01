@@ -34,7 +34,7 @@ ENUM_FOR_MACHINE = {
     "bid": "bid_status",
 }
 JOB_KIND = re.compile(r"[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*")
-EXPECTED_TRANSITION_COUNT = 64
+EXPECTED_TRANSITION_COUNT = 65
 EFFECT_PREFIXES = ("audit", "notify", "job:", "ledger:")
 
 

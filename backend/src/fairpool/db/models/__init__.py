@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from .auction import Award, Bid, BidFlag, BidRevision, Merchant, MerchantApiKey
-from .catalog import CatalogProduct, ConfirmedRequest, EntryReceipt, Pool, PoolEntry
+from .catalog import (
+    CatalogProduct,
+    ConfirmedRequest,
+    EntryReceipt,
+    IntakeProposal,
+    Pool,
+    PoolEntry,
+)
 from .checkout import (
     BuyerOrder,
     LedgerEntry,
@@ -42,6 +49,7 @@ __all__ = [
     "ENUM_TYPES",
     "EntryReceipt",
     "IdempotencyKey",
+    "IntakeProposal",
     "Job",
     "LedgerEntry",
     "Lot",

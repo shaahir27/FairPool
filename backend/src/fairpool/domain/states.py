@@ -238,7 +238,9 @@ LOT = _machine(
             ("AWARDED",),
             "CHECKOUT_OPEN",
             "job:lot.open_checkout",
-            "award exists; priced-out seats released; offers created within seats (I8)",
+            "award exists; priced-out seats released; offers created within seats (I8); in "
+            "vault_charge every seat order is OFFERED and its charge is enqueued instead of an "
+            "offer timer",
             ("audit", "job:offer.expire", "job:lot.try_fund", "notify"),
         ),
         Transition(
@@ -246,8 +248,10 @@ LOT = _machine(
             ("CHECKOUT_OPEN",),
             "FUNDING",
             "job:lot.try_fund",
-            "authorized count A >= min(seats, moq + CAPTURE_BUFFER), or "
-            "fund_deadline_at passed and A >= moq",
+            "authorize_capture: authorized count A >= min(seats, moq + CAPTURE_BUFFER), or "
+            "fund_deadline_at passed and A >= moq; vault_charge: completed captures from "
+            "distinct buyers >= moq, read from the ledger (there is no authorization in that "
+            "mode)",
             ("audit", "job:order.capture"),
         ),
         Transition(
@@ -307,6 +311,16 @@ LOT = _machine(
             "admin.abort",
             "checkout not yet open; no money exists (N3)",
             ("audit", "notify"),
+        ),
+        Transition(
+            "LS-14",
+            ("PLANNED", "BIDDING", "BID_CLOSED"),
+            "AWARDED",
+            "admin.force_award",
+            "AP_ENV local or test, or MOCK_TOGGLES_ENABLED; an award snapshot exists for the lot; "
+            "bid rules are not consulted because no bid exists; no money exists yet; payment "
+            "router and mode stamped (N8); priced-out seats released",
+            ("audit", "job:lot.open_checkout", "notify"),
         ),
     ),
 )
