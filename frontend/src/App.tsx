@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { AuditPage } from "./audit";
+import { RequireAuth } from "./shared";
 import {
   AgentSettingsPage,
   BuyerLayout,
@@ -35,7 +36,13 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      <Route element={<BuyerLayout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <BuyerLayout />
+          </RequireAuth>
+        }
+      >
         <Route path="/" element={<DiscoverPage />} />
         <Route path="/my-pools" element={<MyPoolsPage />} />
         <Route path="/orders" element={<OrdersPage />} />
@@ -45,9 +52,22 @@ export function AppRoutes() {
         <Route path="/settings/agents" element={<AgentSettingsPage />} />
       </Route>
 
-      <Route path="/offers/:buyerOrderId" element={<OfferCheckoutPage />} />
+      <Route
+        path="/offers/:buyerOrderId"
+        element={
+          <RequireAuth>
+            <OfferCheckoutPage />
+          </RequireAuth>
+        }
+      />
 
-      <Route element={<MerchantLayout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <MerchantLayout />
+          </RequireAuth>
+        }
+      >
         <Route path="/merchant/demand" element={<DemandPage />} />
         <Route path="/merchant/bids" element={<BidsPage />} />
         <Route path="/merchant/fulfillment" element={<FulfillmentPage />} />
@@ -55,7 +75,14 @@ export function AppRoutes() {
         <Route path="/merchant/profile" element={<ProfilePage />} />
       </Route>
 
-      <Route path="/ops/*" element={<OpsPage />} />
+      <Route
+        path="/ops/*"
+        element={
+          <RequireAuth>
+            <OpsPage />
+          </RequireAuth>
+        }
+      />
     </Routes>
   );
 }

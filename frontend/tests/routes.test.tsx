@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import { resetSessionCache } from "../src/shared";
 
 import { AppRoutes } from "../src/App";
 
@@ -14,6 +16,11 @@ function renderAt(path: string) {
     </MemoryRouter>,
   );
 }
+
+beforeAll(() => {
+  // The guard reads one session state; these tests are about the routes.
+  resetSessionCache("in");
+});
 
 describe("route smoke", () => {
   it("renders the Discover and Join placeholder at /", () => {

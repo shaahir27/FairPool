@@ -59,6 +59,16 @@ function OfferDetails({ offer }: { offer: Offer }) {
     event.preventDefault();
     if (busy || countdown.expired) return;
     setBusy("continue"); setError(null);
+    // The browser's `required` only helps when the inputs are inside the form;
+    // check here so an incomplete address never reaches the API.
+    const missingFields = ADDRESS_FIELDS.filter(
+      (field) => field.required && !address[field.name].trim(),
+    ).map((field) => field.label);
+    if (missingFields.length > 0) {
+      setBusy(null);
+      setError({ code: "VALIDATION_ERROR", message: `Add ${missingFields.join(", ")}.` });
+      return;
+    }
     try {
       const { data, error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/continue", {
         params: { path: { buyer_order_id: offer.buyer_order_id } }, body: { shipping: address },

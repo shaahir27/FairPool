@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   api,
@@ -10,6 +10,7 @@ import {
   Icon,
   Notice,
   PlaceholderPage,
+  resetSessionCache,
   setCsrfToken,
 } from "../shared";
 import { OrderStatusCard } from "../checkout";
@@ -48,6 +49,8 @@ function envelope(failure: unknown): { code: string; message: string } {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -62,7 +65,8 @@ export function LoginPage() {
       const { data, error: failure } = await api.POST("/api/v1/auth/login", { body: { email, password } });
       if (failure || !data) { setError(envelope(failure)); return; }
       setCsrfToken(data.csrf_token);
-      navigate("/");
+      resetSessionCache();
+      navigate(from, { replace: true });
     } catch {
       setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
     } finally { setBusy(false); }

@@ -11,6 +11,8 @@ export type { AreaTab, AreaUtilityLink } from "./components/AreaLayout";
 export { AuthLayout } from "./components/AuthLayout";
 export { HonestyLabels } from "./components/HonestyLabels";
 export { PlaceholderPage } from "./components/PlaceholderPage";
+export { RequireAuth } from "./components/RequireAuth";
+export { resetSessionCache } from "./lib/session";
 export { PublicLayout } from "./components/PublicLayout";
 export { AuthAside } from "./components/AuthAside";
 export { Brand, PoolMark } from "./components/Brand";
