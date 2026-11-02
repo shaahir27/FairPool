@@ -213,6 +213,7 @@ class FundingService:
         moq = int(award.moq)
         mode = None if view.payment_mode is None else str(view.payment_mode)
 
+        entered_funding = False
         if str(lot.status) == str(LotStatus.CHECKOUT_OPEN):
             if mode == "vault_charge":
                 # CR-4: there is no authorization in this mode, so the only count
@@ -220,6 +221,7 @@ class FundingService:
                 completed = await self.ledger.completed_capture_count(session, lot.id)
                 if completed >= moq:
                     await self._to_funding(session, lot, completed=completed)
+                    entered_funding = True
             else:
                 authorized = await self._authorized_count(session, lot.id)
                 threshold = min(int(lot.seats), moq + self.capture_buffer)
@@ -228,10 +230,15 @@ class FundingService:
                 )
                 if authorized >= threshold or (deadline_passed and authorized >= moq):
                     await self._to_funding(session, lot, authorized=authorized)
+                    entered_funding = True
 
         if str(lot.status) != str(LotStatus.FUNDING):
-            # LS-08 (the failure path) is a later phase; this handler never invents
-            # it, so an unfundable lot simply waits.
+            # LS-08/LS-09: once the deadline passes short of the minimum the lot
+            # fails. A pending capture blocks it (F9): the late capture is refunded
+            # by the next pass instead of closing a lot over unsettled money.
+            await self._fail_if_deadline_passed(
+                session, lot=lot, moq=moq, mode=mode, wall_now=wall_now
+            )
             return
 
         if mode != "vault_charge":
@@ -239,6 +246,12 @@ class FundingService:
 
         completed = await self.ledger.completed_capture_count(session, lot.id)
         if completed < moq:
+            # A lot that entered FUNDING in this same pass gets its captures queued
+            # first; the next pass decides whether they arrived in time.
+            if not entered_funding:
+                await self._fail_if_deadline_passed(
+                    session, lot=lot, moq=moq, mode=mode, wall_now=wall_now
+                )
             return
         await apply_lot_transition(
             session,
@@ -264,6 +277,52 @@ class FundingService:
             run_at=run_at,
             concurrency_key=f"lot:{lot.id}",
         )
+
+    async def _fail_if_deadline_passed(
+        self,
+        session: AsyncSession,
+        *,
+        lot: Lot,
+        moq: int,
+        mode: str | None,
+        wall_now: Any,
+    ) -> None:
+        """Apply LS-08 or LS-09 and hand the lot to ``lot.finalize_fail``."""
+        if lot.fund_deadline_at is None or wall_now < lot.fund_deadline_at:
+            return
+        if await self._has_pending_capture(session, lot.id):
+            return
+        if mode == "vault_charge" or str(lot.status) != str(LotStatus.CHECKOUT_OPEN):
+            short = (await self.ledger.completed_capture_count(session, lot.id)) < moq
+        else:
+            short = (await self._authorized_count(session, lot.id)) < moq
+        if not short:
+            return
+        transition_id = "LS-09" if str(lot.status) == str(LotStatus.FUNDING) else "LS-08"
+        await apply_lot_transition(
+            session,
+            lot=lot,
+            to_status="FAILING",
+            trigger="job:lot.try_fund",
+            audit=self.audit,
+            payload={"transition_id": transition_id, "moq": moq},
+        )
+        await self.jobs.enqueue(
+            session,
+            "lot.finalize_fail",
+            {"lot_id": str(lot.id)},
+            concurrency_key=f"lot:{lot.id}",
+            dedupe_key=f"finalize_fail:{lot.id}",
+        )
+
+    async def _has_pending_capture(self, session: AsyncSession, lot_id: UUID) -> bool:
+        found = await session.scalar(
+            select(PayPalCapture.id)
+            .join(BuyerOrder, BuyerOrder.id == PayPalCapture.buyer_order_id)
+            .where(BuyerOrder.lot_id == lot_id, PayPalCapture.status == "PENDING")
+            .limit(1)
+        )
+        return found is not None
 
     async def _to_funding(self, session: AsyncSession, lot: Lot, **counts: int) -> None:
         await apply_lot_transition(

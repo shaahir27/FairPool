@@ -6479,6 +6479,7 @@
     },
     "/api/v1/merchant/bids/{bid_id}": {
       "get": {
+        "description": "A merchant reads only its own bid; another merchant's id is NOT_FOUND (I11).",
         "operationId": "merchant_bid_get",
         "parameters": [
           {
@@ -6540,6 +6541,7 @@
     },
     "/api/v1/merchant/bids/{bid_id}/confirm": {
       "post": {
+        "description": "Confirm the current revision; a stale revision is a validation error.",
         "operationId": "merchant_bid_confirm",
         "parameters": [
           {
@@ -6731,6 +6733,7 @@
     },
     "/api/v1/merchant/lots/{lot_id}/bid": {
       "put": {
+        "description": "Save a new sealed revision and return its signed receipt (FR-AU-02).",
         "operationId": "merchant_bid_put",
         "parameters": [
           {
@@ -7322,6 +7325,7 @@
     },
     "/api/v1/merchant/profile": {
       "post": {
+        "description": "Create or update the merchant row and stamp the three attestations.",
         "operationId": "merchant_profile",
         "parameters": [
           {
@@ -7587,7 +7591,7 @@
     },
     "/api/v1/offers/{buyer_order_id}/continue": {
       "post": {
-        "description": "BO-01: create the provider order once and hand the browser its approval URL.\n\n``payload.shipping`` is validated by the schema and, per N14/T05A01, not stored\nyet; the browser still sends no amount: the total is the stored order's (I3).",
+        "description": "BO-01: create the provider order once and hand the browser its approval URL.\n\n``payload.shipping`` is sealed into ``buyer_orders.shipping_enc`` before the\nprovider call (N14); the browser still sends no amount: the total is the stored\norder's (I3).",
         "operationId": "offers_continue",
         "parameters": [
           {

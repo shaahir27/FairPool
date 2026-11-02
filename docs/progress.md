@@ -108,12 +108,12 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T05A01 | A | L | IN PROGRESS | | Real PayPal path for one buyer (redirect); shipping persistence and the interactive contract tests remain |
+| T05A01 | A | L | IN PROGRESS | | Real PayPal path for one buyer (redirect); shipping now sealed into `shipping_enc`. Interactive C-08/C-09 and the live IT-5 run remain |
 | T05A02 | A | L | TODO | | Checkout UI |
-| T05A03 | A | M | TODO | | Failure path and compensating refund (fake router) |
-| T05A06 | A | M | TODO | | Merchant profile and onboarding states |
-| T05A04 | A | L | TODO | | Bid API with receipts and sealing |
-| T05A05 | A | L | IN PROGRESS | | Auction rules engine; R1-R7 guards, R9 cross-lot selection and the two new vectors landed on `phase-5` |
+| T05A03 | A | M | DONE | phase-5 | Failure path and compensating refund (fake router); PT-11, F9 and F24 pass |
+| T05A06 | A | M | DONE | phase-5 | Merchant profile and onboarding states; `require_merchant` now loads the merchant row |
+| T05A04 | A | L | DONE | phase-5 | Bid API with receipts and sealing; `test_bid_sealing.py` passes |
+| T05A05 | A | L | DONE | phase-5 | Auction rules engine; R1-R7 guards, R9 cross-lot selection, the two new vectors and PT-06 pass. The DB loader stays a T06A06 dependency |
 
 ### PH6: Money completion and auction to checkout
 

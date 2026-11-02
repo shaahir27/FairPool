@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
+from fairpool.modules.checkout.failure import FailureService
 from fairpool.modules.checkout.funding import FundingService
 from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
 from fairpool.modules.checkout.refill import RefillService
@@ -34,9 +35,6 @@ LATER_PHASES = {
     "lot.bid_close",
     "lot.award",
     "sim.run",
-    "void.run",
-    "refund.run",
-    "lot.finalize_fail",
     "webhook.process",
     "shipments.submit",
 }
@@ -51,6 +49,9 @@ OWNERS = {
     "lot.finalize_close": FundingService,
     "lot.refill": RefillService,
     "order.vault_charge": VaultChargeHandler,
+    "lot.finalize_fail": FailureService,
+    "void.run": FailureService,
+    "refund.run": FailureService,
 }
 
 

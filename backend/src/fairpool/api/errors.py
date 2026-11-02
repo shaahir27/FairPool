@@ -153,6 +153,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException) 
 
 async def application_exception_handler(request: Request, exc: ApplicationError) -> JSONResponse:
     status, message = _APPLICATION_ERRORS.get(exc.code, (500, "An unexpected error occurred."))
+    if exc.code in _APPLICATION_ERRORS and exc.public_message:
+        # A contracted, fixed sentence the merchant can act on (flat-delivered-bids.md).
+        message = exc.public_message
     return error_response(
         status_code=status,
         code=exc.code if exc.code in _APPLICATION_ERRORS else "INTERNAL_ERROR",

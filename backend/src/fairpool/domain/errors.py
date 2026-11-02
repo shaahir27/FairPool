@@ -22,8 +22,9 @@ class DomainError(Exception):
 class ApplicationError(Exception):
     """An allowlisted public error code; no exception details cross the API."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, public_message: str | None = None) -> None:
         self.code = code
+        self.public_message = public_message
         super().__init__(code)
 
 

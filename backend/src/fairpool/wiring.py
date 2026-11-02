@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from fairpool.modules.allocation.read_service import PostgresAllocationRead
     from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
     from fairpool.modules.checkout.engine import CheckoutEngine
+    from fairpool.modules.checkout.failure import FailureService
     from fairpool.modules.checkout.funding import FundingService
     from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
     from fairpool.modules.checkout.refill import RefillService
@@ -54,6 +55,9 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
         "lot.try_fund",
         "lot.refill",
         "lot.finalize_close",
+        "lot.finalize_fail",
+        "void.run",
+        "refund.run",
         "order.resolve",
         "reconciler.sweep",
     }
@@ -106,6 +110,18 @@ class _VaultKeyMissing:
         raise ApplicationError("INTERNAL_ERROR")
 
 
+def _shipping_cipher(settings: Settings):
+    """A usable address cipher, or a stand-in that fails only when it is used."""
+    from fairpool.infra.crypto import AesGcmCipher, DecryptionError
+    from fairpool.modules.checkout.shipping import ShippingCipher, UnavailableCipher
+
+    try:
+        cipher = AesGcmCipher.from_config_value(settings.address_encryption_key.get_secret_value())
+    except DecryptionError:
+        return ShippingCipher(UnavailableCipher())
+    return ShippingCipher(cipher)
+
+
 def _vault_cipher(settings: Settings) -> AesGcmCipher | _VaultKeyMissing:
     from fairpool.infra.crypto import AesGcmCipher
 
@@ -136,6 +152,7 @@ class CheckoutServices:
     open_checkout: OpenCheckoutHandler
     refill: RefillService
     funding: FundingService
+    failure: FailureService
     vault_charge: VaultChargeHandler
 
 
@@ -145,6 +162,7 @@ def checkout_services(settings: Settings) -> CheckoutServices:
     from fairpool.infra.jobs import PostgresJobQueue
     from fairpool.modules.allocation.read_service import PostgresAllocationRead
     from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
+    from fairpool.modules.checkout.failure import FailureService
     from fairpool.modules.checkout.funding import FundingService
     from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
     from fairpool.modules.checkout.refill import RefillService
@@ -172,6 +190,7 @@ def checkout_services(settings: Settings) -> CheckoutServices:
             allowed_payer_countries=settings.allowed_payer_countries,
             dedupe_mode=settings.dedupe_mode,
             public_base_url=settings.public_base_url,
+            shipping_cipher=_shipping_cipher(settings),
             payload_level=settings.paypal_payload_level,
         ),
         open_checkout=OpenCheckoutHandler(
@@ -198,6 +217,14 @@ def checkout_services(settings: Settings) -> CheckoutServices:
             gateway=router.gateway,
             capture_concurrency=settings.capture_concurrency,
             capture_buffer=settings.capture_buffer,
+        ),
+        failure=FailureService(
+            engine=engine,
+            clock=DbClock(),
+            audit=PostgresAuditLog(),
+            jobs=PostgresJobQueue(),
+            ledger=PostgresLedger(),
+            gateway=router.gateway,
         ),
         vault_charge=VaultChargeHandler(
             engine=engine,
@@ -318,6 +345,9 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "lot.try_fund": surface.funding.try_fund,
         "lot.refill": surface.refill.refill,
         "lot.finalize_close": surface.funding.finalize_close,
+        "lot.finalize_fail": surface.failure.finalize_fail,
+        "void.run": surface.failure.run_void,
+        "refund.run": surface.failure.run_refund,
         "order.resolve": reconciler.resolve,
         "reconciler.sweep": sweep,
     }

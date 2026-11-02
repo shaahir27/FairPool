@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+from collections.abc import Mapping
 from datetime import timedelta
 from typing import Any, Final, Protocol
 from uuid import UUID, uuid4
@@ -53,6 +54,7 @@ from fairpool.domain.payments import (
 )
 from fairpool.domain.states import MACHINES
 from fairpool.modules.checkout.engine import CheckoutEngine, TransitionRequest
+from fairpool.modules.checkout.shipping import ShippingCipher
 from fairpool.ports import (
     AllocationReadService,
     AwardView,
@@ -136,6 +138,7 @@ class CheckoutAuthorizeHandlers:
         allowed_payer_countries: tuple[str, ...],
         dedupe_mode: str,
         public_base_url: str,
+        shipping_cipher: ShippingCipher | None = None,
         payload_level: int = 0,
         return_path: str = "/api/v1/checkout/return",
         cancel_path: str = "/api/v1/checkout/cancel",
@@ -155,13 +158,18 @@ class CheckoutAuthorizeHandlers:
         self.dedupe_mode = dedupe_mode
         self.public_base_url = public_base_url.rstrip("/")
         self.payload_level = payload_level
+        self.shipping_cipher = shipping_cipher
         self.return_path = return_path
         self.cancel_path = cancel_path
 
     # ---------------------------------------------------------- buyer.continue
 
     async def continue_order(
-        self, session: AsyncSession, *, buyer_order_id: UUID
+        self,
+        session: AsyncSession,
+        *,
+        buyer_order_id: UUID,
+        shipping: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """BO-01: create the PayPal order once per attempt and move the seat."""
         order = await session.scalar(select(BuyerOrder).where(BuyerOrder.id == buyer_order_id))
@@ -191,6 +199,10 @@ class CheckoutAuthorizeHandlers:
         title = (
             "FairPool order" if pool is None else str(pool.template.get("title", "FairPool order"))
         )
+        if shipping is not None and self.shipping_cipher is not None:
+            # Stored before the provider call, and never logged (I9, I14, N14).
+            order.shipping_enc = self.shipping_cipher.seal(shipping)
+            await session.flush()
         request = CreateOrderRequest(
             buyer_order_id=str(order.id),
             attempt=int(order.current_attempt),
@@ -201,7 +213,7 @@ class CheckoutAuthorizeHandlers:
             payee=payee,
             return_url=f"{self.public_base_url}{self.return_path}",
             cancel_url=f"{self.public_base_url}{self.cancel_path}",
-            shipping=None,
+            shipping=dict(shipping) if shipping is not None and self.payload_level >= 3 else None,
             payload_level=self.payload_level,
             extra_headers={},
         )

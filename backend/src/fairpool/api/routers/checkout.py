@@ -229,11 +229,14 @@ async def offers_continue(
 ):
     """BO-01: create the provider order once and hand the browser its approval URL.
 
-    ``payload.shipping`` is validated by the schema and, per N14/T05A01, not stored
-    yet; the browser still sends no amount: the total is the stored order's (I3).
+    ``payload.shipping`` is sealed into ``buyer_orders.shipping_enc`` before the
+    provider call (N14); the browser still sends no amount: the total is the stored
+    order's (I3).
     """
     order = await _owned_order(db, buyer_order_id=buyer_order_id, user_id=principal.user_id)
-    result = await _services(request).authorize.continue_order(db, buyer_order_id=order.id)
+    result = await _services(request).authorize.continue_order(
+        db, buyer_order_id=order.id, shipping=payload.shipping.model_dump()
+    )
     paypal_order_id = result.get("paypal_order_id")
     approve_url = result.get("approve_url")
     if paypal_order_id is None or approve_url is None:

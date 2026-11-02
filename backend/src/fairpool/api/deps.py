@@ -11,8 +11,10 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, Security, status
 from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from fairpool.db.models.auction import Merchant
 from fairpool.db.session import create_engine
 from fairpool.infra.clock import DbClock
 from fairpool.modules.identity.service import IdentityService, Principal
@@ -74,8 +76,17 @@ async def require_session(
     )
 
 
-async def require_merchant(principal: Annotated[Principal, Security(require_session)]) -> Principal:
+async def require_merchant(
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+) -> Principal:
+    """A merchant role alone is not enough: the profile row must exist (T05A06)."""
     if principal.role != "merchant":
+        raise HTTPException(403, "FORBIDDEN")
+    merchant_id = await db.scalar(
+        select(Merchant.id).where(Merchant.user_id == principal.user_id).limit(1)
+    )
+    if merchant_id is None:
         raise HTTPException(403, "FORBIDDEN")
     return principal
 
