@@ -63,7 +63,8 @@ def scenarios(draw: st.DrawFn) -> dict[str, Any]:
                 bid_id=f"{lot_id}-bid-{merchant}",
                 merchant_id=merchant,
                 tiers=(Tier(min_qty=1, item_price_cents=draw(st.integers(1_000, 5_000))),),
-                capacity=draw(st.integers(min_value=1, max_value=8)),
+                # R4 makes a bid below the lot size invalid at submission.
+                capacity=draw(st.integers(min_value=seats, max_value=8)),
                 tiebreak_hash=f"{lot_id}-{merchant}",
             )
             for merchant in merchants
@@ -105,15 +106,11 @@ def test_a_better_ranked_bid_is_only_skipped_for_capacity(
             remaining = auction_rules.remaining_capacity(
                 scenario["capacity"][offer.merchant_id], offer.merchant_id, awarded
             )
-            blocked = offer.capacity > remaining or lot.seats > remaining
+            blocked = offer.capacity > remaining
             assert blocked, f"{offer.bid_id} outranked {winner.bid_id} and was not blocked"
         if winner.bid_id is None and ranked:
             assert all(
                 offer.capacity
-                > auction_rules.remaining_capacity(
-                    scenario["capacity"][offer.merchant_id], offer.merchant_id, awarded
-                )
-                or lot.seats
                 > auction_rules.remaining_capacity(
                     scenario["capacity"][offer.merchant_id], offer.merchant_id, awarded
                 )

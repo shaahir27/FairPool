@@ -204,6 +204,9 @@ class FundingService:
         """Evaluate LS-06 then LS-07 for one lot; a no-op when neither guard holds."""
         lot_id = UUID(str(payload["lot_id"]))
         lot = await lock_lot(session, lot_id)
+        if str(lot.status) not in ("CHECKOUT_OPEN", "FUNDING"):
+            # A late capture arrives after the lot already failed: nothing to decide.
+            return
         view = await self.allocations.get_lot(session, lot_id)
         try:
             award = await self.allocations.get_award(session, lot_id)

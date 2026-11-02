@@ -120,6 +120,17 @@ class FailureService:
             )
             return
         if not await self.net_zero(session, lot_id=lot.id):
+            # The void/refund jobs queued above carry no follow-up of their own, so
+            # the lot would sit in FAILING forever without this pass.
+            now = await self.clock.db_now(session)
+            await self.jobs.enqueue(
+                session,
+                "lot.finalize_fail",
+                {"lot_id": str(lot.id)},
+                run_at=now + timedelta(seconds=PENDING_RECHECK_S),
+                concurrency_key=f"lot:{lot.id}",
+                dedupe_key=f"finalize_fail:{lot.id}",
+            )
             return
         await apply_lot_transition(
             session,

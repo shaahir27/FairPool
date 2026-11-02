@@ -1,4 +1,21 @@
 {
-  "status": "pending",
-  "note": "Phase 5 has not been independently reviewed yet; IG-5 stays open until a review is recorded or the owner records a waiver."
+  "status": "failed",
+  "date": "2026-11-02",
+  "reviewer": "independent read-only agent, no write access",
+  "verdict": "FAIL",
+  "fixed_after_review": [
+    "BLOCKER failure.py: lot.finalize_fail now re-enqueues itself while net paid is not zero, so LS-10 can run without a manual second call.",
+    "MAJOR funding.py: try_fund returns early unless the lot is CHECKOUT_OPEN or FUNDING (a late capture no longer raises an illegal transition).",
+    "MAJOR router/deps: POST /merchant/profile no longer requires the merchant row it creates; the role check stays.",
+    "MAJOR auction_rules.py: R9 restored to contract section 11 (bid capacity only); seat coverage moved to R4 at bid submission.",
+    "PT-06 generator and assertions updated to generate contract-valid bids and use seat accounting."
+  ],
+  "open_findings": [
+    "MAJOR bids.py writes bid.status directly with no whitelist transition or audit row (I10), and a late revision can overwrite a CONFIRMED bid.",
+    "MAJOR failure.py treats AUTHORIZING as non-blocking in net_zero, and close_offers does not expire ORDER_CREATED/APPROVED offers.",
+    "MINOR refund seq hard-coded to 1; create key uses max(1, attempt) while the row can hold 0.",
+    "MINOR BidView never returns reject_reason; merchant profile accepts the string \"false\" as acceptance.",
+    "MINOR demo_seed.py imports the test harness and carries a default password in source."
+  ],
+  "note": "IG-5 stays open. A second review is required after the open findings are fixed."
 }

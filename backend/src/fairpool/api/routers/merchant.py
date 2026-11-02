@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
-from fairpool.api.deps import database_session, require_merchant
+from fairpool.api.deps import database_session, require_merchant, require_session
 from fairpool.db.models.auction import Merchant
 from fairpool.infra.clock import DbClock
 from fairpool.modules.auction.bids import BidService
@@ -29,10 +29,16 @@ router = APIRouter()
 async def merchant_profile(
     payload: schemas.MerchantProfileRequest,
     request: Request,
-    principal: Annotated[Principal, Security(require_merchant)],
+    principal: Annotated[Principal, Security(require_session)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.MerchantProfileResponse:
-    """Create or update the merchant row and stamp the three attestations."""
+    """Create or update the merchant row and stamp the three attestations.
+
+    This is the one merchant route that cannot require the row: it creates it.
+    The role check stays, so a buyer still cannot call it.
+    """
+    if principal.role != "merchant":
+        raise HTTPException(403, "FORBIDDEN")
     service = MerchantProfileService(
         clock=DbClock(),
         demo=request.app.state.settings.payment_router == "single_seller",

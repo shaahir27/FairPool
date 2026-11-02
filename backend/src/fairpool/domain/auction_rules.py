@@ -411,9 +411,10 @@ def select_across_lots(
                 reject = reject or R9_CAPACITY_EXHAUSTED
                 continue
             remaining = remaining_capacity(total_capacity, offer.merchant_id, awarded)
-            # R9 compares the bid's capacity; the lot's seats are what the merchant
-            # actually supplies, so both must fit in what is left.
-            if offer.capacity > remaining or lot.seats > remaining:
+            # Contract section 11 compares the bid's capacity only; a bid that
+            # cannot supply the lot's seats is a submission-time rule (R4/R9 note
+            # in T06A04), not an award-time one.
+            if offer.capacity > remaining:
                 reject = R9_CAPACITY_EXHAUSTED
                 continue
             assignment = Assignment(

@@ -100,6 +100,9 @@ class BidService:
         lot = await session.get(Lot, lot_id)
         if lot is None:
             raise ApplicationError("NOT_FOUND")
+        capacity = structured.get("capacity")
+        if isinstance(capacity, int) and capacity < int(lot.seats):
+            raise ApplicationError("VALIDATION_ERROR")
         now = await self.clock.db_now(session)
         bid = await session.scalar(
             select(Bid).where(Bid.lot_id == lot_id, Bid.merchant_id == merchant_id)
