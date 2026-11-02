@@ -13,7 +13,12 @@ VENV_BIN := bin
 endif
 endif
 
+ifeq ($(OS),Windows_NT)
+# cmd.exe needs the extension on a relative interpreter path.
+PY := .venv/$(VENV_BIN)/python.exe
+else
 PY := .venv/$(VENV_BIN)/python
+endif
 PIP := .venv/$(VENV_BIN)/pip
 PIP_COMPILE := .venv/$(VENV_BIN)/pip-compile
 PYTHON ?= python
@@ -108,7 +113,7 @@ dev:
 
 # The no-Docker path: one terminal each, both from the repository root.
 api:
-	@PYTHONPATH=backend/src $(PY) -m uvicorn fairpool.main:app --reload --port 8000
+	@$(PY) -m uvicorn --app-dir backend/src fairpool.main:app --reload --port 8000
 
 web:
 	@cd frontend && npm run dev
