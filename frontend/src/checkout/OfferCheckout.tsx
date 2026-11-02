@@ -1,347 +1,145 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { type FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { api, type ApiComponents, formatCents, Icon, Notice, StatusPill, startRouteTransition, useCountdown } from "../shared";
 
-import {
-  api,
-  AuthLayout,
-  formatCents,
-  HonestyLabels,
-  Notice,
-  StatusPill,
-  startRouteTransition,
-  useCountdown,
-} from "../shared";
-
-interface Offer {
-  buyer_order_id: string;
-  status: string;
-  merchant: { display_name: string };
-  product: {
-    title: string;
-    variant: string | null;
-    condition: string;
-    bundle_contents: string[];
-  };
-  terms: { delivery_sla_days: number; returns_days: number };
-  totals: {
-    item_cents: number;
-    shipping_cents: number;
-    tax_cents: number;
-    total_cents: number;
-    cap_cents: number;
-  };
-  offer_expires_at: string;
-  offer_started_at: string | null;
-  server_now: string | null;
-  pool_id: string | null;
-  pool_title: string | null;
-  notices: { hold: string; lots_may_differ: string; fallback: string | null };
-}
-
+type Offer = ApiComponents["schemas"]["OfferResponse"];
 const ADDRESS_FIELDS = [
-  { name: "name", label: "Name", required: true },
-  { name: "line1", label: "Address line 1", required: true },
-  { name: "line2", label: "Address line 2 (optional)", required: false },
-  { name: "city", label: "City", required: true },
-  { name: "region", label: "Region", required: true },
-  { name: "postal_code", label: "Postal code", required: true },
-  { name: "country_code", label: "Country code", required: true },
+  { name: "name", label: "Name", autoComplete: "name", required: true },
+  { name: "line1", label: "Address line 1", autoComplete: "address-line1", required: true },
+  { name: "line2", label: "Address line 2 (optional)", autoComplete: "address-line2", required: false },
+  { name: "city", label: "City", autoComplete: "address-level2", required: true },
+  { name: "region", label: "Region", autoComplete: "address-level1", required: true },
+  { name: "postal_code", label: "Postal code", autoComplete: "postal-code", required: true },
+  { name: "country_code", label: "Country code", autoComplete: "country", required: true },
 ] as const;
-
 type AddressField = (typeof ADDRESS_FIELDS)[number]["name"];
+const EMPTY_ADDRESS: Record<AddressField, string> = { name: "", line1: "", line2: "", city: "", region: "", postal_code: "", country_code: "US" };
 
 export function OfferCheckout({ buyerOrderId }: { buyerOrderId: string }) {
-  const navigate = useNavigate();
   const [offer, setOffer] = useState<Offer | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [address, setAddress] = useState<Record<AddressField, string>>({
-    name: "",
-    line1: "",
-    line2: "",
-    city: "",
-    region: "",
-    postal_code: "",
-    country_code: "",
-  });
-
   useEffect(() => {
     let live = true;
-    void api
-      .GET("/api/v1/offers/{buyer_order_id}", {
-        params: { path: { buyer_order_id: buyerOrderId } },
-      })
+    setOffer(null);
+    setError(null);
+    void api.GET("/api/v1/offers/{buyer_order_id}", { params: { path: { buyer_order_id: buyerOrderId } } })
       .then(({ data, error: failure }) => {
         if (!live) return;
-        if (failure) {
-          setError(codeOf(failure));
-          return;
-        }
-        setOffer(data as unknown as Offer);
-      });
-    return () => {
-      live = false;
-    };
+        if (failure || !data) setError(codeOf(failure));
+        else setOffer(data);
+      }).catch(() => { if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and reload this offer." }); });
+    return () => { live = false; };
   }, [buyerOrderId]);
+  if (error) return <Notice kind="error" code={error.code}>{error.message}</Notice>;
+  if (!offer) return <section className="panel" role="status" aria-label="Loading offer" aria-busy="true"><p className="meta-label">Loading offer</p><div className="skeleton mt-5 h-10 w-2/3" /><div className="skeleton mt-4 h-40" /><div className="skeleton mt-4 h-12" /></section>;
+  return <OfferDetails key={buyerOrderId} offer={offer} />;
+}
 
-  if (error && !offer) {
-    return (
-      <AuthLayout>
-        <div className="mx-auto max-w-xl py-10">
-          <Notice kind="error" code={error.code}>
-            {error.message}
-          </Notice>
-        </div>
-      </AuthLayout>
-    );
-  }
-
-  if (!offer) {
-    return (
-      <AuthLayout>
-        <div className="mx-auto max-w-5xl animate-pulse space-y-4 py-10" aria-label="Loading offer">
-          <div className="h-10 w-2/3 rounded bg-line/40" />
-          <div className="h-24 rounded-xl bg-line/40" />
-          <div className="h-40 rounded-xl bg-line/40" />
-        </div>
-      </AuthLayout>
-    );
-  }
-
-  const expired = new Date(offer.offer_expires_at).getTime() <= Date.now();
+function OfferDetails({ offer }: { offer: Offer }) {
+  const navigate = useNavigate();
+  const [address, setAddress] = useState(EMPTY_ADDRESS);
+  const [busy, setBusy] = useState<"continue" | "decline" | null>(null);
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  // Older responses lack server_now. Capture a stable display-only sample once.
+  const [clockSample] = useState(() => offer.server_now ?? new Date().toISOString());
+  const countdown = useCountdown(offer.offer_expires_at, clockSample, offer.offer_started_at);
+  const orderPath = `/orders/${offer.buyer_order_id}`;
+  const goToOrder = () => startRouteTransition(() => navigate(orderPath), `/offers/${offer.buyer_order_id}`, orderPath);
   const decline = async () => {
-    await api.POST("/api/v1/offers/{buyer_order_id}/decline", {
-      params: { path: { buyer_order_id: buyerOrderId } },
-    });
-    startRouteTransition(
-      () => navigate(`/orders/${buyerOrderId}`),
-      `/offers/${buyerOrderId}`,
-      `/orders/${buyerOrderId}`,
-    );
+    if (busy) return;
+    setBusy("decline"); setError(null);
+    try {
+      const { error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/decline", { params: { path: { buyer_order_id: offer.buyer_order_id } } });
+      if (failure) { setError(codeOf(failure)); return; }
+      goToOrder();
+    } catch { setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); }
+    finally { setBusy(null); }
   };
-  const submit = async () => {
-    setSubmitting(true);
-    setError(null);
-    const { data, error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/continue", {
-      params: { path: { buyer_order_id: buyerOrderId } },
-      body: { shipping: address },
-    });
-    if (failure || !data) {
-      setSubmitting(false);
-      setError(codeOf(failure));
-      return;
-    }
-    // The browser only follows the server's approval URL; it never sends an amount.
-    window.location.assign((data as { approve_url: string }).approve_url);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busy || countdown.expired) return;
+    setBusy("continue"); setError(null);
+    try {
+      const { data, error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/continue", {
+        params: { path: { buyer_order_id: offer.buyer_order_id } }, body: { shipping: address },
+      });
+      if (failure || !data) { setError(codeOf(failure)); return; }
+      // I14, INT-7: never log the approval URL; no amount leaves the browser.
+      window.location.assign(data.approve_url);
+    } catch { setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); }
+    finally { setBusy(null); }
   };
-
-  return (
-    <AuthLayout>
-      <div className="mx-auto max-w-6xl py-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <HonestyLabels kinds={["sandbox", "fallback"]} />
-          <StatusPill status={offer.status} />
-        </div>
-        {offer.notices.fallback ? (
-          <div className="mb-4 rounded-xl bg-ink px-5 py-3 text-sm text-canvas">
-            {offer.notices.fallback}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mb-4">
-            <Notice kind="error" code={error.code}>
-              {error.message}
-            </Notice>
-          </div>
-        ) : null}
-
-        <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
-          <div className="flex flex-col gap-5">
-            <section className="rounded-2xl bg-ink p-7 text-canvas">
-              <p className="text-xs uppercase tracking-label text-canvas/70">
-                Won by {offer.merchant.display_name}
-              </p>
-              <h1 className="mt-2 font-display text-4xl leading-tight">{offer.product.title}</h1>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                {[offer.product.variant, offer.product.condition]
-                  .filter(Boolean)
-                  .map((value) => (
-                    <span key={String(value)} className="rounded-full border border-canvas/30 px-3 py-1">
-                      {value}
-                    </span>
-                  ))}
-                {offer.product.bundle_contents.map((item) => (
-                  <span key={item} className="rounded-full bg-canvas/10 px-3 py-1">
-                    {item}
-                  </span>
-                ))}
-              </div>
-              <dl className="mt-6 flex flex-wrap gap-6 text-sm">
-                <div>
-                  <dt className="text-canvas/70">Delivery</dt>
-                  <dd>Within {offer.terms.delivery_sla_days} days</dd>
-                </div>
-                <div>
-                  <dt className="text-canvas/70">Returns</dt>
-                  <dd>{offer.terms.returns_days} days</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="rounded-2xl border border-line bg-surface p-6">
-              <h2 className="text-lg font-semibold">How this price was found</h2>
-              <div className="mt-4 grid gap-5 sm:grid-cols-3">
-                <Step title="Merchants bid in secret" body="Each merchant submitted one sealed price for this lot." />
-                <Step title="The published rule picked the winner" body="Bids that missed the rules were set aside." />
-                <Step
-                  title="Your total is within your cap"
-                  body={`${formatCents(offer.totals.total_cents)} is at or below your maximum of ${formatCents(
-                    offer.totals.cap_cents,
-                  )}.`}
-                />
-              </div>
-              {offer.pool_id ? (
-                <a
-                  className="mt-4 inline-block text-sm font-semibold underline decoration-accent decoration-2 underline-offset-4"
-                  href={`/audit/${offer.pool_id}`}
-                >
-                  See the rules for {offer.pool_title ?? "this pool"}
-                </a>
-              ) : null}
-            </section>
-
-            <section className="rounded-2xl border border-line bg-surface p-6">
-              <h2 className="text-lg font-semibold">Shipping address</h2>
-              <p className="mt-1 text-sm text-muted">
-                Required for delivery. Not sent to PayPal in this build.
-              </p>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {ADDRESS_FIELDS.map((field) => (
-                  <label
-                    key={field.name}
-                    className={field.name === "line1" || field.name === "line2" ? "sm:col-span-2" : ""}
-                  >
-                    <span className="text-sm font-medium">{field.label}</span>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
-                      value={address[field.name]}
-                      required={field.required}
-                      onChange={(event) =>
-                        setAddress((previous) => ({ ...previous, [field.name]: event.target.value }))
-                      }
-                    />
-                  </label>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <aside className="flex h-fit flex-col gap-4 lg:sticky lg:top-6">
-            <CountdownCard offer={offer} />
-            <div className="rounded-2xl border border-line bg-surface p-6">
-              <dl className="space-y-2 text-sm">
-                <Row label="Item" value={formatCents(offer.totals.item_cents)} />
-                <Row label="Shipping" value={formatCents(offer.totals.shipping_cents)} />
-                <Row label="Tax" value={formatCents(offer.totals.tax_cents)} />
-              </dl>
-              <div className="mt-4 border-t border-line pt-4">
-                <p className="text-xs uppercase tracking-label text-muted">Total</p>
-                <p className="font-display text-4xl leading-none">{formatCents(offer.totals.total_cents)}</p>
-                <p className="mt-1 text-xs text-muted">
-                  Your maximum {formatCents(offer.totals.cap_cents)}
-                </p>
-              </div>
-              <p className="mt-4 rounded-lg bg-canvas px-3 py-2 text-xs text-muted">{offer.notices.hold}</p>
-              <p className="mt-2 text-xs text-muted">{offer.notices.lots_may_differ}</p>
-              <button
-                type="button"
-                onClick={() => void submit()}
-                disabled={expired || submitting}
-                className="press mt-4 w-full rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-ink disabled:opacity-50"
-              >
-                {submitting ? "Opening PayPal…" : "Continue to PayPal"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void decline()}
-                className="press mt-2 w-full rounded-xl border border-ink px-5 py-3 text-sm font-semibold"
-              >
-                Decline the offer
-              </button>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </AuthLayout>
-  );
-}
-
-function CountdownCard({ offer }: { offer: Offer }) {
-  const countdown = useCountdown(
-    offer.offer_expires_at,
-    offer.server_now ?? new Date().toISOString(),
-    offer.offer_started_at,
-  );
-  if (countdown.expired) {
-    return (
-      <div className="rounded-2xl border border-danger/40 bg-danger-soft p-6 text-center">
-        <p className="text-xs uppercase tracking-label text-danger">Expired</p>
-        <p className="mt-2 text-lg font-semibold">This offer can no longer be approved.</p>
-      </div>
-    );
+  const terminal = offer.status !== "OFFERED" && offer.status !== "ORDER_CREATED";
+  if (terminal || countdown.expired) {
+    const expired = offer.status === "EXPIRED" || (!terminal && countdown.expired);
+    return <section className="panel terminal-offer">
+      <Icon name={expired ? "clock" : "receipt"} />
+      <StatusPill status={expired ? "EXPIRED" : offer.status} />
+      <h1>{expired ? "This offer can no longer be approved." : offer.status === "DECLINED" ? "Offer declined" : "Your offer has moved on"}</h1>
+      <p className="secondary-copy mt-3">{expired ? "Your approval window has ended. Check your order for the latest status." : "Check your order for the latest payment and lot status."}</p>
+      <Link to={orderPath} className="button-secondary mt-6">View order status <Icon name="arrow" /></Link>
+    </section>;
   }
-  return (
-    <div
-      className={`rounded-2xl border p-6 ${countdown.urgent ? "border-danger/40 bg-danger-soft" : "border-line bg-accent-soft"}`}
-    >
-      <div className="flex items-center gap-4">
-        <svg viewBox="0 0 44 44" className="h-14 w-14 -rotate-90" aria-hidden="true">
-          <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="3" opacity="0.2" />
-          <circle
-            ref={countdown.ringRef}
-            cx="22"
-            cy="22"
-            r="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeDasharray={String(2 * Math.PI * 18)}
-            strokeDashoffset={String(2 * Math.PI * 18 * (1 - countdown.fractionElapsed))}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div>
-          <p className="text-xs uppercase tracking-label text-muted">Offer expires in</p>
-          <p className="font-mono text-2xl tabular-nums">{countdown.label}</p>
-        </div>
+  const unused = offer.totals.cap_cents - offer.totals.total_cents;
+  return <div className="shop-checkout">
+    <Link className="shop-back" to={offer.pool_id ? `/pools/${offer.pool_id}` : "/my-pools"}><Icon name="arrow" />Back to your pool</Link>
+    <div className="shop-heading">
+      <h1 className="shop-title">Checkout</h1>
+      <p className="shop-copy">Your group price is ready. Add your delivery details, then continue to PayPal.</p>
+      <ol className="checkout-steps" aria-label="Checkout progress">
+        <li aria-current="step"><span className="step-number">1</span>Delivery</li><li aria-hidden="true"><Icon name="chevron" /></li>
+        <li><span className="step-number">2</span>PayPal</li><li aria-hidden="true"><Icon name="chevron" /></li>
+        <li><span className="step-number">3</span>Confirmation</li>
+      </ol>
+    </div>
+    {offer.notices.fallback ? <p className="preview-disclosure"><Icon name="info" /><span><strong>Sandbox fallback. </strong>{offer.notices.fallback}</span></p> : null}
+    {error ? <div className="mb-4"><Notice kind="error" code={error.code}>{error.message}</Notice></div> : null}
+    <form id="checkout-form" className="shop-checkout-grid" onSubmit={(event) => void submit(event)}>
+      <div className="shop-checkout-main">
+        <section className="shop-panel shop-panel-pad" aria-labelledby="delivery-heading">
+          <div className="shop-section-heading"><Icon name="truck" /><h2 id="delivery-heading">Delivery details</h2></div>
+          <p className="shop-copy">Where should your order be sent?</p>
+          <div className="shop-address-fields">
+            {ADDRESS_FIELDS.map((field) => field.name === "line2" ? <details key={field.name} className="optional-address"><summary><span aria-hidden="true">+</span> Add apartment, suite or floor</summary><label>Address line 2 (optional)<input name="line2" autoComplete="address-line2" className="form-input" value={address.line2} maxLength={200} onChange={(event) => setAddress((previous) => ({ ...previous, line2: event.target.value }))} /></label></details> : <label key={field.name} className={["name", "line1"].includes(field.name) ? "address-full" : field.name === "country_code" ? "country-field" : ""}>
+              {field.label}<input name={field.name} autoComplete={field.autoComplete} className="form-input" value={address[field.name]} required={field.required}
+                maxLength={field.name === "country_code" ? 2 : field.name === "postal_code" ? 20 : 200}
+                pattern={field.name === "country_code" ? "[A-Za-z]{2}" : undefined}
+                onChange={(event) => setAddress((previous) => ({ ...previous, [field.name]: event.target.value }))} />
+            </label>)}
+          </div>
+        </section>
+        <section className="shop-panel shop-panel-pad" aria-labelledby="payment-heading">
+          <div className="shop-section-heading"><Icon name="wallet" /><h2 id="payment-heading">Payment</h2></div>
+          <div className="payment-choice"><span className="paypal-word">PayPal</span><p className="shop-copy">Continue on PayPal to review your payment.</p><Icon name="lock" /></div>
+          <p className="payment-description">{offer.notices.hold}</p>
+          <div className="checkout-actions"><button type="submit" disabled={busy !== null || countdown.expired} className="button-primary w-full">{busy === "continue" ? "Opening PayPal…" : <>Continue to PayPal <Icon name="arrow" /></>}</button></div>
+          <p className="checkout-fineprint"><Icon name="lock" />Your address is stored encrypted.</p>
+          <button type="button" disabled={busy !== null} onClick={() => void decline()} className="decline-link">{busy === "decline" ? "Declining…" : "Decline this offer"}</button>
+        </section>
       </div>
-      <p className="mt-3 text-xs text-muted">If time runs out, your place in this lot ends.</p>
-    </div>
-  );
+      <aside className="shop-panel shop-summary" aria-label="Order summary">
+        <div className="shop-summary-header"><h2>Order summary</h2><span className="item-count">1 item</span></div>
+        <div className={`reservation-note ${countdown.urgent ? "is-urgent" : ""}`}><span><Icon name="clock" />Offer expires in</span><time>{countdown.label}</time></div>
+        <div className="shop-summary-body">
+          <div className="shop-product-row"><ProductArt title={offer.product.title} small /><div><h2>{offer.product.title}</h2><p>{[offer.product.variant, offer.product.condition].filter(Boolean).join(" · ")}</p><p>Sold by {offer.merchant.display_name}</p><p>Quantity: 1</p></div></div>
+          <dl className="price-rows"><Price label="Item" cents={offer.totals.item_cents} /><Price label="Shipping" cents={offer.totals.shipping_cents} /><Price label="Tax" cents={offer.totals.tax_cents} /></dl>
+          <div className="shop-summary-total"><strong>Total <span className="text-xs font-normal text-muted">USD</span></strong><strong>{formatCents(offer.totals.total_cents)}</strong></div>
+          <div className="budget-note"><Icon name="check" /><span>Your maximum is <strong>{formatCents(offer.totals.cap_cents)}</strong>. {unused >= 0 ? `This total is ${formatCents(unused)} within your limit.` : "Review the final total before continuing."}</span></div>
+        </div>
+        <div className="summary-terms"><div><Icon name="truck" /><span>Delivery within {offer.terms.delivery_sla_days} days</span></div><div><Icon name="returns" /><span>{offer.terms.returns_days}-day return terms</span></div><div><Icon name="box" /><span>{offer.product.bundle_contents.join(", ")}</span></div></div>
+        <details className="shop-disclosure"><summary>How your group price works <Icon name="down" /></summary><p>Merchants submitted sealed bids for this lot. The lowest qualifying price won, and your total fits your confirmed limit.</p><p>{offer.notices.lots_may_differ}</p>{offer.pool_id ? <Link to={`/audit/${offer.pool_id}`}>View this pool’s published rules</Link> : null}</details>
+      </aside>
+    </form>
+  </div>;
 }
 
-function Step({ title, body }: { title: string; body: string }) {
-  return (
-    <div>
-      <p className="text-sm font-semibold">{title}</p>
-      <p className="mt-1 text-sm text-muted">{body}</p>
-    </div>
-  );
+export function ProductArt({ title, small = false }: { title: string; small?: boolean }) {
+  return <div className={`product-art ${small ? "product-art-small" : ""}`} aria-hidden="true">
+    {/monitor/i.test(title) ? <svg viewBox="0 0 160 130" fill="none"><rect x="15" y="12" width="130" height="84" rx="7" fill="rgb(var(--color-ink))" stroke="rgb(var(--color-canvas) / .7)" strokeWidth="3" /><rect x="22" y="19" width="116" height="70" rx="3" fill="rgb(var(--color-accent-soft))" /><path d="M22 69Q48 48 76 62T138 56V89H22Z" fill="rgb(var(--color-accent))" opacity=".8" /><path d="M22 76Q50 56 77 70T138 65V89H22Z" fill="rgb(var(--color-muted))" /><path d="M80 97v21 M57 119h46" stroke="rgb(var(--color-canvas))" strokeWidth="4" strokeLinecap="round" /></svg> : <Icon name="box" />}
+  </div>;
 }
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
+function Price({ label, cents }: { label: string; cents: number }) { return <div><dt>{label}</dt><dd>{formatCents(cents)}</dd></div>; }
 function codeOf(failure: unknown): { code: string; message: string } {
   const envelope = failure as { error?: { code?: string; message?: string } } | undefined;
-  return {
-    code: envelope?.error?.code ?? "REQUEST_FAILED",
-    message: envelope?.error?.message ?? "The request could not be completed.",
-  };
+  return { code: envelope?.error?.code ?? "REQUEST_FAILED", message: envelope?.error?.message ?? "The request could not be completed. Please try again." };
 }

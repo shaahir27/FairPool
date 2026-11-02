@@ -13,6 +13,8 @@ export { HonestyLabels } from "./components/HonestyLabels";
 export { PlaceholderPage } from "./components/PlaceholderPage";
 export { PublicLayout } from "./components/PublicLayout";
 export { AuthAside } from "./components/AuthAside";
+export { Brand, PoolMark } from "./components/Brand";
+export { Icon } from "./components/Icon";
 export { FieldError, Notice } from "./components/Notice";
 export { StatusPill } from "./components/StatusPill";
 export { getCsrfToken, setCsrfToken } from "./lib/csrf";

@@ -6,6 +6,8 @@ import {
   AuthAside,
   AuthLayout,
   FieldError,
+  HonestyLabels,
+  Icon,
   Notice,
   PlaceholderPage,
   setCsrfToken,
@@ -26,10 +28,12 @@ function AuthFrame({
 }) {
   return (
     <AuthLayout>
-      <div className="grid items-start gap-10 lg:grid-cols-2">
-        <AuthAside headline={headline} valueLine={valueLine} />
-        <div className="rounded-2xl border border-line bg-surface p-7">{children}</div>
-      </div>
+      <AuthAside headline={headline} valueLine={valueLine} />
+      <section className="auth-panel">
+        <div className="auth-label"><HonestyLabels kinds={["sandbox"]} /></div>
+        <div id="auth-form" className="auth-form">{children}</div>
+        <p className="auth-footnote">{EMAIL_ONLY}</p>
+      </section>
     </AuthLayout>
   );
 }
@@ -54,16 +58,14 @@ export function LoginPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { data, error: failure } = await api.POST("/api/v1/auth/login", {
-      body: { email, password },
-    });
-    setBusy(false);
-    if (failure || !data) {
-      setError(envelope(failure));
-      return;
-    }
-    setCsrfToken(data.csrf_token);
-    navigate("/");
+    try {
+      const { data, error: failure } = await api.POST("/api/v1/auth/login", { body: { email, password } });
+      if (failure || !data) { setError(envelope(failure)); return; }
+      setCsrfToken(data.csrf_token);
+      navigate("/");
+    } catch {
+      setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
+    } finally { setBusy(false); }
   };
 
   return (
@@ -71,7 +73,7 @@ export function LoginPage() {
       headline="Join together. Let merchants compete for your group."
       valueLine="Join a pool for free. Merchants bid in a sealed auction, and you approve your own payment."
     >
-      <h1 className="font-display text-3xl leading-tight">Sign in</h1>
+      <h1 className="auth-title">Sign in</h1>
       <p className="mt-2 text-sm text-muted">Welcome back. Pick up where your pools left off.</p>
       {error ? (
         <div className="mt-4">
@@ -80,53 +82,56 @@ export function LoginPage() {
           </Notice>
         </div>
       ) : null}
-      <form className="mt-6 space-y-4" onSubmit={(event) => void submit(event)}>
+      <form className="auth-fields" onSubmit={(event) => void submit(event)}>
         <label className="block">
           <span className="text-sm font-medium">Email</span>
           <input
+            placeholder="you@example.com"
             type="email"
             required
             autoComplete="email"
-            className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+            className="form-input"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">Password</span>
-          <span className="mt-1 flex gap-2">
+          <span id="password-label" className="text-sm font-medium">Password</span>
+          <span className="password-field">
             <input
+              placeholder="Your password"
               type={show ? "text" : "password"}
               required
               autoComplete="current-password"
-              className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+              className="form-input"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
             <button
               type="button"
-              className="press rounded-lg border border-line px-3 text-xs"
+              className="password-toggle"
+              aria-label={show ? "Hide password" : "Show password"}
+              aria-pressed={show}
               onClick={() => setShow((value) => !value)}
             >
-              {show ? "Hide" : "Show"}
+              <Icon name="eye" />
             </button>
           </span>
         </label>
         <button
           type="submit"
           disabled={busy}
-          className="press w-full rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-ink disabled:opacity-60"
+          className="button-primary w-full"
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p className="mt-4 text-sm">
+      <p className="auth-switch">
         New to FairPool?{" "}
         <Link className="font-semibold underline decoration-accent decoration-2 underline-offset-4" to="/register">
           Create account
         </Link>
       </p>
-      <p className="mt-4 text-xs text-muted">{EMAIL_ONLY}</p>
     </AuthFrame>
   );
 }
@@ -143,16 +148,14 @@ export function RegisterPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: failure } = await api.POST("/api/v1/auth/register", {
-      body: { email, password, display_name: displayName },
-    });
-    setBusy(false);
-    if (failure) {
-      setError(envelope(failure));
-      return;
-    }
-    // The register response carries no session, so signing in is its own step.
-    navigate("/login");
+    try {
+      const { error: failure } = await api.POST("/api/v1/auth/register", { body: { email, password, display_name: displayName } });
+      if (failure) { setError(envelope(failure)); return; }
+      // Registration creates no session; sign-in is a separate step.
+      navigate("/login");
+    } catch {
+      setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
+    } finally { setBusy(false); }
   };
 
   return (
@@ -160,7 +163,7 @@ export function RegisterPage() {
       headline="Say what you want. We'll gather the group."
       valueLine="Describe the product and your maximum price. Joining is free."
     >
-      <h1 className="font-display text-3xl leading-tight">Create account</h1>
+      <h1 className="auth-title">Create account</h1>
       <p className="mt-2 text-sm text-muted">Free to start. It takes under a minute.</p>
       {error ? (
         <div className="mt-4">
@@ -169,28 +172,31 @@ export function RegisterPage() {
           </Notice>
         </div>
       ) : null}
-      <form className="mt-6 space-y-4" onSubmit={(event) => void submit(event)}>
+      <form className="auth-fields" onSubmit={(event) => void submit(event)}>
         <label className="block">
           <span className="text-sm font-medium">Email</span>
           <input
+            placeholder="you@example.com"
             type="email"
             required
             autoComplete="email"
-            className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+            className="form-input"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium">Password</span>
+          <span id="password-label" className="text-sm font-medium">Password</span>
           <input
+            placeholder="Choose a password"
             type="password"
             required
             minLength={8}
             maxLength={200}
             autoComplete="new-password"
+            aria-labelledby="password-label"
             aria-describedby="password-rule"
-            className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+            className="form-input"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
@@ -202,8 +208,10 @@ export function RegisterPage() {
           <span className="text-sm font-medium">Display name</span>
           <input
             required
+            autoComplete="nickname"
+            placeholder="How merchants see you"
             maxLength={120}
-            className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+            className="form-input"
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
           />
@@ -214,18 +222,17 @@ export function RegisterPage() {
         <button
           type="submit"
           disabled={busy}
-          className="press w-full rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-ink disabled:opacity-60"
+          className="button-primary w-full"
         >
           {busy ? "Creating…" : "Create account"}
         </button>
       </form>
-      <p className="mt-4 text-sm">
+      <p className="auth-switch">
         Already have an account?{" "}
         <Link className="font-semibold underline decoration-accent decoration-2 underline-offset-4" to="/login">
           Sign in
         </Link>
       </p>
-      <p className="mt-4 text-xs text-muted">{EMAIL_ONLY}</p>
     </AuthFrame>
   );
 }

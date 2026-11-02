@@ -1,216 +1,138 @@
-import { useEffect, useState } from "react";
+﻿import { type ReactNode, useEffect, useId, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Link } from "react-router-dom";
+import { api, type ApiComponents, formatCents, formatDateTime, Icon, Notice, REJECT_REASON_LABELS, StatusPill, statusStyle } from "../shared";
+import { ProductArt } from "./OfferCheckout";
+import { ReceiptDrawer } from "./ReceiptDrawer";
 
-import {
-  api,
-  formatCents,
-  formatDateTime,
-  HonestyLabels,
-  Notice,
-  REJECT_REASON_LABELS,
-  StatusPill,
-  statusStyle,
-} from "../shared";
-
-interface Receipt {
-  payload: {
-    commitment: string;
-    entry_id: string;
-    pool_id: string;
-    received_at: string;
-    v: number;
-  };
-  salt_hex: string;
-  request_hash: string;
-  signature: string;
-}
-
-interface OrderStatus {
-  buyer_order_id: string;
-  status: string;
-  lot_status: string;
-  total_cents: number;
-  history: { status: string; at: string }[];
-  paypal: {
-    authorization_status: string | null;
-    capture_status: string | null;
-    refund_status: string | null;
-  };
-  labels: string[];
-  pool_id: string | null;
-  lot_id: string | null;
-  placed_at: string | null;
-  reject_reason: string | null;
-  receipt: Receipt | null;
-}
-
-const REASON_STATES = new Set(["REJECTED", "AUTH_FAILED", "CAPTURE_FAILED"]);
+type OrderStatus = ApiComponents["schemas"]["OrderStatusResponse"];
+const ORDER_COPY: Record<string, string> = {
+  AUTHORIZING: "PayPal is still confirming your hold. This is not a failure, and nothing has been paid yet.",
+  AUTHORIZED: "Your hold is confirmed. A hold is not a completed payment.",
+  CAPTURE_PENDING: "PayPal is still confirming your payment. A pending capture does not count as paid.",
+  CAPTURED: "PayPal confirmed your payment. Check the group status for your lot's outcome.",
+  VOIDED: "Your hold was released. No payment was taken on this authorization.",
+  REFUNDED: "PayPal confirmed your refund. Your bank may take a few days to show it.",
+  REFUNDING: "Your refund is being processed. Check back for PayPal's confirmation.",
+  DECLINED: "You declined this offer. Check My Pools for your other entries.",
+  EXPIRED: "The approval window for this offer has ended.",
+};
+const ORDER_TITLES: Record<string, string> = {
+  OFFERED: "Your offer is ready", ORDER_CREATED: "Ready for your approval",
+  APPROVED: "Approval received", AUTHORIZING: "Confirming your hold",
+  AUTHORIZED: "Your hold is confirmed", CAPTURING: "Completing your payment",
+  CAPTURE_PENDING: "Waiting for PayPal", CAPTURED: "Your payment is complete",
+  VOIDED: "Your hold has been released", REFUNDED: "Your refund is confirmed",
+  REFUNDING: "Your refund is on its way", DECLINED: "Offer declined",
+  EXPIRED: "This offer has expired", REJECTED: "This payment needs attention",
+  AUTH_FAILED: "The hold could not be placed", CAPTURE_FAILED: "The payment did not complete",
+};
+const CLOSED_ORDERS = new Set(["VOIDED", "REFUNDED", "DECLINED", "EXPIRED", "REJECTED", "AUTH_FAILED", "CAPTURE_FAILED"]);
 
 export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
   const [order, setOrder] = useState<OrderStatus | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [offer, setOffer] = useState<ApiComponents["schemas"]["OfferResponse"] | null>(null);
+  const [buyerName, setBuyerName] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [actionError, setActionError] = useState<{ code: string; message: string } | null>(null);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     let live = true;
-    void api
-      .GET("/api/v1/orders/{buyer_order_id}", {
-        params: { path: { buyer_order_id: buyerOrderId } },
-      })
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure) {
-          const envelope = failure as { error?: { code?: string; message?: string } };
-          setError({
-            code: envelope.error?.code ?? "REQUEST_FAILED",
-            message: envelope.error?.message ?? "The order could not be loaded.",
-          });
-          return;
-        }
-        setOrder(data as unknown as OrderStatus);
-      });
-    return () => {
-      live = false;
-    };
+    setOffer(null); setBuyerName(null); setReceiptOpen(false);
+    // Metadata is optional; a failed disclosure lookup must not hide payment status.
+    void api.GET("/api/v1/offers/{buyer_order_id}", { params: { path: { buyer_order_id: buyerOrderId } } })
+      .then(({ data }) => { if (live && data?.product) setOffer(data); }).catch(() => {});
+    void api.GET("/api/v1/me").then(({ data }) => { if (live && data?.display_name) setBuyerName(data.display_name); }).catch(() => {});
+    return () => { live = false; };
   }, [buyerOrderId]);
 
-  if (error) {
-    return (
-      <Notice kind="error" code={error.code}>
-        {error.message}
-      </Notice>
-    );
-  }
-  if (!order) {
-    return <div className="h-40 animate-pulse rounded-2xl bg-line/40" aria-label="Loading order" />;
-  }
+  useEffect(() => {
+    let live = true;
+    setOrder((current) => current?.buyer_order_id === buyerOrderId ? current : null);
+    setError(null); setRefreshing(true);
+    void api.GET("/api/v1/orders/{buyer_order_id}", { params: { path: { buyer_order_id: buyerOrderId } } })
+      .then(({ data, error: failure }) => {
+        if (!live) return;
+        if (failure || !data) {
+          const value = failure as { error?: { code?: string; message?: string } } | undefined;
+          setError({ code: value?.error?.code ?? "REQUEST_FAILED", message: value?.error?.message ?? "The order could not be loaded." });
+        } else setOrder(data);
+      }).catch(() => { if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); })
+      .finally(() => { if (live) setRefreshing(false); });
+    return () => { live = false; };
+  }, [buyerOrderId, revision]);
 
-  const orderStyle = statusStyle(order.status);
-  const lotStyle = statusStyle(order.lot_status);
-  const lastAt = order.history.at(-1)?.at;
+  if (!order && error) return <><Notice kind="error" code={error.code}>{error.message}</Notice><button type="button" className="shop-quiet-button mt-4" onClick={() => setRevision((n) => n + 1)}>Try again</button></>;
+  if (!order) return <section className="shop-panel shop-panel-pad" aria-busy="true" role="status" aria-label="Loading order"><h1 className="shop-title">Order status</h1><div className="skeleton mt-5 h-40" /></section>;
 
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted">Orders / {order.buyer_order_id.slice(0, 13)}…</p>
-          <h1 className="font-display text-4xl leading-tight">Order status</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <HonestyLabels kinds={["sandbox", "fallback"]} />
-          {order.receipt ? (
-            <button
-              type="button"
-              className="press rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink"
-              aria-expanded={receiptOpen}
-              onClick={() => setReceiptOpen((open) => !open)}
-            >
-              View entry receipt
-            </button>
-          ) : null}
-        </div>
-      </div>
+  const withdraw = async () => {
+    if (withdrawing) return;
+    setWithdrawing(true); setActionError(null);
+    try {
+      const { error: failure } = await api.POST("/api/v1/orders/{buyer_order_id}/withdraw", { params: { path: { buyer_order_id: buyerOrderId } } });
+      if (failure) {
+        const value = failure as { error?: { code?: string; message?: string } };
+        setActionError({ code: value.error?.code ?? "REQUEST_FAILED", message: value.error?.message ?? "Could not withdraw. Refresh status and try again." });
+      } else setRevision((n) => n + 1);
+    } catch { setActionError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); }
+    finally { setWithdrawing(false); }
+  };
+  const history = order.history ?? [];
+  const negative = CLOSED_ORDERS.has(order.status);
+  const copy = ORDER_COPY[order.status] ?? statusStyle(order.status).label;
+  const funded = order.lot_status === "FUNDED" || order.lot_status === "CLOSED";
+  const failedLot = ["FAILING", "FAILED_CLOSED", "CANCELLED"].includes(order.lot_status);
+  const milestones = [
+    { title: "Your offer", text: "Individual order", done: history.some((item) => item.status === "OFFERED"), current: order.status === "OFFERED" },
+    { title: "Payment", text: order.status === "CAPTURED" ? "Completed" : negative ? "See outcome" : "In progress", done: order.status === "CAPTURED", current: !negative && !funded && order.status !== "OFFERED" },
+    { title: "Group funding", text: funded ? "Minimum reached" : failedLot ? "See group status" : "Waiting for minimum", done: funded, current: funded },
+    { title: "Delivery", text: "After funding", done: false, current: false },
+  ];
 
-      <dl className="grid gap-4 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-3">
-        <Cell label="Order ID" mono value={order.buyer_order_id} />
-        <Cell label="Pool" mono value={order.pool_id ?? "—"} />
-        <Cell label="Placed" value={order.placed_at ? formatDateTime(order.placed_at) : "—"} />
-      </dl>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className={`rounded-2xl p-6 ${orderStyle.tone === "bad" ? "bg-danger-soft" : orderStyle.tone === "good" ? "bg-ink text-canvas" : "bg-accent-soft"}`}>
-          <p className="text-xs uppercase tracking-label opacity-70">Order status</p>
-          <p className="mt-1 font-mono text-lg">{order.status}</p>
-          <p className="mt-2 text-sm opacity-80">{orderStyle.label}{lastAt ? ` · since ${formatDateTime(lastAt)}` : ""}</p>
-          {order.status === "AUTHORIZING" ? (
-            <p className="mt-2 text-sm">
-              PayPal is still confirming your hold. This is not a failure, and nothing has been paid yet.
-            </p>
-          ) : null}
-        </section>
-        <section className="rounded-2xl border border-line bg-surface p-6">
-          <p className="text-xs uppercase tracking-label text-muted">Lot status</p>
-          <p className="mt-1 font-mono text-lg">{order.lot_status}</p>
-          <p className="mt-2 text-sm text-muted">{lotStyle.label}</p>
-        </section>
-      </div>
-
-      {REASON_STATES.has(order.status) && order.reject_reason ? (
-        <section className="enter-rise rounded-2xl border border-danger/40 bg-danger-soft p-5">
-          <p className="text-xs uppercase tracking-label text-danger">Why</p>
-          <p className="mt-1 font-mono text-sm">{order.reject_reason}</p>
-          <p className="mt-2 text-sm">
-            {REJECT_REASON_LABELS[order.reject_reason] ?? "The payment was refused by a server check."}
-          </p>
-        </section>
-      ) : null}
-
-      <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
-        <section className="rounded-2xl bg-ink p-6 text-canvas">
-          <p className="text-xs uppercase tracking-label text-canvas/70">Total</p>
-          <p className="font-display text-4xl leading-none">{formatCents(order.total_cents)}</p>
-          <dl className="mt-4 space-y-2 text-sm">
-            <ProviderRow label="Authorization" value={order.paypal.authorization_status} />
-            <ProviderRow label="Capture" value={order.paypal.capture_status} />
-            <ProviderRow label="Refund" value={order.paypal.refund_status} />
-          </dl>
-        </section>
-        <section className="rounded-2xl border border-line bg-surface p-6">
-          <p className="text-xs uppercase tracking-label text-muted">Journey</p>
-          <ol className="mt-3 space-y-2 text-sm">
-            {order.history.map((item) => (
-              <li key={`${item.status}-${item.at}`} className="flex items-center justify-between gap-3">
-                <StatusPill status={item.status} tone={statusStyle(item.status).tone} />
-                <span className="font-mono text-xs text-muted">{formatDateTime(item.at)}</span>
-              </li>
-            ))}
-            {order.history.length === 0 ? <li className="text-muted">No transitions recorded yet.</li> : null}
-          </ol>
-        </section>
-      </div>
-
-      {receiptOpen && order.receipt ? (
-        <section className="enter-rise rounded-2xl border border-line bg-surface p-6">
-          <h2 className="text-lg font-semibold">Entry receipt</h2>
-          <p className="mt-1 text-sm text-muted">
-            Proof that your entry was received. Check it on the public audit page.
-          </p>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <Cell label="Commitment" mono value={order.receipt.payload.commitment} />
-            <Cell label="Entry ID" mono value={order.receipt.payload.entry_id} />
-            <Cell label="Pool ID" mono value={order.receipt.payload.pool_id} />
-            <Cell label="Received" value={formatDateTime(order.receipt.payload.received_at)} />
-            <Cell label="Salt" mono value={order.receipt.salt_hex} />
-            <Cell label="Request hash" mono value={order.receipt.request_hash} />
-            <Cell label="Signature" mono value={order.receipt.signature} />
-          </dl>
-          <a
-            className="mt-4 inline-block text-sm font-semibold underline decoration-accent decoration-2 underline-offset-4"
-            href={`/audit/${order.pool_id ?? order.receipt.payload.pool_id}`}
-          >
-            Check it on the public audit page
-          </a>
-        </section>
-      ) : null}
+  return <div className="order-view">
+    <div className="order-page-heading">
+      <div><Link className="shop-back" to="/orders"><Icon name="arrow" />All orders</Link><h1 className="shop-title">Order status</h1><p className="shop-copy">Follow your payment and your group's progress in one place.</p></div>
+      <div className="order-page-actions"><button type="button" className="shop-quiet-button" disabled={refreshing} onClick={() => setRevision((n) => n + 1)}><Icon name="returns" />{refreshing ? "Refreshing..." : "Refresh status"}</button>{order.receipt ? <button type="button" className="shop-quiet-button" aria-haspopup="dialog" aria-expanded={receiptOpen} onClick={() => setReceiptOpen(true)}><Icon name="receipt" />View entry receipt</button> : null}</div>
     </div>
-  );
+    {error ? <div className="mb-5"><Notice kind="error" code={error.code}>{error.message} Your last loaded status is still shown.</Notice></div> : null}
+    {actionError ? <div className="mb-5"><Notice kind="error" code={actionError.code}>{actionError.message}</Notice></div> : null}
+    {order.reject_reason ? <div className="mb-5"><Notice kind="error" code={order.reject_reason}>{REJECT_REASON_LABELS[order.reject_reason] ?? "The payment was refused by a server check."}</Notice></div> : null}
+    <div className="order-display-grid">
+      <div className="order-primary-column">
+        <section className="shop-panel" aria-label="Order progress">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={order.status} className={`order-current ${negative ? "is-negative" : ""}`} initial={{ opacity: 0, transform: reduced ? "none" : "translateY(6px)" }} animate={{ opacity: 1, transform: "none" }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .2, ease: [.23, 1, .32, 1] }}>
+              <span className="order-current-symbol"><Icon name={negative ? "returns" : order.status === "CAPTURED" ? "check" : "clock"} /></span>
+              <div><h2>{ORDER_TITLES[order.status] ?? statusStyle(order.status).label}</h2><p className="shop-copy">{copy}</p><code className="order-code">{order.status}</code></div>
+            </motion.div>
+          </AnimatePresence>
+          <ol className="order-milestones" aria-label="Your order journey">{milestones.map((stage, index) => <li key={stage.title} className={stage.done ? "milestone-recorded" : ""} aria-current={stage.current ? "step" : undefined}><span className="milestone-dot">{stage.done ? <Icon name="check" /> : index + 1}</span><strong>{stage.title}</strong><small>{stage.text}</small></li>)}</ol>
+          <div className="order-group-note"><Icon name="layers" /><div><strong>{funded ? "Your group reached its minimum" : failedLot ? "This lot is closing or has closed" : "Your purchase is part of a group"}</strong><p>{funded ? "Enough buyers' completed payments met the lot minimum." : failedLot ? statusStyle(order.lot_status).label : "The lot is funded only after enough payments complete. A hold or approval does not count as paid."}</p><code>{order.lot_status}</code></div></div>
+        </section>
+        {offer ? <section className="shop-panel order-item"><h2>Your item</h2><div className="shop-product-row"><ProductArt title={offer.product.title} small /><div><h3>{offer.product.title}</h3><p>{[offer.product.variant, offer.product.condition].filter(Boolean).join(" · ")}</p><p>Sold by {offer.merchant.display_name}</p><p>Quantity: 1</p></div><strong className="order-item-price">{formatCents(offer.totals.item_cents)}</strong></div><div className="order-item-terms"><span><Icon name="truck" />Delivery within {offer.terms.delivery_sla_days} days</span><span><Icon name="returns" />{offer.terms.returns_days}-day return terms</span><span><Icon name="box" />{offer.product.bundle_contents.join(", ")}</span></div></section> : null}
+        <Disclosure title="Payment details" icon="wallet"><p className="shop-copy">States reported by PayPal. Only a completed capture confirms payment.</p><dl className="order-provider-rows"><Provider label="Authorization" value={order.paypal.authorization_status} /><Provider label="Capture" value={order.paypal.capture_status} /><Provider label="Refund" value={order.paypal.refund_status} /></dl>{order.status === "AUTHORIZED" ? <div className="order-withdraw"><button type="button" disabled={withdrawing} onClick={() => void withdraw()} className="shop-quiet-button">{withdrawing ? "Requesting withdrawal..." : "Withdraw before payment"}</button><p>Request release of your hold before capture. The server checks whether withdrawal is still possible.</p></div> : null}</Disclosure>
+        <Disclosure title="Order activity" icon="clock">{history.length ? <ol className="order-activity">{history.map((item) => <li key={`${item.status}-${item.at}`}><span className="activity-dot" /><div><strong>{statusStyle(item.status).label}</strong><code>{item.status}</code></div><time dateTime={item.at}>{formatDateTime(item.at)}</time></li>)}</ol> : <p className="shop-copy">No events have been recorded yet.</p>}</Disclosure>
+      </div>
+      <aside className="order-secondary-column" aria-label="Order information">
+        <section className="shop-panel order-info"><h2>Order information</h2><dl><Info label="Order number" value={order.buyer_order_id} mono />{buyerName ? <Info label="Ordered by" value={buyerName} /> : null}<Info label="Placed" value={order.placed_at ? formatDateTime(order.placed_at) : "Not reported"} />{offer ? <Info label="Merchant" value={offer.merchant.display_name} /> : null}<Info label="Pool" value={order.pool_id ?? "Not reported"} mono /></dl><div className="order-info-total"><span>Order total <small>USD</small></span><strong>{formatCents(order.total_cents)}</strong></div></section>
+        <section className="order-help"><h2>{negative ? "About your outcome" : "What happens next?"}</h2><p>{negative ? copy : funded ? "Your lot is funded. Delivery follows the merchant's stated terms." : "Once the lot's minimum is met by completed payments, it can be funded and the merchant can fulfil the orders."}</p>{offer?.pool_id ? <Link to={`/audit/${offer.pool_id}`}>View pool rules <Icon name="arrow" /></Link> : null}</section>
+      </aside>
+    </div>
+    <div className="order-disclosures">{(order.labels ?? []).map((label) => <span key={label}><Icon name="info" />{label}</span>)}</div>
+    {order.receipt ? <ReceiptDrawer receipt={order.receipt} open={receiptOpen} onClose={() => setReceiptOpen(false)} /> : null}
+  </div>;
 }
 
-function Cell({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-label text-muted">{label}</dt>
-      <dd className={`mt-1 break-all ${mono ? "font-mono text-xs" : "text-sm"}`}>{value}</dd>
-    </div>
-  );
+function Disclosure({ title, icon, children }: { title: string; icon: "wallet" | "clock"; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const reduced = useReducedMotion();
+  return <section className="shop-panel order-expand"><button type="button" className="order-expand-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}><span><Icon name={icon} />{title}</span><Icon name="down" /></button><AnimatePresence initial={false}>{open ? <motion.div id={id} key="content" className="order-expand-content" initial={{ opacity: 0, transform: reduced ? "none" : "translateY(-4px)" }} animate={{ opacity: 1, transform: "none" }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .16, ease: [.23, 1, .32, 1] }}>{children}</motion.div> : null}</AnimatePresence></section>;
 }
-
-function ProviderRow({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-canvas/70">{label}</dt>
-      <dd>
-        {value ? <StatusPill status={value} tone="neutral" /> : <span className="text-canvas/50">—</span>}
-      </dd>
-    </div>
-  );
-}
+function Info({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) { return <div><dt>{label}</dt><dd className={mono ? "font-mono text-xs" : ""}>{value}</dd></div>; }
+function Provider({ label, value }: { label: string; value: string | null | undefined }) { return <div><dt>{label}</dt><dd>{value ? <StatusPill status={value} tone="neutral" /> : <span>Not reported</span>}</dd></div>; }

@@ -1,100 +1,62 @@
-import type { ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-
+﻿import type { ReactNode } from "react";
+import { MotionConfig } from "motion/react";
+import { Link, NavLink, Outlet } from "react-router-dom";
 import { Brand } from "./Brand";
 import { HonestyLabels } from "./HonestyLabels";
+import { Icon } from "./Icon";
+import "../commerce.css";
 
-export type AreaTab = {
-  to: string;
-  label: string;
-  end: boolean;
-};
+export type AreaTab = { to: string; label: string; end: boolean };
+export type AreaUtilityLink = { to: string; label: string };
+type AreaLayoutProps = { workspace: string; tabs: readonly AreaTab[]; utilityLinks?: readonly AreaUtilityLink[]; children?: ReactNode };
 
-export type AreaUtilityLink = {
-  to: string;
-  label: string;
-};
-
-type AreaLayoutProps = {
-  workspace: string;
-  tabs: readonly AreaTab[];
-  utilityLinks?: readonly AreaUtilityLink[];
-  children?: ReactNode;
-};
-
-export function AreaLayout({
-  workspace,
-  tabs,
-  utilityLinks = [],
-  children,
-}: AreaLayoutProps) {
-  return (
-    <div className="flex min-h-screen flex-col bg-canvas">
-      <a
-        href="#main"
-        className="sr-only rounded-md bg-accent px-4 py-2 text-sm text-surface focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20"
-      >
-        Skip to content
-      </a>
-
-      <header className="sticky top-0 z-10 border-b border-line bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex max-w-shell flex-wrap items-center justify-between gap-4 px-6 pb-4 pt-5">
-          <Brand workspace={workspace} />
-          <HonestyLabels />
-        </div>
-        {tabs.length > 0 ? (
-          <div className="mx-auto flex max-w-shell flex-wrap items-center gap-x-4 gap-y-1 px-6">
-            <nav
-              aria-label={`${workspace} tabs`}
-              className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
-            >
-              {tabs.map((tab) => (
-                <NavLink
-                  key={tab.to}
-                  to={tab.to}
-                  end={tab.end}
-                  className={({ isActive }) =>
-                    [
-                      "whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors",
-                      isActive
-                        ? "border-accent text-ink"
-                        : "border-transparent text-muted hover:border-line hover:text-ink",
-                    ].join(" ")
-                  }
-                >
-                  {tab.label}
-                </NavLink>
-              ))}
+export function AreaLayout({ workspace, tabs, utilityLinks = [], children }: AreaLayoutProps) {
+  if (workspace === "Buyer workspace") {
+    const links = tabs.map((tab, index) => (
+      <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `account-nav-link ${isActive ? "is-active" : ""}`}>
+        <Icon name={index === 0 ? "search" : index === 1 ? "layers" : "bag"} />
+        <span>{tab.label}</span><Icon name="chevron" className="nav-chevron" />
+      </NavLink>
+    ));
+    return <MotionConfig reducedMotion="user">
+      <div className="commerce-shell">
+        <a href="#main" className="skip-link">Skip to content</a>
+        <aside className="account-sidebar">
+          <Link to="/" aria-label="FairPool home"><Brand /></Link>
+          <p className="sidebar-caption">Your shopping space</p>
+          <nav aria-label={`${workspace} tabs`} className="account-navigation">{links}</nav>
+          <div className="sidebar-bottom">
+            <nav aria-label={`${workspace} settings`} className="account-navigation secondary-navigation">
+              {utilityLinks.map((link) => <NavLink key={link.to} to={link.to} className="account-nav-link"><Icon name={link.to.includes("paypal") ? "wallet" : "settings"} /><span>{link.label}</span></NavLink>)}
             </nav>
-            {utilityLinks.length > 0 ? (
-              <div className="flex shrink-0 items-center gap-4 border-l border-line pl-4 text-xs text-muted">
-                {utilityLinks.map((link) => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className="whitespace-nowrap transition-colors hover:text-ink"
-                  >
-                    {link.label}
-                  </NavLink>
-                ))}
-              </div>
-            ) : null}
+            <div className="sidebar-note"><Icon name="layers" /><strong>A better price, together.</strong><p>One pool. A shared opportunity. Your own order.</p></div>
+            <p className="sidebar-demo">PayPal Sandbox demo<br />No real money moves.</p>
           </div>
-        ) : null}
-      </header>
-
-      <main id="main" className="mx-auto w-full max-w-shell flex-1 px-6 py-12 sm:py-16">
-        {children ?? <Outlet />}
-      </main>
-
-      <footer className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-shell flex-col gap-2 px-6 py-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-medium uppercase tracking-label">
-            PayPal Sandbox demo · no real money moves
-          </p>
-          <p>One stand-in test seller. Demonstrated in the PayPal Sandbox.</p>
+        </aside>
+        <div className="commerce-workspace">
+          <header className="account-topbar">
+            <div className="account-mobile-brand"><Link to="/" aria-label="FairPool home"><Brand /></Link></div>
+            <span className="account-context">Your account</span>
+            <div className="account-topbar-right"><HonestyLabels kinds={["sandbox"]} />
+              <details className="account-mobile-menu" onClick={(event) => { if ((event.target as Element).closest("a")) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary><Icon name="menu" /><span className="sr-only">Open account navigation</span></summary><nav aria-label="Mobile buyer navigation">{links}{utilityLinks.map((link) => <Link key={link.to} className="account-nav-link" to={link.to}>{link.label}</Link>)}</nav></details>
+            </div>
+          </header>
+          <main id="main" className="commerce-content">{children ?? <Outlet />}</main>
         </div>
-      </footer>
-    </div>
-  );
+      </div>
+    </MotionConfig>;
+  }
+  if (workspace === "Checkout") return <MotionConfig reducedMotion="user"><div className="checkout-shell">
+    <a href="#main" className="skip-link">Skip to content</a>
+    <header className="checkout-header"><Link to="/" aria-label="FairPool home"><Brand /></Link><span className="checkout-secure"><Icon name="lock" />Checkout</span><HonestyLabels kinds={["sandbox"]} /></header>
+    <main id="main" className="checkout-content">{children}</main>
+    <footer className="checkout-footer"><Icon name="shield" /><span>PayPal Sandbox demo. No real money moves.</span><Link to="/my-pools">Back to My Pools</Link></footer>
+  </div></MotionConfig>;
+  return <div className="app-layout">
+    <a href="#main" className="skip-link">Skip to content</a>
+    <header className="app-header"><Brand workspace={workspace} />
+      {tabs.length > 0 ? <nav aria-label={`${workspace} tabs`} className="workspace-tabs">{tabs.map((tab) => <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => isActive ? "workspace-tab is-active" : "workspace-tab"}>{tab.label}</NavLink>)}</nav> : null}
+      <div className="header-utilities">{utilityLinks.length > 0 ? <nav className="utility-links" aria-label={`${workspace} settings`}>{utilityLinks.map((link) => <NavLink key={link.to} to={link.to}>{link.label}</NavLink>)}</nav> : null}<HonestyLabels kinds={["sandbox"]} /></div>
+    </header><main id="main" className="app-main">{children ?? <Outlet />}</main><footer className="app-footer">PayPal Sandbox demo · no real money moves</footer>
+  </div>;
 }

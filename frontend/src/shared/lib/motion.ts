@@ -21,7 +21,7 @@ export interface Countdown {
 const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
 
 function formatRemaining(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
+  const total = Math.max(0, Math.ceil(ms / 1000));
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -34,17 +34,23 @@ export function useCountdown(
 ): Countdown {
   const expires = Date.parse(expiresAt);
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
-  const offsetMs = Date.parse(serverNow) - Date.now();
+  // I15: keep the sample stable across ticks; recomputing an offset freezes time.
+  const sample = useRef({ serverNow, sampledAt: performance.now() });
+  if (sample.current.serverNow !== serverNow) {
+    sample.current = { serverNow, sampledAt: performance.now() };
+  }
+  const sampledAt = sample.current.sampledAt;
+  const serverTime = Date.parse(serverNow);
   const windowMs = Number.isFinite(started) && expires > started ? expires - started : 0;
 
   const [remainingMs, setRemainingMs] = useState(() =>
-    Math.max(0, expires - (Date.now() + offsetMs)),
+    Math.max(0, expires - (serverTime + performance.now() - sampledAt)),
   );
   const ringRef = useRef<SVGCircleElement>(null);
 
   useEffect(() => {
     const tick = () => {
-      const next = Math.max(0, expires - (Date.now() + offsetMs));
+      const next = Math.max(0, expires - (serverTime + performance.now() - sampledAt));
       setRemainingMs(next);
       if (ringRef.current && windowMs > 0) {
         const elapsed = Math.min(1, Math.max(0, 1 - next / windowMs));
@@ -54,7 +60,7 @@ export function useCountdown(
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [expires, offsetMs, windowMs]);
+  }, [expires, serverTime, sampledAt, windowMs]);
 
   const fractionElapsed =
     windowMs > 0 ? Math.min(1, Math.max(0, 1 - remainingMs / windowMs)) : 0;

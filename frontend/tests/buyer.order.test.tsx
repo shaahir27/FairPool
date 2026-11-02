@@ -56,7 +56,7 @@ describe("order status card", () => {
     });
     await renderCard();
     expect(screen.getAllByText("AUTHORIZING").length).toBeGreaterThan(0);
-    expect(screen.getByText("CHECKOUT_OPEN")).toBeTruthy();
+    expect(screen.getAllByText("CHECKOUT_OPEN").length).toBeGreaterThan(0);
     expect(screen.getByText("$499.00")).toBeTruthy();
     expect(
       screen.getByText(

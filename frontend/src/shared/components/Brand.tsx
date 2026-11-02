@@ -2,21 +2,22 @@ type BrandProps = {
   workspace?: string;
 };
 
+export function PoolMark({ className = "" }: { className?: string }) {
+  return (
+    <svg className={`pool-mark ${className}`} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <rect width="64" height="64" rx="17" fill="currentColor" />
+      <circle cx="32" cy="29" r="21" stroke="rgb(var(--color-canvas))" strokeOpacity=".25" strokeWidth="2" />
+      <path d="M18 51V29a14 14 0 1 1 14 14H18" stroke="rgb(var(--color-canvas))" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="32" cy="29" r="5.5" fill="rgb(var(--color-mark))" />
+    </svg>
+  );
+}
+
 export function Brand({ workspace }: BrandProps) {
   return (
-    <div className="flex items-center gap-3">
-      <span
-        aria-hidden="true"
-        className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-semibold text-surface"
-      >
-        FP
-      </span>
-      <div className="leading-tight">
-        <p className="font-display text-lg text-ink">FairPool</p>
-        <p className="text-[0.68rem] uppercase tracking-label text-muted">
-          {workspace ?? "Group buying, sandbox demo"}
-        </p>
-      </div>
+    <div className="brand" aria-label={workspace ? `FairPool · ${workspace}` : "FairPool"}>
+      <PoolMark />
+      <div className="brand-wordmark">Fair<span>Pool</span></div>
     </div>
   );
 }
