@@ -208,6 +208,10 @@ Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"
   "terms": {"delivery_sla_days": 5, "returns_days": 30},
   "totals": {"item_cents": 47000, "shipping_cents": 1500, "tax_cents": 4113, "total_cents": 52613, "cap_cents": 55000},
   "offer_expires_at": "iso",
+  "offer_started_at": "iso",
+  "server_now": "iso",
+  "pool_id": "uuid",
+  "pool_title": "27-inch 4K monitor",
   "notices": {
     "hold": "PayPal places a hold for the total shown only after you approve. The hold is released if this lot does not reach its minimum.",
     "lots_may_differ": "Separate lots in this pool can end with different winning merchants and prices.",
@@ -216,13 +220,17 @@ Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"
 }
 ```
 
+`offer_started_at` is the moment the offer was created, `server_now` is the database clock at read time, and together they let a client render a countdown and a progress ring from the server's clock instead of the device's (I15); the countdown is presentation only and every handler still re-checks `offer_expires_at`. `pool_id` and `pool_title` let the screen link to the pool's published rules. All four are optional additions: a client that ignores them behaves exactly as before.
+
 `notices.fallback` is a non-null string whenever `PAYMENT_ROUTER=single_seller` or `PAYMENT_MODE=capture_only` applies (DEP-4), for example `"Sandbox demo: one test seller stands in for the winning merchant."`.
 
 `POST /api/v1/offers/{buyer_order_id}/continue` body `{"shipping": {"name", "line1", "line2", "city", "region", "postal_code", "country_code"}}` (the address is always required because fulfillment needs it; it is stored encrypted, N14, and is sent to PayPal only when `PAYPAL_PAYLOAD_LEVEL >= 3`); returns `{"paypal_order_id": "...", "approve_url": "https://www.sandbox.paypal.com/...", "approval_ui": "sdk_popup" | "redirect"}`. The browser sends **no amounts**. The server takes them from the award snapshot (I3).
 
 `GET /api/v1/checkout/return?token=<paypal_order_id>&PayerID=<id>`: the query parameters are untrusted hints. The server looks up the order by `token`, fetches it from PayPal, runs the FR-CK-05 checks and redirects `302` to `{FRONTEND_BASE_URL}/orders/{buyer_order_id}`. `GET /api/v1/checkout/cancel` moves ORDER_CREATED to DECLINED (BO-22) and redirects the same way.
 
-`GET /api/v1/orders/{buyer_order_id}`: `{"buyer_order_id", "status", "lot_status", "total_cents", "history": [{"status", "at"}], "paypal": {"authorization_status": "...|null", "capture_status": "...|null", "refund_status": "...|null"}, "labels": ["SANDBOX", "FALLBACK: single stand-in seller"]}`.
+`GET /api/v1/orders/{buyer_order_id}`: `{"buyer_order_id", "status", "lot_status", "total_cents", "history": [{"status", "at"}], "paypal": {"authorization_status": "...|null", "capture_status": "...|null", "refund_status": "...|null"}, "labels": ["SANDBOX", "FALLBACK: single stand-in seller"], "pool_id": "uuid|null", "lot_id": "uuid|null", "placed_at": "iso|null", "reject_reason": "PAYEE_MISMATCH|null", "receipt": {"payload": {"commitment", "entry_id", "pool_id", "received_at", "v"}, "salt_hex", "request_hash", "signature"}|null}`.
+
+The five later keys are optional additions. `reject_reason` is one of the seven buyer-order codes in `config-and-errors.md` section 5 and is present whenever the order was rejected, so the redirect path can explain a failure it used to swallow. `receipt` is the buyer's own entry receipt, returned in the same typed shape as `POST /api/v1/entries`; it is shown only to the order's owner and is what makes the proof verifiable against `/api/v1/public/keys`.
 
 ### Webhook
 

@@ -160,4 +160,6 @@ Response shape in `api.md`. Codes are UPPER_SNAKE.
 
 **Bid rejected** (`bids.reject_reason`): `R1_SCHEMA`, `R1_LATE`, `R1_UNCONFIRMED`, `R2_MERCHANT_INELIGIBLE`, `R3_PRODUCT_MISMATCH`, `R3_CONDITION_MISMATCH`, `R3_BUNDLE_MISMATCH`, `R4_CAPACITY`, `R5_DELIVERY`, `R5_RETURNS`, `R5_TAX_COVERAGE`, `R6_VALIDITY`, `R7_AI_BLOCKING`, `R8_NO_FEASIBLE_TIER`, `R8_INFEASIBLE`, `R9_CAPACITY_EXHAUSTED`.
 
+Bid rules are applied in the order listed and the first failure is recorded. R1 to R7 compare one confirmed revision with the lot's published requirements on the database clock; R8 needs the lot's seated entries; R9 needs the merchants' awards in ascending `lot_order`. In `BID_PRICING_MODE=flat_delivered` a bid that is not tax-included or that carries per-zone shipping fails `R5_TAX_COVERAGE`, which is the machine form of the `VALIDATION_ERROR` in `flat-delivered-bids.md`.
+
 **Void sources** (`buyer_orders.void_source`): `lot_failing`, `buyer_withdraw`, `age_guard`, `paypal_expired`.

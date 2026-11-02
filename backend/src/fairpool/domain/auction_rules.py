@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from . import money
 from .errors import AuctionError
@@ -19,6 +20,41 @@ from .errors import AuctionError
 R8_NO_FEASIBLE_TIER = "R8_NO_FEASIBLE_TIER"
 R8_INFEASIBLE = "R8_INFEASIBLE"
 R9_CAPACITY_EXHAUSTED = "R9_CAPACITY_EXHAUSTED"
+
+#: R1..R7, in the deterministic order the evaluator applies them
+#: (``docs/contracts/config-and-errors.md`` section 5).
+R1_SCHEMA = "R1_SCHEMA"
+R1_LATE = "R1_LATE"
+R1_UNCONFIRMED = "R1_UNCONFIRMED"
+R2_MERCHANT_INELIGIBLE = "R2_MERCHANT_INELIGIBLE"
+R3_PRODUCT_MISMATCH = "R3_PRODUCT_MISMATCH"
+R3_CONDITION_MISMATCH = "R3_CONDITION_MISMATCH"
+R3_BUNDLE_MISMATCH = "R3_BUNDLE_MISMATCH"
+R4_CAPACITY = "R4_CAPACITY"
+R5_DELIVERY = "R5_DELIVERY"
+R5_RETURNS = "R5_RETURNS"
+R5_TAX_COVERAGE = "R5_TAX_COVERAGE"
+R6_VALIDITY = "R6_VALIDITY"
+R7_AI_BLOCKING = "R7_AI_BLOCKING"
+
+BID_REJECTION_CODES = (
+    R1_SCHEMA,
+    R1_LATE,
+    R1_UNCONFIRMED,
+    R2_MERCHANT_INELIGIBLE,
+    R3_PRODUCT_MISMATCH,
+    R3_CONDITION_MISMATCH,
+    R3_BUNDLE_MISMATCH,
+    R4_CAPACITY,
+    R5_DELIVERY,
+    R5_RETURNS,
+    R5_TAX_COVERAGE,
+    R6_VALIDITY,
+    R7_AI_BLOCKING,
+    R8_NO_FEASIBLE_TIER,
+    R8_INFEASIBLE,
+    R9_CAPACITY_EXHAUSTED,
+)
 
 
 def _require_int(value: object, field: str, *, minimum: int = 0) -> int:
@@ -217,3 +253,184 @@ def capacity_ok(
     """A bid whose capacity exceeds the merchant's remaining seats fails R9."""
     capacity = _require_int(bid_capacity, "bid capacity")
     return capacity <= remaining_capacity(total_capacity, merchant_id, awarded_lots)
+
+
+@dataclass(frozen=True)
+class LotFacts:
+    """The lot requirements R3 to R6 compare a bid against."""
+
+    lot_id: str
+    lot_order: int
+    moq: int
+    seats: int
+    product_key: str
+    condition: str
+    bundle_key: str | None
+    max_delivery_days: int
+    min_returns_days: int
+
+
+@dataclass(frozen=True)
+class BidFacts:
+    """One submitted revision, normalised for deterministic validation.
+
+    ``tiers`` is empty when the bid carries no usable tier list; ``tax_mode`` is
+    ``"INCLUDED"`` for ``BID_PRICING_MODE=flat_delivered``; ``blocking_flags``
+    are AI flag codes that may only withhold a bid, never qualify one.
+    """
+
+    bid_id: str
+    merchant_id: str
+    schema_ok: bool
+    confirmed: bool
+    submitted_at: str
+    bid_close_at: str
+    product_key: str
+    condition: str
+    bundle_key: str | None
+    tiers: tuple[Tier, ...]
+    capacity: int | None
+    tax_mode: str
+    shipping_cents_by_zone: dict[str, int]
+    delivery_days: int
+    returns_days: int
+    validity_end: str
+    blocking_flags: tuple[str, ...]
+
+
+def _parse_iso(value: str, field: str) -> datetime:
+    raw = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError as error:
+        raise AuctionError(f"{field} is not an ISO-8601 timestamp") from error
+    if parsed.tzinfo is None:
+        raise AuctionError(f"{field} must carry a timezone")
+    return parsed.astimezone(UTC)
+
+
+def bid_rejection(
+    facts: BidFacts,
+    lot: LotFacts,
+    *,
+    merchant_eligible: bool,
+    flat_delivered: bool = True,
+) -> str | None:
+    """First failing rule in contract order, or ``None`` when the bid may rank.
+
+    R1 shape/late/confirmation, R2 eligibility, R3 product identity, R4 declared
+    capacity, R5 delivery/returns/tax, R6 validity, R7 AI blocking. R8 and R9
+    need the seated entries and the awarded lots, so :func:`resolve_tiers` and
+    :func:`select_across_lots` decide those.
+    """
+    if not facts.schema_ok or not facts.tiers:
+        return R1_SCHEMA
+    submitted = _parse_iso(facts.submitted_at, "submitted_at")
+    closed = _parse_iso(facts.bid_close_at, "bid_close_at")
+    if submitted > closed:
+        return R1_LATE
+    if not facts.confirmed:
+        return R1_UNCONFIRMED
+    if not merchant_eligible:
+        return R2_MERCHANT_INELIGIBLE
+    if facts.delivery_days <= 0 or facts.returns_days < 0:
+        return R1_SCHEMA
+    if facts.product_key != lot.product_key:
+        return R3_PRODUCT_MISMATCH
+    if facts.condition != lot.condition:
+        return R3_CONDITION_MISMATCH
+    if lot.bundle_key is not None and facts.bundle_key != lot.bundle_key:
+        return R3_BUNDLE_MISMATCH
+    if facts.capacity is None or facts.capacity < 1 or facts.capacity < lot.moq:
+        return R4_CAPACITY
+    if facts.delivery_days > lot.max_delivery_days:
+        return R5_DELIVERY
+    if facts.returns_days < lot.min_returns_days:
+        return R5_RETURNS
+    if flat_delivered and (
+        facts.tax_mode != "INCLUDED"
+        or any(value != 0 for value in facts.shipping_cents_by_zone.values())
+    ):
+        return R5_TAX_COVERAGE
+    if _parse_iso(facts.validity_end, "validity_end") <= closed:
+        return R6_VALIDITY
+    if facts.blocking_flags:
+        return R7_AI_BLOCKING
+    return None
+
+
+@dataclass(frozen=True)
+class BidOffer:
+    """A validated bid competing for one lot, with the inputs the key needs."""
+
+    bid_id: str
+    merchant_id: str
+    tiers: tuple[Tier, ...]
+    capacity: int
+    tiebreak_hash: str
+
+
+@dataclass(frozen=True)
+class Assignment:
+    """Outcome for one lot: a winning bid, or no bid and why."""
+
+    lot_id: str
+    bid_id: str | None
+    merchant_id: str | None
+    reject: str | None
+
+
+def select_across_lots(
+    lots: Sequence[LotFacts],
+    seated_by_lot: dict[str, Sequence[SeatedBuyer]],
+    offers_by_lot: dict[str, Sequence[BidOffer]],
+    total_capacity_by_merchant: dict[str, int],
+) -> dict[str, Assignment]:
+    """Award each lot in ascending ``lot_order`` within each merchant's capacity.
+
+    Pure: returns assignments only. Creating ``awards`` rows, ``lot.award``
+    transitions and checkout jobs belongs to the lot handlers (T06A06).
+    """
+    ordered = sorted(lots, key=lambda item: item.lot_order)
+    awarded: list[AwardedLot] = []
+    assignments: dict[str, Assignment] = {}
+    for lot in ordered:
+        seated = seated_by_lot.get(lot.lot_id, ())
+        ranked: list[tuple[tuple[int, int, str], BidOffer]] = []
+        for offer in offers_by_lot.get(lot.lot_id, ()):
+            resolution = resolve_tiers(seated, offer.tiers, lot.moq)
+            if not resolution.feasible:
+                continue
+            ranked.append((bid_ranking_key(resolution, offer.tiebreak_hash), offer))
+        ranked.sort(key=lambda item: item[0])
+        assignment: Assignment | None = None
+        reject: str | None = R8_NO_FEASIBLE_TIER if not ranked else None
+        for _key, offer in ranked:
+            total_capacity = total_capacity_by_merchant.get(offer.merchant_id)
+            if total_capacity is None:
+                reject = reject or R9_CAPACITY_EXHAUSTED
+                continue
+            remaining = remaining_capacity(total_capacity, offer.merchant_id, awarded)
+            # R9 compares the bid's capacity; the lot's seats are what the merchant
+            # actually supplies, so both must fit in what is left.
+            if offer.capacity > remaining or lot.seats > remaining:
+                reject = R9_CAPACITY_EXHAUSTED
+                continue
+            assignment = Assignment(
+                lot_id=lot.lot_id,
+                bid_id=offer.bid_id,
+                merchant_id=offer.merchant_id,
+                reject=None,
+            )
+            awarded.append(
+                AwardedLot(
+                    lot_order=lot.lot_order,
+                    merchant_id=offer.merchant_id,
+                    seats=lot.seats,
+                )
+            )
+            break
+        assignments[lot.lot_id] = assignment or Assignment(
+            lot_id=lot.lot_id, bid_id=None, merchant_id=None, reject=reject
+        )
+    return assignments

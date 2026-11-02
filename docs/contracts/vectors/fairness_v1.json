@@ -301,6 +301,152 @@
     ],
     "chosen_tier_index": 1
   },
+  "bid_ranking_case": {
+    "note": "ranking_v1 step 5: the lowest mean total wins; a bid no seated buyer can afford fails R8",
+    "caps_cents": [
+      60000,
+      55000,
+      52000,
+      61000,
+      49900
+    ],
+    "shipping_cents": 1500,
+    "tax_rate_bps": 875,
+    "moq": 2,
+    "bids": [
+      {
+        "bid_id": "bid-a",
+        "tiers": [
+          {
+            "min_qty": 2,
+            "item_price_cents": 50000
+          }
+        ],
+        "expected": {
+          "feasible": true,
+          "chosen_tier_index": 0,
+          "mean_total_cents": 55875,
+          "max_total_cents": 55875
+        }
+      },
+      {
+        "bid_id": "bid-b",
+        "tiers": [
+          {
+            "min_qty": 3,
+            "item_price_cents": 47000
+          }
+        ],
+        "expected": {
+          "feasible": true,
+          "chosen_tier_index": 0,
+          "mean_total_cents": 52613,
+          "max_total_cents": 52613
+        }
+      },
+      {
+        "bid_id": "bid-c",
+        "tiers": [
+          {
+            "min_qty": 1,
+            "item_price_cents": 55000
+          }
+        ],
+        "expected": {
+          "feasible": false,
+          "rejection": "R8_NO_FEASIBLE_TIER"
+        }
+      }
+    ],
+    "tiebreak_hashes": {
+      "bid-a": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bid-b": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bid-c": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "winner_order": [
+      "bid-b",
+      "bid-a"
+    ]
+  },
+  "capacity_case": {
+    "note": "R9: lots are awarded in ascending lot_order within each merchant's total capacity",
+    "total_capacity": {
+      "m-1": 10,
+      "m-2": 10
+    },
+    "caps_cents": [
+      50000,
+      50000,
+      50000,
+      50000,
+      50000,
+      50000
+    ],
+    "lots": [
+      {
+        "lot_id": "lot-1",
+        "lot_order": 1,
+        "seats": 6,
+        "moq": 1,
+        "offers": [
+          {
+            "bid_id": "b1-m1",
+            "merchant_id": "m-1",
+            "capacity": 6,
+            "item_price_cents": 40000
+          }
+        ]
+      },
+      {
+        "lot_id": "lot-2",
+        "lot_order": 2,
+        "seats": 6,
+        "moq": 1,
+        "offers": [
+          {
+            "bid_id": "b2-m1",
+            "merchant_id": "m-1",
+            "capacity": 6,
+            "item_price_cents": 40000
+          },
+          {
+            "bid_id": "b2-m2",
+            "merchant_id": "m-2",
+            "capacity": 6,
+            "item_price_cents": 41000
+          }
+        ]
+      },
+      {
+        "lot_id": "lot-3",
+        "lot_order": 3,
+        "seats": 2,
+        "moq": 1,
+        "offers": [
+          {
+            "bid_id": "b3-m1",
+            "merchant_id": "m-1",
+            "capacity": 2,
+            "item_price_cents": 40000
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "lot-1": {
+        "bid_id": "b1-m1",
+        "capacity_rejected": false
+      },
+      "lot-2": {
+        "bid_id": "b2-m2",
+        "capacity_rejected": true
+      },
+      "lot-3": {
+        "bid_id": "b3-m1",
+        "capacity_rejected": false
+      }
+    }
+  },
   "rules": {
     "document": {
       "v": 1,

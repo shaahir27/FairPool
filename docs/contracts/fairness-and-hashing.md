@@ -99,7 +99,7 @@ Process lots in ascending `lot_order`. A merchant's `remaining = total_capacity 
 
 ## 12. What the vectors file contains
 
-`vectors/fairness_v1.json`: canonical JSON cases, five entries with salts, canonical requests, request hashes and commitments, the sorted commitment list, the Merkle root, an inclusion proof, a seed, the resulting order, the demo seed, an Ed25519 receipt (with the test private key, public key and signature), a two-row audit chain, tax and mean cases, tie-break hashes, and the tier case above. The test private key in the file is for vectors only and must never be used in any environment.
+`vectors/fairness_v1.json`: canonical JSON cases, five entries with salts, canonical requests, request hashes and commitments, the sorted commitment list, the Merkle root, an inclusion proof, a seed, the resulting order, the demo seed, an Ed25519 receipt (with the test private key, public key and signature), a two-row audit chain, tax and mean cases, tie-break hashes, and the tier case above. Two ranking cases were added in `contracts-v1.5`: `bid_ranking_case` (three bids on one lot, one failing R8, the surviving ranking keys and the winner order) and `capacity_case` (three lots awarded in ascending `lot_order` where a merchant runs out of capacity and the next-best bid wins). Both are additive; no earlier vector changed. The test private key in the file is for vectors only and must never be used in any environment.
 
 Phase 2 adds the fixed `rules` document, canonical JSON and SHA-256 vector in
 `vectors/fairness_v1.json`; it uses the existing algorithm without changing prior vectors.

@@ -114,3 +114,19 @@ required before gate acceptance. No historical spike evidence or migration 0001 
 The owner authorized one intermediate contract commit. The contract-only amendment
 is merged into `main` and tagged `contracts-v1.1`; the implementation continues on
 `phase-2`. The tag marks the contract version only; IG-2 acceptance remains open.
+### contracts-v1.5 (2026-11-02, CR-5, Phase 5)
+
+- `GET /api/v1/offers/{buyer_order_id}` gains four optional keys:
+  `offer_started_at`, `server_now`, `pool_id`, `pool_title`. The countdown and
+  progress ring are rendered from the server clock (I15) and every handler still
+  re-checks `offer_expires_at`.
+- `GET /api/v1/orders/{buyer_order_id}` gains five optional keys: `pool_id`,
+  `lot_id`, `placed_at`, `reject_reason`, `receipt`. `reject_reason` is one of the
+  seven buyer-order codes, so the redirect path can explain a rejection that was
+  previously stored and never returned. `receipt` is the owner's own typed entry
+  receipt, verifiable against `/api/v1/public/keys`.
+- `vectors/fairness_v1.json` gains two additive ranking cases,
+  `bid_ranking_case` and `capacity_case`; no earlier vector changed.
+- `config-and-errors.md` states the order in which R1 to R9 are applied and which
+  of them need seated entries or awards. No reason code was added or renamed.
+- No migration: every field the new keys read already exists in `0001`-`0004`.

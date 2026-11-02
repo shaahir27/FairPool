@@ -264,3 +264,92 @@ def test_fixed_rules_document_vector(vectors):
     case = vectors["rules"]
     assert hashing.canonical_json(case["document"]) == case["canonical_json"]
     assert hashing.rules_hash(case["document"]) == case["sha256"]
+
+
+def test_bid_ranking_case(vectors: dict[str, Any]) -> None:
+    """R8 failures drop out; the remaining bids order by mean, then max, then hash."""
+    case = vectors["bid_ranking_case"]
+    seated = [
+        auction_rules.SeatedBuyer(
+            entry_id=f"entry-{index}",
+            cap_cents=cap,
+            shipping_cents=case["shipping_cents"],
+            tax_rate_bps=case["tax_rate_bps"],
+        )
+        for index, cap in enumerate(case["caps_cents"])
+    ]
+    ranked: list[tuple[tuple[int, int, str], str]] = []
+    for bid in case["bids"]:
+        tiers = [auction_rules.Tier(**tier) for tier in bid["tiers"]]
+        resolution = auction_rules.resolve_tiers(seated, tiers, moq=case["moq"])
+        expected = bid["expected"]
+        assert resolution.feasible is expected["feasible"], bid["bid_id"]
+        if not expected["feasible"]:
+            assert resolution.rejection == expected["rejection"]
+            continue
+        assert resolution.chosen_tier_index == expected["chosen_tier_index"]
+        tiebreak_hash = case["tiebreak_hashes"][bid["bid_id"]]
+        key = auction_rules.bid_ranking_key(resolution, tiebreak_hash)
+        assert key == (
+            expected["mean_total_cents"],
+            expected["max_total_cents"],
+            tiebreak_hash,
+        )
+        ranked.append((key, bid["bid_id"]))
+    ranked.sort()
+    assert [bid_id for _key, bid_id in ranked] == case["winner_order"]
+
+
+def test_capacity_case(vectors: dict[str, Any]) -> None:
+    """A merchant that runs out of capacity loses the lot to the next-best bid."""
+    case = vectors["capacity_case"]
+    lots = [
+        auction_rules.LotFacts(
+            lot_id=lot["lot_id"],
+            lot_order=lot["lot_order"],
+            moq=lot["moq"],
+            seats=lot["seats"],
+            product_key="monitor",
+            condition="new",
+            bundle_key=None,
+            max_delivery_days=14,
+            min_returns_days=7,
+        )
+        for lot in case["lots"]
+    ]
+    seated_by_lot = {
+        lot["lot_id"]: [
+            auction_rules.SeatedBuyer(
+                entry_id=f"{lot['lot_id']}-entry-{index}",
+                cap_cents=cap,
+                shipping_cents=0,
+                tax_rate_bps=0,
+                tax_included=True,
+            )
+            for index, cap in enumerate(case["caps_cents"])
+        ]
+        for lot in case["lots"]
+    }
+    offers_by_lot = {
+        lot["lot_id"]: [
+            auction_rules.BidOffer(
+                bid_id=offer["bid_id"],
+                merchant_id=offer["merchant_id"],
+                tiers=(auction_rules.Tier(min_qty=1, item_price_cents=offer["item_price_cents"]),),
+                capacity=offer["capacity"],
+                tiebreak_hash=offer["bid_id"],
+            )
+            for offer in lot["offers"]
+        ]
+        for lot in case["lots"]
+    }
+    assignments = auction_rules.select_across_lots(
+        lots, seated_by_lot, offers_by_lot, case["total_capacity"]
+    )
+    for lot in case["lots"]:
+        expected = case["expected"][lot["lot_id"]]
+        assert assignments[lot["lot_id"]].bid_id == expected["bid_id"], lot["lot_id"]
+    awarded_before_lot_two = [auction_rules.AwardedLot(lot_order=1, merchant_id="m-1", seats=6)]
+    assert auction_rules.remaining_capacity(10, "m-1", awarded_before_lot_two) == 4
+    assert auction_rules.capacity_ok(10, "m-1", 6, awarded_before_lot_two) is False
+    assert case["expected"]["lot-2"]["capacity_rejected"] is True
