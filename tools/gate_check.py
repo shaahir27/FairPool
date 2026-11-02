@@ -40,6 +40,20 @@ GATE_EVIDENCE: dict[str, tuple[str, tuple[str, ...]]] = {
         "phase4",
         ("migrations", "local_checks", "pipeline", "independent_review", "ci"),
     ),
+    "ig-5": (
+        "phase5",
+        (
+            "migrations",
+            "local_checks",
+            "it5_sandbox",
+            "sandbox_contracts",
+            "failure_net_zero",
+            "auction_vectors",
+            "merchant_bids",
+            "independent_review",
+            "ci",
+        ),
+    ),
 }
 REQUIRED_EVIDENCE = GATE_EVIDENCE["ig-2"][1]
 
@@ -173,7 +187,7 @@ def evidence_errors(root: Path = ROOT, gate: str = "ig-2") -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("gate", choices=("ig-0", "ig-1", "ig-2", "ig-3", "ig-4"))
+    parser.add_argument("gate", choices=("ig-0", "ig-1", "ig-2", "ig-3", "ig-4", "ig-5"))
     parser.add_argument("--evidence-only", action="store_true")
     args = parser.parse_args()
     if not args.evidence_only:
@@ -216,11 +230,12 @@ def main() -> int:
                     [py, "-m", "alembic", "-c", "backend/alembic.ini", "check"],
                 ]
             )
-        if args.gate in ("ig-2", "ig-3", "ig-4"):
+        if args.gate in ("ig-2", "ig-3", "ig-4", "ig-5"):
             commands.append([py, "tools/check_migrations.py"])
-        if args.gate in ("ig-3", "ig-4"):
+        if args.gate in ("ig-3", "ig-4", "ig-5"):
             # testing-strategy.md section 1: the fault suite is run by gate-check,
-            # not by CI. IG-3 owns F5 and F16; IG-4 adds F7 and F8.
+            # not by CI. IG-3 owns F5 and F16; IG-4 adds F7 and F8; IG-5 adds F9
+            # and F24.
             commands.append([py, "-m", "pytest", "backend/tests/faults", "-m", "faults", "-q"])
         commands.append([py, "tools/check_generated.py"])
         scanner = shutil.which("gitleaks")
