@@ -1,4 +1,8 @@
 {
-  "status": "pending",
-  "note": "No push was made in this session, so there is no CI run for the phase-5 branch yet."
+  "status": "passed",
+  "run_id": "41409819515",
+  "commit": "0cb603f",
+  "branch": "main",
+  "conclusion": "success",
+  "note": "All jobs green: docs, typecheck, compose, merchant OpenAPI, test, import boundaries, frontend, lint, secret scan. The two red runs before it are recorded rather than hidden: 41408695675 (backend 500 from a 31-byte test key, frontend timing flake) and 41409461266 (frontend fix landed, backend still red)."
 }

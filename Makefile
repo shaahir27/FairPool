@@ -130,7 +130,7 @@ search-reindex:
 	@echo "It pages over public documents and enqueues one search.index job per document; the worker applies them."
 
 demo-seed:
-	@echo "SKIP: demo seed starts at T04B02"
+	@$(PY) tools/demo_seed.py
 
 demo-reset:
 	@echo "SKIP: demo reset starts at T04B02"
