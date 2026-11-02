@@ -217,7 +217,13 @@ make migrate
 make dev
 ```
 
-Without Docker, run the API and the web app in two terminals instead of `make dev`:
+Without Docker, one command opens both windows (no `make` needed):
+
+```powershell
+.\dev.ps1
+```
+
+Or run them yourself, in two terminals, instead of `make dev`:
 
 ```powershell
 make migrate
