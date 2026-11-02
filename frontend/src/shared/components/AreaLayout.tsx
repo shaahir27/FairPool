@@ -90,9 +90,9 @@ export function AreaLayout({
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-shell flex-col gap-2 px-6 py-6 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
           <p className="font-medium uppercase tracking-label">
-            Phase 1 scaffold · Placeholder screens only
+            PayPal Sandbox demo · no real money moves
           </p>
-          <p>No marketplace action works yet. Demonstrated in the PayPal Sandbox.</p>
+          <p>One stand-in test seller. Demonstrated in the PayPal Sandbox.</p>
         </div>
       </footer>
     </div>

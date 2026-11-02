@@ -19,7 +19,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       </main>
       <footer className="mx-auto w-full max-w-shell px-6 pb-8 text-xs text-muted">
         <p className="font-medium uppercase tracking-label">
-          Phase 1 scaffold · Placeholder screens only
+          PayPal Sandbox demo · no real money moves
         </p>
       </footer>
     </div>
