@@ -7,11 +7,13 @@ import type { components, paths } from "./schema";
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-/** Vite dev proxy target in `.env.example`; the browser talks to the API directly. */
+/** With no `VITE_API_BASE_URL` the browser calls its own origin: in development that
+ * is the Vite proxy, and on the hosted deployment it is the API that serves this build,
+ * which keeps the session cookie first-party. */
 export const API_BASE_URL =
   configuredBaseUrl && configuredBaseUrl.length > 0
     ? configuredBaseUrl
-    : "http://localhost:8000";
+    : window.location.origin;
 
 /**
  * Typed client for the committed OpenAPI snapshot (frontend/openapi.json).

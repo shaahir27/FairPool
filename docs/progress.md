@@ -756,3 +756,22 @@ integration test walks exactly that family - one buyer signs up, a second buyer 
 in the same browser, and the first buyer's PayPal account is then refused with
 `reason=account_exists`. This reverses a guard that was deliberate and tested; the
 superseded test is renamed rather than deleted so the reversal is visible in the suite.
+
+Hosted deployment is single-origin now (owner chose this 2026-11-02). Live browser proof
+first: on Render `POST /api/v1/auth/login` answered 200 and `/api/v1/me` immediately
+answered 401, and five PayPal signup attempts left five rows with `authenticated_at` NULL -
+the browser never carried the cookie. Cause: `onrender.com` is on the Public Suffix List,
+so `fairpool-frontend.onrender.com` and `fairpool-api.onrender.com` are cross-site, and a
+`SameSite=Lax` cookie set in a cross-site fetch response is dropped. Nothing signed-in
+worked there, not just signup. The API image now builds the Vite app in a Node stage and
+serves it from `/app/web`, the client falls back to its own origin when
+`VITE_API_BASE_URL` is unset, and `FRONTEND_BASE_URL` and `CORS_ORIGINS` on Render point at
+the API. Same-origin proof in the built image: `/start` stored the cookie and `/status`
+then read `pending`, where the split origin had read `not_started`; `/`, `/register` and
+`/assets/*` serve the SPA while `/api/v1/nope` keeps the JSON 404 and `/health` stays 200.
+The static frontend remains a page preview only. Also fixed in `.env`:
+`PAYPAL_LOGIN_REDIRECT_URI` pointed at `/paypal-login/callback`, a path the app does not
+serve, so the signed-in linking flow could never complete; it is now the real
+`/api/v1/paypal/login/callback`. That link callback is not yet a registered PayPal return
+URL on either host, which is the owner's dashboard step if linking is wanted for the demo -
+registration does not need it.

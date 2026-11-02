@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import Final
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 from fairpool.api.errors import REQUEST_ID_HEADER, register_exception_handlers
@@ -42,6 +46,34 @@ from fairpool.config import (
     assert_sandbox_host,
 )
 from fairpool.logging import request_id
+
+#: Where the hosted image puts the built frontend, so the page and the API share one
+#: origin. `onrender.com` is on the Public Suffix List, which makes the two
+#: *.onrender.com subdomains cross-site, and a cross-site SameSite=Lax cookie set in a
+#: fetch response is dropped: login answered 200 and /me then read 401.
+WEB_DIR: Final = Path("/app/web")
+_API_PREFIXES: Final = frozenset(
+    {"api", "docs", "health", "merchant-api", "openapi.json", "ready", "redoc", "webhooks"}
+)
+
+
+def _serve_web(app: FastAPI) -> None:
+    """Serve the SPA from this origin when the image carries it."""
+    index = WEB_DIR / "index.html"
+    if not index.is_file():
+        return
+    app.mount("/assets", StaticFiles(directory=WEB_DIR / "assets"), name="web_assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def web_client(path: str) -> FileResponse:
+        first = path.split("/", 1)[0]
+        if first in _API_PREFIXES:
+            raise HTTPException(status_code=404)
+        file = (WEB_DIR / path).resolve() if path else index
+        if path and file.is_file() and file.is_relative_to(WEB_DIR.resolve()):
+            return FileResponse(file)
+        return FileResponse(index)
+
 
 ROUTERS = (
     auth,
@@ -106,4 +138,5 @@ def create_app(
         app.include_router(module.router)
     if settings is None or settings.merchant_api_enabled:
         app.mount("/merchant-api/v1", merchant_api_app)
+    _serve_web(app)
     return app

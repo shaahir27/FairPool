@@ -1,3 +1,13 @@
+FROM node:20-slim AS web
+
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend ./
+# VITE_API_BASE_URL is deliberately not set: the built client then calls this same
+# origin, which is what makes the session cookie first-party.
+RUN npm run build
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,6 +28,9 @@ COPY backend/src ./backend/src
 COPY backend/migrations ./backend/migrations
 
 RUN pip install --require-hashes --retries 10 --timeout 120 -r backend/requirements.lock
+
+# The SPA is served from this origin (see api/app.py WEB_DIR).
+COPY --from=web /web/dist /app/web
 
 USER fairpool
 
