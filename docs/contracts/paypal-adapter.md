@@ -149,6 +149,18 @@ Persist every result before the next step. A money-moving call is never fire-and
 
 ## 7a. Login identity calls (CR-3)
 
+CR-6 draft: the real Sandbox adapter implements the existing `PayPalIdentity`
+port. Both signup and signed-in linking start at `/connect?flowEntry=static`,
+matching the S1 spike harness and https://developer.paypal.com/log-in/build-button/.
+The internal `/signin/authorize` route is not used as an application entry point.
+Code exchange uses `/v1/oauth2/token`, the current official login guide's
+token endpoint (https://developer.paypal.com/log-in/build); the older path in the
+historical CR-3 description below is superseded for new code. Userinfo stays at
+`/v1/identity/openidconnect/userinfo?schema=openid`. Only `openid` is requested;
+the grant is exchanged once, never automatically retried after an unknown result.
+The signup callback is separate from the signed-in linking callback. No real
+round-trip success or identifier equivalence is claimed without Sandbox evidence.
+
 The adapter owns every call to a PayPal host, and that includes the two Log-in-with-PayPal ones: `POST /v1/oauth/token` with the authorization-code grant (client credentials only in the `Authorization` header, never in a query string or a log line) and `GET /v1/identity/openidconnect/userinfo?schema=openid` with the returned user access token. Scope is `openid` only — `account_attributes` was rejected with `invalid_scope` in S1 and stays unavailable until an app-config change is proved.
 
 `modules.identity` imports neither the adapter nor `httpx`: it receives a `PayPalIdentity` port (`exchange_code(code) -> ProviderTokens`, `userinfo(access_token) -> ProviderProfile`), and `wiring.py` — already inside the import checker's PayPal whitelist — builds the adapter implementation. The whitelist itself does not change (I1, I2).
@@ -231,3 +243,41 @@ Our obligations:
 ## 14. Never
 
 Call a host other than the two Sandbox hosts; run the PayPal Agent Toolkit or MCP server in the backend; let any AI call a PayPal write action; log or store secrets, assertion values or full approval URLs; infer payment from order status; authorize from anywhere but `order.authorize`; reuse a key with a different payload; replay a void; send a platform fee; use Payouts or NVP.
+
+## CR-7: consented signup profile prefill
+
+The owner enabled Full Name, Email, address, account verification status and PayPal
+account ID (payer ID) in the Sandbox app and requested prefill and saved delivery
+addresses. Signed-in linking remains `openid`.
+
+`developer.paypal.com/log-in/references` maps the attributes to scopes: name to
+`profile`, email to `email`, the address parts to `address`, and the account
+information row (verification status, payer ID) to
+`https://uri.paypal.com/services/paypalattributes`. The same page states the granted
+information is returned in the **ID token**, while
+`GET /v1/identity/openidconnect/userinfo?schema=openid` carries the standard claims
+whose presence depends on those scopes. `developer.paypal.com/log-in/build-button`
+gives the scope string for an attribute-enabled app verbatim as
+`openid profile email address https://uri.paypal.com/services/paypalattributes`.
+
+New signup requests exactly that string. An earlier revision of this change request
+dropped the URI-form scope on the belief that it was unnecessary; that was a real gap,
+but it is not what makes the prefill empty. Live on 2026-11-02, with the full string
+sent and accepted, the token response carried no `id_token`, its granted scope list was
+the app's API scopes rather than the OIDC set, and both userinfo endpoints answered with
+`sub` and `user_id` only. No consent screen appears even for a buyer account created
+minutes earlier, so Sandbox never prompts and the shared set is decided by the app's own
+review state. No payment, vault or checkout scope is requested, and `paypalattributes`
+here is the Login scope, not the historical `invalid_scope` case recorded in S1 (which
+asked for a short form on a different endpoint).
+
+The adapter reads the identifier from userinfo only (`user_id`, else `sub`) and uses
+the ID token for profile claims, never to rekey the account: S1 recorded that
+`sub` and `user_id` differ, and BD-12 dedupe compares those keys raw. A second
+userinfo response is merged when it names the same account, which the two documented
+schemas write differently - a bare `user_id` and that id behind its identity URL - so
+the comparison accepts both forms without converting either one.
+Provider claims are editable suggestions, never a verified FairPool email or a
+one-human-per-account claim; missing claims leave the manual form in place.
+Docs-verified on 2026-11-02; a fresh Sandbox sign-in has not yet confirmed the grant,
+and none is claimed until that run is recorded.

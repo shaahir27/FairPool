@@ -346,6 +346,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/paypal/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paypal Signup Callback */
+        get: operations["paypal_signup_callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/paypal/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Paypal Signup Start */
+        post: operations["paypal_signup_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/paypal/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paypal Signup Status */
+        get: operations["paypal_signup_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -568,6 +619,42 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/addresses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Buyer Addresses List */
+        get: operations["buyer_addresses_list"];
+        put?: never;
+        /** Buyer Addresses Create */
+        post: operations["buyer_addresses_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/addresses/{address_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Buyer Addresses Update */
+        put: operations["buyer_addresses_update"];
+        post?: never;
+        /** Buyer Addresses Delete */
+        delete: operations["buyer_addresses_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1860,6 +1947,26 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** DeliveryAddress */
+        DeliveryAddress: {
+            /** City */
+            city: string;
+            /** Country Code */
+            country_code: string;
+            /** Line1 */
+            line1: string;
+            /**
+             * Line2
+             * @default
+             */
+            line2: string;
+            /** Name */
+            name: string;
+            /** Postal Code */
+            postal_code: string;
+            /** Region */
+            region: string;
+        };
         /** EntryCreateRequest */
         EntryCreateRequest: {
             /**
@@ -2603,15 +2710,20 @@ export interface components {
         };
         /** RegisterRequest */
         RegisterRequest: {
+            delivery_address?: components["schemas"]["DeliveryAddress"] | null;
             /** Display Name */
             display_name: string;
             /** Email */
             email: string;
             /** Password */
             password: string;
+            /** Password Confirm */
+            password_confirm: string;
         };
         /** RegisterResponse */
         RegisterResponse: {
+            /** Csrf Token */
+            csrf_token: string;
             /** Email */
             email: string;
             /**
@@ -2670,6 +2782,31 @@ export interface components {
             rules_document: components["schemas"]["RulesDocument"];
             /** Rules Hash */
             rules_hash: string;
+        };
+        /** SavedAddressRequest */
+        SavedAddressRequest: {
+            address: components["schemas"]["DeliveryAddress"];
+            /**
+             * Is Default
+             * @default false
+             */
+            is_default: boolean;
+        };
+        /** SavedAddressResponse */
+        SavedAddressResponse: {
+            address: components["schemas"]["DeliveryAddress"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+        };
+        /** SavedAddressesResponse */
+        SavedAddressesResponse: {
+            /** Addresses */
+            addresses: components["schemas"]["SavedAddressResponse"][];
         };
         /**
          * SearchReindexResponse
@@ -2742,6 +2879,34 @@ export interface components {
             postal_code: string;
             /** Region */
             region: string;
+        };
+        /** SignupPrefill */
+        SignupPrefill: {
+            /** Address */
+            address?: {
+                [key: string]: string;
+            };
+            /**
+             * Display Name
+             * @default
+             */
+            display_name: string;
+            /**
+             * Email
+             * @default
+             */
+            email: string;
+        };
+        /** SignupStatusResponse */
+        SignupStatusResponse: {
+            /** Enabled */
+            enabled: boolean;
+            prefill?: components["schemas"]["SignupPrefill"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "pending" | "ready" | "expired" | "registered";
         };
         /** SimRunRequest */
         SimRunRequest: {
@@ -3685,6 +3850,79 @@ export interface operations {
             };
         };
     };
+    paypal_signup_callback: {
+        parameters: {
+            query?: {
+                code?: string | null;
+                state?: string | null;
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paypal_signup_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayPalLoginStartResponse"];
+                };
+            };
+        };
+    };
+    paypal_signup_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupStatusResponse"];
+                };
+            };
+        };
+    };
     auth_register: {
         parameters: {
             query?: never;
@@ -4099,6 +4337,140 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    buyer_addresses_list: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAddressesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    buyer_addresses_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedAddressRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAddressResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    buyer_addresses_update: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                address_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedAddressRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedAddressResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    buyer_addresses_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                address_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

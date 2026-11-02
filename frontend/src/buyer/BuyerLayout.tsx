@@ -9,6 +9,7 @@ const BUYER_TABS: readonly AreaTab[] = [
 
 const BUYER_UTILITY_LINKS: readonly AreaUtilityLink[] = [
   { to: "/settings/paypal", label: "PayPal settings" },
+  { to: "/settings/addresses", label: "Delivery addresses" },
   { to: "/settings/agents", label: "Agent settings" },
 ];
 

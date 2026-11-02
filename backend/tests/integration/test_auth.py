@@ -2,6 +2,8 @@ import httpx
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
+from fairpool.infra.clock import DbClock
+from fairpool.modules.identity.service import IdentityService
 from tests.unit.test_settings import make_settings
 
 
@@ -23,7 +25,8 @@ async def test_auth_http_cookie_csrf_roles_logout_and_public_buyer_only(db_sessi
         assert (
             await client.post("/api/v1/auth/register", json={**data, "role": "admin"})
         ).status_code == 422
-        assert (await client.post("/api/v1/auth/register", json=data)).status_code == 200
+        # Existing/operator-provisioned accounts retain their ordinary sign-in.
+        await IdentityService("test-signing-key", DbClock()).register(db_session, **data)
         response = await client.post(
             "/api/v1/auth/login", json={"email": data["email"], "password": data["password"]}
         )

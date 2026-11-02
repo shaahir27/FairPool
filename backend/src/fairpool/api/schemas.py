@@ -46,15 +46,55 @@ class ReadyResponse(ResponseModel):
 
 
 # --- auth and delegations ---------------------------------------------------
+class DeliveryAddress(StrictModel):
+    name: str = Field(min_length=1, max_length=120, pattern=r"\S")
+    line1: str = Field(min_length=1, max_length=200, pattern=r"\S")
+    line2: str = Field(default="", max_length=200)
+    city: str = Field(min_length=1, max_length=120, pattern=r"\S")
+    region: str = Field(min_length=1, max_length=100, pattern=r"\S")
+    postal_code: str = Field(min_length=1, max_length=32, pattern=r"\S")
+    country_code: str = Field(pattern=r"^[A-Z]{2}$")
+
+
+class SavedAddressRequest(StrictModel):
+    address: DeliveryAddress
+    is_default: bool = False
+
+
+class SavedAddressResponse(ResponseModel):
+    id: UUID
+    address: DeliveryAddress
+    is_default: bool
+
+
+class SavedAddressesResponse(ResponseModel):
+    addresses: list[SavedAddressResponse]
+
+
+class SignupPrefill(ResponseModel):
+    email: str = ""
+    display_name: str = ""
+    address: dict[str, str] = Field(default_factory=dict)
+
+
 class RegisterRequest(StrictModel):
+    delivery_address: DeliveryAddress | None = None
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=200)
     display_name: str = Field(min_length=1, max_length=120)
+    password_confirm: str = Field(min_length=8, max_length=200)
 
 
 class RegisterResponse(ResponseModel):
     user_id: UUID
     email: str
+    csrf_token: str
+
+
+class SignupStatusResponse(ResponseModel):
+    enabled: bool
+    status: Literal["not_started", "pending", "ready", "expired", "registered"]
+    prefill: SignupPrefill | None = None
 
 
 class LoginRequest(StrictModel):

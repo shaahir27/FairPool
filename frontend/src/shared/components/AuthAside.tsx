@@ -3,6 +3,7 @@
 export function AuthAside({ headline, valueLine }: { headline: string; valueLine: string }) {
   return (
     <section className="auth-aside" aria-label="How FairPool works">
+      <div className="auth-aside-content">
       <Brand />
       <div className="pool-illustration" role="img" aria-label="Illustration of individual seats joining a pool">
         <svg viewBox="0 0 440 440" aria-hidden="true">
@@ -22,6 +23,7 @@ export function AuthAside({ headline, valueLine }: { headline: string; valueLine
         <div className="pool-stat pool-stat-seats"><span>Your place</span><strong>One seat</strong></div>
       </div>
       <div className="auth-story"><h2>{headline}</h2><p>{valueLine}</p></div>
+      </div>
     </section>
   );
 }

@@ -21,9 +21,16 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | GET | /health | A | public | Liveness |
 | GET | /ready | A | public | Readiness (database, migrations); before T01A01 it reports 503 `not_ready` with `database: not_configured` |
 | POST | /api/v1/auth/register | B | public | Create account |
+| POST | /api/v1/auth/paypal/start | B | public | Begin browser-bound PayPal signup |
+| GET | /api/v1/auth/paypal/callback | B | public | Consume signup state and verify PayPal identity |
+| GET | /api/v1/auth/paypal/status | B | public | Read this browser's signup progress |
 | POST | /api/v1/auth/login | B | public | Start session |
 | POST | /api/v1/auth/logout | B | session | End session |
 | GET | /api/v1/me | B | session | Current user, PayPal link state, unread notifications |
+| GET | /api/v1/me/addresses | B | session | List this buyer's saved delivery addresses |
+| POST | /api/v1/me/addresses | B | session | Save a delivery address |
+| PUT | /api/v1/me/addresses/{address_id} | B | session | Edit an owned delivery address or make it default |
+| DELETE | /api/v1/me/addresses/{address_id} | B | session | Remove an owned saved address |
 | GET | /api/v1/paypal/login/start | B | session | Begin Log in with PayPal, returns authorize URL |
 | GET | /api/v1/paypal/login/callback | B | session | Finish login, store account key, redirect to app |
 | DELETE | /api/v1/paypal/link | B | session | Revoke link (blocked while active entries exist) |
@@ -112,6 +119,30 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | POST | /api/v1/admin/search/reindex | B | admin | Rebuild the search indexes |
 
 ## 3. Payload shapes (key endpoints)
+
+### PayPal-first signup (CR-6 draft, owner request 2026-11-02)
+
+`POST /api/v1/auth/paypal/start` accepts no body, requires the configured frontend
+Origin, returns `{authorize_url}` and sets an HttpOnly, SameSite=Lax browser cookie.
+The scopes it asks for are the attribute set in `paypal-adapter.md` CR-7; signed-in
+linking stays `openid`. Repeated starts from one browser reuse that browser's single
+pending attempt rather than adding another. The signup callback is
+`${PUBLIC_BASE_URL}/api/v1/auth/paypal/callback` and must be registered with PayPal.
+The callback verifies browser binding, single-use state and database-clock expiry
+before exchanging the code. It redirects to `/register/connected` on success or
+`/register?reason=cancelled|expired|unavailable|account_exists` on failure. Codes and
+identifiers never reach the frontend. `GET .../status` returns
+`{enabled, status: not_started|pending|ready|expired|registered}` without an identifier.
+A `registered` answer means that browser's PayPal proof already produced an account, so
+no form is offered again.
+
+`POST /api/v1/auth/register` requires a ready browser-bound signup attempt and the
+configured frontend Origin. Body: `{email,password,password_confirm,display_name}`.
+Passwords must match. Buyer creation, PayPal linking, signup consumption and session
+creation are atomic; response `{user_id,email,csrf_token}` plus the session cookie.
+Previously linked PayPal identifiers cannot enroll another user, even after unlink.
+Existing email/password login stays available. Login grants no payment permission
+and does not establish one unique human or account-verified status.
 
 ### Intake
 
@@ -391,3 +422,28 @@ Documentation contract (nothing in our code reads Zapier): a Zapier MCP server i
 | fairpool_withdraw_entry | POST `/agent/v1/entries/withdraw` | body: `entry_id` |
 
 Rules: no PayPal app and no other app is added to the server; managed mode only (the default mode lets the agent discover and enable actions itself); the delegation token has a low `max_cap_cents` and a short expiry; the token is never pasted into prompts or committed.
+
+## CR-7: owner-requested delivery address book and signup prefill
+
+Signup requests the documented attribute set, including the URI-form account scope:
+`openid profile email address https://uri.paypal.com/services/paypalattributes`
+(`paypal-adapter.md` CR-7). Dropping that URI scope is what made the prefill never
+arrive. `GET /api/v1/auth/paypal/status` adds nullable `prefill`, available only
+to the browser with a ready, unexpired signup: `{email, display_name, address}`.
+Address is partial and editable; missing provider fields require manual entry.
+`POST /api/v1/auth/register` adds optional `delivery_address`; the buyer UI collects
+it in a separate step, and account, link, session and first default address save
+atomically. Passwords are never prefilled.
+
+DeliveryAddress: `{name, line1, line2, city, region, postal_code, country_code}`.
+All fields are strings, line2 defaults to empty, country_code is two uppercase
+letters, and required fields cannot be blank. Bounds: name/city 120, line1/line2
+200, region 100, postal_code 32.
+
+Saved-address GET returns `{addresses:[{id,address,is_default}]}`. POST and PUT
+accept `{address:DeliveryAddress,is_default:false}` and return `{id,address,is_default}`.
+DELETE returns 204. These session endpoints require the buyer role; every write
+requires CSRF. IDs belonging to another buyer return NOT_FOUND. Reads and writes
+return Cache-Control: no-store. Only the owner receives address plaintext; logs
+and audits contain no address fields. Deletes choose a remaining default when
+necessary. No address-book edit alters an existing order's shipping snapshot.

@@ -1,0 +1,33 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+
+const transport = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn(), remove: vi.fn() }));
+vi.mock("../src/shared/api/client", () => ({ api: { GET: transport.get, POST: transport.post, PUT: transport.put, DELETE: transport.remove }, API_BASE_URL: "http://localhost:8000" }));
+import { AddressesPage } from "../src/buyer/AddressesPage";
+
+const address = { name: "Pool Buyer", line1: "12 Test Lane", line2: "", city: "Test City", region: "CA", postal_code: "90210", country_code: "US" };
+beforeEach(() => {
+  vi.clearAllMocks();
+  transport.get.mockResolvedValue({ data: { addresses: [{ id: "saved-one", address, is_default: true }] } });
+});
+
+it("lets a buyer edit a saved address and saves the changed fields", async () => {
+  transport.put.mockResolvedValue({ data: { id: "saved-one", address: { ...address, city: "New City" }, is_default: true } });
+  render(<AddressesPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  expect(screen.getByLabelText("Street address")).toHaveValue("12 Test Lane");
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "New City" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save address" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Address saved");
+  expect(transport.put).toHaveBeenCalledWith("/api/v1/me/addresses/{address_id}", { params: { path: { address_id: "saved-one" } }, body: { address: { ...address, city: "New City" }, is_default: true } });
+});
+
+it("retains edits when saving fails", async () => {
+  transport.put.mockRejectedValue(new TypeError("network unavailable"));
+  render(<AddressesPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  fireEvent.change(screen.getByLabelText("City"), { target: { value: "New City" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save address" }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Your changes are still here"));
+  expect(screen.getByLabelText("City")).toHaveValue("New City");
+});

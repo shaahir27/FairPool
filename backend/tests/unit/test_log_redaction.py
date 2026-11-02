@@ -194,6 +194,47 @@ UVICORN_ACCESS_ARGS: tuple[Any, ...] = (
 )
 
 
+def test_redacted_access_record_still_formats_with_uvicorn() -> None:
+    from uvicorn.logging import AccessFormatter
+
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        (
+            "127.0.0.1:52000",
+            "GET",
+            "/api/v1/auth/paypal/callback?code=PRIVATECODE&state=PRIVATESTATE",
+            "1.1",
+            200,
+        ),
+        None,
+    )
+    # Startup attaches the filter to both the logger and its handler.
+    redactor = RedactionFilter()
+    redactor.filter(record)
+    redactor.filter(record)
+    rendered = AccessFormatter(
+        '%(client_addr)s - "%(request_line)s" %(status_code)s', use_colors=False
+    ).format(record)
+    assert "PRIVATECODE" not in rendered and "PRIVATESTATE" not in rendered
+    assert "200 OK" in rendered and "/api/v1/auth/paypal/callback" in rendered
+
+
+def test_redacted_startup_record_formats_its_process_id() -> None:
+    from uvicorn.logging import DefaultFormatter
+
+    record = logging.LogRecord(
+        "uvicorn.error", logging.INFO, __file__, 1, "Started server process [%d]", (12345,), None
+    )
+    record.color_message = "Started server process [%d]"
+    RedactionFilter().filter(record)
+    rendered = DefaultFormatter("%(message)s", use_colors=True).format(record)
+    assert "12345" in rendered and "%d" not in rendered
+
+
 def test_the_filter_masks_an_access_line_query_string() -> None:
     """M3: the request line uvicorn prints carries a live OAuth code and state."""
     record = logging.LogRecord(

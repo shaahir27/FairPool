@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type ApiComponents, formatCents, Icon, Notice, StatusPill, startRouteTransition, useCountdown } from "../shared";
 
@@ -38,6 +38,23 @@ export function OfferCheckout({ buyerOrderId }: { buyerOrderId: string }) {
 function OfferDetails({ offer }: { offer: Offer }) {
   const navigate = useNavigate();
   const [address, setAddress] = useState(EMPTY_ADDRESS);
+  const [savedAddresses, setSavedAddresses] = useState<ApiComponents["schemas"]["SavedAddressResponse"][]>([]);
+  const [selectedAddress, setSelectedAddress] = useState("");
+  const [addressLoadFailed, setAddressLoadFailed] = useState(false);
+  const addressEdited = useRef(false);
+  useEffect(() => {
+    let live = true;
+    void api.GET("/api/v1/me/addresses").then(({ data, error: failure }) => {
+      if (!live) return;
+      if (failure || !data || !Array.isArray(data.addresses)) { setAddressLoadFailed(true); return; }
+      setSavedAddresses(data.addresses);
+      const preferred = data.addresses.find((item) => item.is_default);
+      if (preferred && !addressEdited.current) {
+        setAddress({ ...EMPTY_ADDRESS, ...preferred.address }); setSelectedAddress(preferred.id);
+      }
+    }).catch(() => { if (live) setAddressLoadFailed(true); });
+    return () => { live = false; };
+  }, []);
   const [busy, setBusy] = useState<"continue" | "decline" | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   // Older responses lack server_now. Capture a stable display-only sample once.
@@ -109,14 +126,21 @@ function OfferDetails({ offer }: { offer: Offer }) {
         <section className="shop-panel shop-panel-pad" aria-labelledby="delivery-heading">
           <div className="shop-section-heading"><Icon name="truck" /><h2 id="delivery-heading">Delivery details</h2></div>
           <p className="shop-copy">Where should your order be sent?</p>
+          {savedAddresses.length > 0 ? <label className="saved-address-select">Delivery address<select className="form-input" value={selectedAddress} onChange={(event) => {
+            addressEdited.current = true; setSelectedAddress(event.target.value);
+            const saved = savedAddresses.find((item) => item.id === event.target.value);
+            setAddress(saved ? { ...EMPTY_ADDRESS, ...saved.address } : EMPTY_ADDRESS);
+          }}><option value="">Use a different address</option>{savedAddresses.map((item) => <option key={item.id} value={item.id}>{item.address.name} — {item.address.line1}{item.is_default ? " (default)" : ""}</option>)}</select></label> : null}
+          {addressLoadFailed ? <p className="signup-help">Saved addresses couldn’t be loaded. You can enter your delivery details below.</p> : null}
           <div className="shop-address-fields">
             {ADDRESS_FIELDS.map((field) => field.name === "line2" ? <details key={field.name} className="optional-address"><summary><span aria-hidden="true">+</span> Add apartment, suite or floor</summary><label>Address line 2 (optional)<input name="line2" autoComplete="address-line2" className="form-input" value={address.line2} maxLength={200} onChange={(event) => setAddress((previous) => ({ ...previous, line2: event.target.value }))} /></label></details> : <label key={field.name} className={["name", "line1"].includes(field.name) ? "address-full" : field.name === "country_code" ? "country-field" : ""}>
               {field.label}<input name={field.name} autoComplete={field.autoComplete} className="form-input" value={address[field.name]} required={field.required}
                 maxLength={field.name === "country_code" ? 2 : field.name === "postal_code" ? 20 : 200}
                 pattern={field.name === "country_code" ? "[A-Za-z]{2}" : undefined}
-                onChange={(event) => setAddress((previous) => ({ ...previous, [field.name]: event.target.value }))} />
+                onChange={(event) => { addressEdited.current = true; setAddress((previous) => ({ ...previous, [field.name]: event.target.value })); }} />
             </label>)}
           </div>
+          <Link className="signup-back" to="/settings/addresses">Manage saved addresses</Link>
         </section>
         <section className="shop-panel shop-panel-pad" aria-labelledby="payment-heading">
           <div className="shop-section-heading"><Icon name="wallet" /><h2 id="payment-heading">Payment</h2></div>

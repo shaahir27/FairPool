@@ -4,9 +4,8 @@ The three handlers only translate HTTP to ``modules.identity.paypal_login``: the
 session dependency, the single-use state ladder, the keyed storage rule and the
 relink block all live in that module. The identity port implementation is injected
 through ``app.state.paypal_identity`` so a test or a simulation run can script it;
-with nothing injected the route uses ``FakePayPalIdentity``, which calls no host
-(the real client is a ``adapters/paypal/`` edit in Phase 4, and this router must
-not import an adapter here -- ``tools/check_imports.py`` rule 3).
+with nothing injected the composition root supplies the real Sandbox identity
+adapter. This router never imports the adapter (``tools/check_imports.py`` rule 3).
 
 The callback's ``error`` parameter is read from the raw query string instead of
 being declared as a route parameter: api.md section 2 fixes this route's
@@ -28,12 +27,12 @@ from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
 from fairpool.api.errors import error_response
 from fairpool.config import Settings
-from fairpool.fakes.paypal_identity import FakePayPalIdentity
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.modules.identity.paypal_login import PayPalLoginService, ProviderDeclined
 from fairpool.modules.identity.service import Principal
 from fairpool.ports import PayPalIdentity
+from fairpool.wiring import paypal_identity
 
 router = APIRouter()
 
@@ -86,11 +85,11 @@ def _settings(request: Request) -> Settings:
 
 
 def _identity(request: Request) -> PayPalIdentity:
-    """The injected port implementation, or the local fake (Phase 3, DEP-5 style)."""
+    """Tests inject their fake; enabled application traffic uses the Sandbox adapter."""
     injected = getattr(request.app.state, "paypal_identity", None)
     if injected is not None:
         return injected  # type: ignore[no-any-return]
-    created = FakePayPalIdentity()
+    created = paypal_identity(_settings(request))
     request.app.state.paypal_identity = created
     return created
 

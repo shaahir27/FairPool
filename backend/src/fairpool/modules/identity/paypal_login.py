@@ -70,6 +70,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.config import SANDBOX_CHECKOUT_HOST, assert_sandbox_host
 from fairpool.db.models.identity import OAuthState, PayPalLink
 from fairpool.domain.errors import ApplicationError
+from fairpool.domain.paypal_identity import PayPalIdentityDeclined, PayPalIdentityUnavailable
 from fairpool.modules.identity.service import Principal
 from fairpool.ports import AuditLog, Clock, PayPalIdentity
 
@@ -81,7 +82,7 @@ LOGIN_SCOPE: Final[str] = "openid"
 #: PayPal's Login authorization endpoint, on the Sandbox checkout host only
 #: (FR-PP-06). Phase 3 never fetches this URL; the Phase 4 client re-reads
 #: PayPal's Login documentation before it does.
-LOGIN_AUTHORIZE_PATH: Final[str] = "/signin/authorize"
+LOGIN_AUTHORIZE_PATH: Final[str] = "/connect"
 
 #: An entry that still occupies the buyer's place (state-machines.md: WITHDRAWN
 #: and REJECTED are terminal for the buyer, everything else is participation).
@@ -91,20 +92,6 @@ _PARTICIPATING_ENTRY_STATUSES: Final[tuple[str, ...]] = ("SUBMITTED", "ELIGIBLE"
 _LINK_CONSTRAINTS: Final[frozenset[str]] = frozenset(
     {"uq_paypal_links_user_active", "uq_paypal_links_account_active"}
 )
-
-
-class PayPalIdentityDeclined(Exception):
-    """The provider refused the login, so there is no identifier to link.
-
-    The Phase 4 adapter in ``adapters/paypal/`` raises the same two shapes through
-    the composition root; ``adapters.paypal`` may not import this module
-    (``check_imports.py`` rule 3), so a decision on where these two types live
-    belongs to that lane's change request.
-    """
-
-
-class PayPalIdentityUnavailable(Exception):
-    """The provider call failed; nothing is written and the flow can be restarted."""
 
 
 class ProviderDeclined(Exception):
@@ -288,6 +275,7 @@ class PayPalLoginService:
     def _authorize_url(self, state: str, nonce: str) -> str:
         query = urlencode(
             {
+                "flowEntry": "static",
                 "response_type": "code",
                 "client_id": self.client_id,
                 "scope": LOGIN_SCOPE,

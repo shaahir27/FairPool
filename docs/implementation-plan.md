@@ -172,6 +172,7 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-HK-06 | T09B04, T10B02 |
 | FR-ID-01 | T02B01 |
 | FR-ID-02 | T03B03 |
+| FR-ID-06 | T03B03, T06B05 |
 | FR-ID-03 | T03B01, T03B03 |
 | FR-ID-04 | T04A02 |
 | FR-ID-05 | T02B01, T08A06 |
@@ -614,12 +615,14 @@ The owner closed IG-2 by exception; its automated acceptance evidence remains pe
 
 ### T03B03: PayPal Login link flow
 
+**Owner-requested CR-6 follow-up (2026-11-02, uncommitted):** FR-ID-06 adds PayPal-first buyer enrollment and its T06B05 authentication screens only. Acceptance: browser-bound, expiring, single-use proof; no public registration without proof; atomic buyer/link/session creation; duplicate identities refused across browsers; password confirmation; existing sign-in preserved; honest account-level claims. Named tests: `test_paypal_signup.py` (all ten integration cases), `test_paypal_identity_adapter.py`, `test_auth.py`, `test_login_linking.py`, and `frontend/tests/signup.flow.test.tsx`. Agent participation and the rest of T06B05 remain in their planned phases.
+
 - **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH3. **Merge gate:** IG-3. **Depends on:** T02B01, T00B02.
 - **Read first:** spikes.md S1; db-schema.md paypal_links; api.md paypal login; product-spec.md FR-ID-02.
 - **Create or change:** `modules/identity/paypal_login.py`, `api/routers/paypal_login.py`.
 - **Acceptance:** Code flow with state and nonce per the S1 outcome; disclosure screen; relink rules; HMAC account key; behaviour per DEDUPE_MODE. Plus CR-3: `start` requires an authenticated session and writes a single-use `oauth_states` row bound to the initiating session with a `OAUTH_STATE_TTL_S` database-clock expiry; the callback rejects missing, expired, consumed or cross-session state and denies before writing; only the HMAC of the provider identifier is stored, never the code, token or raw id; the identity calls go through the `PayPalIdentity` port so `modules/identity` imports no HTTP client and the import whitelist is unchanged; under `two_keys` the login key and the checkout payer key are deduplicated separately, `full` stays unavailable (OD-P3-4) and no claim of one-human-per-account is made; link, unlink and join serialise in user-then-pool lock order so relinking cannot evade participation; the feature stays off unless `PAYPAL_LOGIN_ENABLED`, and F16 passes.
 - **Tests that prove it:** `tests/integration/test_login_modes.py`; F16.
-- **Requirements and invariants:** FR-ID-02, FR-ID-03, F16.
+- **Requirements and invariants:** FR-ID-02, FR-ID-03, FR-ID-06, F16.
 
 ### T03B04: Pool close
 
@@ -900,6 +903,14 @@ The owner closed IG-2 by exception; its automated acceptance evidence remains pe
 - **Requirements and invariants:** FR-IG-04, FR-UI-07.
 
 ### T06B05: Buyer UI v1: Discover and Join
+
+Owner-requested CR-7 authentication extension (2026-11-02): fix the auth panel height,
+prefill consented name/email/address without overwriting edits, collect delivery in
+a separate signup step, save it encrypted, manage multiple owner-only addresses and
+one default, and reuse the default at checkout without altering existing orders.
+Named tests: test_address_book.py, test_paypal_signup.py (encrypted/browser-bound
+prefill), test_paypal_identity_adapter.py, signup.flow.test.tsx,
+addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work remains out of scope.
 
 - **Owner:** Member B. **Size:** L (1 day). **Phase:** PH6. **Merge gate:** IG-6. **Depends on:** T01B03, T01B01.
 - **Read first:** api.md intake, entries, pools; product-spec.md FR-UI-01; scaffold.md §12.

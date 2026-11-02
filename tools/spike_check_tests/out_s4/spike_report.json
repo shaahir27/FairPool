@@ -1,0 +1,203 @@
+{
+  "run_id": "173dee84",
+  "version": "1.0.0",
+  "facts": {
+    "PAYPAL_PAYLOAD_LEVEL": 3
+  },
+  "implications": {
+    "CORE": "The PayPal Sandbox basics the adapter contract relies on (token, create, replay, early-authorize rejection, mock error) behave as recorded.",
+    "S4": "Orders can carry payload level 3; the adapter must not send anything above it."
+  },
+  "rows": [
+    {
+      "spike": "CORE",
+      "step": "host guard: only the two Sandbox hosts are used (checklist 1.1)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "127.0.0.1, 127.0.0.1"
+    },
+    {
+      "spike": "CORE",
+      "step": "R1 OAuth token (V1, checklist 1.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "fields=['access_token', 'app_id', 'expires_in', 'nonce', 'scope', 'token_type'] expires_in=32400 scopes=2"
+    },
+    {
+      "spike": "CORE",
+      "step": "R2 create AUTHORIZE order, payee set (V2)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg1f62ca21dd",
+      "result": "PASS",
+      "note": "payee_email=present merchant_id=MISSING (not required)"
+    },
+    {
+      "spike": "CORE",
+      "step": "R3 replay create with the same PayPal-Request-Id: 200 and same order (V3, checklist 6.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg9fafa55046",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4a authorize before approval -> 422 ORDER_NOT_APPROVED (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbg32d0e64a80",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4b capture before approval is rejected (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbg10b3882d4b",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R5 a second order gets a distinct ID (V5)",
+      "http": "201",
+      "status": "-",
+      "debug_id": "dbg643c8e9734",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R6 negative test DUPLICATE_INVOICE_ID: 422 and no order created (V6, checklist 6.1)",
+      "http": "422",
+      "status": "DUPLICATE_INVOICE_ID",
+      "debug_id": "dbga0feed11c1",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R7 the seven event types of V7 are listed",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg31f70a8da8",
+      "result": "PASS",
+      "note": "8 types listed"
+    },
+    {
+      "spike": "CORE",
+      "step": "R8 list webhooks",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg3b460feefa",
+      "result": "PASS",
+      "note": "0 listeners registered"
+    },
+    {
+      "spike": "CORE",
+      "step": "R9 INR is not a supported currency for Orders v2 (V12; checklist 3.7)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": "not re-tested by this script; recorded fact from the earlier run"
+    },
+    {
+      "spike": "S4",
+      "step": "Level 1: custom_id and unique invoice_id accepted",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbgb6f3f8c720",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 1: replay (same request ID, same invoice_id) returns 200, same order, not DUPLICATE_INVOICE_ID",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgf85bbf350a",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 2: breakdown (item_total + shipping + tax_total) and items sum exactly: accepted",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg67a8914b75",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 2: a mismatching breakdown is rejected",
+      "http": "422",
+      "status": "AMOUNT_MISMATCH",
+      "debug_id": "dbgb139ea3b00",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "create S4-L3 (level 3)",
+      "http": "201",
+      "status": "PAYER_ACTION_REQUIRED",
+      "debug_id": "dbgfa883b56cb",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "buyer approval of S4-L3",
+      "http": "200",
+      "status": "APPROVED",
+      "debug_id": "dbg721395feac",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 3: payment_source.paypal.experience_context + provided address accepted",
+      "http": "201",
+      "status": "PAYER_ACTION_REQUIRED",
+      "debug_id": "dbgfa883b56cb",
+      "result": "PASS",
+      "note": "approval link rel: payer-action"
+    },
+    {
+      "spike": "S4",
+      "step": "Level 3: GET order returns the provided shipping address",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "address returned=True"
+    },
+    {
+      "spike": "S4",
+      "step": "Level 3: address changes disabled on the approval page (user-attested)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "highest accepted level (level 4 is unavailable per S3)",
+      "http": "-",
+      "status": "PAYPAL_PAYLOAD_LEVEL=3",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": ""
+    }
+  ],
+  "manual": []
+}

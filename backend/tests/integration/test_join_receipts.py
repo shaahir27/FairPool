@@ -35,6 +35,7 @@ from fairpool.infra.idempotency import PostgresIdempotencyStore
 from fairpool.modules.intake.manual import ManualIntakeService
 from fairpool.modules.pools.join import JoinService
 from fairpool.modules.pools.receipts import signing_seed
+from tests.identity_helpers import provision_buyer
 from tests.integration.test_triggers import iso_in, utc_in
 from tests.unit.test_settings import make_settings
 
@@ -47,11 +48,12 @@ def settings_for(**overrides: Any):
 
 
 async def login(client: httpx.AsyncClient, email: str) -> str:
-    registered = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "display_name": "Buyer " + email[:8]},
+    await provision_buyer(
+        client,
+        email=email,
+        password=PASSWORD,
+        display_name="Buyer " + email[:8],
     )
-    assert registered.status_code == 200
     result = await client.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD})
     assert result.status_code == 200
     return str(result.json()["csrf_token"])

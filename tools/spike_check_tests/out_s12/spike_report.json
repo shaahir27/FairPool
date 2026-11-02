@@ -1,0 +1,212 @@
+{
+  "run_id": "3d893320",
+  "version": "1.0.0",
+  "facts": {
+    "SHIPMENT_TRACKING_ENABLED": true
+  },
+  "implications": {
+    "CORE": "The PayPal Sandbox basics the adapter contract relies on (token, create, replay, early-authorize rejection, mock error) behave as recorded.",
+    "S12": "Tracking can be written to PayPal with Orders v2 and read back."
+  },
+  "rows": [
+    {
+      "spike": "CORE",
+      "step": "host guard: only the two Sandbox hosts are used (checklist 1.1)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "127.0.0.1, 127.0.0.1"
+    },
+    {
+      "spike": "CORE",
+      "step": "R1 OAuth token (V1, checklist 1.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "fields=['access_token', 'app_id', 'expires_in', 'nonce', 'scope', 'token_type'] expires_in=32400 scopes=2"
+    },
+    {
+      "spike": "CORE",
+      "step": "R2 create AUTHORIZE order, payee set (V2)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg4c5b5e06e6",
+      "result": "PASS",
+      "note": "payee_email=present merchant_id=MISSING (not required)"
+    },
+    {
+      "spike": "CORE",
+      "step": "R3 replay create with the same PayPal-Request-Id: 200 and same order (V3, checklist 6.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg51960bc1fe",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4a authorize before approval -> 422 ORDER_NOT_APPROVED (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbg9fdf034de1",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4b capture before approval is rejected (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbgb364499ceb",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R5 a second order gets a distinct ID (V5)",
+      "http": "201",
+      "status": "-",
+      "debug_id": "dbg4f20668ba6",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R6 negative test DUPLICATE_INVOICE_ID: 422 and no order created (V6, checklist 6.1)",
+      "http": "422",
+      "status": "DUPLICATE_INVOICE_ID",
+      "debug_id": "dbg732579cf15",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R7 the seven event types of V7 are listed",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbge0b73b5a8d",
+      "result": "PASS",
+      "note": "8 types listed"
+    },
+    {
+      "spike": "CORE",
+      "step": "R8 list webhooks",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgacca283027",
+      "result": "PASS",
+      "note": "0 listeners registered"
+    },
+    {
+      "spike": "CORE",
+      "step": "R9 INR is not a supported currency for Orders v2 (V12; checklist 3.7)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": "not re-tested by this script; recorded fact from the earlier run"
+    },
+    {
+      "spike": "S12",
+      "step": "create s12-capture source (level 0)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbgec1fa30263",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S12",
+      "step": "buyer approval of s12-capture source",
+      "http": "200",
+      "status": "APPROVED",
+      "debug_id": "dbgc3dbcddd8d",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S12",
+      "step": "authorize (s12-src): 201 and AUTHORIZATION status CREATED",
+      "http": "201",
+      "status": "authorization=CREATED; order=COMPLETED",
+      "debug_id": "dbgf28f8db757",
+      "result": "PASS",
+      "note": "O1: the COMPLETED seen earlier is the ORDER status; the authorization object must read CREATED"
+    },
+    {
+      "spike": "S12",
+      "step": "replay authorize with the same request ID (s12-src): 200 and same authorization",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgf603a3de0f",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S12",
+      "step": "Orders v2 track (fictional carrier, notify_payer=false)",
+      "http": "201",
+      "status": "created",
+      "debug_id": "dbgcf70c2bf38",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S12",
+      "step": "GET the order: exactly one matching tracker",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgdfdeddbf3a",
+      "result": "PASS",
+      "note": "trackers on the order=1 matching=1"
+    },
+    {
+      "spike": "S12",
+      "step": "repeat the same request: still exactly one tracker (idempotent in effect)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgfa31de2f98",
+      "result": "PASS",
+      "note": "matching trackers after repeat=1"
+    },
+    {
+      "spike": "S12",
+      "step": "dashboard visibility (user-attested)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "API acceptance is not proof of shipment or delivery"
+    },
+    {
+      "spike": "S2",
+      "step": "full refund of the capture: 201",
+      "http": "201",
+      "status": "COMPLETED",
+      "debug_id": "dbg69dfcc17a8",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S2",
+      "step": "replay refund with the same request ID: 200 and the original refund",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg2ba7acd98c",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S2",
+      "step": "GET refund: COMPLETED",
+      "http": "200",
+      "status": "COMPLETED",
+      "debug_id": "dbgb10b4a0680",
+      "result": "PASS",
+      "note": ""
+    }
+  ],
+  "manual": []
+}

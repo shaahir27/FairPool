@@ -2,6 +2,8 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { AuditPage } from "./audit";
 import { RequireAuth } from "./shared";
+import { SignupConnectedPage, SignupDetailsPage } from "./buyer/signup";
+import { AddressesPage } from "./buyer/AddressesPage";
 import {
   AgentSettingsPage,
   BuyerLayout,
@@ -26,8 +28,7 @@ import { FulfillmentPage } from "./merchant-fulfillment";
 import { OpsPage } from "./ops";
 
 /**
- * Exactly the seventeen routes in docs/scaffold.md section 12. Layout routes
- * carry no path, so the count of `path` props stays at seventeen.
+ * Workspace routes plus the browser-bound PayPal signup steps (CR-6).
  */
 export function AppRoutes() {
   return (
@@ -35,6 +36,8 @@ export function AppRoutes() {
       <Route path="/audit/:poolId" element={<AuditPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/register/connected" element={<SignupConnectedPage />} />
+      <Route path="/register/details" element={<SignupDetailsPage />} />
 
       <Route
         element={
@@ -49,6 +52,7 @@ export function AppRoutes() {
         <Route path="/orders/:buyerOrderId" element={<BuyerOrderPage />} />
         <Route path="/pools/:poolId" element={<PoolPage />} />
         <Route path="/settings/paypal" element={<PayPalSettingsPage />} />
+        <Route path="/settings/addresses" element={<AddressesPage />} />
         <Route path="/settings/agents" element={<AgentSettingsPage />} />
       </Route>
 

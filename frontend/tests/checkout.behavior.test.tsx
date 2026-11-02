@@ -9,7 +9,7 @@ vi.mock("../src/shared/api/client", () => ({
 }));
 
 import { OfferCheckout, OrderStatusCard } from "../src/checkout";
-import { LoginPage, RegisterPage } from "../src/buyer/pages";
+import { LoginPage } from "../src/buyer/pages";
 import { useCountdown } from "../src/shared";
 
 const offer = {
@@ -34,6 +34,14 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("checkout actions", () => {
+  it("loads the default saved delivery address and allows a different destination", async () => {
+    const address = { name: "Pool Buyer", line1: "12 Test Lane", line2: "", city: "Test City", region: "CA", postal_code: "90210", country_code: "US" };
+    transport.get.mockImplementation((path) => Promise.resolve({ data: path === "/api/v1/me/addresses" ? { addresses: [{ id: "saved-one", address, is_default: true }] } : offer }));
+    show(<OfferCheckout buyerOrderId="order-one" />);
+    expect(await screen.findByDisplayValue("12 Test Lane")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Delivery address"), { target: { value: "" } });
+    expect(screen.getByLabelText("Address line 1")).toHaveValue("");
+  });
   it("keeps a server-valid offer payable when the device clock is ahead", async () => {
     vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-03T10:00:00Z"));
     show(<OfferCheckout buyerOrderId="order-one" />);
@@ -108,7 +116,7 @@ it("keeps withdrawal visibly unavailable while its route is unbuilt", async () =
 
 describe("authentication recovery", () => {
   it.each([
-    ["Sign in", <LoginPage />], ["Create account", <RegisterPage />],
+    ["Sign in", <LoginPage />],
   ])("%s recovers from a disconnected request", async (label, component) => {
     transport.post.mockRejectedValue(new TypeError("network unavailable"));
     show(component);

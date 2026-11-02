@@ -33,6 +33,8 @@ FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **
 
 ## Current status
 
+**Authentication follow-up for hosted testing (2026-11-02):** New buyers connect PayPal before creating their FairPool email/password account. Existing buyers still sign in normally. Apply migration `0005_paypal_signup` with `make migrate`, enable `PAYPAL_LOGIN_ENABLED=true` with `DEDUPE_MODE=two_keys`, and register `<PUBLIC_BASE_URL>/api/v1/auth/paypal/callback` as an exact Sandbox app return URL in PayPal. For the local default this is `http://localhost:8000/api/v1/auth/paypal/callback`; use an HTTPS tunnel and matching `PUBLIC_BASE_URL` if PayPal requires HTTPS. Set `FRONTEND_BASE_URL` to the actual frontend origin. Frontend and API must use same-site hosts for the existing SameSite=Lax session cookies. Signup requests `openid profile email address https://uri.paypal.com/services/paypalattributes`; PayPal returns those approved attributes in the ID token, and the adapter reads them without re-keying the provider identifier. Enable Full Name, Email and the address fields on the Sandbox app. It grants no payment permission and deduplicates PayPal accounts rather than proving unique humans. Migration 0006 adds encrypted saved delivery addresses, managed at `/settings/addresses` and reusable at checkout. The real Sandbox signup round trip still needs verification with the registered callback; offline tests use a clearly injected identity fake.
+
 Last updated: **1 November 2026.**
 
 | | Status |
@@ -44,7 +46,7 @@ Last updated: **1 November 2026.**
 | Phase 4, core engines III and the first integration | **Complete — IT-4 green; tagged `ig-4`.** Seed, allocation into lots with an ordered waitlist, the forced demo award, checkout opening with waitlist refills, the vault-charge and authorize paths, funding to FUNDED, intake and the public audit content, exercised end to end with the fake gateway. |
 | Phase 5, real money path, auction core and checkout UI | **Complete — IG-5 closed on evidence; tagged `ig-5`.** One real Sandbox buyer ran the redirect path end to end and both money legs closed at a zero ledger (C-08 authorize then void, C-09 capture then refund). The failure path ends at net zero (PT-11, F9, F24), R1-R9 with the two new vector cases pass (PT-05, PT-06), the merchant profile and sealed bids with signed receipts pass their tests, the checkout address is sealed as a Fernet token under BD-11, and the buyer screens (sign in, create account, offer/checkout, order status) plus an app-wide session gate are built against CR-5. Five independent read-only review passes are recorded in [docs/evidence/phase5/independent_review.json](docs/evidence/phase5/independent_review.json): the first four failed, the fifth passed with no blocker and no major. See [docs/evidence/phase5/README.md](docs/evidence/phase5/README.md). |
 
-**What works now:** `make setup` and `make verify`; a 35-table Postgres schema plus `alembic_version` (22 enum types, 12 triggers) through migration 0004; the full backend suite (913 offline tests, plus the **10 fault tests** the gate also runs on their own), with no skips; **39 frontend tests**; the API contract and its OpenAPI documents; the local Docker stack; the Phase 2 to Phase 5 engines and the nineteen registered worker handlers; a demo seeder that builds a live, purchasable pool in the local and hosted databases; and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase. The tags that exist are `ig-0` to `ig-5` and `contracts-v1` to `contracts-v1.5`.
+**What works now:** `make setup` and `make verify`; a 37-table Postgres schema plus `alembic_version` (22 enum types, 12 triggers) through migration 0006; the full backend suite (953 offline tests, plus the **10 fault tests** the gate also runs on their own), with no skips; **52 frontend tests**; the API contract and its OpenAPI documents; the local Docker stack; the Phase 2 to Phase 5 engines and the nineteen registered worker handlers; a PayPal-first signup and a saved-address book, both proven end to end against the deterministic fake identity provider (a fresh live Sandbox consent round trip is still outstanding); a demo seeder that builds a live, purchasable pool in the local and hosted databases; and the hosted skeleton at <https://fairpool-frontend.onrender.com> (API: <https://fairpool-api.onrender.com>) backed by Supabase. The tags that exist are `ig-0` to `ig-5` and `contracts-v1` to `contracts-v1.5`.
 
 **What does not work yet:** live vault save is deferred to Phase 6 (`VAULT_CHARGE` remains unavailable and `VAULT_REAL_SAVE_ENABLED=false`), `WEBHOOKS_ENABLED` is false, the auction's database loader and the lot award handlers belong to Phase 6, buyer-initiated withdrawal has no route yet so the order screen shows it as unavailable, and fulfillment, the agent API, the merchant consoles and the ops console are still stubs. The real-money path *has* been exercised: one Sandbox buyer through offer, approval and server-side authorize, then void to a closed lot at zero ledger, and a second run through capture, funding and refund to zero ledger (C-08, C-09, IT-5). The hosted service still runs the Phase 4 image, because this branch was never pushed or deployed.
 
@@ -209,13 +211,23 @@ make setup
 
 `make setup` creates `.venv`, installs the hashed Python locks, installs pre-commit, and runs `npm ci` for the frontend.
 
-Start the database, apply the migration, and start the stack:
+Apply the migration to Supabase and start the stack:
 
 ```powershell
-docker compose --env-file .env -f deploy/docker-compose.yml up -d db
 make migrate
 make dev
 ```
+
+For offline test suites and fault tests, start the isolated local test database and
+create the disposable test database once (the suite refuses any other target):
+
+```powershell
+docker compose --env-file .env -f deploy/docker-compose.yml --profile test-db up -d db
+docker compose --env-file .env -f deploy/docker-compose.yml exec db \
+  psql -U fairpool -d postgres -c 'CREATE DATABASE fairpool_test'
+```
+
+Point `TEST_DATABASE_URL` in `.env` at that container (`postgresql+asyncpg://fairpool:fairpool@127.0.0.1:5432/fairpool_test`). `make test` uses it instead of `DATABASE_URL`, so the hosted demo database is never reset, migrated or written by a test run.
 
 Without Docker, one command opens both windows (no `make` needed):
 
@@ -244,7 +256,7 @@ Open:
 docker compose --env-file .env -f deploy/docker-compose.yml down
 ```
 
-The local `.env` points `DATABASE_URL` at `127.0.0.1` so host-side Alembic and tests can use it. Compose overrides `DATABASE_URL` to the `db` service inside the containers.
+Both the local app and Render share Supabase via `DATABASE_URL`. Compose runs `api`, `worker` and `frontend` directly without requiring a local Postgres container for normal operation. The local container `db` is retained under profile `test-db` for isolated test runs (`TEST_DATABASE_URL`).
 
 ### Migrations
 
@@ -313,7 +325,7 @@ Key values for a local run:
 
 | Variable | Why it matters |
 |---|---|
-| `DATABASE_URL` | Postgres connection string; host `127.0.0.1` locally, overridden to `db` inside Compose |
+| `DATABASE_URL` | Postgres connection string; points to Supabase for the local app and Render (`TEST_DATABASE_URL` used for offline tests) |
 | `SECRET_KEY`, `HMAC_KEY` | Session signing and account-key HMAC |
 | `RECEIPT_SIGNING_KEY` | Ed25519 private key for buyer receipts, base64url |
 | `ADDRESS_ENCRYPTION_KEY` | Fernet key for shipping addresses |

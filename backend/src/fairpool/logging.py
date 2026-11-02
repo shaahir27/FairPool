@@ -100,16 +100,30 @@ class RedactionFilter(logging.Filter):
     """Remove secrets from a record before any handler formats it."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        message = redact_text(record.getMessage())
-        record.msg = message
-        record.args = ()
+        if (
+            record.name == "uvicorn.access"
+            and isinstance(record.args, tuple)
+            and len(record.args) == 5
+        ):
+            # Uvicorn's formatter unpacks these fields after redaction (I14).
+            record.msg = redact_text(str(record.msg))
+            record.args = tuple(
+                redact_text(arg) if isinstance(arg, str) else arg for arg in record.args
+            )
+            message = record.getMessage()
+        else:
+            message = redact_text(record.getMessage())
+            record.msg = message
+            record.args = ()
         record.message = message
 
         for key in list(record.__dict__):
             if key in _STANDARD_RECORD_KEYS or key == "message":
                 continue
             value = record.__dict__[key]
-            if _SENSITIVE_KEY.search(key) or key in _EXACT_SENSITIVE_KEYS:
+            if key == "color_message":
+                record.__dict__[key] = message
+            elif _SENSITIVE_KEY.search(key) or key in _EXACT_SENSITIVE_KEYS:
                 record.__dict__[key] = REDACTED
             elif isinstance(value, str):
                 record.__dict__[key] = redact_text(value)

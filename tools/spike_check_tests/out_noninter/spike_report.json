@@ -1,0 +1,241 @@
+{
+  "run_id": "932009c0",
+  "version": "1.0.0",
+  "facts": {
+    "PAYPAL_PAYLOAD_LEVEL": 2,
+    "SHIPMENT_TRACKING_ENABLED": false,
+    "PAYPAL_APPROVAL_UI": "redirect"
+  },
+  "implications": {
+    "CORE": "The PayPal Sandbox basics the adapter contract relies on (token, create, replay, early-authorize rejection, mock error) behave as recorded.",
+    "S4": "Orders can carry payload level 2; the adapter must not send anything above it."
+  },
+  "rows": [
+    {
+      "spike": "CORE",
+      "step": "host guard: only the two Sandbox hosts are used (checklist 1.1)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "127.0.0.1, 127.0.0.1"
+    },
+    {
+      "spike": "CORE",
+      "step": "R1 OAuth token (V1, checklist 1.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "fields=['access_token', 'app_id', 'expires_in', 'nonce', 'scope', 'token_type'] expires_in=32400 scopes=2"
+    },
+    {
+      "spike": "CORE",
+      "step": "R2 create AUTHORIZE order, payee set (V2)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg37554b6fb0",
+      "result": "PASS",
+      "note": "payee_email=present merchant_id=MISSING (not required)"
+    },
+    {
+      "spike": "CORE",
+      "step": "R3 replay create with the same PayPal-Request-Id: 200 and same order (V3, checklist 6.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgaa5d73e264",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4a authorize before approval -> 422 ORDER_NOT_APPROVED (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbga98af11bbe",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4b capture before approval is rejected (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbg920776c9ce",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R5 a second order gets a distinct ID (V5)",
+      "http": "201",
+      "status": "-",
+      "debug_id": "dbgb084ba16e6",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R6 negative test DUPLICATE_INVOICE_ID: 422 and no order created (V6, checklist 6.1)",
+      "http": "422",
+      "status": "DUPLICATE_INVOICE_ID",
+      "debug_id": "dbg7fae5c01d7",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R7 the seven event types of V7 are listed",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg63a08e3f07",
+      "result": "PASS",
+      "note": "8 types listed"
+    },
+    {
+      "spike": "CORE",
+      "step": "R8 list webhooks",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg046a374f77",
+      "result": "PASS",
+      "note": "0 listeners registered"
+    },
+    {
+      "spike": "CORE",
+      "step": "R9 INR is not a supported currency for Orders v2 (V12; checklist 3.7)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": "not re-tested by this script; recorded fact from the earlier run"
+    },
+    {
+      "spike": "S1",
+      "step": "S1 needs the buyer's consent",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "MANUAL",
+      "note": "--non-interactive"
+    },
+    {
+      "spike": "S4",
+      "step": "Level 1: custom_id and unique invoice_id accepted",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg2d4396e812",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 1: replay (same request ID, same invoice_id) returns 200, same order, not DUPLICATE_INVOICE_ID",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgd7a1213d48",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 2: breakdown (item_total + shipping + tax_total) and items sum exactly: accepted",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg021673221a",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "Level 2: a mismatching breakdown is rejected",
+      "http": "422",
+      "status": "AMOUNT_MISMATCH",
+      "debug_id": "dbg52698ebd7b",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "create S4-L3 (level 3)",
+      "http": "201",
+      "status": "PAYER_ACTION_REQUIRED",
+      "debug_id": "dbgce93dfc622",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S4",
+      "step": "buyer approval of S4-L3",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "MANUAL",
+      "note": "--non-interactive: approval skipped"
+    },
+    {
+      "spike": "S4",
+      "step": "Level 3: payment_source.paypal.experience_context + provided address accepted",
+      "http": "201",
+      "status": "PAYER_ACTION_REQUIRED",
+      "debug_id": "dbgce93dfc622",
+      "result": "PASS",
+      "note": "approval link rel: payer-action"
+    },
+    {
+      "spike": "S4",
+      "step": "Level 3 evidence incomplete (no approval)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "MANUAL",
+      "note": "level 3 stays unverified; PAYPAL_PAYLOAD_LEVEL=2"
+    },
+    {
+      "spike": "S4",
+      "step": "highest accepted level (level 4 is unavailable per S3)",
+      "http": "-",
+      "status": "PAYPAL_PAYLOAD_LEVEL=2",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "needs SECOND_SELLER_EMAIL",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "BLOCKED",
+      "note": ""
+    },
+    {
+      "spike": "S2",
+      "step": "S2 follow-up needs two buyer approvals",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "MANUAL",
+      "note": "--non-interactive"
+    },
+    {
+      "spike": "S12",
+      "step": "needs a captured sandbox transaction",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "BLOCKED",
+      "note": "no capture available (non-interactive or approval failed)"
+    },
+    {
+      "spike": "S13",
+      "step": "S13 needs a browser and a buyer",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "MANUAL",
+      "note": "--non-interactive"
+    }
+  ],
+  "manual": []
+}

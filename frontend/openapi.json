@@ -1333,6 +1333,67 @@
         "title": "DelegationView",
         "type": "object"
       },
+      "DeliveryAddress": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "City",
+            "type": "string"
+          },
+          "country_code": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country Code",
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Line1",
+            "type": "string"
+          },
+          "line2": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Line2",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Name",
+            "type": "string"
+          },
+          "postal_code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "region",
+          "postal_code",
+          "country_code"
+        ],
+        "title": "DeliveryAddress",
+        "type": "object"
+      },
       "EntryCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3236,6 +3297,16 @@
       "RegisterRequest": {
         "additionalProperties": false,
         "properties": {
+          "delivery_address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryAddress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "display_name": {
             "maxLength": 120,
             "minLength": 1,
@@ -3253,18 +3324,29 @@
             "minLength": 8,
             "title": "Password",
             "type": "string"
+          },
+          "password_confirm": {
+            "maxLength": 200,
+            "minLength": 8,
+            "title": "Password Confirm",
+            "type": "string"
           }
         },
         "required": [
           "email",
           "password",
-          "display_name"
+          "display_name",
+          "password_confirm"
         ],
         "title": "RegisterRequest",
         "type": "object"
       },
       "RegisterResponse": {
         "properties": {
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -3277,7 +3359,8 @@
         },
         "required": [
           "user_id",
-          "email"
+          "email",
+          "csrf_token"
         ],
         "title": "RegisterResponse",
         "type": "object"
@@ -3375,6 +3458,63 @@
           "rules_hash"
         ],
         "title": "RulesResponse",
+        "type": "object"
+      },
+      "SavedAddressRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/DeliveryAddress"
+          },
+          "is_default": {
+            "default": false,
+            "title": "Is Default",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "title": "SavedAddressRequest",
+        "type": "object"
+      },
+      "SavedAddressResponse": {
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/DeliveryAddress"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "is_default"
+        ],
+        "title": "SavedAddressResponse",
+        "type": "object"
+      },
+      "SavedAddressesResponse": {
+        "properties": {
+          "addresses": {
+            "items": {
+              "$ref": "#/components/schemas/SavedAddressResponse"
+            },
+            "title": "Addresses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "addresses"
+        ],
+        "title": "SavedAddressesResponse",
         "type": "object"
       },
       "SearchReindexResponse": {
@@ -3558,6 +3698,64 @@
           "country_code"
         ],
         "title": "ShippingAddress",
+        "type": "object"
+      },
+      "SignupPrefill": {
+        "properties": {
+          "address": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Address",
+            "type": "object"
+          },
+          "display_name": {
+            "default": "",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "default": "",
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "title": "SignupPrefill",
+        "type": "object"
+      },
+      "SignupStatusResponse": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "prefill": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignupPrefill"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "not_started",
+              "pending",
+              "ready",
+              "expired",
+              "registered"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "status"
+        ],
+        "title": "SignupStatusResponse",
         "type": "object"
       },
       "SimRunRequest": {
@@ -5300,6 +5498,118 @@
         "summary": "Auth Logout"
       }
     },
+    "/api/v1/auth/paypal/callback": {
+      "get": {
+        "operationId": "paypal_signup_callback",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paypal Signup Callback"
+      }
+    },
+    "/api/v1/auth/paypal/start": {
+      "post": {
+        "operationId": "paypal_signup_start",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayPalLoginStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Paypal Signup Start"
+      }
+    },
+    "/api/v1/auth/paypal/status": {
+      "get": {
+        "operationId": "paypal_signup_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Paypal Signup Status"
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "operationId": "auth_register",
@@ -6071,6 +6381,239 @@
           }
         ],
         "summary": "Me Get"
+      }
+    },
+    "/api/v1/me/addresses": {
+      "get": {
+        "operationId": "buyer_addresses_list",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAddressesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Buyer Addresses List"
+      },
+      "post": {
+        "operationId": "buyer_addresses_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedAddressRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAddressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Buyer Addresses Create"
+      }
+    },
+    "/api/v1/me/addresses/{address_id}": {
+      "delete": {
+        "operationId": "buyer_addresses_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Address Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Buyer Addresses Delete"
+      },
+      "put": {
+        "operationId": "buyer_addresses_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Address Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedAddressRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedAddressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Buyer Addresses Update"
       }
     },
     "/api/v1/me/delegations": {

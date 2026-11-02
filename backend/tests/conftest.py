@@ -18,9 +18,16 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def database_url() -> str:
-    url = os.environ.get("DATABASE_URL")
+    url = os.environ.get("TEST_DATABASE_URL")
     if not url:
-        raise RuntimeError("DATABASE_URL is required for the Postgres test suite")
+        from dotenv import load_dotenv
+
+        load_dotenv(ROOT / ".env")
+        url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "TEST_DATABASE_URL or DATABASE_URL is required for the Postgres test suite"
+        )
     from fairpool.db.safety import require_test_database
 
     require_test_database(url)
@@ -30,11 +37,13 @@ def database_url() -> str:
 @pytest.fixture(scope="session")
 def migrated_db() -> None:
     """Apply migrations once; the tests themselves roll back."""
-    database_url()  # Refuse ordinary or hosted databases before invoking Alembic.
+    target_url = database_url()  # Refuse ordinary or hosted databases before invoking Alembic.
+    child_env = os.environ.copy()
+    child_env["DATABASE_URL"] = target_url
     subprocess.run(
         [sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"],
         cwd=ROOT,
-        env=os.environ.copy(),
+        env=child_env,
         check=True,
     )
 

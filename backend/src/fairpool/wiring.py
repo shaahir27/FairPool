@@ -18,11 +18,17 @@ from typing import TYPE_CHECKING, Any, Final
 from uuid import UUID
 
 from fairpool.adapters.paypal.gateway import RestPayPalGateway
+from fairpool.adapters.paypal.identity import RestPayPalIdentity
 from fairpool.config import Settings
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.payments import NotEnabled, Payee
 from fairpool.fakes.payments import FakePayPalGateway
-from fairpool.ports import AwardView, PayeeRef
+from fairpool.ports import AwardView, PayeeRef, PayPalIdentity
+
+
+def paypal_identity(settings: Settings) -> PayPalIdentity:
+    return RestPayPalIdentity(settings)
+
 
 if TYPE_CHECKING:
     from fairpool.infra.crypto import AesGcmCipher

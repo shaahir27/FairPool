@@ -47,6 +47,42 @@ Active buyer-order statuses (used by I8 and the partial unique index; see N1): O
 
 ### Identity
 
+**user_addresses** (CR-7, migration `0006`)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| user_id | uuid FK users | NOT NULL; indexed |
+| address_enc | bytea | NOT NULL; Fernet under ADDRESS_ENCRYPTION_KEY |
+| is_default | boolean | NOT NULL DEFAULT false |
+| created_at | timestamptz | NOT NULL DEFAULT now() |
+
+Unique partial index on `user_id WHERE is_default`. A user-row lock serializes
+default selection, edits and deletion. Row-level security has no browser policies;
+the backend returns only the authenticated buyer's addresses with no-store.
+Address-book edits do not modify order shipping snapshots.
+
+**paypal_signups** (CR-6 draft, migration `0005`)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| state_hash | char(64) | UNIQUE NOT NULL; keyed state digest |
+| browser_hash | char(64) | UNIQUE NOT NULL; keyed browser cookie digest |
+| account_key | char(64) NULL | HMAC of provider identifier |
+| profile_enc | bytea NULL | CR-7 / 0006: encrypted temporary name, email and partial address; cleared when registration completes |
+| expires_at | timestamptz | NOT NULL; database-clock deadline |
+| consumed_at | timestamptz NULL | Grant exchange started; never retry an unknown outcome |
+| authenticated_at | timestamptz NULL | Provider identity retrieved |
+| completed_at | timestamptz NULL | Buyer and link created atomically |
+| created_at | timestamptz | NOT NULL DEFAULT now() |
+
+Unique partial index on `account_key WHERE completed_at IS NOT NULL` reserves
+a completed signup's identity even after link revocation. Only keyed digests
+are stored; no raw cookie, grant code, access token or provider identifier.
+Row-level security is enabled with no client policies: only the backend's
+database owner accesses signup state, never Supabase browser roles.
+
 **users**
 
 | Column | Type | Notes |

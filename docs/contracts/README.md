@@ -6,6 +6,13 @@ Current version: `contracts-v1.4`, tagged after the Phase 4 change request. Noth
 
 ## Files
 
+CR-7 (owner requested 2026-11-02): consented PayPal profile/email/address prefill,
+encrypted temporary signup details, encrypted buyer address book and signup delivery
+step. Four owner-only session endpoints support multiple addresses and one default;
+checkout reuses a selected copy through its existing shipping request. Migration
+0006 adds user_addresses and paypal_signups.profile_enc. T03B03 / T06B05 are affected.
+No payment, fairness, account-verification or agent permission changes are included.
+
 | File | What it fixes | Primary owner of changes |
 |---|---|---|
 | `db-schema.md` | Every table, column, enum, constraint, trigger | Both (migration `0001` is built by Member A) |
@@ -46,6 +53,16 @@ Current version: `contracts-v1.4`, tagged after the Phase 4 change request. Noth
 | N14 | The delivery address is collected when the buyer continues to PayPal (not at join) and stored encrypted on the buyer order; it reaches the merchant only after the lot is FUNDED. |
 
 ## Change log
+
+### CR-6: PayPal-first buyer registration (owner authorized 2026-11-02)
+
+The owner requested PayPal authentication before account setup, with returning
+buyers keeping email/password login, and subsequently authorized committing and
+pushing the changes for hosted testing. This change request covers the authentication slice of T03B03 and T06B05, across both
+solo-operated lanes. It adds anonymous browser-bound signup attempts, migration
+0005, three public signup endpoints and mandatory PayPal proof for public registration.
+It does not change payment approval, pool eligibility or the future agent lane.
+No new contract tag or phase-gate claim is made by this change request.
 
 | Version | Date | Change | Approved by |
 |---|---|---|---|

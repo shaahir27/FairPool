@@ -6,6 +6,14 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 ## Project facts
 
+### Owner authentication follow-up — IN REVIEW (2026-11-02)
+
+Redirect follow-up: the user's PayPal rejection exposed the incorrect internal `/signin/authorize` entry point inherited by signup and linking. Both now use the S1 harness and official guide's `/connect?flowEntry=static`; regression assertions first failed on the old path. Running-app inspection confirmed its client ID matches `.env`, scope is only `openid`, and the callback is exactly `http://localhost:8000/api/v1/auth/paypal/callback`. This does not prove the same client ID is selected in the PayPal dashboard or that the live consent flow has succeeded.
+
+Owner-authorized CR-6 follow-up after IG-5: PayPal-first enrollment (FR-ID-06, T03B03 and authentication slice of T06B05), real Sandbox identity adapter, migration 0005, and three signup screens in the existing palette. The owner authorized commit and push for hosted testing. No future agent participation features or gate/tag changes are included. Validation and live Sandbox signup status are recorded separately from historical IG-5 evidence.
+
+Verification: 933 offline backend tests passed (94.50% domain coverage), 45 frontend tests passed, lint/type/import/docs/OpenAPI checks and production frontend build passed. `make verify` reached its final secrets step but could not execute the WinGet Gitleaks binary inside the sandbox; the same binary ran separately with elevated execution and found no leaks in history or the uncommitted diff/new source files. Graphify AST update completed (SQL parser unavailable; Markdown semantics not refreshed). Migration 0005 and signup-table RLS verified on local, test and Supabase databases; Supabase `alembic check` reports no pending operations. Local running API returns signup status enabled and starts the Sandbox redirect with an HttpOnly cookie and no-store response. Real PayPal signup remains pending exact callback registration: PayPal currently returns invalid client_id or redirect_uri. Browser automation unavailable, so no screenshot-based visual verification or provider-dashboard change is claimed. Owner authorized commit and push; live signup verification remains pending.
+
 | Item | Value |
 |---|---|
 | Repository URL | https://github.com/shaahir27/FairPool.git |
@@ -691,3 +699,50 @@ Owner's remaining steps:
   and the R4 and R6 readings);
 - the hosted service still runs the Phase 4 image, so the new checkout screens and the
   freshly seeded Supabase pool need a redeploy before they are reachable there.
+
+Authentication push preparation (2026-11-02): fixed the reported Uvicorn access formatter crash by preserving its five redacted arguments. The regression uses the real AccessFormatter and applies the filter twice; it failed before the fix and all 18 logging tests pass afterward. PayPal Sandbox accepts the configured client credentials, but the user still sees provider-side invalid client_id or redirect_uri. No successful consent callback is claimed.
+
+CR-7 follow-up — IN REVIEW (owner request 2026-11-02): the owner confirmed the
+HTTPS ngrok PayPal return works and requested name/email/address prefill, reusable
+encrypted delivery addresses and a clean separate delivery step. Screenshots show
+Full Name, Email and address attributes selected; a fresh consent round trip is
+still needed for expanded scopes. The earlier commit/push authorization is on hold
+until the owner tests the tunnel flow. Local-only URL changes are ignored.
+
+CR-7 validation (2026-11-02): `make verify` exits 0: 938 backend tests,
+49 frontend tests, 94.50% domain coverage, lint/types/imports/docs/OpenAPI and
+Gitleaks history scan pass. Frontend production build and separate redacted
+working-diff/new-file secret scan pass. Graphify AST update completes; SQL parser
+is unavailable and Markdown semantics are not refreshed. Migration 0006 and
+`alembic check` pass on local and Supabase; the test database migrates through
+the same revision. Public ngrok pages and signup-start endpoint respond 200 with
+the HTTPS callback and expanded standard scopes. Fresh PayPal profile/address
+claims and screenshot verification remain for the owner; no commit or push.
+
+PayPal prefill root cause, isolated live on 2026-11-02 with the owner's
+sandbox buyer and a Chrome-driven full consent: the exchange succeeds and the token
+response carries `access_token expires_in nonce refresh_token scope state token_type`
+but **no `id_token`**, and both documented identity endpoints answer with only
+`['sub','user_id']` - no name, no email, no address, no payer_id. Adding `nonce` to the
+authorization request changed nothing and was reverted. The scope list is delivered
+correctly: PayPal re-serialises it as
+`openid profile email address https://uri.paypal.com/services/paypalattributes`, so the
+`+` encoding is not the fault. A second, never-consented US buyer (created for this
+test; its attempts give a distinct account key, so the pair really is two accounts) and
+a `nonce` on the authorization request were run as a two-by-two against the first buyer
+without a nonce: all four give the same token response with no `id_token` and the same
+`['sub','user_id']` from both endpoints, and no consent screen in any of them. The stale
+grant is therefore ruled out outright - the never-consented buyer saw no consent screen
+on its *first* run minutes after being created, so Sandbox approves silently and never
+prompts - as is anything in our request or our parser.
+The owner then confirmed the callback is registered in the Login with PayPal **Return
+URL** field, so the app's LIWP setup matches the guide. What the guide also states is
+`Because Log in with PayPal involves sharing customer data, PayPal must review your app
+and approve it`, which is the one remaining candidate and is visible only on the app
+page. Nothing in our code can make PayPal send claims it does not send.
+One real defect was found and fixed on our side while proving this: the adapter merged
+the second endpoint's response only on an exact identifier match, and the two schemas
+report the same account as a bare `user_id` and as its identity URL, so the claims
+would have been dropped even if PayPal had sent them. `_same_account()` compares the
+two documented forms without re-keying the stored identifier (BD-12 holds), with a test
+that the claims now arrive and a test that another account is still ignored.

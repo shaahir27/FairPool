@@ -26,8 +26,10 @@ from .identity import (
     Delegation,
     OAuthState,
     PayPalLink,
+    PayPalSignup,
     Session,
     User,
+    UserAddress,
     VaultSetupAttempt,
     VaultToken,
 )
@@ -35,6 +37,7 @@ from .platform import AiRun, AuditLog, IdempotencyKey, Job, Notification, SimRun
 from .pools import Allocation, Lot
 
 __all__ = [
+    "UserAddress",
     "AiRun",
     "Allocation",
     "AuditLog",
@@ -60,6 +63,7 @@ __all__ = [
     "PayPalAuthorization",
     "PayPalCapture",
     "PayPalLink",
+    "PayPalSignup",
     "PayPalOrder",
     "PayPalRefund",
     "Pool",

@@ -15,6 +15,7 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 | ID | Requirement | Source |
 |---|---|---|
 | FR-ID-01 | Customers create a FairPool account | IDEA 1 |
+| FR-ID-06 | Owner request 2026-11-02 (CR-6 draft): public buyer registration requires a browser-bound PayPal login first, then email, display name, password and confirmation; returning buyers sign in with FairPool credentials. A PayPal identity previously used to enroll cannot enroll another account. This is account-level duplicate control and grants no payment permission | Owner authentication request |
 | FR-ID-02 | A customer can connect a PayPal account through Log in with PayPal (scope `openid` only: the account-attributes scope was rejected by this app in S1) when it works for the app; the login identifier and the checkout `payer_id` are kept as separate provider identifiers (`DEDUPE_MODE=two_keys`) and neither proves one human; if it is required for entry, say so before the buyer joins and explain what is requested | IDEA 1 |
 | FR-ID-03 | One entry per linked PayPal account per pool; described as account-level duplicate control, never as person-level identity or complete anti-scalper protection | IDEA 1 |
 | FR-ID-04 | Checkout-time duplicate control: the approved order's payer_id must not be held by another active seat in the pool, and must equal the linked key when `DEDUPE_MODE=full` | DESIGN 7.3 |

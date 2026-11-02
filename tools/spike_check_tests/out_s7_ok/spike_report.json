@@ -1,0 +1,275 @@
+{
+  "run_id": "94754c5c",
+  "version": "1.0.0",
+  "facts": {
+    "S7_payee_email_eligible": true
+  },
+  "implications": {
+    "CORE": "The PayPal Sandbox basics the adapter contract relies on (token, create, replay, early-authorize rejection, mock error) behave as recorded.",
+    "S7": "The second payee can be fully managed by the app; the owner may choose payee_email (sandbox-only, labelled)."
+  },
+  "rows": [
+    {
+      "spike": "CORE",
+      "step": "host guard: only the two Sandbox hosts are used (checklist 1.1)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "127.0.0.1, 127.0.0.1"
+    },
+    {
+      "spike": "CORE",
+      "step": "R1 OAuth token (V1, checklist 1.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "fields=['access_token', 'app_id', 'expires_in', 'nonce', 'scope', 'token_type'] expires_in=32400 scopes=2"
+    },
+    {
+      "spike": "CORE",
+      "step": "R2 create AUTHORIZE order, payee set (V2)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg2ee3ed3dd0",
+      "result": "PASS",
+      "note": "payee_email=present merchant_id=MISSING (not required)"
+    },
+    {
+      "spike": "CORE",
+      "step": "R3 replay create with the same PayPal-Request-Id: 200 and same order (V3, checklist 6.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg3eff4d17f5",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4a authorize before approval -> 422 ORDER_NOT_APPROVED (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbg96a2d172c3",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4b capture before approval is rejected (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbgf5742a5d6c",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R5 a second order gets a distinct ID (V5)",
+      "http": "201",
+      "status": "-",
+      "debug_id": "dbge58f808a8d",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R6 negative test DUPLICATE_INVOICE_ID: 422 and no order created (V6, checklist 6.1)",
+      "http": "422",
+      "status": "DUPLICATE_INVOICE_ID",
+      "debug_id": "dbg3cc34f4083",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R7 the seven event types of V7 are listed",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgd8a9d0c021",
+      "result": "PASS",
+      "note": "8 types listed"
+    },
+    {
+      "spike": "CORE",
+      "step": "R8 list webhooks",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgf449496c08",
+      "result": "PASS",
+      "note": "0 listeners registered"
+    },
+    {
+      "spike": "CORE",
+      "step": "R9 INR is not a supported currency for Orders v2 (V12; checklist 3.7)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": "not re-tested by this script; recorded fact from the earlier run"
+    },
+    {
+      "spike": "S7",
+      "step": "create S7-A second-seller payee (authorize then void) (level 0)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg3864a975fa",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "buyer approval of S7-A second-seller payee (authorize then void)",
+      "http": "200",
+      "status": "APPROVED",
+      "debug_id": "dbga60b069535",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "check after approval: status APPROVED and intent AUTHORIZE",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "status=APPROVED intent=AUTHORIZE"
+    },
+    {
+      "spike": "S7",
+      "step": "check after approval: currency USD and amount 1.00",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "USD 1.00"
+    },
+    {
+      "spike": "S7",
+      "step": "check after approval: payee present and matches (merchant ID reported as missing, never required)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "email=present merchant_id=MISSING"
+    },
+    {
+      "spike": "S7",
+      "step": "check after approval: payer country US",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "country=US"
+    },
+    {
+      "spike": "S7",
+      "step": "GET order payee fields (what PayPal shows)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": "payee_email=present merchant_id=MISSING; matches second seller=True"
+    },
+    {
+      "spike": "S7",
+      "step": "authorize (S7-A): 201 and AUTHORIZATION status CREATED",
+      "http": "201",
+      "status": "authorization=CREATED; order=COMPLETED",
+      "debug_id": "dbg0a6943b0a8",
+      "result": "PASS",
+      "note": "O1: the COMPLETED seen earlier is the ORDER status; the authorization object must read CREATED"
+    },
+    {
+      "spike": "S7",
+      "step": "replay authorize with the same request ID (S7-A): 200 and same authorization",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg34357a3984",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "void the second seller's authorization",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgb690f196ba",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "create S7-B second-seller payee (capture then refund) (level 0)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbgb5b860b20f",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "buyer approval of S7-B second-seller payee (capture then refund)",
+      "http": "200",
+      "status": "APPROVED",
+      "debug_id": "dbg56a1ebe6cb",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "authorize (S7-B): 201 and AUTHORIZATION status CREATED",
+      "http": "201",
+      "status": "authorization=CREATED; order=COMPLETED",
+      "debug_id": "dbgf116532baa",
+      "result": "PASS",
+      "note": "O1: the COMPLETED seen earlier is the ORDER status; the authorization object must read CREATED"
+    },
+    {
+      "spike": "S7",
+      "step": "replay authorize with the same request ID (S7-B): 200 and same authorization",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg1982627aa3",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "capture the second seller's authorization",
+      "http": "201",
+      "status": "COMPLETED",
+      "debug_id": "dbg12240695e6",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "fully refund the second seller's capture",
+      "http": "201",
+      "status": "COMPLETED",
+      "debug_id": "dbg7001bdd066",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "S7",
+      "step": "control: payee that is not a sandbox account (record the failure mode)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbg22e56bc6cb",
+      "result": "INFO",
+      "note": "order creation outcome only"
+    },
+    {
+      "spike": "S7",
+      "step": "result",
+      "http": "-",
+      "status": "payee_email ELIGIBLE: authorize, void, capture and refund all worked",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": ""
+    }
+  ],
+  "manual": []
+}

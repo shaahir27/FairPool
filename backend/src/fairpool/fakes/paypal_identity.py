@@ -69,7 +69,8 @@ class FakePayPalIdentity:
         self._tokens[access_token] = account_id
         return ProviderTokens(access_token=access_token, expires_in=3600)
 
-    async def userinfo(self, access_token: str) -> ProviderProfile:
+    async def userinfo(self, access_token: str, id_token: str | None = None) -> ProviderProfile:
+        del id_token  # the fake has no ID token; the port allows one (CR-6).
         self.calls.append("userinfo")
         if self.failure == "unavailable":
             raise PayPalIdentityUnavailable

@@ -54,10 +54,10 @@ def test_state_machine_states_equal_the_five_ordering_enums():
         assert values == MACHINES[machine_name].states, machine_name
 
 
-def test_all_35_tables_exist():
+def test_all_37_tables_exist():
     contract = set(re.findall(r"^\*\*([a-z_]+)\*\*", SCHEMA.read_text(encoding="utf-8"), re.M))
     model_tables = set(Base.metadata.tables)
-    assert len(contract) == 35
+    assert len(contract) == 37
     assert model_tables == contract
 
 

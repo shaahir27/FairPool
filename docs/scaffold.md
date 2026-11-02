@@ -98,7 +98,7 @@ Versions and libraries are fixed by BD-02, BD-03, BD-15 to BD-18 in `docs/decisi
 
 ## 4. Containers
 
-`deploy/docker-compose.yml` services: `db` (Postgres 16 with `citext` and `pg_trgm`), `api`, `worker`, `frontend`, and an optional `elastic` profile (single-node Elasticsearch for local search experiments; the production-like path is the Elastic Cloud trial, S8). Environment comes from `.env`, never from the compose file. At PH0 the `frontend` service serves `deploy/frontend-placeholder/index.html`; T01B03 replaces the build context with the real Vite app. `render.yaml` defines the `api` web service and static frontend; the live database is Supabase through `DATABASE_URL`, and the paid worker is added at deployment time.
+`deploy/docker-compose.yml` services: `api`, `worker`, `frontend`, `db` under profile `test-db` (Postgres 16 with `citext` and `pg_trgm` for isolated offline tests only), and an optional `elastic` profile (single-node Elasticsearch for local search experiments; the production-like path is the Elastic Cloud trial, S8). Environment comes from `.env`, never from the compose file; normal local app and Render both use Supabase via `DATABASE_URL`. Offline tests read `TEST_DATABASE_URL`, and `backend/src/fairpool/db/safety.py` rejects any target that is not a loopback database whose name ends in `_test`, so a test run can never reset or migrate the hosted database. At PH0 the `frontend` service serves `deploy/frontend-placeholder/index.html`; T01B03 replaces the build context with the real Vite app. `render.yaml` defines the `api` web service and static frontend; the live database is Supabase through `DATABASE_URL`, and the paid worker is added at deployment time.
 
 ## 5. Import boundaries (enforced by `tools/check_imports.py`)
 
@@ -188,4 +188,4 @@ Web service from `Dockerfile.api` (uvicorn), background worker from `Dockerfile.
 
 ## 12. Frontend routes
 
-Public: `/audit/:poolId`. Auth: `/login`, `/register`. Buyer: `/` (Discover and Join), `/my-pools`, `/orders`, `/pools/:poolId`, `/offers/:buyerOrderId`, `/orders/:buyerOrderId`, `/settings/paypal`, `/settings/agents`. Merchant: `/merchant/demand`, `/merchant/bids`, `/merchant/fulfillment`, `/merchant/developer`, `/merchant/profile`. Ops: `/ops/*`. The buyer and merchant shells render exactly the tabs in FR-UI-01 to FR-UI-07.
+Public: `/audit/:poolId`. Auth: `/login`, `/register`, `/register/connected`, `/register/details` (CR-6 draft). Buyer: `/` (Discover and Join), `/my-pools`, `/orders`, `/pools/:poolId`, `/offers/:buyerOrderId`, `/orders/:buyerOrderId`, `/settings/paypal`, `/settings/agents`. Merchant: `/merchant/demand`, `/merchant/bids`, `/merchant/fulfillment`, `/merchant/developer`, `/merchant/profile`. Ops: `/ops/*`. The buyer and merchant shells render exactly the tabs in FR-UI-01 to FR-UI-07.

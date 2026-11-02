@@ -1,0 +1,132 @@
+{
+  "run_id": "c87a1a2e",
+  "version": "1.0.0",
+  "facts": {
+    "DEDUPE_MODE": "checkout_only",
+    "REQUIRE_PAYPAL_LINK": false
+  },
+  "implications": {
+    "CORE": "The PayPal Sandbox basics the adapter contract relies on (token, create, replay, early-authorize rejection, mock error) behave as recorded.",
+    "S1": "Login cannot provide an identifier: dedupe by checkout payer_id only."
+  },
+  "rows": [
+    {
+      "spike": "CORE",
+      "step": "host guard: only the two Sandbox hosts are used (checklist 1.1)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "127.0.0.1, 127.0.0.1"
+    },
+    {
+      "spike": "CORE",
+      "step": "R1 OAuth token (V1, checklist 1.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "-",
+      "result": "PASS",
+      "note": "fields=['access_token', 'app_id', 'expires_in', 'nonce', 'scope', 'token_type'] expires_in=32400 scopes=2"
+    },
+    {
+      "spike": "CORE",
+      "step": "R2 create AUTHORIZE order, payee set (V2)",
+      "http": "201",
+      "status": "CREATED",
+      "debug_id": "dbge2bb430e2d",
+      "result": "PASS",
+      "note": "payee_email=present merchant_id=MISSING (not required)"
+    },
+    {
+      "spike": "CORE",
+      "step": "R3 replay create with the same PayPal-Request-Id: 200 and same order (V3, checklist 6.2)",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbged74c1dd75",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4a authorize before approval -> 422 ORDER_NOT_APPROVED (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbgd5d9f46287",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R4b capture before approval is rejected (V4)",
+      "http": "422",
+      "status": "ORDER_NOT_APPROVED",
+      "debug_id": "dbg80778861cd",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R5 a second order gets a distinct ID (V5)",
+      "http": "201",
+      "status": "-",
+      "debug_id": "dbg12f2efcf63",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R6 negative test DUPLICATE_INVOICE_ID: 422 and no order created (V6, checklist 6.1)",
+      "http": "422",
+      "status": "DUPLICATE_INVOICE_ID",
+      "debug_id": "dbg13dd031f5b",
+      "result": "PASS",
+      "note": ""
+    },
+    {
+      "spike": "CORE",
+      "step": "R7 the seven event types of V7 are listed",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbgf9890539f1",
+      "result": "PASS",
+      "note": "8 types listed"
+    },
+    {
+      "spike": "CORE",
+      "step": "R8 list webhooks",
+      "http": "200",
+      "status": "-",
+      "debug_id": "dbg9a01ff4359",
+      "result": "PASS",
+      "note": "0 listeners registered"
+    },
+    {
+      "spike": "CORE",
+      "step": "R9 INR is not a supported currency for Orders v2 (V12; checklist 3.7)",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": "not re-tested by this script; recorded fact from the earlier run"
+    },
+    {
+      "spike": "S1",
+      "step": "variant A: state matches",
+      "http": "-",
+      "status": "-",
+      "debug_id": "-",
+      "result": "FAIL",
+      "note": "state mismatch: do not use this code"
+    },
+    {
+      "spike": "S1",
+      "step": "rule: no usable login identifier",
+      "http": "-",
+      "status": "DEDUPE_MODE=checkout_only; REQUIRE_PAYPAL_LINK=false",
+      "debug_id": "-",
+      "result": "INFO",
+      "note": ""
+    }
+  ],
+  "manual": []
+}

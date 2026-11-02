@@ -7,7 +7,7 @@ shapes exchanged across port boundaries.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
@@ -408,13 +408,21 @@ class VaultPermission:
 class ProviderTokens:
     access_token: str
     expires_in: int
+    #: PayPal's documented place for the profile claims of a Login grant; userinfo
+    #: stays the only source of the identifier (CR-6).
+    id_token: str | None = None
+    #: The scope names the provider granted, never a token or grant value (CR-6).
+    #: Whether ``profile email address`` came back is the difference between a parse
+    #: gap and an attribute set the Sandbox app never approved.
+    granted_scopes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class ProviderProfile:
     """One identifier from the userinfo response; the raw value never reaches storage."""
 
-    account_id: str
+    account_id: str = field(repr=False)
+    details: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @runtime_checkable
@@ -466,4 +474,4 @@ class PayPalIdentity(Protocol):
 
     async def exchange_code(self, code: str) -> ProviderTokens: ...
 
-    async def userinfo(self, access_token: str) -> ProviderProfile: ...
+    async def userinfo(self, access_token: str, id_token: str | None = None) -> ProviderProfile: ...

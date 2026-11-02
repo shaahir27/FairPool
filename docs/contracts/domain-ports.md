@@ -1,5 +1,11 @@
 # Contract: ports, jobs and handoffs
 
+CR-7 owner-requested profile prefill: `ProviderProfile` retains its opaque
+`account_id` and adds `details: dict[str, Any]` (default empty, excluded from repr).
+Only email, display_name and partial address fields are admitted by the real adapter;
+no raw provider identifier, token, verification claim or payment permission is exposed.
+Absent fields mean manual entry, not authentication failure.
+
 This file lets Member A and Member B build in parallel. Each module codes against a **port** (a Python `Protocol` in `backend/src/fairpool/ports.py`) and tests against a **fake** (in `backend/src/fairpool/fakes/`). The real implementation replaces the fake at the gate named in `docs/implementation-plan.md`. Ports are shared files: changing one needs a contract change request.
 
 ## 1. Rules for every port and service

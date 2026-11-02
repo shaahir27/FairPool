@@ -47,6 +47,7 @@ from fairpool.modules.pools.join import JoinService
 from fairpool.modules.pools.receipts import signing_seed
 from fairpool.modules.pools.vault import VaultService
 from fairpool.ports import PayPalIdentity
+from tests.identity_helpers import provision_buyer
 from tests.integration.test_triggers import iso_in
 from tests.unit.test_settings import make_settings, vault_key
 
@@ -198,11 +199,12 @@ async def env(db_session: AsyncSession) -> AsyncIterator[dict[str, Any]]:
 
 
 async def register(client: httpx.AsyncClient, email: str) -> None:
-    result = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "display_name": "Buyer " + email[:6]},
+    await provision_buyer(
+        client,
+        email=email,
+        password=PASSWORD,
+        display_name="Buyer " + email[:6],
     )
-    assert result.status_code == 200, result.text
 
 
 async def sign_in(client: httpx.AsyncClient, email: str) -> str:
@@ -265,6 +267,8 @@ async def test_start_writes_one_state_row_bound_to_the_initiating_session(
     user_id = await me_id(client)
 
     url, state = await start(client)
+    assert urlparse(url).path == "/connect"
+    assert query(url)["flowEntry"] == "static"
 
     parsed = urlparse(url)
     assert parsed.scheme == "https" and parsed.netloc == "www.sandbox.paypal.com"
@@ -724,18 +728,16 @@ def test_the_login_module_reaches_no_host_and_writes_no_other_table() -> None:
     assert source.count("profile.account_id") == 1
 
 
-def test_the_phase_three_identity_path_is_the_port_and_the_fake() -> None:
-    """Nothing here claims a live provider: the real client does not exist yet."""
+def test_identity_wiring_uses_the_real_adapter_and_tests_inject_the_fake() -> None:
+    """CR-6: enabling signup must never enable a fixture identity on real traffic."""
+    from fairpool.adapters.paypal.identity import RestPayPalIdentity
+    from fairpool.wiring import paypal_identity
+
     fake = FakePayPalIdentity()
     assert isinstance(fake, PayPalIdentity)
-    assert set(vars(fake)) <= {"accounts", "failure", "calls", "_tokens"}
-
-    wiring = (SOURCE / "wiring.py").read_text(encoding="utf-8")
-    assert "PayPalIdentity" not in wiring, "Phase 4 wires the adapter in wiring.py"
-    adapter_files = {path.name for path in (SOURCE / "adapters" / "paypal").iterdir()}
-    assert not [name for name in adapter_files if "identity" in name], (
-        "no real login client exists yet: Phase 3 CI proves the fake"
-    )
+    provider = paypal_identity(login_settings())
+    assert isinstance(provider, RestPayPalIdentity)
+    assert isinstance(provider, PayPalIdentity)
 
 
 # --------------------------------------------------------------------- pool setup

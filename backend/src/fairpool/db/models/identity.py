@@ -78,6 +78,52 @@ class OAuthState(Base):
     )
 
 
+class PayPalSignup(Base):
+    __tablename__ = "paypal_signups"
+    __table_args__ = (
+        Index(
+            "uq_paypal_signups_completed_account",
+            "account_key",
+            unique=True,
+            postgresql_where=text("completed_at IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    state_hash: Mapped[str] = mapped_column(CHAR(64), unique=True, nullable=False)
+    browser_hash: Mapped[str] = mapped_column(CHAR(64), unique=True, nullable=False)
+    account_key: Mapped[str | None] = mapped_column(CHAR(64), nullable=True)
+    profile_enc: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    authenticated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
+class UserAddress(Base):
+    __tablename__ = "user_addresses"
+    __table_args__ = (
+        Index(
+            "uq_user_addresses_default", "user_id", unique=True, postgresql_where=text("is_default")
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    address_enc: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    is_default: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
 class VaultToken(Base):
     __tablename__ = "vault_tokens"
     __table_args__ = (
