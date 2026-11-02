@@ -3,21 +3,49 @@
 @tailwind utilities;
 
 /*
- * Restrained premium light palette. Every colour is a token; components use
- * the Tailwind theme names (canvas, surface, ink, muted, line, accent, warn)
- * and never a one-off value.
+ * The palette chosen for the product (batches: midnight, cream, sand, buttermilk,
+ * orange). Every colour is a token; components use the Tailwind theme names and
+ * never a one-off value. Orange appears on exactly one primary action per screen.
  */
 :root {
-  --color-canvas: 247 246 242;
+  --color-canvas: 248 247 226;
   --color-surface: 255 255 255;
-  --color-ink: 26 34 38;
-  --color-muted: 100 110 115;
-  --color-line: 226 224 217;
-  --color-accent: 15 92 84;
-  --color-accent-strong: 9 68 62;
-  --color-accent-soft: 229 241 238;
+  --color-ink: 15 60 101;
+  --color-muted: 77 96 128;
+  --color-line: 233 217 202;
+  --color-accent: 244 114 30;
+  --color-accent-strong: 194 84 15;
+  --color-accent-soft: 255 242 186;
   --color-warn: 138 86 20;
   --color-warn-soft: 250 243 227;
+  --color-danger: 158 43 37;
+  --color-danger-soft: 246 228 226;
+
+  /* Motion tokens (improve-animations/AUDIT.md); never hand-type a curve. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-press: 120ms;
+  --dur-enter: 200ms;
+  --dur-swap: 300ms;
+  --dur-exit: 160ms;
+  --dur-sheet: 240ms;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 @layer base {
@@ -39,5 +67,62 @@
 
   :focus-visible {
     @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
+  }
+}
+
+/* Entrances ease out; a reversible change retargets instead of restarting. */
+@layer utilities {
+  .enter-rise {
+    animation: enter-rise var(--dur-enter) var(--ease-out) both;
+  }
+
+  @keyframes enter-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .press {
+    transition: transform var(--dur-press) var(--ease-out);
+  }
+
+  .press:active {
+    transform: scale(0.98);
+  }
+
+  /* View transitions: only the named elements morph; the rest crossfades. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--dur-enter);
+    animation-timing-function: var(--ease-out);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 1ms;
+    --dur-enter: 1ms;
+    --dur-swap: 1ms;
+    --dur-exit: 1ms;
+    --dur-sheet: 1ms;
+  }
+
+  .enter-rise {
+    animation: none;
+  }
+
+  .press:active {
+    transform: none;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-group(*) {
+    animation: none !important;
   }
 }

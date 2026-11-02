@@ -704,7 +704,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Merchant Bid Get */
+        /**
+         * Merchant Bid Get
+         * @description A merchant reads only its own bid; another merchant's id is NOT_FOUND (I11).
+         */
         get: operations["merchant_bid_get"];
         put?: never;
         post?: never;
@@ -723,7 +726,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Merchant Bid Confirm */
+        /**
+         * Merchant Bid Confirm
+         * @description Confirm the current revision; a stale revision is a validation error.
+         */
         post: operations["merchant_bid_confirm"];
         delete?: never;
         options?: never;
@@ -773,7 +779,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Merchant Bid Put */
+        /**
+         * Merchant Bid Put
+         * @description Save a new sealed revision and return its signed receipt (FR-AU-02).
+         */
         put: operations["merchant_bid_put"];
         post?: never;
         delete?: never;
@@ -927,7 +936,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Merchant Profile */
+        /**
+         * Merchant Profile
+         * @description Create or update the merchant row and stamp the three attestations.
+         */
         post: operations["merchant_profile"];
         delete?: never;
         options?: never;
@@ -1008,8 +1020,9 @@ export interface paths {
          * Offers Continue
          * @description BO-01: create the provider order once and hand the browser its approval URL.
          *
-         *     ``payload.shipping`` is validated by the schema and, per N14/T05A01, not stored
-         *     yet; the browser still sends no amount: the total is the stored order's (I3).
+         *     ``payload.shipping`` is sealed into ``buyer_orders.shipping_enc`` before the
+         *     provider call (N14); the browser still sends no amount: the total is the stored
+         *     order's (I3).
          */
         post: operations["offers_continue"];
         delete?: never;
@@ -2295,7 +2308,15 @@ export interface components {
              * Format: date-time
              */
             offer_expires_at: string;
+            /** Offer Started At */
+            offer_started_at?: string | null;
+            /** Pool Id */
+            pool_id?: string | null;
+            /** Pool Title */
+            pool_title?: string | null;
             product: components["schemas"]["ProductDisplay"];
+            /** Server Now */
+            server_now?: string | null;
             /** Status */
             status: string;
             terms: components["schemas"]["OfferTerms"];
@@ -2351,9 +2372,18 @@ export interface components {
             history?: components["schemas"]["OrderHistoryItem"][];
             /** Labels */
             labels?: string[];
+            /** Lot Id */
+            lot_id?: string | null;
             /** Lot Status */
             lot_status: string;
             paypal: components["schemas"]["OrderPayPalState"];
+            /** Placed At */
+            placed_at?: string | null;
+            /** Pool Id */
+            pool_id?: string | null;
+            receipt?: components["schemas"]["EntryReceipt"] | null;
+            /** Reject Reason */
+            reject_reason?: string | null;
             /** Status */
             status: string;
             /** Total Cents */

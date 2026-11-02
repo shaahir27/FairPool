@@ -35,7 +35,7 @@ BASE_VALUES: dict[str, Any] = {
     "secret_key": "dummy-secret-key",
     "hmac_key": "dummy-hmac-key",
     "receipt_signing_key": "dummy-receipt-signing-key",
-    "address_encryption_key": "dummy-address-encryption-key",
+    "address_encryption_key": base64.b64encode(b"fairpool-test-address-key-32byt").decode(),
     "paypal_client_id": "dummy-sandbox-client-id",
     "paypal_client_secret": "dummy-sandbox-client-secret",
 }

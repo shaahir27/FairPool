@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -23,7 +24,7 @@ from tests.integration.test_open_checkout import World, build_world
 
 pytestmark = pytest.mark.integration
 
-SEED = signing_seed("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8")
+SEED = signing_seed(base64.b64encode(b"fairpool-test-bid-receipt-seed32").decode())
 
 
 def structured(**overrides: Any) -> dict[str, Any]:

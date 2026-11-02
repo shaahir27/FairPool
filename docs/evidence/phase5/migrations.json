@@ -1,0 +1,5 @@
+{
+  "status": "passed",
+  "revision": "0004",
+  "note": "Phase 5 adds no migration: buyer_orders.shipping_enc is in 0001 and the bid, merchant and refund tables already exist. alembic upgrade head and alembic check were run against the loopback fairpool_test database."
+}

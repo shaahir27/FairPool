@@ -1,0 +1,6 @@
+{
+  "status": "pending",
+  "owner_step": "One real Sandbox buyer on the redirect path plus C-08 and C-09; the operator approves each USD 1 AUTHORIZE order in the Sandbox buyer account.",
+  "ready": "The code path is complete: shipping is sealed before the provider call, the adapter is the real REST gateway, and the interactive tests are written and skip cleanly without credentials.",
+  "not_claimed": "No live Sandbox call was made in this session, so no ledger-vs-GET equality table exists yet."
+}

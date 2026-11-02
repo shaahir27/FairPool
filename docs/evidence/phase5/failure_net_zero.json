@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "tests": [
+    "tests/integration/test_failure_path.py::test_pt11_failure_path_ends_at_net_zero",
+    "tests/integration/test_failure_path.py::test_a_declined_capture_lot_still_closes_at_zero",
+    "tests/integration/test_failure_path.py::test_f09_a_capture_that_completes_late_is_refunded",
+    "tests/integration/test_failure_path.py::test_f24_a_failed_refund_keeps_the_lot_failing"
+  ],
+  "result": "9 passed with the merchant-profile tests; net_paid_cents equals zero on both closing paths, F9 blocks LS-10 while a capture is pending, and F24 keeps the lot FAILING when a refund cannot complete.",
+  "note": "The new fault modules carry both the integration and faults markers, so the gate's '-m faults' run now collects F9 and F24; the pre-existing fault files carry only the integration marker and are not selected by that command."
+}

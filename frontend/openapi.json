@@ -2425,8 +2425,55 @@
             "title": "Offer Expires At",
             "type": "string"
           },
+          "offer_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Started At"
+          },
+          "pool_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Id"
+          },
+          "pool_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Title"
+          },
           "product": {
             "$ref": "#/components/schemas/ProductDisplay"
+          },
+          "server_now": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Now"
           },
           "status": {
             "title": "Status",
@@ -2582,12 +2629,69 @@
             "title": "Labels",
             "type": "array"
           },
+          "lot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Id"
+          },
           "lot_status": {
             "title": "Lot Status",
             "type": "string"
           },
           "paypal": {
             "$ref": "#/components/schemas/OrderPayPalState"
+          },
+          "placed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placed At"
+          },
+          "pool_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Id"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
           },
           "status": {
             "title": "Status",

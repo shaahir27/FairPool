@@ -1,19 +1,19 @@
-import { AreaLayout, PlaceholderPage } from "../shared";
+import { useParams } from "react-router-dom";
 
+import { AreaLayout } from "../shared";
+
+import { OfferCheckout } from "./OfferCheckout";
+
+/** `/offers/:buyerOrderId` — standalone: a payment page carries no global tabs. */
 export function OfferCheckoutPage() {
+  const { buyerOrderId } = useParams<{ buyerOrderId: string }>();
   return (
     <AreaLayout workspace="Checkout" tabs={[]}>
-      <PlaceholderPage
-        title="Offer checkout"
-        route="/offers/:buyerOrderId"
-        task="T05A02"
-        taskTitle="Checkout UI"
-        planned={[
-          "The offer disclosure: merchant, product, delivery and return terms, totals and the buyer's cap.",
-          "The PayPal approval step and its redirect fallback.",
-          "The order status card after approval.",
-        ]}
-      />
+      {buyerOrderId ? (
+        <OfferCheckout buyerOrderId={buyerOrderId} />
+      ) : (
+        <p className="p-8 text-sm text-muted">This offer link is incomplete.</p>
+      )}
     </AreaLayout>
   );
 }

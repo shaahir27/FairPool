@@ -1,5 +1,7 @@
 import createClient from "openapi-fetch";
 
+import { getCsrfToken } from "../lib/csrf";
+
 import type { components, paths } from "./schema";
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -17,6 +19,17 @@ export const API_BASE_URL =
 export const api = createClient<paths>({
   baseUrl: API_BASE_URL,
   credentials: "include",
+});
+
+// deps.py rejects every non-GET without this header; the token arrives at login.
+api.use({
+  onRequest({ request }) {
+    const token = getCsrfToken();
+    if (token && !["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) {
+      request.headers.set("X-CSRF-Token", token);
+    }
+    return request;
+  },
 });
 
 export type ApiPaths = paths;

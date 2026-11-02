@@ -1,0 +1,8 @@
+{
+  "status": "pending",
+  "covers": [
+    "C-08 authorize then void, GET shows VOIDED",
+    "C-09 authorize, capture, refund"
+  ],
+  "note": "Both modules exist and skip cleanly without exported Sandbox credentials; the owner runs them with the app-owning seller account. No approval URL is printed."
+}

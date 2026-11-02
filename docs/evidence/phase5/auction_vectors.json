@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "tests": [
+    "tests/unit/test_fairness_vectors.py::test_bid_ranking_case",
+    "tests/unit/test_fairness_vectors.py::test_capacity_case",
+    "tests/unit/test_auction_guards.py (R1..R7, contract order)",
+    "tests/property/test_pt06_capacity.py (four properties)",
+    "tests/property/test_pt05_tiers.py"
+  ],
+  "result": "45 passed. The two new vector cases are additive; no earlier vector changed."
+}

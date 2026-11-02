@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "configuration": "APP_ENV=test, DATABASE_URL pointed at the loopback fairpool_test database, and the whole .env loaded. No PayPal call and no model call was made.",
+  "commands": [
+    "pytest backend/tests -m 'not sandbox and not sandbox_interactive and not faults and not ai_eval'",
+    "pytest backend/tests/faults -m faults",
+    "ruff check backend tools",
+    "mypy --strict backend/src/fairpool/domain backend/src/fairpool/modules",
+    "python tools/check_imports.py",
+    "python tools/validate_docs.py",
+    "cd frontend && npm run typecheck && npm run lint && npm test && npm run build"
+  ],
+  "backend_tests": "885 passed, 15 deselected before the Phase 5 suites were added; 490 unit tests green after the CR-5 response keys.",
+  "frontend_tests": "21 passed across 4 files."
+}

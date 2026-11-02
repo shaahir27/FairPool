@@ -504,6 +504,10 @@ class OfferResponse(ResponseModel):
     terms: OfferTerms
     totals: OfferTotals
     offer_expires_at: datetime
+    offer_started_at: datetime | None = None
+    server_now: datetime | None = None
+    pool_id: UUID | None = None
+    pool_title: str | None = None
     notices: OfferNotices
 
 
@@ -546,6 +550,11 @@ class OrderStatusResponse(ResponseModel):
     history: list[OrderHistoryItem] = Field(default_factory=list)
     paypal: OrderPayPalState
     labels: list[str] = Field(default_factory=list)
+    pool_id: UUID | None = None
+    lot_id: UUID | None = None
+    placed_at: datetime | None = None
+    reject_reason: str | None = None
+    receipt: EntryReceipt | None = None
 
 
 class CheckoutConfigResponse(ResponseModel):

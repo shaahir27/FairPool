@@ -24,7 +24,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
@@ -183,6 +183,7 @@ async def offers_get(
     if award is None or pool is None or cap_cents is None:
         raise ApplicationError("INTEGRITY_ERROR")
     payee = await services.directory.get_payee(db, award.merchant_id)
+    server_now = await db.scalar(select(func.now()))
     template = pool.template
     breakdown = dict(order.breakdown)
     return {
@@ -195,6 +196,10 @@ async def offers_get(
             "condition": str(template.get("condition", "")),
             "bundle_contents": [str(item) for item in template.get("bundle_contents", [])],
         },
+        "offer_started_at": order.created_at,
+        "server_now": server_now,
+        "pool_id": pool.id,
+        "pool_title": str(template.get("title", "")),
         "terms": {
             "delivery_sla_days": int(template["delivery_sla_days"]),
             "returns_days": int(template["min_return_days"]),
@@ -384,11 +389,36 @@ async def orders_get(
         }
         for action, created_at in rows
     ]
+    entry = await db.scalar(select(PoolEntry).where(PoolEntry.id == order.entry_id))
+    if entry is None:
+        raise ApplicationError("INTEGRITY_ERROR")
+    receipt_row = await db.scalar(
+        select(EntryReceipt).where(EntryReceipt.entry_id == order.entry_id)
+    )
+    receipt = None
+    if receipt_row is not None:
+        receipt = {
+            "payload": {
+                "commitment": receipt_row.commitment,
+                "entry_id": entry.id,
+                "pool_id": entry.pool_id,
+                "received_at": entry.received_at,
+                "v": 1,
+            },
+            "salt_hex": receipt_row.salt,
+            "request_hash": entry.request_hash,
+            "signature": receipt_row.signature,
+        }
     return {
         "buyer_order_id": order.id,
         "status": str(order.status),
         "lot_status": str(lot.status),
         "total_cents": int(order.total_cents),
+        "pool_id": entry.pool_id,
+        "lot_id": order.lot_id,
+        "placed_at": order.created_at,
+        "reject_reason": order.reject_reason,
+        "receipt": receipt,
         "history": history,
         "paypal": {
             "authorization_status": await _latest_status(

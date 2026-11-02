@@ -18,6 +18,10 @@ export default {
           DEFAULT: "rgb(var(--color-warn) / <alpha-value>)",
           soft: "rgb(var(--color-warn-soft) / <alpha-value>)",
         },
+        danger: {
+          DEFAULT: "rgb(var(--color-danger) / <alpha-value>)",
+          soft: "rgb(var(--color-danger-soft) / <alpha-value>)",
+        },
       },
       fontFamily: {
         sans: [
@@ -27,6 +31,14 @@ export default {
           "-apple-system",
           "Segoe UI",
           "sans-serif",
+        ],
+        mono: [
+          "JetBrains Mono",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "monospace",
         ],
         display: [
           "Iowan Old Style",
@@ -38,6 +50,16 @@ export default {
       },
       letterSpacing: {
         label: "0.14em",
+      },
+      transitionTimingFunction: {
+        ui: "cubic-bezier(0.23, 1, 0.32, 1)",
+        move: "cubic-bezier(0.77, 0, 0.175, 1)",
+        drawer: "cubic-bezier(0.32, 0.72, 0, 1)",
+      },
+      transitionDuration: {
+        press: "120ms",
+        enter: "200ms",
+        sheet: "240ms",
       },
       maxWidth: {
         shell: "76rem",

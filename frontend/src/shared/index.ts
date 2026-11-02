@@ -12,6 +12,19 @@ export { AuthLayout } from "./components/AuthLayout";
 export { HonestyLabels } from "./components/HonestyLabels";
 export { PlaceholderPage } from "./components/PlaceholderPage";
 export { PublicLayout } from "./components/PublicLayout";
+export { AuthAside } from "./components/AuthAside";
+export { FieldError, Notice } from "./components/Notice";
+export { StatusPill } from "./components/StatusPill";
+export { getCsrfToken, setCsrfToken } from "./lib/csrf";
 export { formatCents, formatDateTime } from "./lib/format";
+export { startRouteTransition, useCountdown } from "./lib/motion";
+export {
+  BUYER_ORDER_STATUS,
+  LOT_STATUS,
+  REJECT_REASON_LABELS,
+  statusStyle,
+  TERMINAL_BUYER_ORDER_STATUSES,
+} from "./lib/status";
+export type { StatusStyle, StatusTone } from "./lib/status";
 export { HONESTY_LABELS } from "./lib/labels";
 export type { HonestyLabelKind } from "./lib/labels";

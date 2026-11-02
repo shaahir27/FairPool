@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "tests": [
+    "tests/integration/test_merchant_profile.py (5)",
+    "tests/integration/test_bid_sealing.py (7)"
+  ],
+  "result": "A revision receipt re-verifies against the published public key, a second save is revision 2, a bid posted after bid_close_at on the database clock is REJECTED with R1_LATE, another merchant's bid is NOT_FOUND, and flat-delivered rejects an itemised tax mode with the contracted message."
+}

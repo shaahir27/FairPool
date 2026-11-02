@@ -109,7 +109,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
 | T05A01 | A | L | IN PROGRESS | | Real PayPal path for one buyer (redirect); shipping now sealed into `shipping_enc`. Interactive C-08/C-09 and the live IT-5 run remain |
-| T05A02 | A | L | TODO | | Checkout UI |
+| T05A02 | A | L | DONE | phase-5 | Checkout UI: sign in, create account, offer/checkout and order status on the chosen palette, with CSRF, status vocabulary, server-clock countdown and view transitions |
 | T05A03 | A | M | DONE | phase-5 | Failure path and compensating refund (fake router); PT-11, F9 and F24 pass |
 | T05A06 | A | M | DONE | phase-5 | Merchant profile and onboarding states; `require_merchant` now loads the merchant row |
 | T05A04 | A | L | DONE | phase-5 | Bid API with receipts and sealing; `test_bid_sealing.py` passes |

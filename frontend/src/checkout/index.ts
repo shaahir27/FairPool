@@ -1,5 +1,3 @@
-/**
- * Public surface of the `checkout` area. Other areas import from here only.
- * Task T05A02 adds the real `OfferCheckout` and `OrderStatusCard` exports.
- */
+export { OfferCheckout } from "./OfferCheckout";
 export { OfferCheckoutPage } from "./OfferCheckoutPage";
+export { OrderStatusCard } from "./OrderStatusCard";
