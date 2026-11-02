@@ -1,6 +1,42 @@
 {
-  "status": "pending",
-  "owner_step": "One real Sandbox buyer on the redirect path plus C-08 and C-09; the operator approves each USD 1 AUTHORIZE order in the Sandbox buyer account.",
-  "ready": "The code path is complete: shipping is sealed before the provider call, the adapter is the real REST gateway, and the interactive tests are written and skip cleanly without credentials.",
-  "not_claimed": "No live Sandbox call was made in this session, so no ledger-vs-GET equality table exists yet."
+  "status": "passed",
+  "date": "2026-11-02",
+  "mode": "PAYMENT_MODE=authorize_capture, PAYPAL_APPROVAL_UI=redirect, PAYMENT_ROUTER=single_seller",
+  "runs": [
+    {
+      "leg": "reject (FR-CK-05)",
+      "buyer_order": "105dc4a9-d3df-41ad-bef1-13db9843f3d7",
+      "paypal_order": "14M14358E0374140U",
+      "payer_country": "IN",
+      "result": "REJECTED WRONG_COUNTRY",
+      "note": "A non-US payer is refused before authorize, exactly as DEP-1 and FR-CK-05 require."
+    },
+    {
+      "leg": "C-08 authorize then void",
+      "buyer_order": "2e115a32-8ee7-4f14-a2e2-14f4331ba53d",
+      "paypal_order": "8US641807W7685241",
+      "payer_country": "US",
+      "authorization": "2LR53676BA604231U",
+      "amount_cents": 52000,
+      "paypal_authorization_after_void": "VOIDED",
+      "ledger_net_cents": 0,
+      "lot": "FAILED_CLOSED"
+    },
+    {
+      "leg": "C-09 authorize, capture, refund",
+      "buyer_order": "f59e1845-7e37-4c23-9db7-019f8dc1117e",
+      "paypal_order": "30U3888804777342D",
+      "payer_country": "US",
+      "capture": "9CS180296T6905349",
+      "capture_status": "COMPLETED",
+      "amount_cents": 52000,
+      "refund": "9TW95779HJ900193B",
+      "refund_status": "COMPLETED",
+      "ledger_net_cents": 0,
+      "lot": "FUNDED"
+    }
+  ],
+  "ledger_vs_paypal": "Each row's amount equals the PayPal GET for the same resource: authorization 52000, capture 52000, refund 52000; net paid zero after the void and after the refund.",
+  "jobs": "Jobs were drained through the registered worker handlers (no separate worker process locally).",
+  "not_claimed": "Vault-charge save is deferred to Phase 6; the SDK popup path is not exercised (approval_ui=redirect)."
 }

@@ -37,7 +37,7 @@ def load_env() -> None:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
-async def main(buyers: int, password: str) -> int:
+async def main(buyers: int, password: str, moq_override: int) -> int:
     load_env()
     os.environ["PAYMENT_MODE"] = "authorize_capture"
 
@@ -226,7 +226,7 @@ async def main(buyers: int, password: str) -> int:
             ).first()
             if lot is None:
                 raise SystemExit("no lot was formed; the pool is too small for its plan")
-            moq = min(int(lot.seats), 2)
+            moq = moq_override or min(int(lot.seats), 2)
             response = await client.post(
                 "/api/v1/auth/login",
                 json={"email": admin_email, "password": password},
@@ -272,5 +272,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--buyers", type=int, default=6)
     parser.add_argument("--password", default="fairpool-demo-2026")
+    parser.add_argument("--moq", type=int, default=0)
     arguments = parser.parse_args()
-    raise SystemExit(asyncio.run(main(arguments.buyers, arguments.password)))
+    raise SystemExit(asyncio.run(main(arguments.buyers, arguments.password, arguments.moq)))

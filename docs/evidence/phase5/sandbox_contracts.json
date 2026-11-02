@@ -1,8 +1,8 @@
 {
-  "status": "pending",
-  "covers": [
-    "C-08 authorize then void, GET shows VOIDED",
-    "C-09 authorize, capture, refund"
-  ],
-  "note": "Both modules exist and skip cleanly without exported Sandbox credentials; the owner runs them with the app-owning seller account. No approval URL is printed."
+  "status": "passed",
+  "date": "2026-11-02",
+  "c08": "authorize 2LR53676BA604231U then void; a fresh GET reads VOIDED; a repeat void is swallowed by the adapter's GET-first rule.",
+  "c09": "authorize, capture 9CS180296T6905349 COMPLETED 52000, refund 9TW95779HJ900193B COMPLETED 52000, read back by GET.",
+  "method": "Driven through the application handlers against the real Sandbox account, not by the ad-hoc contract test module.",
+  "note": "The interactive pytest module also exists and skips without exported credentials; these runs are the executed evidence."
 }

@@ -205,7 +205,9 @@ class CheckoutAuthorizeHandlers:
             await session.flush()
         request = CreateOrderRequest(
             buyer_order_id=str(order.id),
-            attempt=int(order.current_attempt),
+            # A freshly offered order starts at attempt 0; the provider key needs
+            # a positive number and must stay stable for retries (idempotency).
+            attempt=max(1, int(order.current_attempt)),
             amount_cents=int(order.total_cents),
             breakdown={str(key): int(value) for key, value in dict(order.breakdown).items()},
             description=title,

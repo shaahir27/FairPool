@@ -32,9 +32,12 @@ def _normalise(address: Mapping[str, Any]) -> dict[str, str]:
     normalised: dict[str, str] = {}
     for field in FIELDS:
         value = address.get(field)
-        if value is None and field == "line2":
-            normalised[field] = ""
+        if field == "line2":
+            # Optional: "no apartment" arrives as None, "" or an empty string.
+            normalised[field] = "" if value is None else str(value).strip()
             continue
+        if value is None:
+            raise ApplicationError("VALIDATION_ERROR")
         if not isinstance(value, str) or not value.strip():
             raise ApplicationError("VALIDATION_ERROR")
         normalised[field] = value.strip()

@@ -255,6 +255,8 @@ class FailureService:
                     to_state="REFUNDING",
                     trigger="job:refund.run",
                     refund_seq=1,
+                    # BO-13 allows an ops refund without the lot failing.
+                    ops_refund=bool(payload.get("ops_refund")),
                     observation=Observation(
                         kind="refund",
                         status=refund.status,
