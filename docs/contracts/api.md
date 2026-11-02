@@ -141,8 +141,12 @@ configured frontend Origin. Body: `{email,password,password_confirm,display_name
 Passwords must match. Buyer creation, PayPal linking, signup consumption and session
 creation are atomic; response `{user_id,email,csrf_token}` plus the session cookie.
 Previously linked PayPal identifiers cannot enroll another user, even after unlink.
-Existing email/password login stays available. Login grants no payment permission
-and does not establish one unique human or account-verified status.
+Duplicate control is the PayPal account, never the device or the live session: a browser
+that already holds a session can still begin a signup, so a second person on one shared
+device enrolls their own PayPal account (owner decision 2026-11-02, which replaced an
+earlier session-holder refusal). Existing email/password login stays available. Login
+grants no payment permission and does not establish one unique human or account-verified
+status.
 
 ### Intake
 

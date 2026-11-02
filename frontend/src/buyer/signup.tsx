@@ -95,7 +95,6 @@ function Loading() {
 
 export function RegisterPage() {
   const { state, enabled, retry } = useSignup();
-  const navigate = useNavigate();
   const location = useLocation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Failure | null>(null);
@@ -107,16 +106,6 @@ export function RegisterPage() {
     account_exists: "This PayPal account already belongs to a FairPool account. Sign in to that account to continue.",
     refresh: "You can connect PayPal again to refresh your details or use a different account.",
   };
-
-  useEffect(() => {
-    let live = true;
-    void api.GET("/api/v1/me").then(({ data }) => {
-      if (live && data?.user_id) {
-        navigate("/", { replace: true });
-      }
-    }).catch(() => {});
-    return () => { live = false; };
-  }, [navigate]);
 
   async function connect() {
     if (busy) return;

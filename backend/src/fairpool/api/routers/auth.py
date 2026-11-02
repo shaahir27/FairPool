@@ -68,14 +68,9 @@ async def paypal_signup_start(
 ):
     _signup_origin(request)
     rate_limit(request)
-    session_id = request.cookies.get("session")
-    if session_id:
-        try:
-            await identity_service(request).authenticate(db, session_id, unsafe=False)
-            raise ApplicationError("FORBIDDEN")
-        except ApplicationError as err:
-            if err.code != "UNAUTHENTICATED":
-                raise
+    # Duplicate control is by PayPal account, not by browser: a second person on a
+    # shared device must be able to enroll their own PayPal account, and the account
+    # check in complete() and register() is what refuses a repeat of the same one.
     authorize_url, browser = await _signup(request).start(db, request.cookies.get(SIGNUP_COOKIE))
     response.set_cookie(
         SIGNUP_COOKIE,

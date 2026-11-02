@@ -746,3 +746,13 @@ report the same account as a bare `user_id` and as its identity URL, so the clai
 would have been dropped even if PayPal had sent them. `_same_account()` compares the
 two documented forms without re-keying the stored identifier (BD-12 holds), with a test
 that the claims now arrive and a test that another account is still ignored.
+
+Shared-device rule (owner decision 2026-11-02): duplicate control is the PayPal account,
+not the browser. `POST /api/v1/auth/paypal/start` no longer refuses a browser that already
+holds a session, and `/register` no longer sends a signed-in visitor home, so a second
+person on one device can enroll their own PayPal account. The refusal stays where it
+belongs: the same linked PayPal identifier cannot enroll a second user, and the new
+integration test walks exactly that family - one buyer signs up, a second buyer signs up
+in the same browser, and the first buyer's PayPal account is then refused with
+`reason=account_exists`. This reverses a guard that was deliberate and tested; the
+superseded test is renamed rather than deleted so the reversal is visible in the suite.

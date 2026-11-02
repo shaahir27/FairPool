@@ -32,16 +32,49 @@ def signup_app(db_session):
     return app
 
 
-async def connect(client):
+async def connect(client, code: str = "fake-code-alice"):
     started = await client.post("/api/v1/auth/paypal/start", headers={"Origin": ORIGIN})
     assert started.status_code == 200
     target = urlsplit(started.json()["authorize_url"])
     assert target.path == "/connect"
     assert parse_qs(target.query)["flowEntry"] == ["static"]
     state = parse_qs(urlsplit(started.json()["authorize_url"]).query)["state"][0]
-    return await client.get(
-        "/api/v1/auth/paypal/callback", params={"state": state, "code": "fake-code-alice"}
-    )
+    return await client.get("/api/v1/auth/paypal/callback", params={"state": state, "code": code})
+
+
+async def test_a_second_person_on_one_browser_enrolls_their_own_paypal(db_session):
+    """Duplicate control is the PayPal account, never the device (FR-ID-03)."""
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=signup_app(db_session)), base_url="https://api.test"
+    ) as client:
+        await connect(client)
+        assert (
+            await client.post("/api/v1/auth/register", json=DETAILS, headers={"Origin": ORIGIN})
+        ).status_code == 200
+        assert (await client.get("/api/v1/me")).json()["display_name"] == "Pool Buyer"
+
+        # The browser now holds the first buyer's session, and a second person uses it:
+        # connect() starts a signup from inside that live session and must not be refused.
+        await connect(client, "fake-code-bob")
+        brother = {**DETAILS, "email": "brother@example.test", "display_name": "Brother Buyer"}
+        assert (
+            await client.post("/api/v1/auth/register", json=brother, headers={"Origin": ORIGIN})
+        ).status_code == 200
+        assert (await client.get("/api/v1/me")).json()["display_name"] == "Brother Buyer"
+        assert (
+            await db_session.scalar(
+                text(
+                    "SELECT count(*) FROM users WHERE email IN "
+                    "('new-buyer@example.test', 'brother@example.test')"
+                )
+            )
+            == 2
+        )
+
+        # Alice's own PayPal account can never enroll a second user, from this or any
+        # other browser: carol shares Alice's provider account.
+        replay = await connect(client, "fake-code-carol")
+        assert replay.headers["location"].endswith("reason=account_exists")
 
 
 async def test_registration_cannot_skip_paypal(db_session):
@@ -277,7 +310,14 @@ async def test_paypal_prefill_is_encrypted_browser_bound_and_cleared_on_registra
         )
 
 
-async def test_returning_signed_in_user_cannot_start_signup_again(db_session):
+async def test_a_signed_in_browser_can_still_begin_a_new_signup(db_session):
+    """The browser is not the duplicate rule; the PayPal account is.
+
+    Reverses the earlier session-holder refusal (owner decision, 2026-11-02): a second
+    person on one shared device must be able to enroll their own PayPal account. What
+    still refuses a duplicate is the linked-account check, proven by
+    test_a_second_person_on_one_browser_enrolls_their_own_paypal.
+    """
     app = signup_app(db_session)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://api.test"
@@ -289,9 +329,9 @@ async def test_returning_signed_in_user_cannot_start_signup_again(db_session):
         assert registered.status_code == 200
         assert "session" in client.cookies
 
-        # An active signed-in user must not be sent through registration again
         second_start = await client.post("/api/v1/auth/paypal/start", headers={"Origin": ORIGIN})
-        assert second_start.status_code == 403
+        assert second_start.status_code == 200
+        assert "session" in client.cookies
 
 
 async def test_setup_window_expires_after_bounded_ttl(db_session):

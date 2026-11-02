@@ -111,7 +111,9 @@ it("recovers when the PayPal connection cannot be started", async () => {
   expect(screen.getByRole("button", { name: "Continue with PayPal" })).toBeEnabled();
 });
 
-it("redirects signed-in users away from /register to /", async () => {
+it("keeps signup open for a second person on a signed-in device", async () => {
+  // The duplicate rule is the PayPal account, not the browser, so /register stays
+  // usable while someone else holds the live session (owner decision 2026-11-02).
   transport.get.mockImplementation((url: string) => {
     if (url === "/api/v1/me") return Promise.resolve({ data: { user_id: "user-123", email: "signedin@example.test" } });
     return Promise.resolve({ data: { enabled: true, status: "not_started" } });
@@ -124,7 +126,8 @@ it("redirects signed-in users away from /register to /", async () => {
       </Routes>
     </MemoryRouter>
   );
-  expect(await screen.findByText("Home Page")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Continue with PayPal/ })).toBeEnabled();
+  expect(screen.queryByText("Home Page")).not.toBeInTheDocument();
 });
 
 it("restores non-password draft across reconnections without saving passwords", async () => {
