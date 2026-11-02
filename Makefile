@@ -106,6 +106,13 @@ gate-check:
 dev:
 	@docker compose --env-file .env -f deploy/docker-compose.yml up --build
 
+# The no-Docker path: one terminal each, both from the repository root.
+api:
+	@PYTHONPATH=backend/src $(PY) -m uvicorn fairpool.main:app --reload --port 8000
+
+web:
+	@cd frontend && npm run dev
+
 migrate:
 	@$(PY) -m alembic -c backend/alembic.ini upgrade head
 
