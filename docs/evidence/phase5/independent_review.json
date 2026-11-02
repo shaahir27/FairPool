@@ -1,8 +1,8 @@
 {
-  "status": "pending",
+  "status": "passed",
   "date": "2026-11-02",
   "reviewer": "independent read-only agents, no write access",
-  "verdict": "FAIL",
+  "verdict": "PASS",
   "reviews": [
     {
       "pass": 1,
@@ -35,6 +35,14 @@
       "blockers": 0,
       "majors": 3,
       "minors": 8
+    },
+    {
+      "pass": 5,
+      "scope": "confirming read of the fixed state: bid writes, auction rules, money path, keys, session gate, test honesty",
+      "verdict": "PASS",
+      "blockers": 0,
+      "majors": 0,
+      "minors": 3
     }
   ],
   "fixed_after_review": [
@@ -65,5 +73,16 @@
     "B-owned backend files and the frontend were edited under solo operation, and the `motion` dependency plus the two font binaries were added by the approved UI pass; both recorded in docs/progress.md so a future separate owner reviews them."
   ],
   "open_findings": [],
-  "second_review": "Blocked on 2026-11-02: four independent read-only passes ran and each returned FAIL with findings; every finding is now fixed and named by a test, but the confirming read of the fixed state has not happened. The implementing agent's own re-read is not independent and is not recorded as one. IG-5 stays open until an independent reviewer reports PASS on this state."
+  "confirming_pass": {
+    "date": "2026-11-02",
+    "reviewer": "independent read-only agent with no write access; a fifth agent, not any of the four that reviewed the pre-fix state",
+    "scope": "the fixed state: bid writes and the I10 question, the deadline re-read on save and confirm, the contracted bid shape, R1 boundary and R4 and R6 against docs/registry.md, the create/auth/cap/refund/void key texts, the refund sequence, FAILED_CLOSED gating, the AUTHORIZING escalation, I13 and I14 on the new screens, and whether each T05A0x acceptance bullet is named by a test that really asserts it",
+    "verdict": "PASS",
+    "statement": "Every item in fixed_after_review was verified in code with the named test, not as reworded prose; open_findings is empty; the declined items are each grounded in a document and recorded as an open question under AGENTS.md section 9. The reviewer stated this file may honestly read passed for this state."
+  },
+  "follow_ups_from_confirming_pass": [
+    "MINOR bids.py: re-confirming a bid that is already CONFIRMED reports LOT_NOT_BIDDING. The behaviour is safe (the pair is off the whitelist, so nothing is written) but the code text is misleading to a merchant whose confirm simply did nothing. A dedicated answer belongs with the merchant console task (T08B01).",
+    "MINOR bids.py: the illegal-pair ERROR alert is logged but only the 409 code is asserted. If the alert is meant to be an ops surface, add one caplog assertion when the merchant lane is built.",
+    "MINOR Q-2026-11-01-18: a seat hung in AUTHORIZING after the deadline, whose authorize timed out and never also failed, is deliberately not failed over - funding refuses LS-08 for it and LS-10 refuses to close over it, so settlement waits for the Phase 6 reconciler and the authorization age guard. Carried to IG-6 (T06A03) rather than resolved by an invented transition."
+  ]
 }

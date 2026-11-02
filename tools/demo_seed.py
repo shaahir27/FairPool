@@ -25,6 +25,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy import text
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "backend" / "src"))
@@ -40,6 +42,21 @@ def load_env() -> None:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
+async def sync_demo_password(identity: Any, session: Any, email: str, secret: str) -> None:
+    """Give a demo account this run's password.
+
+    An earlier run created the same address with the value that environment had then;
+    its rows and seats stay and only the login secret moves. Demo addresses only: the
+    seeder owns these names.
+    """
+    hashed = await asyncio.to_thread(identity.hasher.hash, secret)
+    await session.execute(
+        text("UPDATE users SET password_hash = :hash WHERE email = :email"),
+        {"hash": hashed, "email": email},
+    )
+    await session.flush()
+
+
 async def main(buyers: int, moq_override: int) -> int:
     load_env()
     os.environ["PAYMENT_MODE"] = "authorize_capture"
@@ -52,6 +69,7 @@ async def main(buyers: int, moq_override: int) -> int:
     from fairpool.api.app import create_app
     from fairpool.api.deps import database_session
     from fairpool.config import Settings
+    from fairpool.db.session import create_engine as build_engine
     from fairpool.domain.errors import ApplicationError
     from fairpool.fakes.ai import FakeAI
     from fairpool.infra.audit import PostgresAuditLog
@@ -64,8 +82,7 @@ async def main(buyers: int, moq_override: int) -> int:
     from fairpool.modules.pools.receipts import signing_seed
     from fairpool.modules.search.service import build_search_service
     from fairpool.wiring import checkout_services, worker_handlers
-    from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker
     from tests.integration.test_pipeline_fakes import (
         EAST_MESSAGE,
         PROPOSALS,
@@ -80,8 +97,9 @@ async def main(buyers: int, moq_override: int) -> int:
     )
 
     config: Settings = Settings()  # reads the real .env: dev DB, real router
-    dsn = config.database_url.get_secret_value()
-    engine = create_async_engine(dsn)
+    # The app's own engine builder, so the driver scheme and the SSL arguments are
+    # normalised the same way: this tool must reach a hosted database too.
+    engine = build_engine(config)
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with factory() as session:
@@ -98,6 +116,7 @@ async def main(buyers: int, moq_override: int) -> int:
             )
             if found is None:
                 raise
+            await sync_demo_password(identity, session, admin_email, secret)
             admin_id = UUID(str(found))
         await session.execute(
             text("UPDATE users SET role = 'admin' WHERE email = :email"), {"email": admin_email}
@@ -183,6 +202,9 @@ async def main(buyers: int, moq_override: int) -> int:
                     )
                 except ApplicationError:
                     pass
+                # An earlier run may own this address: its rows and seats stay and
+                # only the login secret moves to this run's value.
+                await sync_demo_password(identity, session, email, secret)
                 user_id = await session.scalar(
                     text("SELECT id FROM users WHERE email = :email"), {"email": email}
                 )

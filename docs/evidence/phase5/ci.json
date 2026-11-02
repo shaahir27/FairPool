@@ -1,8 +1,9 @@
 {
   "status": "passed",
-  "run_id": "41409819515",
-  "commit": "0cb603f",
+  "run_id": "41425822470",
+  "commit": "f01c783",
   "branch": "main",
   "conclusion": "success",
-  "note": "All jobs green: docs, typecheck, compose, merchant OpenAPI, test, import boundaries, frontend, lint, secret scan. The two red runs before it are recorded rather than hidden: 41408695675 (backend 500 from a 31-byte test key, frontend timing flake) and 41409461266 (frontend fix landed, backend still red)."
+  "note": "All jobs green on the commit that carries the Phase 5 review fixes: lint, strict typing, the full suite against a freshly migrated fairpool_test, Alembic upgrade and drift, import boundaries, docs, Merchant OpenAPI, frontend tests and build, secret scan and compose. Earlier runs in this phase are recorded rather than hidden: 41408695675 (backend 500 from a 31-byte test key, frontend timing flake), 41409461266 (frontend fix landed, backend still red) and 41409819515 (green on 0cb603f, before the review fixes). This gate closes with the tag on the evidence commit that follows f01c783, the same shape as IG-4.",
+  "executed": "2026-11-02"
 }

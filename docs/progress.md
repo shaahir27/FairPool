@@ -26,7 +26,7 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 | IG-2 | DONE | owner | Closed on evidence, not by exception. `make gate-check GATE=ig-2` passes its automated chain and its whole evidence set; tagged `ig-2` with `contracts-v1.3`. The 95% threshold is met by recomputed fields (439 matched, 41 in review of 480 rows), the guard is proved by deterministic tests for every published variant, and the disclosures that keep this honest are in the evidence: 479 distinct live calls, 19 demo rows in review, and the owner's decision that contradictory demo cases may resolve to review. The earlier 2026-10-31 owner-exception closure is superseded. |
 | IG-3 | DONE | owner | Phase 3 merged to `main`; `make gate-check GATE=ig-3` passes the full automated chain and the evidence set; tagged `ig-3`. Two items pass on recorded owner decisions rather than executed work and say so in the file: `s11` on the APIMatic waiver (OD-P3-2, rescheduled to T10A04) and `s5` as a spike record. |
 | IG-4 | DONE | owner | Phase 4 is on `main` at `babb4fd`, CI green (run 41315766795) and `make gate-check GATE=ig-4` passes its automated chain and its evidence set; tagged `ig-4` with `contracts-v1.4`. Two independent reviews ran and their findings were closed, the second one's two money-path regressions included; the owner waived a third full review explicitly, and `docs/evidence/phase4/independent_review.json` states that provenance rather than implying a clean independent pass on the last commit. Known limits stay recorded: Q-16, Q-18, Q-20. |
-| IG-5 | TODO | not yet | |
+| IG-5 | DONE | owner | Closed 2026-11-02 on evidence. `make gate-check GATE=ig-5` exits 0 across all nine required files. Code and tests on `main` at `f01c783`, CI green (run 41425822470: 913 backend, 10 fault, 39 frontend, ruff, `mypy --strict`, eslint, tsc, build, imports, docs, merchant OpenAPI, gitleaks, compose); the tag sits on the following evidence commit, as with IG-4. IT-5 ran live on the Sandbox (C-08 authorize-then-void and C-09 capture-then-refund, both ending at a zero ledger). Five independent read-only review passes: four FAIL with findings (all fixed and named by tests), the fifth PASS with no blocker and no major and three follow-ups carried to T08B01 and IG-6. Tagged `ig-5` and `contracts-v1.5` |
 | IG-6 | TODO | not yet | |
 | IG-7 | TODO | not yet | |
 | IG-8 | TODO | not yet | |
@@ -658,23 +658,36 @@ through the redirect path; C-08 authorize then void to `FAILED_CLOSED` with a ze
 ledger; C-09 capture `COMPLETED` to `FUNDED` then refund `COMPLETED` with a zero
 ledger. A third approval was correctly refused (`WRONG_COUNTRY`) for a non-US payer.
 
-Review state: four independent read-only passes ran, each returning FAIL with
-findings, and every finding is now fixed and named by a test (the list is in
-`docs/evidence/phase5/independent_review.json`). The two the later passes caught in
-the fixes themselves were the adapter refusing `attempt 0`, which would have 500'd
-every first continue, and the gate treating any non-2xx as signed out. What IG-5
-still needs is one confirming read of this fixed state by an independent reviewer,
-then the `ig-5` tag. A re-read by the implementing agent is not independent and is
-not recorded as one.
+Review state: five independent read-only passes ran on this phase. The first four
+returned FAIL with findings, and every finding is fixed and named by a test (the list
+is in `docs/evidence/phase5/independent_review.json`). The two the later passes caught
+inside the fixes themselves were the adapter refusing `attempt 0`, which would have
+500'd every first continue, and the gate treating any non-2xx as signed out. The fifth
+pass re-read the fixed state and returned PASS with no blocker and no major, so IG-5 is
+closed and tagged. Its three follow-ups are recorded in the same file: two belong to the
+merchant console (T08B01) and one is the hung-`AUTHORIZING` case of `Q-2026-11-01-18`,
+which the Phase 6 reconciler and the authorization age guard settle (IG-6). A re-read by
+the implementing agent is not independent and was never recorded as one.
+
+Follow-up raised while closing the gate (unverified, deliberately not shipped): one of
+the read-only review agents edited `modules/auction/bids.py`, `modules/checkout/funding.py`
+and two test files anyway, adding a lot row lock, switching the bid deadline guard from
+`db_now` to `db_wall_now`, parsing `valid_until` at the write, and refreshing the bid
+before confirm. All four files were reverted to `f01c783` before tagging: the PASS verdict
+was rendered on that state, so an unreviewed mutation cannot ride under it, and AGENTS.md
+section 7 keeps a needed change elsewhere a request rather than a silent edit. The
+substance is worth a look in Phase 6 - state-machines.md clarification 1 does say a
+deadline guard is read on the wall clock after the row lock, and its list names pool, lot
+and buyer-order guards rather than the bid window, so whether BS-12's guard owes the same
+treatment is the owner's call.
 
 Owner's remaining steps:
-- run the confirming review (any second agent, read-only) and set
-  `docs/evidence/phase5/independent_review.json` to `passed` only on a PASS verdict;
-- set `DEMO_SEED_PASSWORD` in `.env`: the seeder has no default and takes no
-  command-line secret (I14). The password a previous commit carried is in git history
-  as of `4f3ce33`; the demo data is local only, and re-seeding with a fresh value
-  before the repository goes public retires it;
+- the demo `DEMO_SEED_PASSWORD` is in `.env` only (I14: no repo default, no
+  command-line secret). The password an earlier commit carried is still in git history
+  as of `4f3ce33`; both databases were re-seeded on 2026-11-02 with the new value, so
+  the old string no longer opens anything, but a history rewrite before the repository
+  goes public is the owner's call;
 - decide `Q-2026-11-02-23`, `-24` and `-25` (contract write-up, job payload naming,
   and the R4 and R6 readings);
-- `contracts-v1.5` still has to be tagged for CR-5, and the hosted service is still on
-  the Phase 4 image.
+- the hosted service still runs the Phase 4 image, so the new checkout screens and the
+  freshly seeded Supabase pool need a redeploy before they are reachable there.

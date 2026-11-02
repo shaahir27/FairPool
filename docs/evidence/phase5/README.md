@@ -15,7 +15,9 @@ keeps the gate red on purpose; nothing here is upgraded by hand.
 | `independent_review.json` | Has a read-only review of the diff happened? |
 | `ci.json` | Is there a green CI run for this branch? |
 
-`independent_review.json` is the one item still `pending`: the first review of this
-change set failed, every finding it raised is fixed and named by a test, and the
-confirming second read by an independent reviewer is what has not happened yet. That
-file is why IG-5 is not claimed closed, and nothing here is upgraded by hand.
+`independent_review.json` is the record of five read-only passes. The first four
+returned FAIL with findings, all of which are fixed and named by a test; the fifth
+re-read the fixed state and returned PASS with no blocker and no major, so the gate
+is closed on it. Its three follow-ups are listed there and carried forward, not
+buried. Nothing in this directory is upgraded by hand: a `status` changes only when
+the check it describes actually ran.
