@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_merchant, require_session
 from fairpool.db.models.auction import Merchant
+from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.modules.auction.bids import BidService
 from fairpool.modules.identity.service import Principal
@@ -91,6 +92,7 @@ def _bid_service(request: Request) -> BidService:
     settings = request.app.state.settings
     return BidService(
         clock=DbClock(),
+        audit=PostgresAuditLog(),
         seed=signing_seed(settings.receipt_signing_key.get_secret_value()),
         flat_delivered=settings.bid_pricing_mode == "flat_delivered",
     )
@@ -177,6 +179,7 @@ async def merchant_bid_get(
         status=str(bid.status),
         current_revision=int(bid.current_revision),
         structured=revision.structured,
+        reject_reason=bid.reject_reason,
         flags=[
             schemas.BidFlagView(
                 code=flag.code,

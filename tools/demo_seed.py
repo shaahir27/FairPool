@@ -5,6 +5,9 @@ Run against the *development* database (``.env``), not the test one:
     python tools/demo_seed.py                 # six buyers, authorize_capture
     python tools/demo_seed.py --buyers 8
 
+``DEMO_SEED_PASSWORD`` in ``.env`` (or ``--password``) is the shared demo
+password; the script has no default and never prints it.
+
 It reuses the IT-4 harness so the demo data is produced by the same services the
 app uses: pool create/publish, intake, join with signed receipts, close, seed,
 allocate, force-award and checkout opening. Prints the offer and order URLs plus
@@ -37,9 +40,13 @@ def load_env() -> None:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
-async def main(buyers: int, password: str, moq_override: int) -> int:
+async def main(buyers: int, password: str | None, moq_override: int) -> int:
     load_env()
     os.environ["PAYMENT_MODE"] = "authorize_capture"
+    # No built-in password: a repo default would be a credential in public source.
+    secret = password or os.environ.get("DEMO_SEED_PASSWORD")
+    if not secret:
+        raise SystemExit("no demo password: pass --password or set DEMO_SEED_PASSWORD in .env")
 
     from fairpool.api.app import create_app
     from fairpool.api.deps import database_session
@@ -81,7 +88,7 @@ async def main(buyers: int, password: str, moq_override: int) -> int:
         admin_email = "demo-admin@fairpool.test"
         try:
             created = await identity.register(
-                session, email=admin_email, password=password, display_name="Demo Admin"
+                session, email=admin_email, password=secret, display_name="Demo Admin"
             )
             admin_id = UUID(str(created["user_id"]))
         except ApplicationError:
@@ -170,7 +177,7 @@ async def main(buyers: int, password: str, moq_override: int) -> int:
                     await identity.register(
                         session,
                         email=email,
-                        password=password,
+                        password=secret,
                         display_name=f"Demo Buyer {index + 1}",
                     )
                 except ApplicationError:
@@ -229,7 +236,7 @@ async def main(buyers: int, password: str, moq_override: int) -> int:
             moq = moq_override or min(int(lot.seats), 2)
             response = await client.post(
                 "/api/v1/auth/login",
-                json={"email": admin_email, "password": password},
+                json={"email": admin_email, "password": secret},
             )
             if response.status_code != 200:
                 raise SystemExit(f"admin login failed: {response.status_code} {response.text}")
@@ -259,7 +266,7 @@ async def main(buyers: int, password: str, moq_override: int) -> int:
 
     print(f"\npool        {pool_id}")
     print(f"lot         {lot.id}  ({lot.seats} seats, moq {moq})")
-    print(f"login       {emails[0]} / {password}")
+    print(f"login       {emails[0]}  (password: --password or DEMO_SEED_PASSWORD)")
     print("\nopen these:")
     for row in offers[:3]:
         print(f"  offer   http://localhost:5173/offers/{row.id}")
@@ -271,7 +278,7 @@ async def main(buyers: int, password: str, moq_override: int) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--buyers", type=int, default=6)
-    parser.add_argument("--password", default="fairpool-demo-2026")
+    parser.add_argument("--password", default=None)
     parser.add_argument("--moq", type=int, default=0)
     arguments = parser.parse_args()
     raise SystemExit(asyncio.run(main(arguments.buyers, arguments.password, arguments.moq)))

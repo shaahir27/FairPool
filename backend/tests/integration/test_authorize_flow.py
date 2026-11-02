@@ -104,7 +104,8 @@ async def test_f1_continue_creates_the_order_under_the_attempt_key(
     """F1/T04A02: ``create:{buyer_order_id}:{attempt}`` is the create identity."""
     world = await build_world(db_session, seats=1, seated=1, waitlisted=0)
     (order_id,) = await open_offers(world)
-    handler = authorize_handler(world)
+    router = make_router()
+    handler = authorize_handler(world, router)
 
     result = await handler.continue_order(db_session, buyer_order_id=order_id)
 
@@ -113,6 +114,8 @@ async def test_f1_continue_creates_the_order_under_the_attempt_key(
     assert record is not None
     assert result["paypal_order_id"] == record.paypal_order_id
     assert await order_status(db_session, order_id) == "ORDER_CREATED"
+    # N9 starts the counter at 0, so the first create's key text is exactly ``...:0``.
+    assert f"create:{order_id}:0" in router.gateway.replays
     outcome = await db_session.scalar(
         text("SELECT idempotency_key FROM ledger_entries WHERE buyer_order_id = :id"),
         {"id": order_id},

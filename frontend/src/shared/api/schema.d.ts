@@ -939,6 +939,9 @@ export interface paths {
         /**
          * Merchant Profile
          * @description Create or update the merchant row and stamp the three attestations.
+         *
+         *     This is the one merchant route that cannot require the row: it creates it.
+         *     The role check stays, so a buyer still cannot call it.
          */
         post: operations["merchant_profile"];
         delete?: never;

@@ -205,9 +205,10 @@ class CheckoutAuthorizeHandlers:
             await session.flush()
         request = CreateOrderRequest(
             buyer_order_id=str(order.id),
-            # A freshly offered order starts at attempt 0; the provider key needs
-            # a positive number and must stay stable for retries (idempotency).
-            attempt=max(1, int(order.current_attempt)),
+            # The contracted key text is ``create:{buyer_order_id}:{attempt}`` and N9
+            # starts the counter at 0, so the first create is ``...:0``: clamping it
+            # up would make attempts 0 and 1 share one key over different payloads (I9).
+            attempt=int(order.current_attempt),
             amount_cents=int(order.total_cents),
             breakdown={str(key): int(value) for key, value in dict(order.breakdown).items()},
             description=title,

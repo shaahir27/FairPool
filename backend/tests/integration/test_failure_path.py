@@ -9,6 +9,7 @@ ledger's net paid is zero with nothing pending.
 from __future__ import annotations
 
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
@@ -17,13 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.domain.payments import Payee
 from fairpool.fakes.payments import FakePayPalGateway
 from fairpool.modules.checkout.failure import FailureService
+from tests.integration.test_authorize_flow import authorize_handler
 from tests.integration.test_funding import (
     authorized_orders,
     funding_service,
     lot_status,
     order_status,
 )
-from tests.integration.test_open_checkout import FakeRouter, World, build_world
+from tests.integration.test_open_checkout import FakeRouter, World, build_world, open_handler
 
 pytestmark = [pytest.mark.integration, pytest.mark.faults]
 
@@ -173,6 +175,111 @@ async def test_f09_a_capture_that_completes_late_is_refunded(
     assert await order_status(db_session, orders[0]) == "REFUNDED"
     assert await lot_status(db_session, world.lot_id) == "FAILED_CLOSED"
     assert await world.ports.ledger.net_paid_cents(db_session, world.lot_id) == 0
+
+
+async def test_an_in_flight_authorization_keeps_the_lot_failing(
+    db_session: AsyncSession,
+) -> None:
+    """AUTHORIZING has no void row yet, so LS-10's "every authorization voided" is unproven."""
+    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=2)
+    router = router_for_failure()
+    orders = await authorized_orders(world, router=router, count=2)
+    funding = funding_service(world, router=router)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    await expire_the_deadline(world, db_session)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    await db_session.execute(
+        text("UPDATE buyer_orders SET status = 'AUTHORIZING' WHERE id = :id"), {"id": orders[0]}
+    )
+    await db_session.flush()
+
+    service = failure_service(world, router=router)
+    assert await service.net_zero(db_session, lot_id=world.lot_id) is False
+    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
+    await drain(world, service, db_session)
+    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
+
+    assert await order_status(db_session, orders[1]) == "VOIDED"
+    assert await lot_status(db_session, world.lot_id) == "FAILING"
+
+
+async def test_a_failing_lot_expires_buyers_part_way_through_paypal(
+    db_session: AsyncSession,
+) -> None:
+    """BO-16 and BO-17: an unfinished checkout still holds a seat on a dead lot."""
+    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=2)
+    router = router_for_failure()
+    handler = authorize_handler(world, router)
+    await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
+    rows = (
+        await db_session.execute(
+            text("SELECT id FROM buyer_orders WHERE lot_id = :lot ORDER BY created_at, id"),
+            {"lot": world.lot_id},
+        )
+    ).all()
+    created, approved = rows[0].id, rows[1].id
+    await handler.continue_order(db_session, buyer_order_id=created)
+    await handler.continue_order(db_session, buyer_order_id=approved)
+    await handler.approved(db_session, buyer_order_id=approved)
+    assert await order_status(db_session, created) == "ORDER_CREATED"
+    assert await order_status(db_session, approved) == "APPROVED"
+    await db_session.execute(
+        text("UPDATE buyer_orders SET offer_expires_at = :at WHERE lot_id = :lot"),
+        {"at": world.now - timedelta(seconds=1), "lot": world.lot_id},
+    )
+    await db_session.flush()
+
+    service = failure_service(world, router=router)
+    closed = await service.close_offers(db_session, lot_id=world.lot_id)
+
+    assert closed == 2
+    assert await order_status(db_session, created) == "EXPIRED"
+    assert await order_status(db_session, approved) == "EXPIRED"
+
+
+async def test_a_refund_after_an_earlier_one_takes_the_next_sequence(
+    db_session: AsyncSession,
+) -> None:
+    """``refund:{capture}:{seq}`` follows the stored rows, so two refunds never share a key."""
+    world = await build_world(db_session, seats=3, seated=3, waitlisted=0, moq=3)
+    router = router_for_failure()
+    orders = await authorized_orders(world, router=router, count=3)
+    funding = funding_service(world, router=router)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    await funding.capture(db_session, {"buyer_order_id": str(orders[0])})
+    await expire_the_deadline(world, db_session)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+
+    capture_id = await db_session.scalar(
+        text("SELECT paypal_capture_id FROM paypal_captures WHERE buyer_order_id = :id"),
+        {"id": orders[0]},
+    )
+    await db_session.execute(
+        text(
+            "INSERT INTO paypal_refunds (id, buyer_order_id, paypal_capture_id, "
+            "paypal_refund_id, seq, status, amount_cents, raw) "
+            "VALUES (:id, :bo, :capture, 'PARTIAL-1', 1, 'COMPLETED', 1000, '{}'::jsonb)"
+        ),
+        {"id": uuid4(), "bo": orders[0], "capture": capture_id},
+    )
+    await db_session.flush()
+
+    service = failure_service(world, router=router)
+    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
+    await drain(world, service, db_session)
+
+    seqs = (
+        (
+            await db_session.execute(
+                text("SELECT seq FROM paypal_refunds WHERE buyer_order_id = :id ORDER BY seq"),
+                {"id": orders[0]},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [int(seq) for seq in seqs] == [1, 2]
+    assert await order_status(db_session, orders[0]) == "REFUNDED"
 
 
 class RefundFailsGateway(PerOrderPayerGateway):

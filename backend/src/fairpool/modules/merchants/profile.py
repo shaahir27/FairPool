@@ -27,6 +27,18 @@ ATTESTATION_KEYS: tuple[str, ...] = (
 )
 
 
+def _accepted(value: Any) -> bool:
+    """An attestation is a yes or a no, never a truthy string.
+
+    ``db-schema.md`` stores ``{"at": "iso", "accepted": true}``; anything that is
+    not a boolean is a client bug and must not be recorded as a merchant's word.
+    """
+    raw = value.get("accepted") if isinstance(value, Mapping) else value
+    if not isinstance(raw, bool):
+        raise ApplicationError("VALIDATION_ERROR")
+    return raw
+
+
 class MerchantProfileService:
     def __init__(self, *, clock: Clock, demo: bool) -> None:
         self.clock = clock
@@ -50,7 +62,7 @@ class MerchantProfileService:
         for key, value in attestations.items():
             if key not in ATTESTATION_KEYS:
                 raise ApplicationError("VALIDATION_ERROR")
-            accepted = bool(value.get("accepted")) if isinstance(value, Mapping) else bool(value)
+            accepted = _accepted(value)
             previous_at: str | None = None
             previous = merged.get(key)
             if isinstance(previous, Mapping) and previous.get("accepted") is True:

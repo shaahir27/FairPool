@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.deps import require_merchant
+from fairpool.domain.errors import ApplicationError
 from fairpool.infra.clock import DbClock
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.merchants.profile import ATTESTATION_KEYS, MerchantProfileService
@@ -89,6 +90,36 @@ async def test_an_unknown_attestation_is_rejected(db_session: AsyncSession) -> N
             attestations={"not_a_thing": {"accepted": True}},
         )
     assert "VALIDATION_ERROR" in str(caught.value)
+
+
+async def test_a_non_boolean_answer_is_not_an_attestation(db_session: AsyncSession) -> None:
+    """A merchant's word is a yes or a no: ``"false"`` must not read as accepted."""
+    user_id = await merchant_user(db_session)
+    service = MerchantProfileService(clock=DbClock(), demo=True)
+    with pytest.raises(ApplicationError) as caught:
+        await service.upsert(
+            db_session,
+            user_id=user_id,
+            display_name="Demo Merchant Alpha",
+            payee_email=None,
+            paypal_merchant_id=None,
+            attestations={"map_compliance": {"accepted": "false"}},
+        )
+    assert caught.value.code == "VALIDATION_ERROR"
+
+
+async def test_a_declined_attestation_is_stored_as_declined(db_session: AsyncSession) -> None:
+    user_id = await merchant_user(db_session)
+    service = MerchantProfileService(clock=DbClock(), demo=True)
+    merchant = await service.upsert(
+        db_session,
+        user_id=user_id,
+        display_name="Demo Merchant Alpha",
+        payee_email=None,
+        paypal_merchant_id=None,
+        attestations={"map_compliance": {"accepted": False}},
+    )
+    assert merchant.attestations["map_compliance"]["accepted"] is False
 
 
 async def test_the_role_alone_does_not_pass_the_merchant_gate(db_session: AsyncSession) -> None:

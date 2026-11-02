@@ -26,7 +26,7 @@ from datetime import timedelta
 from typing import Any, Final, Protocol
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.db.models.checkout import (
@@ -53,6 +53,11 @@ PENDING_RECHECK_S: Final[int] = 10
 VOIDABLE_STATES: Final[frozenset[str]] = frozenset({"AUTHORIZED"})
 REFUNDABLE_STATES: Final[frozenset[str]] = frozenset({"CAPTURED", "REFUNDING"})
 PENDING_STATES: Final[frozenset[str]] = frozenset({"CAPTURING", "CAPTURE_PENDING"})
+#: ``AUTHORIZING`` has no row of its own to void yet: the PayPal call is in
+#: flight, so LS-10 waits for it to land rather than closing over a live hold.
+LIVE_AUTH_STATES: Final[frozenset[str]] = frozenset({"AUTHORIZED", "AUTHORIZING"})
+#: Offers a FAILING lot may still close, each on its own expiry (BO-15, BO-16, BO-17).
+EXPIRABLE_STATES: Final[frozenset[str]] = frozenset({"OFFERED", "ORDER_CREATED", "APPROVED"})
 
 
 class FailureGateway(Protocol):
@@ -146,13 +151,15 @@ class FailureService:
 
         A FAILING lot cannot create new offers because ``lot.open_checkout`` only
         runs from CHECKOUT_OPEN, so the only orders this may move are ones whose
-        ``offer_expires_at`` has passed, and BO-15 is the contracted edge for those.
+        ``offer_expires_at`` has passed, and BO-15, BO-16 and BO-17 are the
+        contracted edges for those. A buyer part way through the payment step is
+        closed the same way: no authorization exists, so nothing needs voiding.
         """
         now = await self.clock.db_now(session)
         rows = await session.scalars(
             select(BuyerOrder).where(
                 BuyerOrder.lot_id == lot_id,
-                BuyerOrder.status == "OFFERED",
+                BuyerOrder.status.in_(sorted(EXPIRABLE_STATES)),
                 BuyerOrder.offer_expires_at.is_not(None),
                 BuyerOrder.offer_expires_at <= now,
             )
@@ -229,11 +236,15 @@ class FailureService:
             capture = await self._latest_capture(session, buyer_order_id=buyer_order_id)
             if capture is None:
                 return
+            # The sequence comes from the rows already stored for this capture, so a
+            # retried job replays ``refund:{capture}:{seq}`` with the same payload
+            # instead of opening a second refund (I9).
+            seq = await self._next_refund_seq(session, capture_id=capture.paypal_capture_id)
             try:
                 refund = await self.gateway.refund_capture(
                     capture.paypal_capture_id,
                     amount_cents=int(capture.amount_cents),
-                    request_key=f"refund:{capture.paypal_capture_id}:1",
+                    request_key=f"refund:{capture.paypal_capture_id}:{seq}",
                 )
             except PaymentError as error:
                 logger.warning(
@@ -252,7 +263,7 @@ class FailureService:
                     buyer_order_id=buyer_order_id,
                     paypal_capture_id=capture.paypal_capture_id,
                     paypal_refund_id=refund.id,
-                    seq=1,
+                    seq=seq,
                     status=refund.status,
                     amount_cents=int(refund.amount_cents),
                     raw={},
@@ -265,7 +276,7 @@ class FailureService:
                     buyer_order_id=buyer_order_id,
                     to_state="REFUNDING",
                     trigger="job:refund.run",
-                    refund_seq=1,
+                    refund_seq=seq,
                     # BO-13 allows an ops refund without the lot failing.
                     ops_refund=bool(payload.get("ops_refund")),
                     observation=Observation(
@@ -332,7 +343,7 @@ class FailureService:
             return False
         live_auth = await session.scalar(
             select(BuyerOrder.id)
-            .where(BuyerOrder.lot_id == lot_id, BuyerOrder.status.in_(sorted(VOIDABLE_STATES)))
+            .where(BuyerOrder.lot_id == lot_id, BuyerOrder.status.in_(sorted(LIVE_AUTH_STATES)))
             .limit(1)
         )
         if live_auth is not None:
@@ -402,6 +413,15 @@ class FailureService:
         return await session.scalar(
             select(PayPalRefundRow)
             .where(PayPalRefundRow.buyer_order_id == buyer_order_id)
-            .order_by(PayPalRefundRow.created_at.desc())
+            .order_by(PayPalRefundRow.seq.desc())
             .limit(1)
         )
+
+    async def _next_refund_seq(self, session: AsyncSession, *, capture_id: str) -> int:
+        """One plus the highest refund sequence already stored for this capture."""
+        highest = await session.scalar(
+            select(func.max(PayPalRefundRow.seq)).where(
+                PayPalRefundRow.paypal_capture_id == capture_id
+            )
+        )
+        return int(highest or 0) + 1

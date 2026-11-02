@@ -1,10 +1,14 @@
-"""Sealed bids with signed receipts (T05A04; FR-AU-01, FR-AU-02, I11).
+"""Sealed bids with signed receipts (T05A04; FR-AU-02, FR-AU-03, I11).
 
 A bid is one row per merchant and lot; every submission is a new numbered
 revision with a receipt the merchant can keep. Sealing is an access rule: a read
 is scoped to the owning merchant in SQL and another merchant's bid is reported as
 not found, never as forbidden (``api.md`` section 3: responses never contain
 another merchant's bids).
+
+Every status change here is a ``bid`` whitelist edge from ``state-machines.md``
+with its audit row (I10), which is why a save cannot silently re-open a decided
+bid and a revise always returns the bid to DRAFT until it is confirmed again.
 
 ``BID_PRICING_MODE=flat_delivered`` is enforced here, at the write boundary, with
 the contracted message from ``flat-delivered-bids.md``; the pure rules engine
@@ -25,9 +29,10 @@ from fairpool.db.models.auction import Bid, BidFlag, BidRevision
 from fairpool.db.models.enums import BidStatus
 from fairpool.db.models.pools import Lot
 from fairpool.domain import hashing
-from fairpool.domain.errors import ApplicationError
+from fairpool.domain.errors import ApplicationError, IllegalTransition
+from fairpool.domain.states import assert_transition
 from fairpool.modules.pools.receipts import format_received_at
-from fairpool.ports import Clock
+from fairpool.ports import AuditLog, Clock
 
 logger: Final[logging.Logger] = logging.getLogger("fairpool.auction.bids")
 
@@ -78,11 +83,47 @@ def validate_structured(structured: Mapping[str, Any], *, flat_delivered: bool) 
             raise ApplicationError("VALIDATION_ERROR", FLAT_DELIVERED_MESSAGE)
 
 
+async def apply_bid_transition(
+    session: AsyncSession,
+    *,
+    bid: Bid,
+    to_status: str,
+    trigger: str,
+    audit: AuditLog,
+    actor: str = "merchant",
+    payload: dict[str, Any] | None = None,
+) -> None:
+    """Move a bid along the whitelist and write its audit row in this transaction (I10)."""
+    transition = assert_transition("bid", str(bid.status), to_status, trigger=trigger)
+    before = str(bid.status)
+    bid.status = BidStatus(to_status)
+    await session.flush()
+    await audit.append(
+        session,
+        actor=actor,
+        action=f"bid.{to_status.lower()}",
+        subject_type="bid",
+        subject_id=str(bid.id),
+        payload={
+            "lot_id": str(bid.lot_id),
+            "merchant_id": str(bid.merchant_id),
+            "from": before,
+            "to": to_status,
+            "trigger": trigger,
+            "transition_id": transition.id,
+            **(payload or {}),
+        },
+    )
+
+
 class BidService:
     """One merchant's bids: revisions, receipts, confirmation and sealed reads."""
 
-    def __init__(self, *, clock: Clock, seed: bytes, flat_delivered: bool = True) -> None:
+    def __init__(
+        self, *, clock: Clock, audit: AuditLog, seed: bytes, flat_delivered: bool = True
+    ) -> None:
         self.clock = clock
+        self.audit = audit
         self.seed = seed
         self.flat_delivered = flat_delivered
 
@@ -100,25 +141,40 @@ class BidService:
         lot = await session.get(Lot, lot_id)
         if lot is None:
             raise ApplicationError("NOT_FOUND")
+        if str(lot.status) != "BIDDING":
+            raise ApplicationError("LOT_NOT_BIDDING")
+        now = await self.clock.db_now(session)
+        # BS-12's own guard: past the deadline no revision is accepted, so a late
+        # write can never replace a confirmed bid. Rejection of an unconfirmed bid
+        # stays the award job's edge (R1, ``state-machines.md``).
+        if lot.bid_close_at is not None and now >= lot.bid_close_at:
+            raise ApplicationError("BID_WINDOW_CLOSED")
         capacity = structured.get("capacity")
         if isinstance(capacity, int) and capacity < int(lot.seats):
             raise ApplicationError("VALIDATION_ERROR")
-        now = await self.clock.db_now(session)
         bid = await session.scalar(
             select(Bid).where(Bid.lot_id == lot_id, Bid.merchant_id == merchant_id)
         )
         if bid is None:
+            # DRAFT is the machine's initial state, so creating the row is not a transition.
             bid = Bid(
                 id=uuid4(),
                 lot_id=lot_id,
                 merchant_id=merchant_id,
-                status=BidStatus.PROPOSED,
+                status=BidStatus.DRAFT,
                 current_revision=0,
             )
             session.add(bid)
             await session.flush()
         revision = int(bid.current_revision) + 1
-        late = lot.bid_close_at is not None and now > lot.bid_close_at
+        if str(bid.status) != str(BidStatus.DRAFT):
+            await self._move(
+                session,
+                bid=bid,
+                to_status="DRAFT",
+                trigger="merchant.revise",
+                payload={"revision": revision},
+            )
         receipt_hash = hashing.bid_receipt_hash(
             str(bid.id), revision, structured, format_received_at(now)
         )
@@ -137,13 +193,6 @@ class BidService:
         )
         session.add(row)
         bid.current_revision = revision
-        if late:
-            # The revision is kept as evidence, but it can never be ranked.
-            bid.status = BidStatus.REJECTED
-            bid.reject_reason = "R1_LATE"
-        elif bid.status in (BidStatus.DRAFT, BidStatus.REJECTED):
-            bid.status = BidStatus.PROPOSED
-            bid.reject_reason = None
         await session.flush()
         return bid, row
 
@@ -152,8 +201,7 @@ class BidService:
     ) -> Bid:
         bid = await self._owned(session, merchant_id=merchant_id, bid_id=bid_id)
         if int(bid.current_revision) != int(revision):
-            raise ApplicationError("VALIDATION_ERROR")
-        if str(bid.status) == str(BidStatus.REJECTED):
+            # A stale revision number is a body error, not a state error.
             raise ApplicationError("VALIDATION_ERROR")
         row = await session.scalar(
             select(BidRevision).where(
@@ -163,10 +211,40 @@ class BidService:
         if row is None:
             raise ApplicationError("NOT_FOUND")
         now = await self.clock.db_now(session)
+        await self._move(
+            session,
+            bid=bid,
+            to_status="CONFIRMED",
+            trigger="merchant.confirm",
+            payload={"revision": revision},
+        )
         row.confirmed_at = now
-        bid.status = BidStatus.CONFIRMED
         await session.flush()
         return bid
+
+    async def _move(
+        self,
+        session: AsyncSession,
+        *,
+        bid: Bid,
+        to_status: str,
+        trigger: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Apply a whitelist edge, reporting a decided bid as the stale page it is."""
+        try:
+            await apply_bid_transition(
+                session,
+                bid=bid,
+                to_status=to_status,
+                trigger=trigger,
+                audit=self.audit,
+                payload=payload,
+            )
+        except IllegalTransition as error:
+            # Only reachable once ``lot.award`` has decided the bid, and by then the
+            # lot has left BIDDING; the merchant's tab is simply stale (I10 says no).
+            raise ApplicationError("LOT_NOT_BIDDING") from error
 
     async def get(
         self, session: AsyncSession, *, merchant_id: UUID, bid_id: UUID

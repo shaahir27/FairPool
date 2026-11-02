@@ -7429,7 +7429,7 @@
     },
     "/api/v1/merchant/profile": {
       "post": {
-        "description": "Create or update the merchant row and stamp the three attestations.",
+        "description": "Create or update the merchant row and stamp the three attestations.\n\nThis is the one merchant route that cannot require the row: it creates it.\nThe role check stays, so a buyer still cannot call it.",
         "operationId": "merchant_profile",
         "parameters": [
           {
