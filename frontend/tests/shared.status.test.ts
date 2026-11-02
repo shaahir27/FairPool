@@ -51,7 +51,7 @@ describe("status vocabulary", () => {
   });
 
   it("marks exactly the terminal buyer-order states", () => {
-    expect(TERMINAL_BUYER_ORDER_STATUSES.sort()).toEqual(
+    expect([...TERMINAL_BUYER_ORDER_STATUSES].sort()).toEqual(
       [
         "AUTH_FAILED",
         "CAPTURE_FAILED",
