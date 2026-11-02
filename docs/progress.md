@@ -108,8 +108,8 @@ Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED 
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T05A01 | A | L | IN PROGRESS | | Real PayPal path for one buyer (redirect); shipping now sealed into `shipping_enc`. Interactive C-08/C-09 and the live IT-5 run remain |
-| T05A02 | A | L | IN REVIEW | phase-5 | Batch-one UI redesign (2026-11-02, owner-steered): enclosed checkout, account sidebar, buyer-friendly progress, expandable payment/activity details, receipt drawer, Motion transitions and one cobalt/coral/marigold palette across the app. Login/register layout retained after approval. 33 frontend tests green; full verification limitations below. |
+| T05A01 | A | L | DONE | main | Real PayPal path for one buyer (redirect) plus the shipping seal. Live on 2026-11-02: one Sandbox buyer through offer, approval, server-side authorize and void (`FAILED_CLOSED`, ledger zero) and a second run through capture, funding and refund (`COMPLETED`, ledger zero); C-08 and C-09 pass. Address sealing follows BD-11 as a Fernet token. See `docs/evidence/phase5/it5_sandbox.json` |
+| T05A02 | A | L | DONE | main | Batch-one UI redesign (2026-11-02, owner-steered): enclosed checkout, account sidebar, buyer-friendly progress, expandable payment/activity details, receipt drawer, Motion transitions and one cobalt/coral/marigold palette across the app. Login/register layout retained after approval. An app-wide session gate now sends a signed-out visit to `/login` and returns the buyer to the path they came from. 39 frontend tests, typecheck, eslint and the build green |
 | T05A03 | A | M | DONE | phase-5 | Failure path and compensating refund (fake router); PT-11, F9 and F24 pass |
 | T05A06 | A | M | DONE | phase-5 | Merchant profile and onboarding states; `require_merchant` now loads the merchant row |
 | T05A04 | A | L | DONE | phase-5 | Bid API with receipts and sealing; `test_bid_sealing.py` passes |
@@ -218,6 +218,9 @@ Record planned versus actual days per phase and member at each gate. The plan is
 
 | ID | Raised by | Question and the two readings | Source of each reading | Status |
 |---|---|---|---|---|
+| Q-2026-11-02-23 | T05A06 review | `POST /api/v1/merchant/profile`'s response shape is not written down anywhere in `api.md`; the code returns `merchant_id`, `display_name`, `onboarding_status` and `attestations`. Reading (a): the route returns what the row holds and api.md needs a write-up (a contract edit); reading (b): pick another shape from a similar route. Code takes the first and does not edit the contract silently | `docs/contracts/api.md` merchant section; `api/routers/merchant.py` | OPEN: contract write-up needed |
+| Q-2026-11-02-24 | T05A03 review | `domain-ports.md` section 5 lists `void.run` payload as `{buyer_order_id, reason}`, `refund.run` as `{buyer_order_id, seq}` and dedupe `none` for all three Phase 5 kinds; the code sends `void_source`, derives `seq` at run time and adds `finalize_fail:{lot_id}` / `void:{bo}` / `refund:{bo}` dedupe keys. Reading (a): the payload names follow the doc and the dedupe keys are an implementation hardening the doc neither requires nor forbids; reading (b): the doc is the exact wire format and the code must match it, including a `seq` the enqueue cannot know yet. Code keeps reading (a)'s behaviour because the keys are what stop a double void or refund, and records the naming drift instead of editing the contract | `docs/contracts/domain-ports.md` section 5; `modules/checkout/failure.py` | OPEN: doc or code name to be picked by the owner |
+| Q-2026-11-02-25 | T05A05 review | R4 and R6 have no text in `fairness-and-hashing.md` sections 10 and 11, only in `docs/registry.md`: R4 "capacity covers the lot seats", R6 "valid_until at least fund deadline plus capture grace". `Q-2026-11-02-21` recorded narrower readings (R4 against MOQ, R6 against `bid_close_at`), and the code followed them. Reading (a): `registry.md` is the rule list and the engine must compare seats and the funding horizon; reading (b): the contracts directory is the only source and the registry lines stay notes. Code now takes reading (a) because (b) lets a bid that cannot supply its own lot win, and because the `bid_close_at` test made R6 pass a validity that expires before the money is due. The frozen vectors do not exercise either rule, so no vector changed | `docs/registry.md` R4 and R6; `docs/contracts/fairness-and-hashing.md` sections 10-11; `domain/auction_rules.py` | OPEN: narrows `Q-2026-11-02-21`; a CR can confirm or reverse it |
 | Q-2026-11-02-22 | T05A02 PDF fidelity | PDF pages 7-9 require lot-history timestamps, provider references and a verified net result; OrderStatusResponse has none. Reading (a): extend the contract to return verified fields; reading (b): copy sample values or infer them in the browser. I4 and I13 forbid (b); these exact details await a contract change. Buyer, merchant and item details are available through existing me and offer endpoints and are implemented. Auth illustration uses One voice / One seat instead of unsupported sample counts. | `FairPool finalised screens.pdf` pages 2, 7-9; `docs/contracts/api.md`; I4, I13 | OPEN: contract change required for the remaining data |
 | Q-O1 | owner | Spike S2 result lists authorize as COMPLETED: is that the order status or the authorization object's status? Contract expects the authorization status CREATED | `docs/spike-results.md` S2 | answered Oct 27 from checklist 2.2 and 2.3 (authorization CREATED, order COMPLETED); T01A04 re-confirms in code |
 | Q-O2 | owner | Exact issue name in the void-replay 422 body | `docs/spike-results.md` S2 | answered 2026-10-31: `PREVIOUSLY_VOIDED` (HTTP 422); capture after void `AUTHORIZATION_VOIDED` |
@@ -283,6 +286,7 @@ T05A02 batch-one pass (2026-11-02): the owner explicitly requested authenticatio
 | 2026-11-01 | A | B | `T04A06` now ships only the lot, beacon, seed and award content of the public audit payload; the route file `api/routers/public.py` stays B-owned and already carries the keys and close-time fields from Phase 3. Add the fields through the B-owned router rather than editing it from A. | SUPERSEDED by the row below: the content landed, but by editing B's file under solo operation |
 | 2026-11-01 | A | B | `db/safety.py` requires a loopback `*_test` database; the local stack has no `fairpool_test`, so `make test` errors on 36 tests unless it is created. Created locally on 2026-11-01; `make setup` should provision it so a clean clone is green. | OPEN |
 | 2026-11-02 | A (solo operator) | B | `backend/src/fairpool/domain/**` is B-owned per `docs/team-split.md`, and `T05A05` (A lane) adds R1-R7 guards and `select_across_lots` to `domain/auction_rules.py`. The edit happens under solo operation where `@shaahir27` holds both lanes; recorded so a future separate owner reviews it rather than treating it as pre-approved. | RECORDED (solo operation) |
+| 2026-11-02 | A (solo operator) | B | The Phase 5 review pass changed B-owned `domain/auction_rules.py` again (R1 boundary, R4 seats, R6 funding horizon), the B-owned `api/schemas.py` and `api/deps.py` (CR-5 models, `require_merchant`), and everything the T05A02 UI needed (`frontend/src/**`, `frontend/package.json`, two `public/fonts` binaries, the `motion` dependency). Same solo-operation basis; the R4 and R6 readings in particular await the owner's word on `Q-2026-11-02-25` | OPEN (record) |
 | 2026-11-01 | A (solo operator) | B | `api/routers/public.py` is B-owned in `api.md` section 2, and `T04A06` edited it in Phase 4 to add the `lots`, `beacon`, `seed_hex`, `seed_is_demo` and `award` content. The edit happened under solo operation (`@shaahir27` holds both lanes), so no other member's unmerged code was touched, but the file is still B's: when B returns as a separate owner, those changes need B's review rather than being treated as pre-approved. This supersedes the open Phase 4 row above. | RECORDED (solo operation) |
 
 ## Blockers
@@ -637,3 +641,40 @@ Owner actions Phase 4 cannot close without:
   this branch;
 - set `DRAND_BASE_URL` and `DRAND_CHAIN_HASH` (or keep the demo seed) and record a real S6
   round; the 2026-11-01 check found them absent and recorded `not configured`.
+
+## Phase 5 execution record (2026-11-02)
+
+Built and verified in this phase: the real redirect checkout (`offer -> continue ->
+approve -> return -> server-side authorize`), the failure path to net zero (void,
+capture, refund, `LS-08` to `LS-10`), the shipping address sealed as a Fernet token
+under `ADDRESS_ENCRYPTION_KEY` (BD-11), the merchant profile with the three
+attestations, sealed bids with Ed25519 receipts on the bid whitelist, the `ranking_v1`
+rules engine with R1 to R9 and two new vectors, CR-5's nine optional response keys,
+the checkout and order-status screens, an app-wide session gate, `tools/demo_seed.py`,
+and `make api` / `make web` / `dev.ps1` for the no-Docker path.
+
+Live Sandbox evidence (`docs/evidence/phase5/it5_sandbox.json`): one real buyer
+through the redirect path; C-08 authorize then void to `FAILED_CLOSED` with a zero
+ledger; C-09 capture `COMPLETED` to `FUNDED` then refund `COMPLETED` with a zero
+ledger. A third approval was correctly refused (`WRONG_COUNTRY`) for a non-US payer.
+
+Review state: four independent read-only passes ran, each returning FAIL with
+findings, and every finding is now fixed and named by a test (the list is in
+`docs/evidence/phase5/independent_review.json`). The two the later passes caught in
+the fixes themselves were the adapter refusing `attempt 0`, which would have 500'd
+every first continue, and the gate treating any non-2xx as signed out. What IG-5
+still needs is one confirming read of this fixed state by an independent reviewer,
+then the `ig-5` tag. A re-read by the implementing agent is not independent and is
+not recorded as one.
+
+Owner's remaining steps:
+- run the confirming review (any second agent, read-only) and set
+  `docs/evidence/phase5/independent_review.json` to `passed` only on a PASS verdict;
+- set `DEMO_SEED_PASSWORD` in `.env`: the seeder has no default and takes no
+  command-line secret (I14). The password a previous commit carried is in git history
+  as of `4f3ce33`; the demo data is local only, and re-seeding with a fresh value
+  before the repository goes public retires it;
+- decide `Q-2026-11-02-23`, `-24` and `-25` (contract write-up, job payload naming,
+  and the R4 and R6 readings);
+- `contracts-v1.5` still has to be tagged for CR-5, and the hosted service is still on
+  the Phase 4 image.

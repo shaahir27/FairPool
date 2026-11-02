@@ -5,8 +5,8 @@ Run against the *development* database (``.env``), not the test one:
     python tools/demo_seed.py                 # six buyers, authorize_capture
     python tools/demo_seed.py --buyers 8
 
-``DEMO_SEED_PASSWORD`` in ``.env`` (or ``--password``) is the shared demo
-password; the script has no default and never prints it.
+``DEMO_SEED_PASSWORD`` in ``.env`` is the shared demo password. The script has no
+default, does not read it from the command line, and never prints it.
 
 It reuses the IT-4 harness so the demo data is produced by the same services the
 app uses: pool create/publish, intake, join with signed receipts, close, seed,
@@ -40,13 +40,14 @@ def load_env() -> None:
             os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
-async def main(buyers: int, password: str | None, moq_override: int) -> int:
+async def main(buyers: int, moq_override: int) -> int:
     load_env()
     os.environ["PAYMENT_MODE"] = "authorize_capture"
-    # No built-in password: a repo default would be a credential in public source.
-    secret = password or os.environ.get("DEMO_SEED_PASSWORD")
+    # I14: a credential comes from the environment only, never from a repo default
+    # and never from a command line that ends up in a shell history.
+    secret = os.environ.get("DEMO_SEED_PASSWORD")
     if not secret:
-        raise SystemExit("no demo password: pass --password or set DEMO_SEED_PASSWORD in .env")
+        raise SystemExit("no demo password: set DEMO_SEED_PASSWORD in .env")
 
     from fairpool.api.app import create_app
     from fairpool.api.deps import database_session
@@ -266,7 +267,7 @@ async def main(buyers: int, password: str | None, moq_override: int) -> int:
 
     print(f"\npool        {pool_id}")
     print(f"lot         {lot.id}  ({lot.seats} seats, moq {moq})")
-    print(f"login       {emails[0]}  (password: --password or DEMO_SEED_PASSWORD)")
+    print(f"login       {emails[0]}  (the DEMO_SEED_PASSWORD from .env)")
     print("\nopen these:")
     for row in offers[:3]:
         print(f"  offer   http://localhost:5173/offers/{row.id}")
@@ -278,7 +279,6 @@ async def main(buyers: int, password: str | None, moq_override: int) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--buyers", type=int, default=6)
-    parser.add_argument("--password", default=None)
     parser.add_argument("--moq", type=int, default=0)
     arguments = parser.parse_args()
-    raise SystemExit(asyncio.run(main(arguments.buyers, arguments.password, arguments.moq)))
+    raise SystemExit(asyncio.run(main(arguments.buyers, arguments.moq)))

@@ -137,7 +137,7 @@ function OfferDetails({ offer }: { offer: Offer }) {
           <div className="budget-note"><Icon name="check" /><span>Your maximum is <strong>{formatCents(offer.totals.cap_cents)}</strong>. {unused >= 0 ? `This total is ${formatCents(unused)} within your limit.` : "Review the final total before continuing."}</span></div>
         </div>
         <div className="summary-terms"><div><Icon name="truck" /><span>Delivery within {offer.terms.delivery_sla_days} days</span></div><div><Icon name="returns" /><span>{offer.terms.returns_days}-day return terms</span></div><div><Icon name="box" /><span>{offer.product.bundle_contents.join(", ")}</span></div></div>
-        <details className="shop-disclosure"><summary>How your group price works <Icon name="down" /></summary><p>Merchants submitted sealed bids for this lot. The lowest qualifying price won, and your total fits your confirmed limit.</p><p>{offer.notices.lots_may_differ}</p>{offer.pool_id ? <Link to={`/audit/${offer.pool_id}`}>View this pool’s published rules</Link> : null}</details>
+        <details className="shop-disclosure"><summary>How your group price works <Icon name="down" /></summary><p>FairPool ranks the qualifying offers for a lot by the delivered price each buyer actually pays, and the lowest one that meets the lot's rules sets your price. Your total is always checked against the limit you confirmed.</p><p>{offer.notices.lots_may_differ}</p>{offer.pool_id ? <Link to={`/audit/${offer.pool_id}`}>View this pool’s published rules</Link> : null}</details>
       </aside>
     </form>
   </div>;

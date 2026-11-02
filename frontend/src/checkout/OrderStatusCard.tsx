@@ -37,8 +37,6 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [offer, setOffer] = useState<ApiComponents["schemas"]["OfferResponse"] | null>(null);
   const [buyerName, setBuyerName] = useState<string | null>(null);
-  const [withdrawing, setWithdrawing] = useState(false);
-  const [actionError, setActionError] = useState<{ code: string; message: string } | null>(null);
   const reduced = useReducedMotion();
 
   useEffect(() => {
@@ -70,18 +68,6 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
   if (!order && error) return <><Notice kind="error" code={error.code}>{error.message}</Notice><button type="button" className="shop-quiet-button mt-4" onClick={() => setRevision((n) => n + 1)}>Try again</button></>;
   if (!order) return <section className="shop-panel shop-panel-pad" aria-busy="true" role="status" aria-label="Loading order"><h1 className="shop-title">Order status</h1><div className="skeleton mt-5 h-40" /></section>;
 
-  const withdraw = async () => {
-    if (withdrawing) return;
-    setWithdrawing(true); setActionError(null);
-    try {
-      const { error: failure } = await api.POST("/api/v1/orders/{buyer_order_id}/withdraw", { params: { path: { buyer_order_id: buyerOrderId } } });
-      if (failure) {
-        const value = failure as { error?: { code?: string; message?: string } };
-        setActionError({ code: value.error?.code ?? "REQUEST_FAILED", message: value.error?.message ?? "Could not withdraw. Refresh status and try again." });
-      } else setRevision((n) => n + 1);
-    } catch { setActionError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); }
-    finally { setWithdrawing(false); }
-  };
   const history = order.history ?? [];
   const negative = CLOSED_ORDERS.has(order.status);
   const copy = ORDER_COPY[order.status] ?? statusStyle(order.status).label;
@@ -100,7 +86,6 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
       <div className="order-page-actions"><button type="button" className="shop-quiet-button" disabled={refreshing} onClick={() => setRevision((n) => n + 1)}><Icon name="returns" />{refreshing ? "Refreshing..." : "Refresh status"}</button>{order.receipt ? <button type="button" className="shop-quiet-button" aria-haspopup="dialog" aria-expanded={receiptOpen} onClick={() => setReceiptOpen(true)}><Icon name="receipt" />View entry receipt</button> : null}</div>
     </div>
     {error ? <div className="mb-5"><Notice kind="error" code={error.code}>{error.message} Your last loaded status is still shown.</Notice></div> : null}
-    {actionError ? <div className="mb-5"><Notice kind="error" code={actionError.code}>{actionError.message}</Notice></div> : null}
     {order.reject_reason ? <div className="mb-5"><Notice kind="error" code={order.reject_reason}>{REJECT_REASON_LABELS[order.reject_reason] ?? "The payment was refused by a server check."}</Notice></div> : null}
     <div className="order-display-grid">
       <div className="order-primary-column">
@@ -115,7 +100,7 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
           <div className="order-group-note"><Icon name="layers" /><div><strong>{funded ? "Your group reached its minimum" : failedLot ? "This lot is closing or has closed" : "Your purchase is part of a group"}</strong><p>{funded ? "Enough buyers' completed payments met the lot minimum." : failedLot ? statusStyle(order.lot_status).label : "The lot is funded only after enough payments complete. A hold or approval does not count as paid."}</p><code>{order.lot_status}</code></div></div>
         </section>
         {offer ? <section className="shop-panel order-item"><h2>Your item</h2><div className="shop-product-row"><ProductArt title={offer.product.title} small /><div><h3>{offer.product.title}</h3><p>{[offer.product.variant, offer.product.condition].filter(Boolean).join(" · ")}</p><p>Sold by {offer.merchant.display_name}</p><p>Quantity: 1</p></div><strong className="order-item-price">{formatCents(offer.totals.item_cents)}</strong></div><div className="order-item-terms"><span><Icon name="truck" />Delivery within {offer.terms.delivery_sla_days} days</span><span><Icon name="returns" />{offer.terms.returns_days}-day return terms</span><span><Icon name="box" />{offer.product.bundle_contents.join(", ")}</span></div></section> : null}
-        <Disclosure title="Payment details" icon="wallet"><p className="shop-copy">States reported by PayPal. Only a completed capture confirms payment.</p><dl className="order-provider-rows"><Provider label="Authorization" value={order.paypal.authorization_status} /><Provider label="Capture" value={order.paypal.capture_status} /><Provider label="Refund" value={order.paypal.refund_status} /></dl>{order.status === "AUTHORIZED" ? <div className="order-withdraw"><button type="button" disabled={withdrawing} onClick={() => void withdraw()} className="shop-quiet-button">{withdrawing ? "Requesting withdrawal..." : "Withdraw before payment"}</button><p>Request release of your hold before capture. The server checks whether withdrawal is still possible.</p></div> : null}</Disclosure>
+        <Disclosure title="Payment details" icon="wallet"><p className="shop-copy">States reported by PayPal. Only a completed capture confirms payment.</p><dl className="order-provider-rows"><Provider label="Authorization" value={order.paypal.authorization_status} /><Provider label="Capture" value={order.paypal.capture_status} /><Provider label="Refund" value={order.paypal.refund_status} /></dl>{order.status === "AUTHORIZED" ? <div className="order-withdraw"><button type="button" disabled className="shop-quiet-button" aria-disabled="true">Withdraw before payment</button><p>Holds are released automatically when the lot fails to fund or the offer expires. Requesting a release yourself is a later task: the withdraw route is not in this build.</p></div> : null}</Disclosure>
         <Disclosure title="Order activity" icon="clock">{history.length ? <ol className="order-activity">{history.map((item) => <li key={`${item.status}-${item.at}`}><span className="activity-dot" /><div><strong>{statusStyle(item.status).label}</strong><code>{item.status}</code></div><time dateTime={item.at}>{formatDateTime(item.at)}</time></li>)}</ol> : <p className="shop-copy">No events have been recorded yet.</p>}</Disclosure>
       </div>
       <aside className="order-secondary-column" aria-label="Order information">

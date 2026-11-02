@@ -46,6 +46,8 @@ def scenarios(draw: st.DrawFn) -> dict[str, Any]:
                 bundle_key=None,
                 max_delivery_days=14,
                 min_returns_days=7,
+                fund_deadline_at="2026-11-07T12:00:00+00:00",
+                capture_grace_s=120,
             )
         )
         seated[lot_id] = [
@@ -63,7 +65,7 @@ def scenarios(draw: st.DrawFn) -> dict[str, Any]:
                 bid_id=f"{lot_id}-bid-{merchant}",
                 merchant_id=merchant,
                 tiers=(Tier(min_qty=1, item_price_cents=draw(st.integers(1_000, 5_000))),),
-                # R4 makes a bid below the lot size invalid at submission.
+                # R4 requires a bid to cover its lot's seats, so none is drawn below it.
                 capacity=draw(st.integers(min_value=seats, max_value=8)),
                 tiebreak_hash=f"{lot_id}-{merchant}",
             )

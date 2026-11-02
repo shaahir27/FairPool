@@ -65,6 +65,19 @@ async def test_token_cache_retries_and_sanitized_order():
     assert calls[1].headers["PayPal-Request-Id"] == calls[2].headers["PayPal-Request-Id"]
 
 
+async def test_the_first_create_is_attempt_zero() -> None:
+    """N9 starts the counter at 0, so the gateway must not demand a positive attempt."""
+
+    async def handle(req):
+        raise AssertionError("the payload is built locally, no request is expected")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        gateway = RestPayPalGateway(make_settings(), client=client)
+        gateway.order_payload(replace(request(), attempt=0))
+        with pytest.raises(ValueError):
+            gateway.order_payload(replace(request(), attempt=-1))
+
+
 def test_idempotency_vectors_and_vault_operation_separation():
     assert (
         request_id("create:11111111-1111-4111-8111-111111111111:1")

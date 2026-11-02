@@ -295,6 +295,13 @@ class FundingService:
             return
         if await self._has_pending_capture(session, lot.id):
             return
+        if await self._has_authorizing_order(session, lot.id):
+            # BO-03's re-check only lets an in-flight authorize retry while the lot is
+            # CHECKOUT_OPEN, and the whitelist has no other exit from AUTHORIZING.
+            # Failing the lot now would strand that seat for ever (Q-2026-11-01-18),
+            # so the authorize is allowed to land first: BO-04 re-runs try_fund and
+            # BO-05 refills, which re-runs it too.
+            return
         if mode == "vault_charge" or str(lot.status) != str(LotStatus.CHECKOUT_OPEN):
             short = (await self.ledger.completed_capture_count(session, lot.id)) < moq
         else:
@@ -323,6 +330,14 @@ class FundingService:
             select(PayPalCapture.id)
             .join(BuyerOrder, BuyerOrder.id == PayPalCapture.buyer_order_id)
             .where(BuyerOrder.lot_id == lot_id, PayPalCapture.status == "PENDING")
+            .limit(1)
+        )
+        return found is not None
+
+    async def _has_authorizing_order(self, session: AsyncSession, lot_id: UUID) -> bool:
+        found = await session.scalar(
+            select(BuyerOrder.id)
+            .where(BuyerOrder.lot_id == lot_id, BuyerOrder.status == BuyerOrderStatus.AUTHORIZING)
             .limit(1)
         )
         return found is not None

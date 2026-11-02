@@ -88,16 +88,20 @@ it("loads the order item from its existing offer disclosure endpoint", async () 
   expect(screen.getByText("Delivery within 7 days")).toBeInTheDocument();
 });
 
-it("reports a refused withdrawal without showing the hold as released", async () => {
+it("keeps withdrawal visibly unavailable while its route is unbuilt", async () => {
   transport.get.mockResolvedValue({ data: {
     buyer_order_id: "order-one", status: "AUTHORIZED", lot_status: "CHECKOUT_OPEN", total_cents: 49900,
     history: [], paypal: { authorization_status: "CREATED" }, labels: ["SANDBOX"], receipt: null,
   } });
-  transport.post.mockResolvedValue({ error: { error: { code: "ORDER_STATE_INVALID", message: "The payment is already completing." } } });
   show(<OrderStatusCard buyerOrderId="order-one" />);
   fireEvent.click(await screen.findByRole("button", { name: /Payment details/ }));
-  fireEvent.click(await screen.findByRole("button", { name: "Withdraw before payment" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("ORDER_STATE_INVALID");
+  const button = await screen.findByRole("button", { name: "Withdraw before payment" });
+
+  // POST /orders/{id}/withdraw is a later task: an active button would 500 on the
+  // stub route, so the action is disabled and says so instead of failing silently.
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(transport.post).not.toHaveBeenCalled();
   expect(screen.getAllByText("AUTHORIZED").length).toBeGreaterThan(0);
   expect(screen.queryByText("Your hold was released.")).not.toBeInTheDocument();
 });

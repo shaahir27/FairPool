@@ -13,6 +13,10 @@ from fairpool.domain import auction_rules
 from fairpool.domain.auction_rules import BidFacts, LotFacts, Tier
 
 CLOSE = "2026-11-05T12:00:00+00:00"
+FUND_DEADLINE = "2026-11-07T12:00:00+00:00"
+CAPTURE_GRACE_S = 120
+# R6's horizon: the fund deadline plus the capture grace, per docs/registry.md.
+VALIDITY_HORIZON = "2026-11-07T12:02:00+00:00"
 
 LOT = LotFacts(
     lot_id="lot-1",
@@ -24,6 +28,8 @@ LOT = LotFacts(
     bundle_key="monitor-stand-cable",
     max_delivery_days=7,
     min_returns_days=30,
+    fund_deadline_at=FUND_DEADLINE,
+    capture_grace_s=CAPTURE_GRACE_S,
 )
 
 
@@ -44,7 +50,7 @@ def facts(**overrides: Any) -> BidFacts:
         "shipping_cents_by_zone": {},
         "delivery_days": 7,
         "returns_days": 30,
-        "validity_end": "2026-11-06T12:00:00+00:00",
+        "validity_end": "2026-11-08T12:00:00+00:00",
         "blocking_flags": (),
     }
     base.update(overrides)
@@ -70,8 +76,9 @@ def test_r1_schema_covers_a_missing_tier_list() -> None:
 
 
 def test_r1_late_uses_the_contract_clock_boundary() -> None:
+    # Clarification 1: admission is strictly before close, closure is at or after it.
     assert _rejects(facts(submitted_at="2026-11-05T12:00:01+00:00")) == auction_rules.R1_LATE
-    assert _rejects(facts(submitted_at=CLOSE)) is None
+    assert _rejects(facts(submitted_at=CLOSE)) == auction_rules.R1_LATE
 
 
 def test_r1_unconfirmed() -> None:
@@ -94,10 +101,13 @@ def test_r3_bundle_is_not_required_when_the_lot_has_none() -> None:
     assert auction_rules.bid_rejection(candidate, lot, merchant_eligible=True) is None
 
 
-def test_r4_declared_capacity_must_cover_the_lot_minimum() -> None:
+def test_r4_declared_capacity_must_cover_the_lot_seats() -> None:
+    # R4 in docs/registry.md is seats, not the lot minimum: a winner that cannot
+    # supply every seat would leave buyers holding an offer nobody can serve.
     assert _rejects(facts(capacity=None)) == auction_rules.R4_CAPACITY
     assert _rejects(facts(capacity=0)) == auction_rules.R4_CAPACITY
-    assert _rejects(facts(capacity=1)) == auction_rules.R4_CAPACITY
+    assert _rejects(facts(capacity=3)) == auction_rules.R4_CAPACITY
+    assert _rejects(facts(capacity=4)) is None
 
 
 def test_r5_delivery_and_returns_against_the_lot_terms() -> None:
@@ -111,9 +121,10 @@ def test_r5_flat_delivered_requires_tax_included_and_no_shipping() -> None:
     assert _rejects(facts(tax_mode="RATE_TABLE"), flat=False) is None
 
 
-def test_r6_validity_must_outlive_the_bid_close() -> None:
+def test_r6_validity_must_reach_the_fund_deadline_plus_the_capture_grace() -> None:
+    assert _rejects(facts(validity_end=VALIDITY_HORIZON)) is None
+    assert _rejects(facts(validity_end="2026-11-07T12:01:59+00:00")) == auction_rules.R6_VALIDITY
     assert _rejects(facts(validity_end=CLOSE)) == auction_rules.R6_VALIDITY
-    assert _rejects(facts(validity_end="2026-11-05T11:59:59+00:00")) == auction_rules.R6_VALIDITY
 
 
 def test_r7_blocking_flags_only() -> None:

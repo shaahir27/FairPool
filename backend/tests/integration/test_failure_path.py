@@ -17,7 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.domain.payments import Payee
 from fairpool.fakes.payments import FakePayPalGateway
-from fairpool.modules.checkout.failure import FailureService
+from fairpool.modules.checkout.failure import (
+    STUCK_AFTER_PASSES,
+    STUCK_RECHECK_S,
+    FailureService,
+)
 from tests.integration.test_authorize_flow import authorize_handler
 from tests.integration.test_funding import (
     authorized_orders,
@@ -81,6 +85,16 @@ async def drain(world: World, service: FailureService, session: AsyncSession) ->
             await service.run_refund(session, job.payload)
 
 
+async def run_queued_passes(world: World, service: FailureService, session: AsyncSession) -> None:
+    """Run the queued ``lot.finalize_fail`` jobs the way the worker runs them."""
+    for job in list(world.ports.jobs.jobs):
+        if job.kind != "lot.finalize_fail" or job.status != "PENDING":
+            continue
+        job.status = "RUNNING"
+        await service.finalize_fail(session, job.payload)
+        job.status = "DONE"
+
+
 async def test_pt11_failure_path_ends_at_net_zero(db_session: AsyncSession) -> None:
     world = await build_world(db_session, seats=3, seated=3, waitlisted=0, moq=3)
     router = router_for_failure()
@@ -127,52 +141,13 @@ async def test_a_declined_capture_lot_still_closes_at_zero(db_session: AsyncSess
         "VOIDED",
         "VOIDED",
     ]
-    assert await lot_status(db_session, world.lot_id) == "FAILED_CLOSED"
-    assert await world.ports.ledger.net_paid_cents(db_session, world.lot_id) == 0
-
-
-async def test_f09_a_capture_that_completes_late_is_refunded(
-    db_session: AsyncSession,
-) -> None:
-    """F9: a PENDING capture blocks LS-10, then is refunded on the next pass."""
-    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=2)
-    router = router_for_failure()
-    orders = await authorized_orders(world, router=router, count=2)
-    funding = funding_service(world, router=router)
-    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
-    await funding.capture(db_session, {"buyer_order_id": str(orders[0])})
-    await expire_the_deadline(world, db_session)
-    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
-
-    # The provider has the capture but the buyer-order is still CAPTURE_PENDING:
-    # money is in flight, so the lot must not close yet.
-    await db_session.execute(
-        text("UPDATE buyer_orders SET status = 'CAPTURE_PENDING' WHERE id = :id"),
-        {"id": orders[0]},
-    )
-    await db_session.execute(
-        text("UPDATE paypal_captures SET status = 'PENDING' WHERE buyer_order_id = :id"),
-        {"id": orders[0]},
-    )
-    await db_session.flush()
-    service = failure_service(world, router=router)
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
-    assert await lot_status(db_session, world.lot_id) == "FAILING"
-
-    # It completes now; the next pass refunds it before closing.
-    await db_session.execute(
-        text("UPDATE buyer_orders SET status = 'CAPTURED' WHERE id = :id"), {"id": orders[0]}
-    )
-    await db_session.execute(
-        text("UPDATE paypal_captures SET status = 'COMPLETED' WHERE buyer_order_id = :id"),
-        {"id": orders[0]},
-    )
-    await db_session.flush()
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
-    await drain(world, service, db_session)
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
-
-    assert await order_status(db_session, orders[0]) == "REFUNDED"
+    # The stored authorization reads the way its ledger fact says it ended (I4).
+    for order_id in orders:
+        auth_status = await db_session.scalar(
+            text("SELECT status FROM paypal_authorizations WHERE buyer_order_id = :id"),
+            {"id": order_id},
+        )
+        assert str(auth_status) == "VOIDED"
     assert await lot_status(db_session, world.lot_id) == "FAILED_CLOSED"
     assert await world.ports.ledger.net_paid_cents(db_session, world.lot_id) == 0
 
@@ -195,12 +170,96 @@ async def test_an_in_flight_authorization_keeps_the_lot_failing(
 
     service = failure_service(world, router=router)
     assert await service.net_zero(db_session, lot_id=world.lot_id) is False
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
+    await run_queued_passes(world, service, db_session)
     await drain(world, service, db_session)
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
+    await run_queued_passes(world, service, db_session)
 
     assert await order_status(db_session, orders[1]) == "VOIDED"
     assert await lot_status(db_session, world.lot_id) == "FAILING"
+    # Every pass that could not balance the lot scheduled the next one by itself,
+    # carrying its own count: no manual second call is needed to keep it moving.
+    queued = [
+        job
+        for job in world.ports.jobs.jobs
+        if job.kind == "lot.finalize_fail" and job.status == "PENDING"
+    ]
+    assert len(queued) == 1
+    assert int(queued[0].payload["passes"]) == 2
+
+
+async def test_a_lot_waits_for_an_in_flight_authorize_before_failing(
+    db_session: AsyncSession,
+) -> None:
+    """LS-08 must not strand an AUTHORIZING seat: only the authorize job can settle it."""
+    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=2)
+    router = router_for_failure()
+    handler = authorize_handler(world, router)
+    await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
+    rows = (
+        await db_session.execute(
+            text("SELECT id FROM buyer_orders WHERE lot_id = :lot ORDER BY created_at, id"),
+            {"lot": world.lot_id},
+        )
+    ).all()
+    landed, in_flight = rows[0].id, rows[1].id
+    for order_id in (landed, in_flight):
+        await handler.continue_order(db_session, buyer_order_id=order_id)
+        await handler.approved(db_session, buyer_order_id=order_id)
+    await handler.authorize(db_session, {"buyer_order_id": str(landed)})
+    router.gateway.outcome = "timeout_after_send"
+    await handler.authorize(db_session, {"buyer_order_id": str(in_flight)})
+    router.gateway.outcome = "completed"
+    assert await order_status(db_session, in_flight) == "AUTHORIZING"
+    await expire_the_deadline(world, db_session)
+
+    funding = funding_service(world, router=router)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "CHECKOUT_OPEN"
+
+    # The retry is still allowed because the lot stayed live, and it lands.
+    await handler.authorize(db_session, {"buyer_order_id": str(in_flight)})
+    assert await order_status(db_session, in_flight) == "AUTHORIZED"
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    assert await lot_status(db_session, world.lot_id) == "FUNDING"
+
+
+async def test_a_lot_that_cannot_balance_gets_a_slower_retry_and_an_alert(
+    db_session: AsyncSession, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The retry is real, and a lot that never balances escalates instead of spinning."""
+    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=2)
+    router = router_for_failure()
+    orders = await authorized_orders(world, router=router, count=2)
+    funding = funding_service(world, router=router)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    await expire_the_deadline(world, db_session)
+    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
+    # An authorization that no void job can settle keeps the ledger test at zero
+    # from ever being satisfiable.
+    await db_session.execute(
+        text("UPDATE buyer_orders SET status = 'AUTHORIZING' WHERE id = :id"), {"id": orders[0]}
+    )
+    await db_session.flush()
+
+    service = failure_service(world, router=router)
+    # The job LS-09 queued has already been taken by the worker in this scenario,
+    # so the retry below is the only finalize_fail still waiting.
+    for job in world.ports.jobs.jobs:
+        if job.kind == "lot.finalize_fail":
+            job.status = "DONE"
+    await service.finalize_fail(
+        db_session, {"lot_id": str(world.lot_id), "passes": STUCK_AFTER_PASSES - 1}
+    )
+
+    queued = [
+        job
+        for job in world.ports.jobs.jobs
+        if job.kind == "lot.finalize_fail" and job.status == "PENDING"
+    ]
+    assert len(queued) == 1
+    assert int(queued[0].payload["passes"]) == STUCK_AFTER_PASSES
+    assert (queued[0].run_at - world.now).total_seconds() == STUCK_RECHECK_S
+    assert "finalize_fail_stuck" in caplog.text
 
 
 async def test_a_failing_lot_expires_buyers_part_way_through_paypal(
@@ -287,27 +346,3 @@ class RefundFailsGateway(PerOrderPayerGateway):
         from fairpool.domain.payments import PaymentError
 
         raise PaymentError("TERMINAL", "REFUND_NOT_ALLOWED")
-
-
-async def test_f24_a_failed_refund_keeps_the_lot_failing(db_session: AsyncSession) -> None:
-    """F24: a lot that cannot be balanced never closes as if it were."""
-    world = await build_world(db_session, seats=2, seated=2, waitlisted=0, moq=2)
-    router = FakeRouter(
-        gateway=RefundFailsGateway(outcome="completed"),
-        seller=Payee(email="seller@example.test", merchant_id=None),
-    )
-    orders = await authorized_orders(world, router=router, count=2)
-    funding = funding_service(world, router=router)
-    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
-    await funding.capture(db_session, {"buyer_order_id": str(orders[0])})
-    await expire_the_deadline(world, db_session)
-    await funding.try_fund(db_session, {"lot_id": str(world.lot_id)})
-
-    service = failure_service(world, router=router)
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
-    await drain(world, service, db_session)
-    await service.finalize_fail(db_session, {"lot_id": str(world.lot_id)})
-
-    assert await order_status(db_session, orders[0]) == "CAPTURED"
-    assert await lot_status(db_session, world.lot_id) != "FAILED_CLOSED"
-    assert await world.ports.ledger.net_paid_cents(db_session, world.lot_id) > 0

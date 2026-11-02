@@ -36,19 +36,26 @@ SEED = signing_seed(base64.b64encode(b"fairpool-test-bid-receipt-seed32").decode
 
 
 def structured(**overrides: Any) -> dict[str, Any]:
+    """The contracted ``bid_revisions.structured`` shape (``db-schema.md``, FR-AU-02)."""
     base: dict[str, Any] = {
+        "v": 1,
         "product_key": "monitor-27",
         "condition": "NEW",
-        "bundle": ["monitor", "stand", "cable"],
+        "bundle_contents": ["monitor", "stand", "power cable"],
+        "capacity": 12,
+        "target_quantity": 12,
+        "moq": 3,
         "tiers": [
             {"min_qty": 3, "item_price_cents": 47000},
             {"min_qty": 6, "item_price_cents": 45000},
         ],
+        "shipping_cents_by_zone": {},
         "tax": {"mode": "INCLUDED"},
-        "capacity": 12,
-        "delivery_sla_days": 7,
-        "returns_days": 30,
-        "validity_end": "2026-12-01T00:00:00Z",
+        "delivery": {"sla_days": 7},
+        "returns": {"days": 30},
+        "valid_until": "2026-12-01T00:00:00Z",
+        "total_capacity": 24,
+        "evidence": {"note": "units reserved in warehouse A", "url": None},
     }
     base.update(overrides)
     return base
@@ -214,6 +221,40 @@ async def test_a_decided_bid_can_never_be_confirmed(db_session: AsyncSession) ->
             db_session, merchant_id=world.merchant_id, bid_id=bid.id, revision=revision.revision
         )
     assert caught.value.code == "LOT_NOT_BIDDING"
+
+
+async def test_a_bid_missing_a_contracted_field_is_refused(db_session: AsyncSession) -> None:
+    """BS-02's "complete and valid" guard is enforced at the write, not at the award."""
+    world = await bidding_world(db_session)
+    lot_id = await lot_with_deadline(db_session, world, offset_s=600)
+    for missing in ("evidence", "target_quantity", "valid_until", "returns"):
+        payload = structured()
+        del payload[missing]
+        with pytest.raises(ApplicationError) as caught:
+            await service().save(
+                db_session, merchant_id=world.merchant_id, lot_id=lot_id, structured=payload
+            )
+        assert caught.value.code == "VALIDATION_ERROR"
+
+
+async def test_a_confirm_after_the_window_closes_is_refused(db_session: AsyncSession) -> None:
+    """I15: the deadline is re-read when the handler runs, so a stale tab cannot bid."""
+    world = await bidding_world(db_session)
+    lot_id = await lot_with_deadline(db_session, world, offset_s=600)
+    bid, revision = await service().save(
+        db_session, merchant_id=world.merchant_id, lot_id=lot_id, structured=structured()
+    )
+    await lot_with_deadline(db_session, world, offset_s=-1)
+    with pytest.raises(ApplicationError) as caught:
+        await service().confirm(
+            db_session, merchant_id=world.merchant_id, bid_id=bid.id, revision=revision.revision
+        )
+    assert caught.value.code == "BID_WINDOW_CLOSED"
+    assert str(bid.status) == "DRAFT"
+    row = await db_session.scalar(
+        text("SELECT confirmed_at FROM bid_revisions WHERE bid_id = :bid"), {"bid": str(bid.id)}
+    )
+    assert row is None
 
 
 async def test_a_capacity_below_the_lot_seats_is_refused(db_session: AsyncSession) -> None:

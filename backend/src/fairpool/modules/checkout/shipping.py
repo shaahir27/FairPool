@@ -2,10 +2,10 @@
 
 The address is collected at checkout because fulfillment needs it and sent to
 PayPal only at ``PAYPAL_PAYLOAD_LEVEL >= 3``. It is written to
-``buyer_orders.shipping_enc`` as ``nonce || ciphertext`` from the existing
-``AesGcmCipher`` keyed by ``ADDRESS_ENCRYPTION_KEY``, before any provider call
-(I9). Nothing here logs, audits or returns a decrypted value: a plaintext address
-must never reach a log record, an audit payload, a ledger fact or an API response.
+``buyer_orders.shipping_enc`` as a Fernet token under ``ADDRESS_ENCRYPTION_KEY``
+(BD-11, config-and-errors.md), before any provider call (I9). Nothing here logs,
+audits or returns a decrypted value: a plaintext address must never reach a log
+record, an audit payload, a ledger fact or an API response.
 """
 
 from __future__ import annotations
@@ -14,8 +14,9 @@ import json
 from collections.abc import Mapping
 from typing import Any, Final
 
+from cryptography.fernet import Fernet, InvalidToken
+
 from fairpool.domain.errors import ApplicationError
-from fairpool.infra.crypto import NONCE_BYTES, AesGcmCipher, DecryptionError
 
 FIELDS: Final[tuple[str, ...]] = (
     "name",
@@ -44,40 +45,34 @@ def _normalise(address: Mapping[str, Any]) -> dict[str, str]:
     return normalised
 
 
-class UnavailableCipher:
-    """The cipher when the configured key cannot be decoded.
+class ShippingCipher:
+    """Fernet seal and open for the stored address (BD-11).
 
-    Mirrors the vault's missing-key stand-in: construction must not fail the whole
-    app, but a checkout that needs to store an address fails with an allowlisted
-    code instead of silently dropping it.
+    A key that is not a Fernet key is kept as ``None`` rather than failing app
+    construction: the modes that never store an address must still start. A
+    checkout that does need the column then fails with an allowlisted code, and
+    the address is never written in plaintext.
     """
 
-    def seal(self, plaintext: str) -> tuple[bytes, bytes]:
-        del plaintext
-        raise ApplicationError("INTERNAL_ERROR")
-
-    def open(self, nonce: bytes, ciphertext: bytes) -> str:
-        del nonce, ciphertext
-        raise ApplicationError("INTERNAL_ERROR")
-
-
-class ShippingCipher:
-    """Seal and open the stored address; a failed open is an integrity error."""
-
-    def __init__(self, cipher: AesGcmCipher | UnavailableCipher) -> None:
-        self._cipher = cipher
+    def __init__(self, key: str | None) -> None:
+        self._fernet: Fernet | None
+        try:
+            self._fernet = Fernet(key.encode()) if key else None
+        except (ValueError, TypeError):
+            self._fernet = None
 
     def seal(self, address: Mapping[str, Any]) -> bytes:
+        if self._fernet is None:
+            raise ApplicationError("INTERNAL_ERROR")
         payload = json.dumps(_normalise(address), sort_keys=True, separators=(",", ":"))
-        nonce, ciphertext = self._cipher.seal(payload)
-        return nonce + ciphertext
+        return self._fernet.encrypt(payload.encode())
 
     def open(self, blob: bytes) -> dict[str, str]:
-        if len(blob) <= NONCE_BYTES:
-            raise ApplicationError("INTEGRITY_ERROR")
+        if self._fernet is None:
+            raise ApplicationError("INTERNAL_ERROR")
         try:
-            plaintext = self._cipher.open(blob[:NONCE_BYTES], blob[NONCE_BYTES:])
-        except DecryptionError:
+            plaintext = self._fernet.decrypt(bytes(blob))
+        except InvalidToken:
             raise ApplicationError("INTEGRITY_ERROR") from None
         value = json.loads(plaintext)
         if not isinstance(value, dict):

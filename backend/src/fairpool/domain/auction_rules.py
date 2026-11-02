@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from . import money
 from .errors import AuctionError
@@ -257,7 +257,12 @@ def capacity_ok(
 
 @dataclass(frozen=True)
 class LotFacts:
-    """The lot requirements R3 to R6 compare a bid against."""
+    """The lot requirements R3 to R6 compare a bid against.
+
+    ``fund_deadline_at`` and ``capture_grace_s`` give R6's horizon: registry R6
+    measures a bid's validity against the deadline the money has to reach, not
+    against the bid window.
+    """
 
     lot_id: str
     lot_order: int
@@ -268,6 +273,8 @@ class LotFacts:
     bundle_key: str | None
     max_delivery_days: int
     min_returns_days: int
+    fund_deadline_at: str
+    capture_grace_s: int
 
 
 @dataclass(frozen=True)
@@ -318,30 +325,35 @@ def bid_rejection(
 ) -> str | None:
     """First failing rule in contract order, or ``None`` when the bid may rank.
 
-    R1 shape/late/confirmation, R2 eligibility, R3 product identity, R4 declared
-    capacity, R5 delivery/returns/tax, R6 validity, R7 AI blocking. R8 and R9
+    R1 shape/late/confirmation, R2 eligibility, R3 product identity, R4 seat
+    coverage, R5 delivery/returns/tax, R6 validity, R7 AI blocking. R8 and R9
     need the seated entries and the awarded lots, so :func:`resolve_tiers` and
     :func:`select_across_lots` decide those.
     """
     if not facts.schema_ok or not facts.tiers:
         return R1_SCHEMA
+    if facts.delivery_days <= 0 or facts.returns_days < 0:
+        # R1 is listed first, so a revision that does not even state a delivery or
+        # returns term fails here rather than as R5 or after R2.
+        return R1_SCHEMA
     submitted = _parse_iso(facts.submitted_at, "submitted_at")
     closed = _parse_iso(facts.bid_close_at, "bid_close_at")
-    if submitted > closed:
+    if submitted >= closed:
+        # ``state-machines.md`` clarification 1: admission is strictly before close.
         return R1_LATE
     if not facts.confirmed:
         return R1_UNCONFIRMED
     if not merchant_eligible:
         return R2_MERCHANT_INELIGIBLE
-    if facts.delivery_days <= 0 or facts.returns_days < 0:
-        return R1_SCHEMA
     if facts.product_key != lot.product_key:
         return R3_PRODUCT_MISMATCH
     if facts.condition != lot.condition:
         return R3_CONDITION_MISMATCH
     if lot.bundle_key is not None and facts.bundle_key != lot.bundle_key:
         return R3_BUNDLE_MISMATCH
-    if facts.capacity is None or facts.capacity < 1 or facts.capacity < lot.moq:
+    if facts.capacity is None or facts.capacity < lot.seats:
+        # R4 in ``docs/registry.md``: the capacity covers the lot's seats. The
+        # merchant's total capacity across lots is R9's, decided in section 11.
         return R4_CAPACITY
     if facts.delivery_days > lot.max_delivery_days:
         return R5_DELIVERY
@@ -352,7 +364,12 @@ def bid_rejection(
         or any(value != 0 for value in facts.shipping_cents_by_zone.values())
     ):
         return R5_TAX_COVERAGE
-    if _parse_iso(facts.validity_end, "validity_end") <= closed:
+    horizon = _parse_iso(lot.fund_deadline_at, "fund_deadline_at") + timedelta(
+        seconds=lot.capture_grace_s
+    )
+    if _parse_iso(facts.validity_end, "validity_end") < horizon:
+        # R6 in ``docs/registry.md``: valid at least until the fund deadline plus
+        # the capture grace, because that is when the money must still be honourable.
         return R6_VALIDITY
     if facts.blocking_flags:
         return R7_AI_BLOCKING

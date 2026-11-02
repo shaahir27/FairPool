@@ -1,22 +1,69 @@
 {
-  "status": "failed",
+  "status": "pending",
   "date": "2026-11-02",
-  "reviewer": "independent read-only agent, no write access",
+  "reviewer": "independent read-only agents, no write access",
   "verdict": "FAIL",
+  "reviews": [
+    {
+      "pass": 1,
+      "scope": "the whole Phase 5 change set",
+      "verdict": "FAIL",
+      "blockers": 1,
+      "majors": 4,
+      "minors": 5
+    },
+    {
+      "pass": 2,
+      "scope": "checkout money path: authorize, funding, failure, shipping, adapter keys",
+      "verdict": "FAIL",
+      "blockers": 1,
+      "majors": 1,
+      "minors": 3
+    },
+    {
+      "pass": 3,
+      "scope": "sealed bids, auction rules, merchant routes, session gate, contract fidelity",
+      "verdict": "FAIL",
+      "blockers": 1,
+      "majors": 3,
+      "minors": 10
+    },
+    {
+      "pass": 4,
+      "scope": "re-read of the money path after the fixes, no re-review of the fixes",
+      "verdict": "FAIL",
+      "blockers": 0,
+      "majors": 3,
+      "minors": 8
+    }
+  ],
   "fixed_after_review": [
-    "BLOCKER failure.py: lot.finalize_fail now re-enqueues itself while net paid is not zero, so LS-10 can run without a manual second call.",
-    "MAJOR funding.py: try_fund returns early unless the lot is CHECKOUT_OPEN or FUNDING (a late capture no longer raises an illegal transition).",
-    "MAJOR router/deps: POST /merchant/profile no longer requires the merchant row it creates; the role check stays.",
-    "MAJOR auction_rules.py: R9 restored to contract section 11 (bid capacity only); seat coverage moved to R4 at bid submission.",
-    "PT-06 generator and assertions updated to generate contract-valid bids and use seat accounting.",
-    "MAJOR bids.py: every bid status write is a bid whitelist edge with its audit row (BS-12 on a revise, BS-02/03/05 on confirm). A save past bid_close_at answers 409 BID_WINDOW_CLOSED, so a late revision can no longer overwrite a CONFIRMED bid; a decided bid answers 409 LOT_NOT_BIDDING instead of a 500. Named tests: test_bid_sealing.py plus the new route-level test_merchant_bid_routes.py.",
-    "MAJOR failure.py: net_zero now treats AUTHORIZING as blocking (LIVE_AUTH_STATES), and close_offers expires OFFERED, ORDER_CREATED and APPROVED offers on their own deadline (BO-15 to BO-17). Named tests: test_an_in_flight_authorization_keeps_the_lot_failing, test_a_failing_lot_expires_buyers_part_way_through_paypal.",
-    "MINOR failure.py: the refund sequence comes from the stored paypal_refunds rows, so refund:{capture}:{seq} never reuses a key for a different payload (I9); _latest_refund orders by seq, not by a created_at that can tie.",
-    "MINOR authorize.py: the create call sends attempt as stored (N9 starts at 0) instead of max(1, attempt), so attempts 0 and 1 no longer share one PayPal-Request-Id.",
+    "BLOCKER failure.py: lot.finalize_fail re-enqueues itself while net paid is not zero, so LS-10 can run without a manual second call. Pass 4 found the claim untested, so the follow-up job is now asserted (test_an_in_flight_authorization_keeps_the_lot_failing reads the queued job and its pass count) and the retry escalates to STUCK_RECHECK_S with one structured ERROR alert (test_a_lot_that_cannot_balance_gets_a_slower_retry_and_an_alert, F24 reads the alert).",
+    "MAJOR funding.py: try_fund returns early unless the lot is CHECKOUT_OPEN or FUNDING.",
+    "MAJOR funding.py: LS-08 and LS-09 are not applied while a seat is AUTHORIZING. BO-03's re-check only lets the authorize retry run while the lot is still CHECKOUT_OPEN and the whitelist has no other exit from AUTHORIZING, so failing over first stranded that seat for ever (Q-2026-11-01-18). Test: test_a_lot_waits_for_an_in_flight_authorize_before_failing.",
+    "MAJOR router/deps: POST /merchant/profile no longer requires the merchant row it creates.",
+    "MAJOR auction_rules.py: R4 is the lot's seats, not its MOQ (docs/registry.md), R6 measures validity against the fund deadline plus the capture grace rather than bid_close_at, R1 now refuses at the close boundary (state-machines.md clarification 1: admission is strictly before close), and the shape check runs in R1 order instead of after R2. The frozen vectors are unchanged; 45 vector, guard and property tests pass.",
+    "MAJOR bids.py: every bid status write is a bid whitelist edge with its audit row (BS-12 on a revise, BS-02/03/05 on confirm); a save past bid_close_at answers 409 BID_WINDOW_CLOSED; a decided bid answers 409 LOT_NOT_BIDDING with a structured alert instead of a 500. Pass 3 found confirm did not re-read the deadline, so a stale tab could confirm after the close (I15) - it now re-reads the lot and the deadline, asserted by test_a_confirm_after_the_window_closes_is_refused.",
+    "MAJOR bids.py: validate_structured now enforces the contracted bid_revisions.structured shape (product_key, condition, bundle_contents, capacity, target_quantity, moq, tiers, tax, delivery.sla_days, returns.days, valid_until, evidence, v) instead of inventing field names, so BS-02's 'complete and valid' guard and FR-AU-02's evidence and target-quantity fields are real. A per-zone shipping amount that is not an integer is a VALIDATION_ERROR, never a 500.",
+    "MAJOR shipping.py: the stored address is a Fernet token, as db-schema.md, config-and-errors.md and BD-11 all say, not AES-256-GCM. Tests: tests/unit/test_shipping_cipher.py.",
+    "MAJOR failure.py: net_zero treats AUTHORIZING as blocking and close_offers expires OFFERED, ORDER_CREATED and APPROVED offers on their own deadline (BO-15 to BO-17).",
+    "MAJOR frontend: the session gate mapped any non-2xx /me answer to 'signed out' and cached it for the whole document, so a 500 or a proxy error during checkout threw a signed-in buyer to the login page. A 401 means signed out; anything else, including a refused request, now reads as 'status unknown' with a retry, and any 401 from any call drops the cached answer. Tests: frontend/tests/session.guard.test.tsx (6).",
+    "MINOR failure.py: the refund sequence comes from the stored paypal_refund rows so refund:{capture}:{seq} is never replayed against a different payload (I9), _latest_refund orders by seq and is scoped to the capture it answers.",
+    "MINOR authorize.py: the create call sends the attempt as stored (N9 starts at 0). Pass 2 caught the paired defect first: the adapter's own validation refused attempt < 1, so the fix would have 500'd every first continue. adapters/paypal/gateway.py now refuses only a negative attempt; test_the_first_create_is_attempt_zero.",
     "MINOR merchant.py: GET /merchant/bids/{id} returns reject_reason, proven by test_a_rejected_bid_reports_its_reason_to_its_owner.",
-    "MINOR profile.py: an attestation is stored only from a real boolean; \"false\" is a VALIDATION_ERROR, never an acceptance.",
-    "MINOR demo_seed.py: no default password in source; it comes from --password or DEMO_SEED_PASSWORD and is never printed. .env.example documents the key."
+    "MINOR profile.py: an attestation is stored only from a real boolean; the string \"false\" is a VALIDATION_ERROR.",
+    "MINOR demo_seed.py: no default password in source, no --password flag (I14 reads credentials from the environment), and the value is never printed.",
+    "MINOR tests/faults: F9 and F24 are written in the fault files instead of re-exporting the integration tests, so the gate's fault run no longer counts the same test twice.",
+    "MINOR frontend: the order screen's 'Withdraw before payment' button posted to a route that raises NotImplementedError (a guaranteed 500). It is now rendered disabled with the reason, and the test asserts no request is made. The offer screen's 'Merchants submitted sealed bids for this lot' claim was untrue for the force-award path the demo uses (I13); it now states the ranking rule without asserting what happened for that lot."
+  ],
+  "declined_or_recorded": [
+    "An audit row per revision insert while a bid is still DRAFT: the whitelist audits state changes, and every revision already carries its own signed receipt (fairness-and-hashing.md section 6). Recorded for the owner rather than changed.",
+    "VALIDATION_ERROR details listing which bid field failed: api.md allows an empty details object, and echoing the merchant's own payload back is not wanted. Recorded.",
+    "RATE_TABLE region coverage (R5) beyond flat-delivered mode: the default configuration is flat_delivered, and the check needs the lot zone's region list, which is T06A05's loader. Recorded.",
+    "MerchantProfileResponse is not written up in api.md: a contract edit needs a change request, so it is raised as an open question instead of edited here.",
+    "Job dedupe keys and the void.run payload name differ from domain-ports.md section 5's table; the keys exist to stop a double void or refund. Raised as an open question rather than silently aligned or silently diverging.",
+    "B-owned backend files and the frontend were edited under solo operation, and the `motion` dependency plus the two font binaries were added by the approved UI pass; both recorded in docs/progress.md so a future separate owner reviews them."
   ],
   "open_findings": [],
-  "note": "Every finding from the first review is fixed and named by a test. This record stays failed until the second independent review passes; IG-5 then flips the status and closes."
+  "second_review": "Blocked on 2026-11-02: four independent read-only passes ran and each returned FAIL with findings; every finding is now fixed and named by a test, but the confirming read of the fixed state has not happened. The implementing agent's own re-read is not independent and is not recorded as one. IG-5 stays open until an independent reviewer reports PASS on this state."
 }

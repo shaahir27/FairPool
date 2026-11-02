@@ -37,6 +37,7 @@ from fairpool.db.models.checkout import (
 from fairpool.db.models.checkout import (
     PayPalRefund as PayPalRefundRow,
 )
+from fairpool.db.models.pools import Lot
 from fairpool.domain.checkout_guards import Observation
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.payments import PaymentError, PayPalRefund
@@ -48,6 +49,12 @@ logger: Final[logging.Logger] = logging.getLogger("fairpool.checkout.failure")
 
 #: How soon ``lot.finalize_fail`` looks again while a capture is still pending.
 PENDING_RECHECK_S: Final[int] = 10
+
+#: After this many short passes the lot is treated as stuck rather than merely slow.
+STUCK_AFTER_PASSES: Final[int] = 6
+
+#: A stuck lot is re-checked on this longer interval, with one structured ERROR alert.
+STUCK_RECHECK_S: Final[int] = 300
 
 #: Buyer-order states that still hold a seat or money during failure.
 VOIDABLE_STATES: Final[frozenset[str]] = frozenset({"AUTHORIZED"})
@@ -96,46 +103,21 @@ class FailureService:
         """Close offers, settle every order, then close the lot only at net zero."""
         lot_id = UUID(str(payload["lot_id"]))
         lot = await lock_lot(session, lot_id)
-        status = str(lot.status)
-        if status == "FAILED_CLOSED":
+        # LS-10 only ever runs from FAILING. The way into FAILING is LS-08 or LS-09,
+        # and those guards (deadline passed, count short) belong to ``lot.try_fund``:
+        # deciding them here would let a stale or hand-enqueued job fail a live lot
+        # on an unchecked transition (I10).
+        if str(lot.status) != "FAILING":
             return
-        if status not in ("FAILING", "CHECKOUT_OPEN", "FUNDING"):
-            return
-        if status != "FAILING":
-            to_status = "FAILING"
-            await apply_lot_transition(
-                session,
-                lot=lot,
-                to_status=to_status,
-                trigger="job:lot.try_fund",
-                audit=self.audit,
-                payload={"transition_id": "LS-09" if status == "FUNDING" else "LS-08"},
-            )
         await self.close_offers(session, lot_id=lot.id)
         pending = await self._settle_orders(session, lot_id=lot.id)
         if pending:
-            now = await self.clock.db_now(session)
-            await self.jobs.enqueue(
-                session,
-                "lot.finalize_fail",
-                {"lot_id": str(lot.id)},
-                run_at=now + timedelta(seconds=PENDING_RECHECK_S),
-                concurrency_key=f"lot:{lot.id}",
-                dedupe_key=f"finalize_fail:{lot.id}",
-            )
+            await self._schedule_retry(session, lot, payload, reason="capture_pending")
             return
         if not await self.net_zero(session, lot_id=lot.id):
-            # The void/refund jobs queued above carry no follow-up of their own, so
-            # the lot would sit in FAILING forever without this pass.
-            now = await self.clock.db_now(session)
-            await self.jobs.enqueue(
-                session,
-                "lot.finalize_fail",
-                {"lot_id": str(lot.id)},
-                run_at=now + timedelta(seconds=PENDING_RECHECK_S),
-                concurrency_key=f"lot:{lot.id}",
-                dedupe_key=f"finalize_fail:{lot.id}",
-            )
+            # The void and refund jobs queued above carry no follow-up of their own,
+            # so the lot would sit in FAILING forever without this pass.
+            await self._schedule_retry(session, lot, payload, reason="not_net_zero")
             return
         await apply_lot_transition(
             session,
@@ -144,6 +126,32 @@ class FailureService:
             trigger="job:lot.finalize_fail",
             audit=self.audit,
             payload={"transition_id": "LS-10"},
+        )
+
+    async def _schedule_retry(
+        self, session: AsyncSession, lot: Lot, payload: dict[str, Any], *, reason: str
+    ) -> None:
+        """Come back for this lot, and stop busy-waiting once the wait looks long."""
+        passes = int(payload.get("passes", 0)) + 1
+        delay = PENDING_RECHECK_S if passes < STUCK_AFTER_PASSES else STUCK_RECHECK_S
+        if passes == STUCK_AFTER_PASSES:
+            # F24: a lot that cannot balance stays open on purpose, but staying open
+            # has to mean an alert, not a job that retries quietly for ever.
+            logger.error(
+                "checkout.finalize_fail_stuck lot_id=%s pool_id=%s passes=%d reason=%s",
+                lot.id,
+                lot.pool_id,
+                passes,
+                reason,
+            )
+        now = await self.clock.db_now(session)
+        await self.jobs.enqueue(
+            session,
+            "lot.finalize_fail",
+            {"lot_id": str(lot.id), "passes": passes},
+            run_at=now + timedelta(seconds=delay),
+            concurrency_key=f"lot:{lot.id}",
+            dedupe_key=f"finalize_fail:{lot.id}",
         )
 
     async def close_offers(self, session: AsyncSession, *, lot_id: UUID) -> int:
@@ -222,6 +230,10 @@ class FailureService:
                 void_source=str(payload.get("void_source", "lot_failing")),
             ),
         )
+        # The stored authorization says so too, so a replayed job takes the early
+        # return above instead of calling a void that does not replay (I9).
+        auth.status = "VOIDED"
+        await session.flush()
 
     # -------------------------------------------------------------- refund
 
@@ -232,8 +244,8 @@ class FailureService:
         if order is None:
             return
         state = str(order.status)
+        capture = await self._latest_capture(session, buyer_order_id=buyer_order_id)
         if state == "CAPTURED":
-            capture = await self._latest_capture(session, buyer_order_id=buyer_order_id)
             if capture is None:
                 return
             # The sequence comes from the rows already stored for this capture, so a
@@ -291,7 +303,13 @@ class FailureService:
             state = "REFUNDING"
         if state != "REFUNDING":
             return
-        row = await self._latest_refund(session, buyer_order_id=buyer_order_id)
+        if capture is None:
+            return
+        # Scoped to the capture this refund answers: a second capture on the same
+        # seat must not be polled against the first capture's rows.
+        row = await self._latest_refund(
+            session, buyer_order_id=buyer_order_id, capture_id=capture.paypal_capture_id
+        )
         if row is None:
             return
         try:
@@ -408,11 +426,14 @@ class FailureService:
         )
 
     async def _latest_refund(
-        self, session: AsyncSession, *, buyer_order_id: UUID
+        self, session: AsyncSession, *, buyer_order_id: UUID, capture_id: str
     ) -> PayPalRefundRow | None:
         return await session.scalar(
             select(PayPalRefundRow)
-            .where(PayPalRefundRow.buyer_order_id == buyer_order_id)
+            .where(
+                PayPalRefundRow.buyer_order_id == buyer_order_id,
+                PayPalRefundRow.paypal_capture_id == capture_id,
+            )
             .order_by(PayPalRefundRow.seq.desc())
             .limit(1)
         )

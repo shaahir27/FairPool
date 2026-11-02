@@ -1,8 +1,10 @@
 {
   "status": "passed",
   "tests": [
-    "tests/integration/test_merchant_profile.py (5)",
-    "tests/integration/test_bid_sealing.py (7)"
+    "tests/integration/test_merchant_profile.py (7)",
+    "tests/integration/test_bid_sealing.py (13)",
+    "tests/integration/test_merchant_bid_routes.py (4)",
+    "tests/unit/test_shipping_cipher.py (3)"
   ],
-  "result": "A revision receipt re-verifies against the published public key, a second save is revision 2, a bid posted after bid_close_at on the database clock is REJECTED with R1_LATE, another merchant's bid is NOT_FOUND, and flat-delivered rejects an itemised tax mode with the contracted message."
+  "result": "A revision receipt re-verifies against the published public key. A first save creates the bid at the machine's initial DRAFT and writes no transition; a second save is revision 2; a save over PROPOSED/CONFIRMED/FLAGGED applies BS-12 back to DRAFT with its audit row, so an unconfirmed revision can never be ranked as confirmed. Confirm applies BS-02, stamps confirmed_at on the database clock, and re-reads the lot and the deadline first, so a tab left open past bid_close_at cannot confirm into a closed auction (I15). Only the contracted bid_revisions.structured shape is accepted: a revision missing product_key, condition, bundle_contents, capacity, target_quantity, moq, tiers, tax, delivery, returns, valid_until or evidence is a VALIDATION_ERROR, so FR-AU-02's target-quantity and evidence fields are enforced at the write. A save after the deadline answers 409 BID_WINDOW_CLOSED and leaves the confirmed bid and its revision count untouched; a save or confirm on a lot that is not BIDDING answers 409 LOT_NOT_BIDDING with a structured alert, and so does a confirm of a bid the award already decided. Another merchant's bid id answers 404 at the route, and GET /merchant/bids/{id} discloses the owner's own reject_reason. Flat-delivered rejects an itemised tax mode or a non-zero per-zone shipping amount with the contracted sentence, and a declared capacity below the lot's seats is refused at submission (R4). The stored address is a Fernet token per BD-11: it round-trips, never appears in the ciphertext, a tampered token is INTEGRITY_ERROR and an unusable key refuses the write rather than storing plaintext."
 }

@@ -239,7 +239,9 @@ class RestPayPalGateway:
     def order_payload(self, req: CreateOrderRequest) -> dict[str, Any]:
         if (
             type(req.attempt) is not int
-            or req.attempt < 1
+            # N9: the counter starts at 0, and the create key is the attempt as
+            # stored, so the first order a buyer continues is attempt 0.
+            or req.attempt < 0
             or not 0 <= req.payload_level <= self.settings.paypal_payload_level
         ):
             raise ValueError("Invalid attempt or unverified payload level")

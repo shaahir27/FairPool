@@ -3,9 +3,14 @@
   "tests": [
     "tests/integration/test_failure_path.py::test_pt11_failure_path_ends_at_net_zero",
     "tests/integration/test_failure_path.py::test_a_declined_capture_lot_still_closes_at_zero",
-    "tests/integration/test_failure_path.py::test_f09_a_capture_that_completes_late_is_refunded",
-    "tests/integration/test_failure_path.py::test_f24_a_failed_refund_keeps_the_lot_failing"
+    "tests/integration/test_failure_path.py::test_an_in_flight_authorization_keeps_the_lot_failing",
+    "tests/integration/test_failure_path.py::test_a_lot_waits_for_an_in_flight_authorize_before_failing",
+    "tests/integration/test_failure_path.py::test_a_lot_that_cannot_balance_gets_a_slower_retry_and_an_alert",
+    "tests/integration/test_failure_path.py::test_a_failing_lot_expires_buyers_part_way_through_paypal",
+    "tests/integration/test_failure_path.py::test_a_refund_after_an_earlier_one_takes_the_next_sequence",
+    "tests/faults/test_f09_late_capture_after_failure_refunded.py",
+    "tests/faults/test_f24_refund_fails_lot_stays_failing.py"
   ],
-  "result": "9 passed with the merchant-profile tests; net_paid_cents equals zero on both closing paths, F9 blocks LS-10 while a capture is pending, and F24 keeps the lot FAILING when a refund cannot complete.",
-  "note": "The new fault modules carry both the integration and faults markers, so the gate's '-m faults' run now collects F9 and F24; the pre-existing fault files carry only the integration marker and are not selected by that command."
+  "result": "9 passed. net_paid_cents equals zero on both closing paths and every authorization row reads VOIDED once its void is confirmed. F9 blocks LS-10 while a capture is pending, then refunds it. F24 keeps the lot FAILING across repeated passes when a refund cannot complete and raises one structured ERROR alert. An AUTHORIZING seat blocks LS-10 because no void row proves it, and a lot with an authorize still in flight is not failed at all: BO-03's re-check only lets that retry run while the lot is still CHECKOUT_OPEN, so failing over first would strand the seat with no contracted exit (Q-2026-11-01-18). A FAILING lot expires the OFFERED, ORDER_CREATED and APPROVED offers whose deadline passed (BO-15 to BO-17). Every pass that could not balance the lot scheduled the next one itself, escalating from 10 s to 300 s after six passes, and a second refund of one capture takes the next sequence so its idempotency key is never reused.",
+  "note": "F9 and F24 are written in the fault files, which carry both the integration and faults markers, so the gate's '-m faults' run collects each of them once. The pre-existing fault files carry only the integration marker and are not selected by that command."
 }

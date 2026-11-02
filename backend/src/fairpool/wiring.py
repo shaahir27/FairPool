@@ -111,15 +111,10 @@ class _VaultKeyMissing:
 
 
 def _shipping_cipher(settings: Settings):
-    """A usable address cipher, or a stand-in that fails only when it is used."""
-    from fairpool.infra.crypto import AesGcmCipher, DecryptionError
-    from fairpool.modules.checkout.shipping import ShippingCipher, UnavailableCipher
+    """The Fernet address cipher (BD-11), or one that fails only when it is used."""
+    from fairpool.modules.checkout.shipping import ShippingCipher
 
-    try:
-        cipher = AesGcmCipher.from_config_value(settings.address_encryption_key.get_secret_value())
-    except DecryptionError:
-        return ShippingCipher(UnavailableCipher())
-    return ShippingCipher(cipher)
+    return ShippingCipher(settings.address_encryption_key.get_secret_value())
 
 
 def _vault_cipher(settings: Settings) -> AesGcmCipher | _VaultKeyMissing:

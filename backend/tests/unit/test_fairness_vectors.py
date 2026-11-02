@@ -314,6 +314,8 @@ def test_capacity_case(vectors: dict[str, Any]) -> None:
             bundle_key=None,
             max_delivery_days=14,
             min_returns_days=7,
+            fund_deadline_at="2026-11-07T12:00:00+00:00",
+            capture_grace_s=120,
         )
         for lot in case["lots"]
     ]
