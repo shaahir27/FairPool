@@ -83,9 +83,10 @@ describe("order status card", () => {
       receipt: null,
     });
     await renderCard();
-    expect(screen.getByText("PAYEE_MISMATCH")).toBeTruthy();
+    // The reason card mounts after the order payload resolves; wait for it.
+    expect(await screen.findByText("PAYEE_MISMATCH")).toBeTruthy();
     expect(
-      screen.getByText("The seller on the PayPal order was not the one we expected."),
+      await screen.findByText("The seller on the PayPal order was not the one we expected."),
     ).toBeTruthy();
   });
 });
