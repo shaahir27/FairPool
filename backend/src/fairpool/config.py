@@ -14,6 +14,7 @@ from functools import lru_cache
 from typing import Final, Literal
 from urllib.parse import urlsplit
 
+from cryptography.fernet import Fernet, InvalidToken
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -157,6 +158,17 @@ class Settings(BaseSettings):
         raw = value.get_secret_value() if isinstance(value, SecretStr) else value
         if not raw.strip():
             raise ValueError("This setting is required and must not be empty")
+        return value
+
+    @field_validator("address_encryption_key")
+    @classmethod
+    def _fernet_key_shape(cls, value: SecretStr) -> SecretStr:
+        # BD-11: the address book seals with Fernet. A wrong-shaped key must fail the
+        # deploy, not every signup request that builds the book.
+        try:
+            Fernet(value.get_secret_value().encode())
+        except (InvalidToken, ValueError) as exc:
+            raise ValueError("ADDRESS_ENCRYPTION_KEY must be a Fernet key") from exc
         return value
 
     @field_validator("log_level", mode="before")

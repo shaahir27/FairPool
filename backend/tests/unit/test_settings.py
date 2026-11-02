@@ -201,6 +201,12 @@ def test_required_values_must_not_be_blank(field: str) -> None:
         make_settings(**{field: ""})
 
 
+def test_the_address_key_must_be_a_fernet_key() -> None:
+    # A wrong-shaped key used to pass settings and fail every signup request instead.
+    with pytest.raises(ValidationError, match="Fernet"):
+        make_settings(address_encryption_key="not-a-fernet-key")
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

@@ -10,6 +10,7 @@ Sandbox account.
 from __future__ import annotations
 
 import asyncio
+import base64
 import os
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -43,7 +44,7 @@ async def gateway() -> AsyncIterator[RestPayPalGateway]:
         secret_key="unused-contract-test",
         hmac_key="unused-contract-test",
         receipt_signing_key="unused-contract-test",
-        address_encryption_key="unused-contract-test",
+        address_encryption_key=base64.b64encode(b"A" * 32).decode(),
         paypal_client_id=os.environ["PAYPAL_CLIENT_ID"],
         paypal_client_secret=os.environ["PAYPAL_CLIENT_SECRET"],
         single_seller_email=os.environ["SINGLE_SELLER_EMAIL"],

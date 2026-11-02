@@ -1,5 +1,6 @@
 """C-01 to C-07: real USD1 Sandbox calls; no mocks and no .env loading."""
 
+import base64
 import os
 from dataclasses import replace
 from uuid import uuid4
@@ -29,7 +30,7 @@ async def gateway():
         secret_key="unused-contract-test",
         hmac_key="unused-contract-test",
         receipt_signing_key="unused-contract-test",
-        address_encryption_key="unused-contract-test",
+        address_encryption_key=base64.b64encode(b"A" * 32).decode(),
         paypal_client_id=os.environ["PAYPAL_CLIENT_ID"],
         paypal_client_secret=os.environ["PAYPAL_CLIENT_SECRET"],
         single_seller_email=os.environ["SINGLE_SELLER_EMAIL"],
