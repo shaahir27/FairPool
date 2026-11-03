@@ -232,7 +232,7 @@ export function PoolPage() {
             nothing.
           </Notice>
         </div>
-        <Link className="shop-quiet-button mt-4" to="/">
+        <Link className="shop-quiet-button mt-4" to="/discover">
           <Icon name="arrow" />
           Back to Discover
         </Link>
@@ -299,7 +299,7 @@ export function PoolPage() {
     <section aria-labelledby="lobby-title" className="enter-rise">
       <div className="shop-heading flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link className="shop-back" to="/">
+          <Link className="shop-back" to="/discover">
             <Icon name="arrow" />
             All open pools
           </Link>

@@ -5,6 +5,7 @@ import { LoadingScreen, RequireAuth } from "./shared";
 
 // Load a workspace when it is visited, instead of downloading every screen at login.
 const AuditPage = lazy(() => import("./audit").then((m) => ({ default: m.AuditPage })));
+const LandingPage = lazy(() => import("./landing/LandingPage"));
 const BuyerLayout = lazy(() => import("./buyer/BuyerLayout").then((m) => ({ default: m.BuyerLayout })));
 const DiscoverPage = lazy(() => import("./buyer/discover/DiscoverPage").then((m) => ({ default: m.DiscoverPage })));
 const PoolPage = lazy(() => import("./buyer/lobby/PoolPage").then((m) => ({ default: m.PoolPage })));
@@ -50,9 +51,9 @@ export function AppRoutes() {
   useEffect(() => {
     // Download the requested buyer screen while /me validates the session.
     // This warms code only; private data still waits for RequireAuth.
-    if (pathname === "/" || pathname.startsWith("/pools/") || pathname.startsWith("/orders") || pathname === "/my-pools") {
+    if (pathname === "/discover" || pathname.startsWith("/pools/") || pathname.startsWith("/orders") || pathname === "/my-pools") {
       void import("./buyer/BuyerLayout").catch(() => {});
-      const page = pathname === "/" ? import("./buyer/discover/DiscoverPage")
+      const page = pathname === "/discover" ? import("./buyer/discover/DiscoverPage")
         : pathname.startsWith("/pools/") ? import("./buyer/lobby/PoolPage")
         : import("./buyer/pages");
       void page.catch(() => {});
@@ -62,6 +63,7 @@ export function AppRoutes() {
     <RouteLoadBoundary>
     <Suspense fallback={<LoadingScreen label="Loading page" />}>
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/audit/:poolId" element={<AuditPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -75,7 +77,7 @@ export function AppRoutes() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<DiscoverPage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
         <Route path="/my-pools" element={<MyPoolsPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/:buyerOrderId" element={<BuyerOrderPage />} />

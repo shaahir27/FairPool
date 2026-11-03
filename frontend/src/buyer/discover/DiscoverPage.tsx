@@ -121,7 +121,7 @@ export function DiscoverPage() {
       // The lobby joins with this id; the request itself is already a server row.
       rememberPendingRequest(card.pool.id, data.confirmed_request_id);
       const lobby = `/pools/${card.pool.id}`;
-      startRouteTransition(() => navigate(lobby), "/", lobby);
+      startRouteTransition(() => navigate(lobby), "/discover", lobby);
     } catch {
       setNotice({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
     } finally {

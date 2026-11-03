@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import { Suspense, type ReactNode } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Brand } from "./Brand";
 import { HonestyLabels } from "./HonestyLabels";
 import { Icon } from "./Icon";
@@ -30,6 +30,7 @@ function WorkspaceContent({ children }: { children?: ReactNode }) {
  */
 function SignOut({ className = "account-nav-link" }: { className?: string }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -45,7 +46,7 @@ function SignOut({ className = "account-nav-link" }: { className?: string }) {
       }
       setCsrfToken(null);
       resetSessionCache("out");
-      navigate("/login", { replace: true });
+      navigate(pathname.startsWith("/merchant/") ? "/login?role=merchant" : "/login", { replace: true });
     } catch {
       setFailed(true);
     } finally {
@@ -82,7 +83,7 @@ export function AreaLayout({ workspace, tabs, utilityLinks = [], children }: Are
       <div className="commerce-shell">
         <a href="#main" className="skip-link">Skip to content</a>
         <aside className="account-sidebar">
-          <Link to="/" aria-label="FairPool home"><Brand /></Link>
+          <Link to="/discover" aria-label="FairPool home"><Brand /></Link>
           {account ? (
             <div className="sidebar-hello">
               <p className="sidebar-hello-name font-display">Hi{firstName ? `, ${firstName}` : ""}</p>
@@ -108,7 +109,7 @@ export function AreaLayout({ workspace, tabs, utilityLinks = [], children }: Are
         </aside>
         <div className="commerce-workspace">
           <header className="account-topbar">
-            <div className="account-mobile-brand"><Link to="/" aria-label="FairPool home"><Brand /></Link></div>
+            <div className="account-mobile-brand"><Link to="/discover" aria-label="FairPool home"><Brand /></Link></div>
             <span className="account-context">{account ? `${account.display_name}'s account` : "Your account"}</span>
             <div className="account-topbar-right"><HonestyLabels kinds={["sandbox"]} />
               <details className="account-mobile-menu" onClick={(event) => { if ((event.target as Element).closest("a")) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary aria-label="Open account navigation"><Icon name="user" /><span>Account</span></summary><nav aria-label="Mobile buyer navigation"><p className="mobile-menu-title">Your account</p>{utilityLinks.map((link) => <Link key={link.to} className="account-nav-link" to={link.to}>{link.label}</Link>)}<SignOut /></nav></details>
@@ -122,7 +123,7 @@ export function AreaLayout({ workspace, tabs, utilityLinks = [], children }: Are
   }
   if (workspace === "Checkout") return <div className="checkout-shell">
     <a href="#main" className="skip-link">Skip to content</a>
-    <header className="checkout-header"><Link to="/" aria-label="FairPool home"><Brand /></Link><span className="checkout-secure"><Icon name="lock" />Checkout</span><HonestyLabels kinds={["sandbox"]} /></header>
+    <header className="checkout-header"><Link to="/discover" aria-label="FairPool home"><Brand /></Link><span className="checkout-secure"><Icon name="lock" />Checkout</span><HonestyLabels kinds={["sandbox"]} /></header>
     <main id="main" className="checkout-content">{children}</main>
     <footer className="checkout-footer"><Icon name="shield" /><span>PayPal Sandbox demo. No real money moves.</span><Link to="/my-pools">Back to My Pools</Link></footer>
   </div>;

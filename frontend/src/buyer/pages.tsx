@@ -1,4 +1,4 @@
-import { type FormEvent, lazy, Suspense, useState } from "react";
+import { type FormEvent, lazy, Suspense, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -25,12 +25,17 @@ function envelope(failure: unknown): { code: string; message: string } {
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const merchant = new URLSearchParams(location.search).get("role") === "merchant";
+  const from = (location.state as { from?: string } | null)?.from ?? (merchant ? "/merchant/demand" : "/discover");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+
+  useEffect(() => {
+    document.documentElement.scrollTop = 0;
+  }, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -49,11 +54,12 @@ export function LoginPage() {
 
   return (
     <AuthFrame
-      headline="Join together. Let merchants compete for your group."
-      valueLine="Join a pool for free. Merchants bid in a sealed auction, and you approve your own payment."
+      headline={merchant ? "Bid for a whole group of buyers." : "Join together. Let merchants compete for your group."}
+      valueLine={merchant ? "Find group demand and submit your best delivered price in a sealed auction." : "Join a pool for free. Merchants bid in a sealed auction, and you approve your own payment."}
     >
+      <Link className="signup-back inline-block mb-4" to="/">Back to landing page</Link>
       <h1 className="auth-title">Sign in</h1>
-      <p className="mt-2 text-sm text-muted">Welcome back. Pick up where your pools left off.</p>
+      <p className="mt-2 text-sm text-muted">{merchant ? "Sign in to your merchant workspace." : "Sign in to your buyer workspace."}</p>
       {error ? (
         <div className="mt-4">
           <Notice kind="error" code={error.code}>
@@ -105,12 +111,12 @@ export function LoginPage() {
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p className="auth-switch">
+      {!merchant && <p className="auth-switch">
         New to FairPool?{" "}
         <Link className="font-semibold underline decoration-accent decoration-2 underline-offset-4" to="/register">
           Create account
         </Link>
-      </p>
+      </p>}
     </AuthFrame>
   );
 }

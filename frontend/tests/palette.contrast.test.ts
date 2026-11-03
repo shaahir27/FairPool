@@ -8,10 +8,15 @@ import { describe, expect, it } from "vitest";
 const css = postcss.parse(readFileSync(resolve("src/index.css"), "utf8"));
 const tokens = new Map<string, string>();
 css.walkDecls(/^--/, (decl) => { tokens.set(decl.prop, decl.value); });
+const landing = postcss.parse(readFileSync(resolve("src/landing/landing.css"), "utf8"));
+landing.walkDecls(/^--/, (decl) => { tokens.set(decl.prop, decl.value); });
 type RGB = [number, number, number];
 
 function rgb(value: string): RGB {
-  const resolved = value.replace(/var\((--[\w-]+)\)/g, (_, name: string) => tokens.get(name) ?? "");
+  let resolved = value;
+  while (/var\(--[\w-]+\)/.test(resolved)) {
+    resolved = resolved.replace(/var\((--[\w-]+)\)/g, (_, name: string) => tokens.get(name) ?? "");
+  }
   const mixed = resolved.match(/^color-mix\(in srgb, rgb\(([^)]+)\), rgb\(([^)]+)\) (\d+)%\)$/);
   if (mixed) {
     const a = rgb(`rgb(${mixed[1]})`), b = rgb(`rgb(${mixed[2]})`);
@@ -47,6 +52,15 @@ function buttonColors(state: string): Map<string, string> {
 }
 
 describe("palette readability", () => {
+  it("keeps the landing winning bid readable on the blue field", () => {
+    let foreground = "";
+    landing.walkRules((rule) => {
+      if (rule.selectors.includes(":where(.landing) .stage .bid.w")) {
+        rule.walkDecls("color", (decl) => { foreground = decl.value; });
+      }
+    });
+    expect(contrast(foreground, "var(--fld)")).toBeGreaterThanOrEqual(4.5);
+  });
   it.each(["default", "hover", "focus-visible", "active"])("keeps the primary button label readable in the %s state", (state) => {
     const declarations = buttonColors(state);
     expect(contrast(declarations.get("color")!, declarations.get("background")!)).toBeGreaterThanOrEqual(4.5);

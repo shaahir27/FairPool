@@ -188,4 +188,4 @@ Web service from `Dockerfile.api` (uvicorn), background worker from `Dockerfile.
 
 ## 12. Frontend routes
 
-Public: `/audit/:poolId`. Auth: `/login`, `/register`, `/register/connected`, `/register/details` (CR-6 draft). Buyer: `/` (Discover and Join), `/my-pools`, `/orders`, `/pools/:poolId`, `/offers/:buyerOrderId`, `/orders/:buyerOrderId`, `/settings/paypal`, `/settings/agents`. Merchant: `/merchant/demand`, `/merchant/bids`, `/merchant/fulfillment`, `/merchant/developer`, `/merchant/profile`. Ops: `/ops/*`. The buyer and merchant shells render exactly the tabs in FR-UI-01 to FR-UI-07.
+Public: `/` (landing page), `/audit/:poolId`. Auth: `/login` (buyer), `/login?role=merchant` (merchant), `/register`, `/register/connected`, `/register/details` (CR-6 draft). Buyer: `/discover` (Discover and Join), `/my-pools`, `/orders`, `/pools/:poolId`, `/offers/:buyerOrderId`, `/orders/:buyerOrderId`, `/settings/paypal`, `/settings/agents`. Merchant: `/merchant/demand`, `/merchant/bids`, `/merchant/fulfillment`, `/merchant/developer`, `/merchant/profile`. Ops: `/ops/*`. The buyer and merchant shells render exactly the tabs in FR-UI-01 to FR-UI-07.

@@ -63,8 +63,8 @@ describe("route smoke", () => {
       originalError.mockRestore();
     }
   });
-  it("renders the real Discover and Join screen at /", async () => {
-    renderAt("/");
+  it("renders the real Discover and Join screen at /discover", async () => {
+    renderAt("/discover");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Open pools" }),

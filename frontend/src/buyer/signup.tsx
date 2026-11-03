@@ -278,7 +278,7 @@ export function SignupDetailsPage() {
       }
       setCsrfToken(data.csrf_token); resetSessionCache();
       clearDraft();
-      navigate("/", { replace: true });
+      navigate("/discover", { replace: true });
     } catch { setError({ code: "REQUEST_FAILED", message: "Check your connection and try again. Your details are still here." }); }
     finally { setBusy(false); }
   }

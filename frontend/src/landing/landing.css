@@ -1,0 +1,431 @@
+/* Uses the shared palette and fonts; the layout stays local to this route. */
+.landing {
+--paper:rgb(var(--color-page));--paper-deep:var(--card);--line:rgb(var(--color-tint-line)/.65);
+--ink:rgb(var(--color-ink));--mut:rgb(var(--color-muted));--fld:rgb(var(--color-brand-field));--bnd:rgb(var(--color-field-band));--onf:rgb(var(--color-on-field));--fm:rgb(var(--color-field-muted));--card:rgb(var(--color-card));--mk:rgb(var(--color-mark));--act:rgb(var(--color-action));--soft:rgb(var(--color-accent-soft));--tl:rgb(var(--color-tint-line));--sh:0 8px 24px rgb(var(--color-ink)/.06);color-scheme:light}
+:where(.landing) * {box-sizing:border-box;margin:0;padding:0}
+.landing {font:400 16px/1.6 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased}
+:where(.landing) a {color:inherit}
+:where(.landing) ul {list-style:none}
+:where(.landing) button {font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+:where(.landing) :focus-visible {outline:2px solid var(--ink);outline-offset:3px;border-radius:8px}
+:where(.landing) .dk :focus-visible {outline-color:var(--onf)}
+.landing ::selection {background:var(--soft);color:var(--ink)}
+:where(.landing) .wrap {max-width:1216px;margin:0 auto;padding:0 32px}
+:where(.landing) .icon {width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+:where(.landing) h1,:where(.landing) h2,:where(.landing) h3 {letter-spacing:-.045em;text-wrap:balance}
+:where(.landing) h2 {font-size:clamp(30px,4.2vw,50px);line-height:1.08;font-weight:700;letter-spacing:-.045em;text-wrap:balance}
+:where(.landing) .lead {margin-top:16px;max-width:56ch;color:var(--mut);font-size:17px}
+:where(.landing) .note {margin-top:16px;color:var(--mut);font-size:13px}
+:where(.landing) .dk .note {color:var(--fm)}
+:where(.landing) .nav {position:fixed;z-index:30;top:14px;left:50%;translate:-50% 0;width:min(1216px,calc(100% - 28px));display:flex;align-items:center;gap:20px;padding:10px 12px 10px 18px;border-radius:22px;background:rgb(var(--color-surface)/.78);border:1px solid rgb(var(--color-tint-line)/.6);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:top .3s var(--ease-out),box-shadow .3s}
+:where(.landing) .landing-brand {display:inline-flex;text-decoration:none}
+:where(.landing) .landing-brand .pool-mark {width:34px;height:34px;color:var(--ink)}
+:where(.landing) .links {display:flex;gap:4px;margin-left:auto}
+:where(.landing) .links a {padding:9px 14px;border-radius:10px;font-size:14px;font-weight:500;color:var(--mut);text-decoration:none;transition:color .12s,background .12s}
+:where(.landing) .btn {position:relative;overflow:hidden;min-height:48px;padding:12px 22px;border-radius:12px;border:1px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:600;text-decoration:none;transition:transform .12s var(--ease-out),background .2s,box-shadow .3s}
+:where(.landing) .btn:active {transform:scale(.98)}
+:where(.landing) .btn.p {background:var(--act);border-color:rgb(var(--color-action-border));color:rgb(var(--color-on-accent))}
+:where(.landing) .btn.s {background:transparent}
+:where(.landing) .btn .icon {transition:transform .25s var(--ease-out)}
+:where(.landing) .nav .btn {min-height:44px;padding:9px 18px}
+
+@media(hover:hover){
+:where(.landing) .links a:hover {color:var(--ink);background:rgb(var(--color-ink)/.06)}
+:where(.landing) .btn.p:hover {background:rgb(var(--color-action-hover));box-shadow:0 10px 26px rgb(var(--color-action)/.35)}
+:where(.landing) .btn:hover .icon {transform:translateX(3px)}
+:where(.landing) .btn.s:hover {background:rgb(var(--color-ink)/.07)}
+:where(.landing) .dk .btn.s:hover {background:rgb(var(--color-canvas)/.14)}}
+:where(.landing) .hero {position:relative;padding:148px 0 104px;color:var(--onf);overflow:hidden;background:var(--fld)}
+:where(.landing) .hg {display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:clamp(24px,4vw,64px);align-items:center}
+:where(.landing) h1 {font-size:clamp(42px,6.2vw,78px);line-height:1.02;font-weight:700;letter-spacing:-.045em;text-wrap:balance}
+:where(.landing) .hero .lead {max-width:47ch;color:var(--fm);animation:landing-fade .8s .5s both}
+:where(.landing) .cta {display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+:where(.landing) .dk .btn.s {border-color:rgb(var(--color-canvas)/.6);color:var(--onf)}
+:where(.landing) .pill {display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;border:1px solid rgb(var(--color-canvas)/.35);font-size:13px;color:var(--fm)}
+:where(.landing) .pill .icon {width:14px;height:14px}
+:where(.landing) .pool {position:relative;width:min(100%,560px);aspect-ratio:1;margin:0 auto;perspective:1100px}
+:where(.landing) .pool::before {opacity:.65;content:"";position:absolute;inset:6%;border-radius:50%;background:radial-gradient(closest-side,rgb(var(--color-mark)/.3),transparent);filter:blur(26px)}
+:where(.landing) .scene {position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(calc(54deg + var(--rx,0deg)))}
+:where(.landing) .rr {position:absolute;inset:0;transform-style:preserve-3d;transform:rotateZ(var(--rz,0deg)) scale(var(--sc,1));}
+:where(.landing) .seat-ring {position:absolute;inset:0;transform:translateZ(calc(var(--i)*4.64cqw));animation:landing-build 1s var(--ease-out) both;animation-delay:calc(.3s + var(--i)*.14s)}
+:where(.landing) .seat-ring svg {width:100%;height:100%;animation:landing-spin var(--t) linear infinite;animation-direction:var(--dir)}
+:where(.landing) .orb {fill:none;stroke:rgb(var(--color-canvas)/.2)}
+:where(.landing) .pp {fill:rgb(var(--color-on-field)/.7)}
+:where(.landing) .seat {fill:var(--mk);animation:landing-pulse 3.2s ease-in-out infinite;animation-delay:var(--d)}
+:where(.landing) .core {position:absolute;left:50%;top:50%;width:21%;aspect-ratio:1;margin:-10.5% 0 0 -10.5%;transform:translateZ(25cqw) rotateX(-54deg);animation:landing-fade 1s 1.1s both}
+:where(.landing) .core svg {width:100%;height:100%;color:var(--ink);filter:drop-shadow(0 16px 24px rgb(0 0 0/.35));animation:landing-bob 5s ease-in-out infinite}
+:where(.landing) .sec {padding:112px 0}
+:where(.landing) .story {display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:48px;margin-top:40px;align-items:start}
+:where(.landing) .steps {display:grid;gap:8px}
+:where(.landing) .step {position:relative;display:block;width:100%;padding:8px 14px;border:1px solid transparent;border-radius:10px;transition:background .16s}
+:where(.landing) .step.on {background:var(--paper-deep);border-color:var(--line)}
+:where(.landing) .sh {display:flex;align-items:center;gap:14px;font-size:18px;font-weight:650;letter-spacing:-.03em;line-height:1.3}
+:where(.landing) .sh em {display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:50%;border:1px solid var(--line);font:normal 600 13px Inter,sans-serif;transition:background .3s,border-color .3s}
+:where(.landing) .step.on .sh em {background:var(--ink);color:var(--onf);border-color:transparent}
+:where(.landing) .sd p {padding-left:44px;color:var(--mut);font-size:15px;line-height:1.65}
+
+
+@media(hover:hover){
+:where(.landing) .step:not(.on):hover {background:var(--paper-deep)}
+}
+:where(.landing) .stage {min-width:0;display:grid;gap:14px;padding:24px 28px;border:1px solid var(--line);border-radius:28px;color:var(--onf);background:var(--bnd);box-shadow:0 24px 60px rgb(var(--color-ink)/.22);overflow:hidden}
+:where(.landing) .sth {display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--mut)}
+:where(.landing) .sth .pill {padding:4px 10px;border:1px solid var(--line);color:var(--mut);font-size:12px}
+:where(.landing) .pn {min-width:0;animation:landing-step 200ms var(--ease-out) both}
+:where(.landing) .pl {font-size:14px;font-weight:600;color:var(--ink);margin:0 0 8px}
+:where(.landing) .fld2 {padding:13px 16px;border-radius:10px;background:rgb(var(--color-surface));color:var(--ink);font-size:15px;margin-bottom:18px}
+:where(.landing) .fld2 b {font-weight:600}
+
+:where(.landing) .cnt {display:flex;align-items:baseline;gap:12px;margin:18px 0 16px}
+:where(.landing) .cnt b {font-size:clamp(40px,6vw,64px);line-height:1;letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+:where(.landing) .cnt span {color:var(--mut);font-size:14px;max-width:16ch}
+:where(.landing) .ok {display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:var(--soft);color:var(--ink);font-size:13px;font-weight:600}
+:where(.landing) .ok .icon {width:15px;height:15px}
+:where(.landing) .seats {display:grid;max-width:320px;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;margin:12px 0 16px}
+:where(.landing) .seats i {aspect-ratio:1;border-radius:50%;background:var(--paper-deep)}
+:where(.landing) .row {display:flex;gap:24px;margin-bottom:16px;color:var(--mut);font-size:14px}
+:where(.landing) .row b {color:var(--ink);font-size:22px;letter-spacing:-.03em;margin-right:4px}
+:where(.landing) .bid {display:grid;grid-template-columns:86px 1fr 44px;align-items:center;gap:12px;margin-bottom:14px;font-size:14px}
+:where(.landing) .bid b {text-align:right;font-variant-numeric:tabular-nums}
+:where(.landing) .bid i {height:8px;border-radius:4px;background:var(--paper-deep);overflow:hidden}
+:where(.landing) .bid i::after {content:"";display:block;height:100%;width:calc(var(--w)*1%);border-radius:4px;background:var(--fld);transform-origin:left;animation:landing-bid 300ms var(--ease-out) both;animation-delay:calc(var(--k)*35ms)}
+:where(.landing) .bid.w i::after {background:var(--mk)}
+:where(.landing) .bid.w {color:var(--fld);font-weight:650}
+:where(.landing) .sum {padding:20px;border-radius:18px;background:var(--card);color:var(--ink)}
+:where(.landing) .sum dl {display:grid;gap:10px;font-size:14px}
+:where(.landing) .sum dl div {display:flex;justify-content:space-between;gap:12px}
+:where(.landing) .sum dt {color:var(--mut)}
+:where(.landing) .sum dd {font-weight:500}
+:where(.landing) .tot {margin:14px 0;padding-top:14px;border-top:1px solid rgb(var(--color-ink)/.12);display:flex;justify-content:space-between;align-items:baseline}
+:where(.landing) .tot b {font-size:32px;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+:where(.landing) .fake {display:flex;justify-content:center;align-items:center;min-height:48px;border-radius:12px;background:var(--act);color:rgb(var(--color-on-accent));font-weight:600;font-size:14px}
+
+:where(.landing) .fund {display:flex;align-items:center;gap:18px;margin:8px 0 18px}
+:where(.landing) .fund svg {width:88px;height:88px;flex:none}
+:where(.landing) .fund circle {fill:none;stroke-width:9;stroke-linecap:round}
+:where(.landing) .fund .tr {stroke:rgb(var(--color-canvas)/.18)}
+:where(.landing) .fund .rg {stroke:var(--fld)}
+:where(.landing) .fund b {font-size:44px;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+:where(.landing) .fund span {display:block;margin-top:6px;color:var(--mut);font-size:14px;max-width:22ch}
+:where(.landing) .trust {display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-items:center}
+:where(.landing) .prom {display:grid;gap:6px;margin-top:32px}
+:where(.landing) .pr {display:flex;gap:18px;padding:18px 0;border-top:1px solid rgb(var(--color-ink)/.12)}
+:where(.landing) .pr .ic {display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:14px;background:var(--soft)}
+:where(.landing) .pr .icon {width:21px;height:21px}
+:where(.landing) .pr h3 {font-size:19px;font-weight:650;letter-spacing:-.035em}
+:where(.landing) .pr p {margin-top:4px;color:var(--mut);font-size:15px;max-width:52ch}
+:where(.landing) .rc {padding:28px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+:where(.landing) .rch {display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:650;font-size:17px;letter-spacing:-.03em;padding-bottom:16px;border-bottom:1px dashed var(--tl)}
+:where(.landing) .rch .pill {border-color:var(--tl);color:var(--mut);padding:3px 10px;font-size:12px;font-weight:400}
+:where(.landing) .rc dl {margin:8px 0 18px}
+:where(.landing) .rw {display:flex;justify-content:space-between;gap:16px;padding:12px 10px;margin:0 -10px;border-radius:10px;font-size:14px}
+:where(.landing) .rw dt {color:var(--mut)}
+:where(.landing) .rw dd {font-weight:500;text-align:right}
+:where(.landing) .rw .m {font:13px "JetBrains Mono",ui-monospace,monospace}
+:where(.landing) .stamp {display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:16px;border-radius:12px;background:var(--soft);font-weight:600;font-size:14px}
+:where(.landing) .sides {display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:48px}
+:where(.landing) .side {position:relative;overflow:hidden;padding:38px;border-radius:28px;display:flex;flex-direction:column}
+:where(.landing) .side.b {background:var(--card);border:1px solid rgb(var(--color-tint-line)/.7);box-shadow:var(--sh)}
+:where(.landing) .side.m {background:var(--bnd);color:var(--onf)}
+:where(.landing) .side h3 {font-size:30px;line-height:1.1;font-weight:700}
+:where(.landing) .side>p {margin-top:12px;font-size:15px;color:var(--mut)}
+:where(.landing) .side.m>p {color:var(--fm)}
+:where(.landing) .side ul {display:grid;gap:14px;margin:26px 0 32px;font-size:15px}
+:where(.landing) .side li {display:flex;gap:12px}
+:where(.landing) .side li .icon {margin-top:3px;color:var(--act)}
+:where(.landing) .side.m li .icon {color:var(--mk)}
+:where(.landing) .side .btn {margin-top:auto;align-self:flex-start}
+:where(.landing) .status {background:var(--card);border-block:1px solid rgb(var(--color-tint-line)/.6)}
+:where(.landing) .cols {display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:40px}
+:where(.landing) .cols h3 {font-size:19px;font-weight:650;margin-bottom:16px}
+:where(.landing) .cols li {display:flex;gap:12px;padding:13px 0;border-top:1px solid rgb(var(--color-ink)/.12);font-size:15px}
+:where(.landing) .cols .icon {margin-top:3px}
+:where(.landing) .cols .on .icon {color:var(--act)}
+:where(.landing) .cols .soon {color:var(--mut)}
+:where(.landing) .know {margin-top:36px;padding:22px 24px;border-radius:18px;background:var(--soft);display:grid;gap:8px;font-size:14px}
+:where(.landing) .end {position:relative;overflow:hidden;padding:120px 0;text-align:center;color:var(--onf);background:var(--fld)}
+:where(.landing) .end .wrap {position:relative;z-index:1}
+:where(.landing) .end h2 {max-width:18ch;margin:0 auto}
+:where(.landing) .end .lead {margin:18px auto 0;color:var(--fm)}
+:where(.landing) .end .cta {justify-content:center;animation:none}
+:where(.landing) footer {background:var(--bnd);color:var(--fm);padding:40px 0;font-size:13px}
+:where(.landing) footer .wrap {display:flex;flex-wrap:wrap;gap:24px 48px;justify-content:space-between;align-items:center}
+:where(.landing) footer p {max-width:62ch;line-height:1.7}
+:where(.landing) footer nav {display:flex;gap:20px}
+:where(.landing) footer a {text-underline-offset:4px}
+
+@media(max-width:980px){
+:where(.landing) .story,:where(.landing) .sides,:where(.landing) .cols,:where(.landing) .trust {grid-template-columns:minmax(0,1fr)}
+:where(.landing) .hero {padding:124px 0 72px}
+:where(.landing) .pool {max-width:440px}
+:where(.landing) .stage {order:-1}
+:where(.landing) .links {display:none}
+:where(.landing) .nav .btn {margin-left:auto}
+:where(.landing) .sec {padding:80px 0}
+:where(.landing) .cols,:where(.landing) .trust {gap:32px}}
+
+@media (max-width: 740px) {
+  :where(.landing) .hg { grid-template-columns: minmax(0, 1fr); }
+  :where(.landing) .pool { margin-inline: auto; }
+}
+
+@media(max-width:560px){
+:where(.landing) .wrap {padding:0 20px}
+:where(.landing) .side {padding:26px}
+:where(.landing) .stage {padding:20px}
+:where(.landing) .btn {width:100%}
+:where(.landing) .nav .btn {width:auto}
+:where(.landing) .seats {gap:8px}
+:where(.landing) .bid {grid-template-columns:76px 1fr 40px}
+:where(.landing) .fund {gap:16px}
+:where(.landing) .fund svg {width:64px;height:64px}}
+
+@media(prefers-reduced-motion:reduce){
+:where(.landing) *,:where(.landing) *::before,:where(.landing) *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+:where(.landing) .symbols { position: absolute; }
+:where(.landing) section[id] { scroll-margin-top: 92px; }
+:where(.landing) #trust, :where(.landing) #who { padding-top: 0; }
+:where(.landing) .skip-link { z-index: 40; }
+:where(.landing) .sh { width: 100%; min-height: 44px; text-align: left; }
+:where(.landing) .sd p { padding-top: 10px; }
+:where(.landing) .brand-wordmark { white-space: nowrap; }
+:where(.landing) .sum dd { text-align: right; }
+:where(.landing) .fund b { font-size: clamp(24px, 5vw, 44px); }
+:where(.landing) footer a:hover { text-decoration: underline; }
+
+@media (max-width: 560px) {
+  :where(.landing) h1 { font-size: clamp(34px, 9.5vw, 46px); }
+  :where(.landing) .hero { padding-top: 104px; }
+  :where(.landing) .hero .cta { margin-top: 24px; }
+  :where(.landing) .story { gap: 20px; margin-top: 32px; }
+  :where(.landing) .step { padding: 8px 12px; }
+  :where(.landing) .sd p { padding-left: 0; }
+  :where(.landing) .stage { gap: 14px; }
+  :where(.landing) .side .btn { padding-inline: 10px; }
+  :where(.landing) .rc { padding: 20px; }
+  :where(.landing) .rch .pill { white-space: nowrap; }
+  :where(.landing) footer nav { flex-wrap: wrap; }
+}
+
+:where(.landing) .hero .cta { gap: 12px; }
+:where(.landing) .hero-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  width: fit-content;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--mut);
+  font-size: 14px;
+}
+:where(.landing) .hero-facts li { display: flex; align-items: center; gap: 8px; }
+:where(.landing) .hero-facts .icon { width: 16px; height: 16px; color: var(--fld); }
+:where(.landing) .hero-sandbox { margin-top: 14px; color: var(--mut); font-size: 13px; }
+:where(.landing) .stage-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--mut);
+  font-size: 13px;
+}
+:where(.landing) .stage-controls .ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+:where(.landing) .stage-controls .ctl:hover { background: var(--paper-deep); }
+:where(.landing) .stage-controls .ctl:focus-visible { outline-color: var(--ink); }
+:where(.landing) footer .brand-wordmark { color: var(--onf); }
+
+@media (max-width: 560px) {
+  :where(.landing) .hero-facts { margin-top: 28px; padding-top: 16px; }
+  :where(.landing) .hg { gap: 16px; }
+  :where(.landing) .hero { padding-bottom: 40px; }
+  :where(.landing) .stage-controls { padding-bottom: 10px; }
+}
+:where(.landing) .sth strong { display:block; color:var(--ink); font-size:clamp(16px,2vw,23px); line-height:1.2; }
+:where(.landing) .seats i.s { background:var(--fld); }
+:where(.landing) .seats i.me { background:var(--act); }
+:where(.landing) .fund-check { fill:none; stroke:var(--fld); stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+@keyframes landing-step { from { opacity:.55; transform:translateY(4px); } }
+@keyframes landing-bid { from { transform:scaleX(.2); } }
+:where(.landing) .ln {
+display:block;
+overflow:hidden;
+padding-bottom:.18em;margin-bottom:-.1em}
+:where(.landing) .ln>span {
+display:block;
+animation:landing-up .9s var(--ease-out) both;
+animation-delay:calc(.1s + var(--k)*.12s)}
+@keyframes landing-up{from{transform:translateY(105%)}}
+@keyframes landing-fade{from{opacity:0;transform:translateY(10px)}}
+@keyframes landing-build{from{opacity:0;transform:translateZ(calc(var(--i)*4.64cqw)) scale(.5)}}@keyframes landing-spin{to{transform:rotate(360deg)}}@keyframes landing-pulse{50%{opacity:.4}}@keyframes landing-bob{50%{translate:0 -8px}}
+
+:where(.landing) .hero .cta { animation:landing-fade .8s .65s both; }
+:where(.landing) .hero-facts, :where(.landing) .hero-sandbox, :where(.landing) .stage .note, :where(.landing) .stage .pl, :where(.landing) .stage .sth, :where(.landing) .stage .sth .pill, :where(.landing) .stage .cnt span, :where(.landing) .stage .row, :where(.landing) .stage .fund span, :where(.landing) .stage .stage-controls { color:var(--fm); }
+:where(.landing) .stage .sth strong, :where(.landing) .stage .row b, :where(.landing) .stage .ctl { color:var(--onf); }
+:where(.landing) .stage .ctl { border-color:rgb(var(--color-on-field)/.5); }
+:where(.landing) .stage .ctl:hover { background:rgb(var(--color-on-field)/.12); }
+:where(.landing) .stage .ctl:focus-visible { outline-color:var(--onf); }
+:where(.landing) .hero-facts .icon { color:var(--mk); }
+:where(.landing) .stage .bid.w { color:var(--onf); }
+:where(.landing) .stage .fund .rg, :where(.landing) .stage .fund-check { stroke:var(--mk); }
+:where(.landing) .stage .seats i { background:rgb(var(--color-canvas)/.16); }
+:where(.landing) .stage .seats i.s { background:var(--mk); }
+:where(.landing) .stage .seats i.me { background:var(--act); }
+:where(.landing) .stage .bid i::after { background:var(--fm); }
+:where(.landing) .stage .bid.w i::after { background:var(--mk); }
+
+/* ---- Scroll motion (variables are written by the scroll loop in LandingPage.tsx) ---- */
+:where(.landing) ol {list-style:none}
+:where(.landing) .pool {container-type:inline-size}
+/* Hero: the rings open into layers as you scroll away (--sp). */
+:where(.landing) .seat-ring {transform:none;translate:0 0 calc(var(--i)*4.64cqw*(1 + var(--sp,0)*1.4))}
+:where(.landing) .core {transform:rotateX(-54deg);translate:0 0 calc(25cqw*(1 + var(--sp,0)*.6));animation:landing-core 1s 1.1s both}
+@keyframes landing-build {from {opacity:0;transform:scale(.5)}}
+@keyframes landing-core {from {opacity:0}}
+/* Nav: shell tightens on scroll and a thin line tracks reading progress (--pg). */
+:where(.landing) .nav.scrolled {top:8px;background:rgb(var(--color-surface)/.94);box-shadow:var(--sh)}
+:where(.landing) .nav::after {content:"";position:absolute;left:18px;right:18px;bottom:0;height:2px;border-radius:2px;background:var(--act);transform:scaleX(var(--pg,0));transform-origin:left}
+:where(.landing) .nav .btn {min-height:44px}
+/* Raspberry sits close in brightness to the blue field; a light edge keeps the outline visible. */
+:where(.landing) .dk .btn.p {border-color:rgb(var(--color-on-field)/.55);box-shadow:0 10px 30px rgb(0 0 0/.22)}
+@media(hover:hover){:where(.landing) .dk .btn.p:hover {box-shadow:0 12px 34px rgb(var(--color-action)/.5)}:where(.landing) .step:not(.on):hover {background:none}}
+:where(.landing) footer nav a {display:inline-flex;align-items:center;min-height:44px}
+
+/* The idea in one sentence: words firm up as you read down the page (--r). */
+:where(.landing) .say {padding:128px 0 32px}
+:where(.landing) .say-t {max-width:21em;font-size:clamp(30px,5.2vw,64px);line-height:1.08;font-weight:700;letter-spacing:-.045em;text-wrap:balance}
+:where(.landing) .say-t span {opacity:calc(.22 + .78*clamp(0,calc(var(--r,1)*20 - var(--w)),1))}
+
+/* How it works: text scrolls, the stage stays put, and its visuals follow your scroll (--s per panel). */
+:where(.landing) .story {gap:56px}
+:where(.landing) .steps {position:relative;gap:0}
+:where(.landing) .steps::before,:where(.landing) .steps::after {content:"";position:absolute;left:28px;top:0;bottom:0;width:2px;border-radius:2px}
+:where(.landing) .steps::before {background:rgb(var(--color-line)/.4)}
+:where(.landing) .steps::after {background:var(--act);transform:scaleY(var(--p,0));transform-origin:top}
+:where(.landing) .step,:where(.landing) .step.on {min-height:56vh;display:flex;flex-direction:column;justify-content:center;background:none;border-color:transparent}
+:where(.landing) .sh em {position:relative;z-index:1;background:var(--paper);transition:background .3s,color .3s,transform .4s var(--ease-out)}
+:where(.landing) .step.done .sh em {background:var(--ink);color:var(--onf);border-color:transparent}
+:where(.landing) .step.on .sh em {background:var(--mk);color:var(--ink);border-color:transparent;transform:scale(1.18)}
+:where(.landing) .stage {position:sticky;top:96px;grid-template-rows:auto 1fr;min-height:0;align-content:start}
+:where(.landing) .pn {grid-area:2/1;opacity:0;visibility:hidden;translate:0 12px;animation:none;transition:opacity .4s,translate .5s var(--ease-out),visibility 0s .4s}
+:where(.landing) .pn.on {opacity:1;visibility:visible;translate:none;transition-delay:0s}
+:where(.landing) .sc {--a:clamp(0,calc((var(--s,0) - var(--t,0))*6),1);opacity:var(--a);translate:0 calc((1 - var(--a))*10px)}
+:where(.landing) .type {display:block;white-space:nowrap;clip-path:inset(0 calc((1 - min(1,var(--s,0)*3))*100%) 0 0)}
+:where(.landing) .num {font-style:normal}
+:where(.landing) .num::before {counter-reset:n var(--n,0);content:counter(n)}
+:where(.landing) .stage .seats i {--f:clamp(0,calc((var(--s,0)*1.1 - var(--k)/40)*14),1)}
+:where(.landing) .stage .seats i.s {background:var(--mk);opacity:calc(.2 + .8*var(--f));scale:calc(.55 + .45*var(--f))}
+:where(.landing) .stage .seats i.me {--m:clamp(0,calc((var(--s,0) - .8)*8),1);background:color-mix(in srgb,var(--act) calc(var(--m)*100%),var(--mk));box-shadow:0 0 0 calc(var(--m)*3px) var(--onf);scale:calc(.55 + .45*var(--f) + .2*var(--m))}
+:where(.landing) .stage .bid i::after {animation:none;transform:scaleX(clamp(0,calc(var(--s,0)*1.7 - var(--k)*.12),1))}
+:where(.landing) .stage .bid:not(.w) i {opacity:calc(1 - .4*clamp(0,calc((var(--s,0) - .65)*5),1))}
+:where(.landing) .fund circle {transform:rotate(-90deg);transform-origin:62px 62px}
+:where(.landing) .fund .rg {stroke-dasharray:327px;stroke-dashoffset:calc(327px*(1 - clamp(0,calc(var(--s,0)*1.4),1)))}
+:where(.landing) .fund-check {stroke-dasharray:60px;stroke-dashoffset:calc(60px*(1 - clamp(0,calc((var(--s,0) - .7)*4),1)))}
+
+/* The receipt reads as a paper slip that lines up on hover, then fills in row by row. */
+:where(.landing) .rc {box-shadow:var(--sh);transform:rotate(1deg);transition:transform .4s var(--ease-out)}
+@media(hover:hover){:where(.landing) .rc:hover {transform:none}}
+@media(prefers-reduced-motion:no-preference){:where(.landing) .rc:not(.in) :is(.rw,.stamp) {opacity:0}}
+:where(.landing) .rc.in :is(.rw,.stamp) {animation:landing-fade .5s var(--ease-out) both;animation-delay:calc(var(--k,4)*110ms)}
+
+/* Closing: the pool's rings turn and settle behind the final call to action (--rz, --sc). */
+:where(.landing) .end-orbit {position:absolute;left:50%;top:50%;width:min(1040px,170vw);aspect-ratio:1;translate:-50% -50%;opacity:.5;pointer-events:none;container-type:inline-size;-webkit-mask-image:radial-gradient(closest-side,transparent 38%,#000 72%);mask-image:radial-gradient(closest-side,transparent 38%,#000 72%)}
+
+/* Stacked layout: the stage pins under the nav while the steps scroll beneath it. */
+@media(max-width:980px){
+:where(.landing) .story {display:flex;flex-direction:column;gap:20px}
+:where(.landing) .stage {top:80px;z-index:5;align-self:stretch}
+:where(.landing) .step,:where(.landing) .step.on {min-height:32svh}
+:where(.landing) .say {padding:88px 0 16px}}
+
+/* Phone hero: stacked buttons, one fact per row, more air, and a pool that cannot crowd them. */
+@media(max-width:560px){
+:where(.landing) .hero {padding:104px 0 44px}
+:where(.landing) .hg {gap:24px}
+:where(.landing) h1 {font-size:clamp(36px,10.6vw,46px);line-height:1.06}
+:where(.landing) .hero .lead {font-size:16px}
+:where(.landing) .hero .cta {flex-direction:column;align-items:stretch;gap:10px}
+:where(.landing) .hero .cta .btn {min-height:52px;white-space:nowrap}
+:where(.landing) .hero-facts {flex-direction:column;align-items:flex-start;gap:10px;width:100%}
+:where(.landing) .pool {width:min(100%,340px);margin:-24px auto -40px}
+:where(.landing) .stage {top:76px;padding:16px;gap:10px;border-radius:22px}
+:where(.landing) .sth strong {font-size:16px}
+:where(.landing) .fld2 {padding:10px 14px;margin-bottom:12px}
+:where(.landing) .cnt {margin:10px 0}
+:where(.landing) .seats {max-width:260px;gap:6px}
+:where(.landing) .bid {margin-bottom:10px}
+:where(.landing) .step,:where(.landing) .step.on {min-height:30svh}}
+
+/* ---- Story progress, arrival motion and phone fixes ---- */
+/* Segmented progress along the top of the stage: one segment per step, filled by scroll (--p). */
+:where(.landing) .seg {position:absolute;z-index:2;left:20px;right:20px;top:10px;display:flex;gap:4px;pointer-events:none}
+:where(.landing) .seg i {flex:1;height:3px;border-radius:3px;background:rgb(var(--color-canvas)/.22);overflow:hidden}
+:where(.landing) .seg i::after {content:"";display:block;height:100%;background:var(--mk);transform-origin:left;transform:scaleX(clamp(0,calc(var(--p,0)*5 - var(--i)),1))}
+:where(.landing) .stage {padding-top:30px}
+/* Step 4: the total sits inside the maximum the buyer set. */
+:where(.landing) .cap {height:8px;border-radius:4px;background:rgb(var(--color-ink)/.12);overflow:hidden}
+:where(.landing) .cap i {display:block;height:100%;width:88.75%;border-radius:4px;background:var(--act);transform-origin:left;transform:scaleX(clamp(0,calc((var(--s,0) - .6)*3),1))}
+:where(.landing) .capl {margin-top:8px;font-size:12px;color:var(--mut)}
+/* Arrival (--c): ruled lines draw in, icons draw themselves, and the two sides move toward each other. */
+:where(.landing) .pr,:where(.landing) .cols li {position:relative;border-top-color:transparent}
+:where(.landing) .pr::before,:where(.landing) .cols li::before {content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:rgb(var(--color-ink)/.18);transform:scaleX(var(--c,1));transform-origin:left}
+:where(.landing) .pr .ic {scale:calc(.6 + .4*var(--c,1))}
+:where(.landing) .pr .icon,:where(.landing) .cols li .icon {stroke-dasharray:100px;stroke-dashoffset:calc(100px*(1 - var(--c,1)))}
+:where(.landing) .pr h3,:where(.landing) .pr p,:where(.landing) .cols li>:not(.icon) {opacity:calc(.25 + .75*var(--c,1));translate:0 calc((1 - var(--c,1))*10px)}
+:where(.landing) .side.b {translate:calc((1 - var(--c,1))*-28px) 0;opacity:calc(.3 + .7*var(--c,1))}
+:where(.landing) .side.m {translate:calc((1 - var(--c,1))*28px) 0;opacity:calc(.3 + .7*var(--c,1))}
+/* The receipt is stamped once its rows have filled in. */
+:where(.landing) .rc.in .stamp {animation:landing-stamp .55s .8s var(--ease-out) both}
+@keyframes landing-stamp {from {opacity:0;transform:scale(1.5) rotate(-5deg)}}
+
+@media(max-width:560px){
+:where(.landing) .side.b {translate:calc((1 - var(--c,1))*-14px) 0}
+:where(.landing) .side.m {translate:calc((1 - var(--c,1))*14px) 0}
+/* Rail stays clear of the text; steps get room to scrub. */
+:where(.landing) .sd p {padding-left:44px}
+:where(.landing) .step,:where(.landing) .step.on {min-height:38svh}
+/* A compact stage: about 290px tall instead of 380px, no dead space, a lighter shadow. */
+:where(.landing) .stage {top:84px;padding:26px 14px 14px;gap:8px;box-shadow:0 10px 24px rgb(var(--color-ink)/.2)}
+:where(.landing) .seg {left:14px;right:14px;top:9px}
+:where(.landing) .sth p {font-size:12px;line-height:1.2}
+:where(.landing) .sth strong {font-size:15px;line-height:1.25}
+:where(.landing) .sth .pill {padding:2px 9px;font-size:11px}
+:where(.landing) .pn {min-height:200px;align-content:start}
+:where(.landing) .pl {font-size:12px;margin-bottom:4px}
+:where(.landing) .fld2 {padding:8px 12px;margin-bottom:8px;font-size:14px}
+:where(.landing) .ok {padding:6px 12px;font-size:12px}
+:where(.landing) .p0 {display:grid;grid-template-columns:1fr 1fr;column-gap:12px}
+:where(.landing) .p0>:nth-child(1),:where(.landing) .p0>:nth-child(2),:where(.landing) .p0>:nth-child(6) {grid-column:1/-1}
+:where(.landing) .p0>:nth-child(3),:where(.landing) .p0>:nth-child(4) {grid-column:1}
+:where(.landing) .p0>:nth-child(5) {grid-column:2;grid-row:3/5;align-self:center;margin:0;flex-direction:column;align-items:flex-start;gap:2px}
+:where(.landing) .p0>:nth-child(6) {justify-self:start;margin-top:2px}
+:where(.landing) .cnt b {font-size:44px}
+:where(.landing) .cnt span {font-size:12px;max-width:none}
+:where(.landing) .seats {grid-template-columns:repeat(10,minmax(0,1fr));max-width:280px;gap:6px;margin:6px 0 10px}
+:where(.landing) .row {gap:16px;margin-bottom:10px;font-size:13px}
+:where(.landing) .row b {font-size:18px}
+:where(.landing) .bid {margin-bottom:8px;font-size:13px}
+:where(.landing) .stage .note {margin-top:8px;font-size:12px}
+:where(.landing) .sum {padding:14px}
+:where(.landing) .sum dl {gap:6px;font-size:13px}
+:where(.landing) .tot {margin:10px 0 8px;padding-top:10px}
+:where(.landing) .tot b {font-size:26px}
+:where(.landing) .fund {margin:4px 0 10px}
+:where(.landing) .fund svg {width:56px;height:56px}
+:where(.landing) .fund b {font-size:30px}}

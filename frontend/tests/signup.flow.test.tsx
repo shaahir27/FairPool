@@ -85,7 +85,7 @@ it("creates the account and continues with the server-issued session", async () 
   transport.post.mockResolvedValue({ data: { csrf_token: "fixture-csrf", user_id: "fixture-buyer" } });
   render(<MemoryRouter initialEntries={["/register/details"]}><Routes>
     <Route path="/register/details" element={<SignupDetailsPage />} />
-    <Route path="/" element={<p>Your FairPool</p>} />
+    <Route path="/discover" element={<p>Your FairPool</p>} />
   </Routes></MemoryRouter>);
   await screen.findByRole("heading", { name: "Make it yours." });
   fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Buyer" } });
@@ -164,7 +164,7 @@ it("clears the draft on successful registration", async () => {
 
   render(<MemoryRouter initialEntries={["/register/details"]}><Routes>
     <Route path="/register/details" element={<SignupDetailsPage />} />
-    <Route path="/" element={<p>Your FairPool</p>} />
+    <Route path="/discover" element={<p>Your FairPool</p>} />
   </Routes></MemoryRouter>);
 
   await screen.findByRole("heading", { name: "Make it yours." });

@@ -2,7 +2,7 @@ import { AreaLayout, type AreaTab, type AreaUtilityLink } from "../shared";
 
 /** Buyer tabs fixed by FR-UI-01 to FR-UI-03 (scaffold section 12). */
 const BUYER_TABS: readonly AreaTab[] = [
-  { to: "/", label: "Discover and Join", end: true },
+  { to: "/discover", label: "Discover and Join", end: true },
   { to: "/my-pools", label: "My Pools", end: false },
   { to: "/orders", label: "Orders", end: false },
 ];

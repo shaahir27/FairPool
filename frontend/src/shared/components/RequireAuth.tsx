@@ -13,7 +13,7 @@ type GuardState = "checking" | "in" | "out" | "unreachable";
  *
  * The cookie is HttpOnly and lives 24 hours, so the browser cannot read it; the
  * server is the only thing that can say whether it is still valid. One `GET /me`
- * decides: 200 renders the route, 401 sends the visitor to `/login` with the path
+ * decides: 200 renders the route, 401 sends the visitor to sign in with the path
  * they came from, and the login form returns them there.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -98,9 +98,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (state === "out") {
     return (
       <Navigate
-        to="/login"
+        to={location.pathname.startsWith("/merchant/") ? "/login?role=merchant" : "/login"}
         replace
-        state={{ from: location.pathname + location.search }}
+        state={{ from: location.pathname + location.search + location.hash }}
       />
     );
   }
