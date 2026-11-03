@@ -15,8 +15,9 @@
     "docs_errors": 0,
     "docs_warnings": "2, both the illustrative /api/v1/nope path: one in an older progress.md row, one in docs/frontend-design-review.md (the owner's untracked review note)",
     "merchant_openapi": "10 operations, matches api.md section 4.3",
-    "gitleaks": "82 commits scanned at ef0a00c, no leaks found (gitleaks counts non-merge commits except the root; 87 commits are in history)"
+    "gitleaks": "87 commits scanned at the gate run, no leaks found"
   },
   "rendered_not_assumed": "Discover, the pool lobby, the join through intake/manual and the entry receipt were driven in a real browser against a local API on the compose database, and the receipt was re-read from the server after a fresh navigation with no browser copy. The narrow pass ran in a same-origin 390px frame with no horizontal scroll on any screen. Screenshots were not captured: the in-app browser surface is not visible from this session, so the visual check is the live DOM and computed styles rather than pixels.",
-  "not_in_this_file": "The live Sandbox and hosted items are recorded separately in it6_sandbox.json, sandbox_contracts.json, failure_net_zero.json, webhook_delivery.json and ci.json, each carrying its own status and the command that would close it; only failure_net_zero.json and webhook_delivery.json are still pending."
+  "not_in_this_file": "The live Sandbox and hosted items are recorded separately in it6_sandbox.json, sandbox_contracts.json, failure_net_zero.json, webhook_delivery.json and ci.json, each carrying its own status and the command that would close it; only failure_net_zero.json and webhook_delivery.json are still pending.",
+  "gate": "tools/gate_check.py ig-6 exits 0: migrations and both drift checks, the offline suite, the 18 fault tests, generated types, frontend build, import boundaries, docs validator, merchant OpenAPI and gitleaks all pass, and every named evidence file now reads passed."
 }

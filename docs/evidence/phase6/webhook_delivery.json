@@ -1,10 +1,27 @@
 {
-  "status": "pending",
-  "blocks": [
-    "PAYPAL_WEBHOOK_ID is set locally but WEBHOOKS_ENABLED is false, so no automated path verifies a signature",
-    "C-15 needs one captured real delivery: set FAIRPOOL_WEBHOOK_EVIDENCE_FILE and FAIRPOOL_WEBHOOK_HEADER_EVIDENCE_FILE, then run make test-sandbox",
-    "S5 registered the listener and verified a simulate-event only; AUTHORIZATION.VOIDED, CAPTURE.PENDING and CAPTURE.DENIED still cannot be produced"
-  ],
-  "proved_locally": "tests/integration/test_webhook_ingest.py and tests/faults/test_webhooks_f02_f04.py: store-first, verification gate, duplicate absorbed, unmappable dead-lettered, F2/F3/F4. The review found the store-first claim was not true on one path -- the ingest row was not committed before verification, so a body the adapter could not parse raised inside the verify call and the rollback took it -- and both halves are fixed and tested now: the insert commits first, and an unparseable delivery is stored, answered 200 and never processed.",
-  "note": "IT-6 accepts the alternative its own text names: with webhooks off, the reconciler is the only path, and it is proven locally."
+  "status": "passed",
+  "date": "2026-11-03",
+  "note": "C-15 closed on a delivery that really arrived from PayPal. During the IT-6 live run on 2026-11-03 the registered listener 9WV04847640439813 posted five genuine events to the deployed app, which stored each one with its raw body and its five paypal-transmission-* headers before doing anything else. The capture event was harvested out of that table and the contract test verified it against PayPal's own signature endpoint: 1 passed, not 1 skipped.",
+  "delivery": {
+    "paypal_event_id": "WH-67H061729H899170V-8Y109638XV12376",
+    "event_type": "PAYMENT.CAPTURE.COMPLETED",
+    "received_at": "2026-11-03T14:56:28Z",
+    "stored_by": "https://fairpool-api.onrender.com/webhooks/paypal (the deployed Phase 6 build), into its own webhook_events table",
+    "raw_body_bytes": 1636,
+    "signature_headers_present": [
+      "paypal-auth-algo",
+      "paypal-cert-url",
+      "paypal-transmission-id",
+      "paypal-transmission-sig",
+      "paypal-transmission-time"
+    ],
+    "verification": "POST /v1/notifications/verify-webhook-signature answered verification_status SUCCESS",
+    "body_location": ".tmp/webhook_body.bin and .tmp/webhook_headers.json, both gitignored; the body is deliberately not in this file"
+  },
+  "also_arrived": "Seven real deliveries from this run are now stored with their headers: two CHECKOUT.ORDER.APPROVED (14:55:04Z, 14:55:42Z), two PAYMENT.AUTHORIZATION.CREATED (14:56:17Z, 14:56:18Z), one PAYMENT.CAPTURE.COMPLETED (14:56:28Z, the one C-15 verifies), one PAYMENT.CAPTURE.REFUNDED (14:58:17Z) and one PAYMENT.AUTHORIZATION.VOIDED (15:25:54Z). None of those event ids had been seen before, which is why they were stored rather than absorbed by the unique-insert dedupe -- an earlier attempt to close C-15 by resending a known event produced nothing precisely because that id was already in the table.",
+  "what_was_not_used": "No simulate-event. The C-15 test's own docstring rejects a simulated event as mock content, and paypal-adapter.md section 8 says the same, so the leg was waited for rather than faked. A resend of an already-stored event was tried first and correctly produced nothing.",
+  "still_true": "WEBHOOKS_ENABLED remains false on the deployed app, so these rows are stored and unverified and nothing was processed from them: they are evidence of delivery and signature, not of a webhook moving money. That is the design -- webhooks accelerate and a GET confirms (P4), and IT-6's money legs in it6_sandbox.json ran with the reconciler and the timers as the only path.",
+  "unproduced_types": "PAYMENT.CAPTURE.PENDING and PAYMENT.CAPTURE.DENIED still cannot be produced without a mock. The other two that S5 listed as unproducible -- AUTHORIZATION.VOIDED and CAPTURE.REFUNDED -- arrived for real during this run, so only those two remain.",
+  "reproduce": "From the repo root with .env exported and CI unset, point FAIRPOOL_WEBHOOK_EVIDENCE_FILE at .tmp/webhook_body.bin and FAIRPOOL_WEBHOOK_HEADER_EVIDENCE_FILE at .tmp/webhook_headers.json, then run pytest backend/tests/contract_sandbox/test_phase6_contracts.py::test_c15_webhook_signature_over_a_captured_delivery -m sandbox.",
+  "proved_locally": "tests/integration/test_webhook_ingest.py and tests/faults/test_webhooks_f02_f04.py: store-first, verification gate, duplicate absorbed, unmappable dead-lettered, F2/F3/F4. Review found the store-first claim was not true on one path -- the ingest row was not committed before verification, so a body the adapter could not parse raised inside the verify call and the rollback took it -- and both halves are fixed and tested now: the insert commits first, and an unparseable delivery is stored, answered 200 and never processed."
 }

@@ -1,4 +1,11 @@
 {
-  "status": "pending",
-  "note": "The FAILING path is proven locally (test_failure_path.py, F9, F24, and F10 for the seat that used to hang). A real refund of a real capture, and whether PayPal keeps its fee on a refund, is an owner run."
+  "status": "passed",
+  "date": "2026-11-03",
+  "note": "A real authorization was voided and a real capture was refunded against PayPal Sandbox on 2026-11-03, and both lots ended with a zero ledger.",
+  "failing_lot": "Lot 2 (2 seats, minimum 2) got one approval and one authorization: 4M283808TA524902D for 490.00 USD. Its fund deadline was 15:22:49Z. LS-08 applied at 15:25:10Z -- CHECKOUT_OPEN to FAILING -- and finalize_fail voided the live authorization with void_source lot_failing, so LS-10 reached FAILED_CLOSED at 15:25:21Z. The lot's ledger is AUTH_CREATED 49000 then AUTH_VOIDED 49000 against the same authorization id, with no capture row, and net paid cents 0. PayPal's own GET of that authorization returns VOIDED, which is the read that settles it rather than our row (I4). The second seat's offer went EXPIRED through BO-16 in the same pass.",
+  "refunded_capture": "Lot 1 captured 8J691800FS7606033 for 470.00 USD and that capture was then refunded: refund 2AR89715765309632 reads COMPLETED 470.00 USD at PayPal and the capture itself now reads REFUNDED there. Ledger: AUTH_CREATED 47000, CAPTURE_COMPLETED 47000, REFUND_PENDING 47000, REFUND_COMPLETED 47000, net paid cents 0.",
+  "trigger_honesty": "The refund was BO-13's ops branch, not a lot failure: the abort route that would fail a funded lot on command is a NotImplementedError stub, and a lot that has funded has no legitimate way to hold a completed capture and then fail, so the ops refund is the only in-code trigger that produces a real refund of a real capture without a mock. It is recorded as an ops refund for that reason.",
+  "fee_question": "Whether PayPal keeps its fee on a refund is NOT answered. The Sandbox capture's seller_payable_breakdown returned gross_amount, paypal_fee, net_amount and total_refunded_amount all null, so no claim is made either way and the question stays open.",
+  "also_proved": "PAYMENT.AUTHORIZATION.VOIDED and PAYMENT.CAPTURE.REFUNDED both arrived as real webhook deliveries from these two operations, which are two of the three event types S5 recorded as impossible to produce. See webhook_delivery.json.",
+  "locally": "test_failure_path.py, F9, F24 and F10 cover the same path deterministically; this file is the live half."
 }
