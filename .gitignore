@@ -44,3 +44,6 @@ docs/evidence/
 # Agent scratch and skill state: never part of the project tree
 .tmp/
 .taste-skill/
+
+# Local design review note written by another agent: stays on disk, not in the repo
+/docs/frontend-design-review.md
