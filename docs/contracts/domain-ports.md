@@ -227,11 +227,11 @@ One table is the source of truth. Handlers are registered by kind in `worker.py`
 | order.vault_charge | A | buyer_order_id | bo:{buyer_order_id} | none | lot.open_checkout, lot.refill (PAYMENT_MODE=vault_charge) | Precheck, then charge the saved permission once with key `vc:{buyer_order_id}`; at most `VAULT_CHARGE_CONCURRENCY` run at once |
 | order.resolve | A | buyer_order_id | bo:{buyer_order_id} | none | reconciler.sweep | Fetch PayPal and heal one order |
 | capture.poll | A | buyer_order_id | bo:{buyer_order_id} | none | order.capture | Poll a PENDING capture until pending_wait |
-| void.run | A | buyer_order_id, reason | bo:{buyer_order_id} | none | lot.finalize_fail, withdraw, age guard | GET then void |
-| refund.run | A | buyer_order_id, seq | bo:{buyer_order_id} | none | lot.finalize_fail, ops | Refund a capture |
+| void.run | A | buyer_order_id, void_source | bo:{buyer_order_id} | void:{buyer_order_id} | lot.finalize_fail, withdraw, age guard | GET then void |
+| refund.run | A | buyer_order_id | bo:{buyer_order_id} | refund:{buyer_order_id}, or refund:{buyer_order_id}:{seq} when re-polling an unfinished refund | lot.finalize_fail, ops, refund handler | Refund a capture |
 | lot.try_fund | A | lot_id | lot:{lot_id} | try_fund:{lot_id} | authorization or capture events, deadline timer | Evaluate trigger and funding |
 | lot.refill | A | lot_id | lot:{lot_id} | refill:{lot_id} | vacancy transitions | Offer vacancies to waitlist via next_candidates |
-| lot.finalize_fail | A | lot_id | lot:{lot_id} | none | LS-08, LS-09 | Void, refund, reconcile to zero |
+| lot.finalize_fail | A | lot_id, passes | lot:{lot_id} | finalize_fail:{lot_id} | LS-08, LS-09 | Void, refund, reconcile to zero |
 | lot.finalize_close | A | lot_id | lot:{lot_id} | none | LS-07 | FUNDED to CLOSED |
 | webhook.process | A | webhook_event_id | wh:{webhook_event_id} | none | webhook ingest | Map event, fetch resource, apply |
 | shipments.submit | A | lot_id | lot:{lot_id} | shipments:{lot_id} | merchant shipments endpoint | Submit pending trackers to PayPal through the adapter (when `SHIPMENT_TRACKING_ENABLED`) |
@@ -242,7 +242,10 @@ Runner rules: claim with `FOR UPDATE SKIP LOCKED` where `status = 'PENDING' AND 
 
 CR-3 adds **no** job kind. A `QUARANTINED` permission is deleted by the callback that discovers it and by the withdrawal path, so no timer is needed while `VAULT_REAL_SAVE_ENABLED=false`; if the real save path at `T05A01` shows a leak that neither path can collect, a cleanup kind is added with its own change request rather than improvised in code. Unregistered kinds stay `PENDING` and are never claimed, which is what keeps a Phase 3 queue honest: an enqueue is not evidence that work happened.
 
+CR-8 (`Q-2026-11-02-24`) corrects three payload cells to the wire format the shipped handlers read, because here the doc was the stale side and the code was the safe one. `void.run` carries `void_source`, not `reason`: it is the field `modules/checkout/failure.py` passes into the transition, and `db-schema.md` fixes its four permitted values, so a second name for it would have quietly defaulted every void to `lot_failing` and stopped a buyer-withdraw void freeing its seat. `refund.run` carries only `buyer_order_id`: the refund `seq` is derived inside the transaction from the stored capture rows, so an enqueue could not know it, and naming it in the payload invited a caller to guess. `lot.finalize_fail` carries `passes`, the retry counter that drives the escalating re-check and the stuck alert. The `dedupe` column changes from `none` to those three keys for the same reason: the unique partial index on a `PENDING` or `RUNNING` job is what stops a second void of an already-voiding authorization or a second refund of the same capture, and void does not replay at PayPal (S2), so a duplicate there is a 422 and an alert rather than a safe no-op. A queue-level dedupe key is not an idempotency key and does not touch `paypal-adapter.md` section 3.
+
 ## 6. Handoff protocols
+
 
 **Award handoff (B to A).** `lot.award` (B) in one transaction: writes the immutable award, stamps `payment_router` and `payment_mode` on the lot from configuration (N8), marks priced-out allocations, sets the lot AWARDED, and enqueues `lot.open_checkout`. It never creates buyer orders.
 

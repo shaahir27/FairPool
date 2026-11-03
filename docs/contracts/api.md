@@ -165,7 +165,7 @@ Response: `{"session_id": "uuid", "status": "NEEDS_CLARIFICATION" | "READY_TO_CO
   "firm": ["matte screen"],
   "preferences": ["black bezel"],
   "notices": {
-    "no_charge": "Nothing is charged now. PayPal places a hold only after a merchant and exact price are known and you approve.",
+    "no_charge": "Nothing is charged now. A merchant and an exact price are confirmed first, you are never charged above the maximum you set here, and any payment follows your own approval of that offer.",
     "lots_may_differ": "Separate lots in this pool can end with different winning merchants and prices."
   }
 }
@@ -257,6 +257,8 @@ Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"
 
 `offer_started_at` is the moment the offer was created, `server_now` is the database clock at read time, and together they let a client render a countdown and a progress ring from the server's clock instead of the device's (I15); the countdown is presentation only and every handler still re-checks `offer_expires_at`. `pool_id` and `pool_title` let the screen link to the pool's published rules. All four are optional additions: a client that ignores them behaves exactly as before.
 
+**The `hold` notice is the stamped mode's sentence, not one fixed string** (CR-8; `Q-2026-11-01-17`). The example above is `PAYMENT_MODE=authorize_capture` or `capture_only`, where a hold really is placed. On a lot stamped `vault_charge` the key carries `vault-charge.md` section 1's truth instead, because that mode reserves nothing and PayPal's approval screen shows no amount: `"Nothing is charged or held now, and PayPal's approval screen shows no amount. FairPool charges this saved account once, after the lot is awarded, for the final price if it is at or below your maximum."` The offer endpoint may branch because the mode is on the lot from award (N8); the intake card above may not, because it is read before any lot exists, which is why its `no_charge` sentence is written mode-neutral. A client renders what the API returns and never re-words it (FR-UI-08, I13).
+
 `notices.fallback` is a non-null string whenever `PAYMENT_ROUTER=single_seller` or `PAYMENT_MODE=capture_only` applies (DEP-4), for example `"Sandbox demo: one test seller stands in for the winning merchant."`.
 
 `POST /api/v1/offers/{buyer_order_id}/continue` body `{"shipping": {"name", "line1", "line2", "city", "region", "postal_code", "country_code"}}` (the address is always required because fulfillment needs it; it is stored encrypted, N14, and is sent to PayPal only when `PAYPAL_PAYLOAD_LEVEL >= 3`); returns `{"paypal_order_id": "...", "approve_url": "https://www.sandbox.paypal.com/...", "approval_ui": "sdk_popup" | "redirect"}`. The browser sends **no amounts**. The server takes them from the award snapshot (I3).
@@ -265,7 +267,7 @@ Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"
 
 `GET /api/v1/orders/{buyer_order_id}`: `{"buyer_order_id", "status", "lot_status", "total_cents", "history": [{"status", "at"}], "paypal": {"authorization_status": "...|null", "capture_status": "...|null", "refund_status": "...|null"}, "labels": ["SANDBOX", "FALLBACK: single stand-in seller"], "pool_id": "uuid|null", "lot_id": "uuid|null", "placed_at": "iso|null", "reject_reason": "PAYEE_MISMATCH|null", "receipt": {"payload": {"commitment", "entry_id", "pool_id", "received_at", "v"}, "salt_hex", "request_hash", "signature"}|null}`.
 
-The five later keys are optional additions. `reject_reason` is one of the seven buyer-order codes in `config-and-errors.md` section 5 and is present whenever the order was rejected, so the redirect path can explain a failure it used to swallow. `receipt` is the buyer's own entry receipt, returned in the same typed shape as `POST /api/v1/entries`; it is shown only to the order's owner and is what makes the proof verifiable against `/api/v1/public/keys`.
+The five later keys are optional additions. `reject_reason` is one of the seven buyer-order codes in `config-and-errors.md` section 5 and is present whenever the order was rejected, so the redirect path can explain a failure it used to swallow. `receipt` is the buyer's own entry receipt, returned in the same typed shape as `POST /api/v1/entries`; it is shown only to the order's owner and is what makes the proof verifiable against `/api/v1/public/keys`. `history[].at` and the three `paypal.*_status` fields are the lot-history timestamps and provider references the screen needs, and both are already returned (CR-8; `Q-2026-11-02-22`); a screen must still read them from here rather than compose them in the browser (I4, I13). **A verified net result is not returned and is not contracted**: `history` and the `paypal` block together imply it, but an explicit per-order figure needs a ledger aggregate no Phase 6 task names, so it is deferred to the merchant fulfillment path rather than computed on the client or invented as a response field.
 
 ### Webhook
 
@@ -325,6 +327,8 @@ Browser sequence (the contract the frontend implements):
 `POST /api/v1/offers/{buyer_order_id}/approved` body `{"paypal_order_id": "..."}`. The server checks the ID belongs to this buyer order, fetches the order from PayPal, runs the FR-CK-05 checks and returns `{"buyer_order_id", "status": "APPROVED" | "REJECTED" | "EXPIRED", "reason": "<reason code>|null"}`; on APPROVED it enqueues `order.authorize` (BO-02). `POST .../cancelled` moves ORDER_CREATED to DECLINED (BO-22). Both callbacks are idempotent and only hints; PayPal's GET is the truth.
 
 ### 4.2 Merchant console endpoints (session)
+
+`POST /api/v1/merchant/profile` creates or updates the merchant row and returns exactly the row's own fields: `{"merchant_id": "uuid", "display_name": "string", "onboarding_status": "NONE|PENDING|COMPLETE|DEMO", "attestations": {"inventory_reserved": {"at": "iso", "accepted": true}, "map_compliance": {"at": "iso", "accepted": true}, "delivery_terms_accurate": {"at": "iso", "accepted": true}}}` (CR-8; `Q-2026-11-02-23`). The body is `{"display_name", "payee_email": "string|null", "paypal_merchant_id": "string|null", "attestations": {...}}`; an attestation key outside the three named in `db-schema.md` is a `422 VALIDATION_ERROR`, and an attestation already accepted keeps its original `at` timestamp rather than being re-stamped. `onboarding_status` is set when the row is created (`DEMO` under `PAYMENT_ROUTER=single_seller`, otherwise `NONE`) and is not recomputed by this endpoint: no Phase 5 or Phase 6 task ships a merchant review queue, so nothing moves it afterwards. What a later gate can check is the attestation map itself, and that is what "the merchant's attestations are accepted" means for the API-key endpoints below — three `accepted: true` entries, read from the row, not a status this endpoint cannot set.
 
 `GET /api/v1/merchant/lots/{lot_id}/progress` (also on the Merchant Agent API; only the awarded merchant):
 

@@ -53,7 +53,10 @@ The buyer must see and accept, before PayPal approval, text that says in plain w
 | Capture `PENDING` | wait | BO-25, `capture.poll` |
 | 422 `INSTRUMENT_DECLINED` (simulated in Sandbox with the mock header; a real low-balance decline was not reached) or status `DENIED` | definitive | BO-26, vacancy, refill |
 | 403 `PERMISSION_DENIED` (deleted or revoked permission) | definitive; token marked `DELETED` | BO-26, vacancy, refill |
+| A `COMPLETED` read-back whose amount is not the awarded total, or whose payee is not the stamped seller, or which carries no payee to check at all | definitive for **this seat**, never a payment: `reject_reason` `AMOUNT_MISMATCH` or `PAYEE_MISMATCH`, or `UNVERIFIABLE` in the audit evidence once three `capture_grace_s` windows have passed on the order's `CAPTURING` timestamp | BO-26, vacancy, refill; the resource is not recorded as a `paypal_captures` row, so `lot.finalize_close` never balances against a capture the ledger cannot prove |
 | 5xx, timeout, unknown | unknown | stay `CAPTURING`; GET by the stored order ID or the invoice; retry only with the same key |
+
+The last two rows are CR-8 (`Q-2026-11-01-20`): before it, a `COMPLETED` capture for another amount or payee satisfied neither BO-24 (which requires the amount and payee to match) nor BO-26 (which named only declines), so `order.resolve` refused the row on every sweep and it looped in `CAPTURING` forever. A bound on the order's own timestamp is used, not `current_attempt`, because `current_attempt` is the re-quote counter (N9). `UNVERIFIABLE` is not a new `reject_reason`: it is an evidence `error_code`, and the two contracted reasons are the ones `config-and-errors.md` section 5 already lists.
 
 If completed captures cannot reach the minimum before the funding deadline, every completed capture is refunded in full (existing failure path) and the lot closes. Unlike authorize-then-void, a refund of a completed capture may not return PayPal's fees; Sandbox cannot show this. Treat it as a cost of this mode and say so in the README.
 

@@ -366,10 +366,14 @@ def _void_source(facts: BuyerOrderFacts) -> str | None:
 
 
 def _definitive_denial(facts: BuyerOrderFacts) -> str | None:
-    """BO-05: DENIED, or a definitive 4xx that is not ORDER_NOT_APPROVED (V4)."""
+    """BO-05: DENIED, EXPIRED or VOIDED, or a definitive 4xx that is not ORDER_NOT_APPROVED.
+
+    CR-8 note 1; V4 keeps ``ORDER_NOT_APPROVED`` a wait rather than a denial.
+    """
     observation = facts.observation
     assert observation is not None
-    if observation.status == "DENIED":
+    if observation.status in {"DENIED", "EXPIRED", "VOIDED"}:
+        # An authorization that can never be captured ends the seat; CR-8 note 1.
         return None
     if observation.error_code == "ORDER_NOT_APPROVED":
         return "ORDER_NOT_APPROVED is a wait, not a failure (V4)"

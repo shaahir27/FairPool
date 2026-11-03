@@ -20,18 +20,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import uuid
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
-from fairpool.db.safety import require_test_database
 from fairpool.db.session import normalize_database_url
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.hashing import verify_ed25519
 from fairpool.modules.pools.receipts import public_key_b64url, signing_seed
+from tests.conftest import database_url
 from tests.integration.test_join_receipts import (
     SEED,
     join_service,
@@ -47,8 +46,9 @@ JOINS = 200  # every buyer submits twice, concurrently
 
 @pytest.fixture
 async def engine() -> AsyncEngine:
-    url = os.environ["DATABASE_URL"]
-    require_test_database(url)
+    # The same loopback *_test resolution the rest of the suite uses, so this file
+    # runs from a plain shell instead of demanding an exported DATABASE_URL (D-P3-05).
+    url = database_url()
     parsed, connect_args = normalize_database_url(url)
     # A bounded pool: 200 concurrent joins queue for connections instead of
     # opening 200 sockets against the disposable database.

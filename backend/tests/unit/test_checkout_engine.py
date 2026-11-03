@@ -1064,6 +1064,31 @@ async def test_void_and_decline_edges_apply(db_session: AsyncSession) -> None:
     assert cancelled.transition_id == "BO-22"
 
 
+@pytest.mark.parametrize("auth_status", ["DENIED", "EXPIRED", "VOIDED"])
+async def test_an_authorization_that_can_never_be_captured_fails_the_seat(
+    db_session: AsyncSession, auth_status: str
+) -> None:
+    """CR-8 note 1: BO-05 takes every status `paypal-adapter.md` section 4 calls unauthorized."""
+    scene = await make_scene(db_session, status="AUTHORIZING")
+    paypal_order_id = await insert_paypal_order(scene.session, scene.order_id)
+    auth_id = await insert_authorization(
+        scene.session,
+        scene.order_id,
+        paypal_order_id=paypal_order_id,
+        status=auth_status,
+    )
+    outcome = await scene.ports.engine.apply(
+        scene.session,
+        TransitionRequest(
+            buyer_order_id=scene.order_id,
+            to_state="AUTH_FAILED",
+            trigger=trigger_for("BO-05"),
+            observation=Observation("authorization", auth_status, auth_id),
+        ),
+    )
+    assert outcome.transition_id == "BO-05"
+
+
 async def test_failure_branch_edges_apply(db_session: AsyncSession) -> None:
     """T03A01 acceptance 1: BO-05, BO-10, BO-11, BO-18, BO-19, BO-20 apply."""
     authorizing = await make_scene(db_session, status="AUTHORIZING")

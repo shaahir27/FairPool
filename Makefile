@@ -41,6 +41,7 @@ setup:
 	fi
 	@$(PIP) install --no-deps -e backend
 	@$(PY) -m pre_commit install
+	@$(PY) tools/ensure_test_db.py
 	@if [ -f frontend/package.json ]; then \
 		node -e "const major=+process.version.slice(1).split('.')[0]; if (major < 20) { console.error('Node >= 20 is required'); process.exit(1); }"; \
 		cd frontend && npm ci; \

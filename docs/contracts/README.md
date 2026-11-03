@@ -54,6 +54,38 @@ No payment, fairness, account-verification or agent permission changes are inclu
 
 ## Change log
 
+### CR-8: Phase 6 contract write-ups and one guard widening (owner authorized 2026-11-03)
+
+The owner authorized this change request inside the Phase 6 branch, on the finding
+that `authorize.py` maps an authorization status of `EXPIRED` or `VOIDED` to
+`AUTH_FAILED` while BO-05's guard accepted only `DENIED` and a definitive 4xx, so
+`engine.apply` raised `IllegalTransition` and alerted instead of settling the seat —
+the blocked half of `Q-2026-11-01-18`, which the Phase 5 review carried to IG-6.
+`paypal-adapter.md` section 4 already states that all three statuses mean the order is
+not authorized, and `testing-strategy.md` names F10
+`test_f10_authorization_expired_vacancy`, so the widening writes down the rule the rest
+of the contract and the test list already assume. Two state pairs and one effect are the
+only structural change: none. BO-05's guard text is reworded in `state-machines.md` and
+`domain/states.py` together, which `tests/unit/test_state_machines_contract.py` compares.
+
+The rest is documentation of readings the shipped code already took, so that the drift
+stops growing. CR-8 clarifications 2 to 4 in `state-machines.md` record the
+`age_guard` void, the rule that a trigger finding the row outside its `from` states
+returns without a transition, and the `CHECKOUT_OPEN`-only refill
+(`Q-2026-11-01-16`). `api.md` carries the mode-dependent offer notice
+(`Q-2026-11-01-17`, `Q-2026-11-01-19`), the merchant profile response shape
+(`Q-2026-11-02-23`) and what the order endpoint does and does not return
+(`Q-2026-11-02-22`). `domain-ports.md` section 5 corrects three payload and dedupe cells
+to the wire format the handlers read (`Q-2026-11-02-24`). `vault-charge.md` section 7
+names the unverifiable read-back edge `modules/checkout/vault_charge.py` implements
+(`Q-2026-11-01-20`). `config-and-errors.md` section 5 lists what R1 to R7 compare
+(`Q-2026-11-02-21`, `Q-2026-11-02-25`).
+
+Affected tasks: T06A01 to T06A07, T06B01 and T06B05, and the Phase 5 rows T05A03, T05A05
+and T05A06 whose reviews raised most of the questions. No migration, no new job kind, no
+new error or reason code, no enum change. **No new contract tag and no phase-gate claim
+is made by this change request.**
+
 ### CR-6: PayPal-first buyer registration (owner authorized 2026-11-02)
 
 The owner requested PayPal authentication before account setup, with returning

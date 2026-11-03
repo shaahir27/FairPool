@@ -162,4 +162,19 @@ Response shape in `api.md`. Codes are UPPER_SNAKE.
 
 Bid rules are applied in the order listed and the first failure is recorded. R1 to R7 compare one confirmed revision with the lot's published requirements on the database clock; R8 needs the lot's seated entries; R9 needs the merchants' awards in ascending `lot_order`. In `BID_PRICING_MODE=flat_delivered` a bid that is not tax-included or that carries per-zone shipping fails `R5_TAX_COVERAGE`, which is the machine form of the `VALIDATION_ERROR` in `flat-delivered-bids.md`.
 
+CR-8 (`Q-2026-11-02-21`, `Q-2026-11-02-25`) writes down what each of R1 to R7 actually compares, which until now existed only as a line in `docs/registry.md` and as the reading the Phase 5 engine took. A CR may change any of these; the shape of the evaluation does not change with them.
+
+| Code | The comparison |
+|---|---|
+| `R1_SCHEMA` | the revision's `structured` object is complete and valid: tiers present, and a stated delivery and returns term. A bid that does not even state its terms fails here, because R1 is first in order |
+| `R1_LATE` | `submitted_at` is strictly before the lot's frozen `bid_close_at`, re-read after the lot lock (clarification 1) |
+| `R1_UNCONFIRMED` | the revision is `CONFIRMED` (a `PROPOSED` or `DRAFT` revision never enters the auction, BS-11) |
+| `R2_MERCHANT_INELIGIBLE` | the merchant row exists and its `onboarding_status` and `attestations` are accepted for this pool's mode |
+| `R3_PRODUCT_MISMATCH` / `R3_CONDITION_MISMATCH` / `R3_BUNDLE_MISMATCH` | the bid's product key, condition and bundle key equal the lot's |
+| `R4_CAPACITY` | this bid's declared `capacity` is at least the **lot's seats**. Registry R4 is the per-lot rule; the merchant's total across lots is R9 in `fairness-and-hashing.md` section 11, and the two are deliberately different comparisons |
+| `R5_DELIVERY` / `R5_RETURNS` | delivery days at most the lot's maximum; returns days at least the lot's minimum |
+| `R5_TAX_COVERAGE` | in `flat_delivered`, tax `INCLUDED` with no per-zone shipping; in `itemised`, the rate table covers every region of the lot's zone |
+| `R6_VALIDITY` | `validity_end` is at least the lot's `fund_deadline_at` plus `capture_grace_s` — the moment the money still has to be honourable. It is **not** measured against `bid_close_at`, which let a bid whose validity expires before the deadline win |
+| `R7_AI_BLOCKING` | any remaining `BLOCKING` flag on the confirmed revision. A `LOW_SIMILARITY` warning never reaches this line (INT-1) |
+
 **Void sources** (`buyer_orders.void_source`): `lot_failing`, `buyer_withdraw`, `age_guard`, `paypal_expired`.

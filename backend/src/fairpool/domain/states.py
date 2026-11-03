@@ -399,7 +399,8 @@ BUYER_ORDER = _machine(
             ("AUTHORIZING",),
             "AUTH_FAILED",
             "job:order.authorize",
-            "definitive denial (status DENIED or definitive 4xx other than ORDER_NOT_APPROVED)",
+            "definitive denial (authorization status DENIED, EXPIRED or VOIDED, or a definitive "
+            "4xx other than ORDER_NOT_APPROVED)",
             ("audit", "job:lot.refill"),
         ),
         Transition(
