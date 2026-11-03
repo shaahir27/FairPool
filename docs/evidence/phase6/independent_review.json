@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "date": "2026-11-03",
-  "what_this_is": "Four read-only review agents run over the phase-6 branch by the implementing operator, who is also the only human on the project. AGENTS.md section 6 allows a self-merge after green CI and an independent agent review when one operator runs both lanes; this file is that agent review, transcribed by the implementer rather than written by the reviewers, and it is not a human member's approval. Nothing was pushed, so the CI half of that sentence is still open (ci.json).",
+  "what_this_is": "Four read-only review agents run over the phase-6 branch by the implementing operator, who is also the only human on the project. AGENTS.md section 6 allows a self-merge after green CI and an independent agent review when one operator runs both lanes; this file is that agent review, transcribed by the implementer rather than written by the reviewers, and it is not a human member's approval. The branch has since been merged to `main`, CI ran green on it and Render deployed the build, so the CI half of that sentence is closed (ci.json).",
   "reviews": [
     {
       "lane": "buyer UI, CR-9 and the design pass",
@@ -60,7 +60,7 @@
       ]
     },
     {
-      "lane": "confirmation round over the seven fixes above, with the F10 fake gateway treated as suspect because it changed in the same round as the code it tests",
+      "lane": "confirmation round over the nine fixes above, with the F10 fake gateway treated as suspect because it changed in the same round as the code it tests",
       "verdict": "Ship. Must fix: none found.",
       "checks": [
         "all eleven LotStatus values enumerated against LS-01 to LS-14: PLANNED, BIDDING and BID_CLOSED are exactly not-past-BID_CLOSED, and CANCELLED and FAILED_CLOSED belong on the decided side, so the gate cannot reopen",
@@ -81,6 +81,6 @@
     }
   ],
   "what_the_last_edits_are_not_covered_by": "The four items under findings_fixed_after_this_verdict were applied after the confirmation round returned Ship, and no agent has read them since. They are comments, one log line, one dead-loop deletion and one open-question row; make verify and the 48 affected tests were re-run green over them. Any later review should start there.",
-  "still_open_for_this_gate": "The reviewers never ran the code against PayPal Sandbox, and the money legs of IT-6 need the human approval steps in it6_sandbox.json. CI needs a push (ci.json). No tag, gate claim or merge is made from this file.",
+  "still_open_for_this_gate": "The reviewers never ran the code against PayPal Sandbox, and the money legs of IT-6 need the human approval steps in it6_sandbox.json. CI has run green on `main` (ci.json). No tag or gate claim is made from this file.",
   "verification_after_review": "make verify exits 0: 1027 backend tests, 94.52% domain coverage against the 90% floor, mypy --strict clean over 70 files, 107 frontend tests in 13 files, 18 fault tests, 0 import-lane violations, 0 docs errors, gitleaks clean. Re-run after the last four edits: the same ruff, mypy and 48 award, webhook and fault tests green."
 }

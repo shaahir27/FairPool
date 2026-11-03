@@ -17,8 +17,8 @@ green, and no number in this directory came from a plan or an earlier phase.
 | `migrations.json` | passed | `tools/check_migrations.py` under `APP_ENV=test`: fresh disposable database, 0001 to head, drift check, downgrade to base, head again, drift check again. `fairpool_test` is at revision 0004 with 35 application tables plus `alembic_version`. |
 | `local_checks.json` | passed | 836 backend tests (828 offline plus the 8 fault tests, which the gate also runs on their own), no skips, ruff and format clean, `mypy --strict` clean over 58 files, import boundaries, docs validator, merchant OpenAPI, generated frontend types, gitleaks, frontend lint with 14 tests and a production build. Every command was run in this session. |
 | `pipeline.json` | passed | `tests/integration/test_pipeline_fakes.py` re-run on its own and pasted: 1 passed in 4.67s, with `FakeAI` and the fake gateway as the only fakes. |
-| `independent_review.json` | pending | No independent review has run on this diff. The implementing agent cannot review its own work, so the file records that fact instead of a pass. |
-| `ci.json` | pending | The branch is unpushed. No remote CI run exists for `phase-4`, and the Phase 3 run is not represented as Phase 4's. |
+| `independent_review.json` | passed | Written as pending at the time, because the implementing agent cannot review its own work. A read-only independent review has since run and its verdict is in the file. |
+| `ci.json` | passed | Written as pending while the branch was local. `phase-4` was later pushed and CI ran green on it (run 41315766795, nine jobs); the Phase 3 run was never represented as Phase 4's. |
 
 ## What Phase 4 does not claim
 
@@ -36,8 +36,9 @@ green, and no number in this directory came from a plan or an earlier phase.
 - In `PAYMENT_MODE=vault_charge` a live-sandbox buyer still cannot become eligible at
   close, because saving a permission for real is `T05A01` (`DEP-5`). Phase 4 exercises
   the vault charge against the fake only.
-- The hosted skeleton still runs the Phase 3 image and its Supabase database is at
-  0003. Phase 4 was not deployed, because the branch is local.
+- Recorded before the close-out: the hosted skeleton then ran the Phase 3 image with its
+  Supabase database at 0003, and Phase 4 was not deployed while the branch was local. Both
+  have since moved: the database is at 0006 and the live build is the Phase 6 one.
 
 ## Beacon spike S6, checked read-only
 
@@ -51,6 +52,7 @@ The detail is under S6 in `docs/spike-results.md`.
 
 ## Gate state after verification
 
+Recorded at the time, before the two files above were closed:
 `gate_check.py ig-4 --evidence-only` exits 2 with exactly two lines:
 `independent_review: required evidence pending` and `ci: required evidence pending`.
 That is the correct result for a local, unreviewed, unpushed branch. Closing IG-4

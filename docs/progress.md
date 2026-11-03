@@ -23,7 +23,7 @@ Verification: 933 offline backend tests passed (94.50% domain coverage), 45 fron
 | Member B name and handle | second member's name and GitHub handle not yet recorded; @shaahir27 previously operated both workstreams |
 | ContextMatic plugin version (A, B) | Qoder: remote MCP ready (5 tools, 2026-10-30); Codex: .codex/config.toml staged; Antigravity: mcp_config.json present; no local version string |
 | PayPal AI Toolkit plugin version (A, B) | Codex: paypal@paypal-ai-toolkit 1.2.0, installed and enabled (2026-10-30); Qoder/Antigravity: not supported — do not add the write-capable MCP |
-| Current phase and gate | PH4 implemented on branch `phase-4` (three commits, unpushed); IG-4 NOT passed: independent review and remote CI are pending. PH3/IG-3 closed and tagged. |
+| Current phase and gate | PH6 implemented, merged to `main` and deployed; CI green. **IG-6 NOT passed**: three evidence items are pending -- the live buyer approval, the net-zero refund and one real webhook delivery. PH5/IG-5 and PH4/IG-4 are closed and tagged. |
 
 ## Gates
 
@@ -723,8 +723,9 @@ Owner's remaining steps:
   goes public is the owner's call;
 - decide `Q-2026-11-02-23`, `-24` and `-25` (contract write-up, job payload naming,
   and the R4 and R6 readings);
-- the hosted service still runs the Phase 4 image, so the new checkout screens and the
-  freshly seeded Supabase pool need a redeploy before they are reachable there.
+- the hosted service ran the Phase 4 image until 3 November 2026, when this work reached
+  `main` and Render deployed it; the new checkout screens and the seeded Supabase pool are
+  reachable at the API origin now.
 
 Authentication push preparation (2026-11-02): fixed the reported Uvicorn access formatter crash by preserving its five redacted arguments. The regression uses the real AccessFormatter and applies the filter twice; it failed before the fix and all 18 logging tests pass afterward. PayPal Sandbox accepts the configured client credentials, but the user still sees provider-side invalid client_id or redirect_uri. No successful consent callback is claimed.
 
@@ -814,7 +815,7 @@ OpenAPI document still holds exactly ten operations, and gitleaks finds no leak 
 82 commits.
 
 
-Four commits, both lanes run by one operator, nothing pushed and no gate claimed. CR-8
+Six commits on `main` -- four from this phase, then the CI assertion fix and the evidence close-out -- both lanes run by one operator, pushed and deployed, no gate claimed. CR-8
 landed first so no later commit had to re-litigate the guard it depends on.
 
 **CR-9, raised and authorized inside this phase.** The owner asked for the buyer receipt
@@ -901,7 +902,8 @@ pixels.
 **Independent review, and what it found.** Four read-only review agents ran over this
 branch - the money lane, the auction lane, the buyer UI and CR-9, then a confirmation
 round over the fixes - and their verdicts, the findings that were not acted on and why,
-are in `docs/evidence/phase6/independent_review.json`. Ten real defects came out of them
+are in `docs/evidence/phase6/independent_review.json`. Nine code defects and one lying test
+fake came out of them
 and every one is fixed here rather than argued about. Three were bugs a demo would have
 shown: the award's lower-lot gate read only AWARDED and CANCELLED as decided where LS-03
 says "past BID_CLOSED", so the moment lot 1 reached checkout every later lot requeued for
