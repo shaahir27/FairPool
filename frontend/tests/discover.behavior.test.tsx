@@ -109,7 +109,10 @@ describe("Discover and Join", () => {
     const cards = await screen.findAllByText(BADGE);
     expect(cards).toHaveLength(2);
     expect(JOIN_BADGE).toBe(BADGE);
-    expect(screen.getByRole("heading", { level: 1, name: "Find a pool, or ask for one" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Open pools" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Ceramic kettle" })).toBeInTheDocument();
+    expect(screen.getAllByRole("searchbox", { name: "Search open pools" })).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Make a request" })).toBeInTheDocument();
     expect(screen.getByLabelText(PLACEHOLDER)).toBeInTheDocument();
   });
 
@@ -177,8 +180,8 @@ describe("Discover and Join", () => {
     await screen.findByText("27-inch 4K monitor");
     ask("27-inch 4K monitor, matte screen, under $600, needed by 30 November, delivered to NY");
 
-    expect(await screen.findByRole("heading", { level: 2, name: "27-inch 4K monitor" })).toBeInTheDocument();
-    expect(screen.getByText(confirmationCard.notices.no_charge)).toBeInTheDocument();
+    expect(await screen.findByText(confirmationCard.notices.no_charge)).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2, name: "27-inch 4K monitor" })).toHaveLength(2);
     expect(screen.getByText(confirmationCard.notices.lots_may_differ)).toBeInTheDocument();
     expect(screen.getByText("$600.00 USD")).toBeInTheDocument();
     expect(screen.getByText("Firm requirement: matte screen")).toBeInTheDocument();

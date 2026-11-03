@@ -67,7 +67,7 @@ describe("route smoke", () => {
     renderAt("/");
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Find a pool, or ask for one" }),
+      await screen.findByRole("heading", { level: 1, name: "Open pools" }),
     ).toBeInTheDocument();
     // T06B05 replaced this placeholder: the prompt bar and the fixed badge are the screen.
     expect(

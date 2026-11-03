@@ -137,27 +137,10 @@ export function DiscoverPage() {
 
   return (
     <section aria-labelledby="discover-title" className="discover-page">
-      <div className="discover-intro">
-        <div>
-        <h1 id="discover-title" className="discover-title">
-          Find a pool, or ask for one
-        </h1>
-        <p className="discover-description">
-          Good things are worth buying together. Find what you need, set your limit,
-          and let merchants compete for your pool.
-        </p>
-        </div>
-        <ol className="shopping-principles" aria-label="How FairPool works">
-          <li><Icon name="layers" /><span><strong>Find your pool</strong>Join for free</span></li>
-          <li><Icon name="wallet" /><span><strong>Set your limit</strong>Your budget stays yours</span></li>
-          <li><Icon name="shield" /><span><strong>You approve</strong>On PayPal, at the final price</span></li>
-        </ol>
-      </div>
-
       <div className="catalogue">
-        <div className="shop-heading flex flex-wrap items-end justify-between gap-3">
+        <div className="shop-heading catalogue-heading">
           <div>
-            <h2 className="shop-title text-[26px]">Open pools</h2>
+            <h1 id="discover-title" className="shop-title">Open pools</h1>
             <p className="shop-copy mt-1" role="status" aria-label="Pool search results" aria-live="polite" aria-atomic="true">
               {poolsLoading
                 ? "Loading what is open."
@@ -168,7 +151,7 @@ export function DiscoverPage() {
           </div>
           <label className="catalogue-search"><Icon name="search" />
             <span className="sr-only">Search open pools</span>
-            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find something for you" />
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search open pools" />
           </label>
         </div>
         {poolsError ? (
@@ -214,8 +197,8 @@ export function DiscoverPage() {
         <p className="catalogue-footnote">Have something in mind already? <Link to="/my-pools">Visit My Pools <Icon name="arrow" /></Link></p>
       </div>
       <section className="discovery-assistance" aria-labelledby="request-heading">
-        <h2 id="request-heading">Looking for something specific?</h2>
-        <p className="shop-copy">Tell us what matters: the product, your budget, and where it needs to go.</p>
+        <h2 id="request-heading">Make a request</h2>
+        <p className="shop-copy">Looking for something specific? Tell us the product, your budget, and where it needs to go.</p>
         <form className="discovery-request" onSubmit={(event) => void ask(event)}>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block min-w-0 flex-1 basis-64">
@@ -237,7 +220,6 @@ export function DiscoverPage() {
               />
             </label>
             <button type="submit" className="button-primary" disabled={asking || !message.trim()}>
-              <Icon name="search" />
               {asking ? "Asking…" : "Ask"}
             </button>
           </div>
@@ -384,9 +366,9 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
       </Link>
       <div className="catalogue-card-body">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 text-[17px] font-semibold leading-snug tracking-[-.025em]">
+          <h2 className="min-w-0 text-[17px] font-semibold leading-snug tracking-[-.025em]">
             {pool.title}
-          </h3>
+          </h2>
           <StatusPill status={pool.status} tone={style.tone}>
             {style.label}
           </StatusPill>
