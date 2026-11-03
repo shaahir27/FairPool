@@ -107,7 +107,7 @@ describe("route smoke", () => {
           },
         });
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     renderAt("/pools/pool-one");
 

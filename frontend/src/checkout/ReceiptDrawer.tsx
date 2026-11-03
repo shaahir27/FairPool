@@ -12,13 +12,9 @@ export function ReceiptDrawer({ receipt, open, onClose }: { receipt: Receipt; op
     if (!open && dialog.open) dialog.close();
   }, [open]);
   const fields: [string, string, string][] = [
-    ["Commitment", receipt.payload.commitment, "A fingerprint of your entry"],
-    ["Entry ID", receipt.payload.entry_id, "Your place in the pool"],
-    ["Pool ID", receipt.payload.pool_id, "The pool you joined"],
+    ["Receipt reference", receipt.payload.entry_id, "Use this reference to identify your entry"],
     ["Received time", formatDateTime(receipt.payload.received_at), "When we got it"],
-    ["Salt", receipt.salt_hex, "Keeps your fingerprint private"],
-    ["Request hash", receipt.request_hash, "Fingerprint of your request"],
-    ["Signature", receipt.signature, "Signed by FairPool"],
+    ["Joining fee", "$0.00 USD", "This entry receipt does not record purchase payments"],
   ];
   const copy = async (label: string, value: string) => {
     try { await navigator.clipboard.writeText(value); setMessage(`${label} copied.`); }

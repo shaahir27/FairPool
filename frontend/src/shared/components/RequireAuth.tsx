@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import { Notice } from "./Notice";
+import { LoadingScreen } from "./LoadingScreen";
 import { api } from "../api/client";
 import { resetSessionCache, setAccount, sessionState } from "../lib/session";
 
@@ -70,13 +71,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }, [attempt]);
 
   if (state === "checking") {
-    return (
-      <div
-        className="min-h-screen bg-canvas"
-        aria-busy="true"
-        aria-label="Checking your session"
-      />
-    );
+    return <LoadingScreen label="Checking your session" />;
   }
   if (state === "unreachable") {
     return (

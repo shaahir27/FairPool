@@ -197,8 +197,11 @@ export function DiscoverPage() {
         <p className="catalogue-footnote">Have something in mind already? <Link to="/my-pools">Visit My Pools <Icon name="arrow" /></Link></p>
       </div>
       <section className="discovery-assistance" aria-labelledby="request-heading">
+        <div className="request-introduction">
         <h2 id="request-heading">Make a request</h2>
-        <p className="shop-copy">Looking for something specific? Tell us the product, your budget, and where it needs to go.</p>
+        <p className="shop-copy">Tell us what you need. We’ll look for a matching open pool.</p>
+        <p className="request-hint">Include your budget and delivery location for a more useful match.</p>
+        </div>
         <form className="discovery-request" onSubmit={(event) => void ask(event)}>
           <div className="flex flex-wrap items-end gap-3">
             <label className="block min-w-0 flex-1 basis-64">
@@ -220,12 +223,12 @@ export function DiscoverPage() {
               />
             </label>
             <button type="submit" className="button-primary" disabled={asking || !message.trim()}>
-              {asking ? "Asking…" : "Ask"}
+              {asking ? "Finding matches…" : "Find matches"}
             </button>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted">Try one of these:</span>
-            {EXAMPLE_ASKS.map((example) => (
+            {EXAMPLE_ASKS.map((example, index) => (
               <button
                 key={example}
                 type="button"
@@ -233,7 +236,7 @@ export function DiscoverPage() {
                 disabled={asking}
                 onClick={() => setMessage(example)}
               >
-                {example}
+                {index === 0 ? "Monitor under $600" : "Kettle under $80"}
               </button>
             ))}
           </div>

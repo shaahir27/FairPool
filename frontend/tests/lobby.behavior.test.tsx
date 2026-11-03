@@ -94,7 +94,7 @@ beforeEach(() => {
   vi.stubGlobal("EventSource", FakeSource);
   transport.get.mockReset().mockImplementation((path: string) => {
     if (path === "/api/v1/pools/{pool_id}") return Promise.resolve({ data: detail });
-    if (path === "/api/v1/pools/{pool_id}/entries/me") return Promise.resolve({ error: {} });
+    if (path === "/api/v1/pools/{pool_id}/entries/me") return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     return Promise.resolve({ data: null });
   });
   transport.post.mockReset();
@@ -119,6 +119,24 @@ describe("the money rule at the browser edge", () => {
 });
 
 describe("the pool lobby", () => {
+  it("never offers Join while the buyer entry is still being checked", async () => {
+    let finish!: (value: unknown) => void;
+    transport.get.mockImplementation((path: string) => path.endsWith("/entries/me")
+      ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve({ data: detail }));
+    show();
+    expect(await screen.findByRole("status", { name: "Checking your entry" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Join/ })).toBeNull();
+    await act(async () => finish({ data: { entry_id: "entry-one", entry_status: "SUBMITTED", receipt } }));
+    expect(await screen.findByRole("heading", { name: "Your entry" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Join/ })).toBeNull();
+  });
+  it("does not mistake a failed entry lookup for permission to join", async () => {
+    transport.get.mockImplementation((path: string) => Promise.resolve(path.endsWith("/entries/me")
+      ? { error: { error: { code: "INTERNAL_ERROR" } } } : { data: detail }));
+    show();
+    expect(await screen.findByRole("button", { name: "Retry entry check" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Join/ })).toBeNull();
+  });
   it("states the deadline in absolute terms until the feed gives a server sample", async () => {
     show();
     const strip = await screen.findByText("Entry window");
@@ -156,10 +174,10 @@ describe("the pool lobby", () => {
         return Promise.resolve(
           entered
             ? { data: { entry_id: "entry-one", entry_status: "SUBMITTED", receipt } }
-            : { error: {} },
+            : { error: { error: { code: "NOT_FOUND" } } },
         );
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     transport.post
       .mockImplementationOnce(() =>
@@ -181,6 +199,9 @@ describe("the pool lobby", () => {
     expect(screen.getByText("Your cap is recorded as 60000 cents.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Confirm and join" }));
 
+    expect(await screen.findByRole("heading", { name: "Your entry" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Entry receipt" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View entry receipt" }));
     expect(await screen.findByRole("heading", { name: "Entry receipt" })).toBeInTheDocument();
     const [manualPath, manualInit] = transport.post.mock.calls[0] ?? [];
     expect(manualPath).toBe("/api/v1/intake/manual");
@@ -213,10 +234,10 @@ describe("the pool lobby", () => {
         return Promise.resolve(
           entered
             ? { data: { entry_id: "entry-one", entry_status: "SUBMITTED", receipt } }
-            : { error: {} },
+            : { error: { error: { code: "NOT_FOUND" } } },
         );
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     transport.post.mockImplementation(() => {
       entered = true;
@@ -226,6 +247,9 @@ describe("the pool lobby", () => {
     });
     show();
     fireEvent.click(await screen.findByRole("button", { name: "Join this pool" }));
+    expect(await screen.findByRole("heading", { name: "Your entry" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Entry receipt" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View entry receipt" }));
     expect(await screen.findByRole("heading", { name: "Entry receipt" })).toBeInTheDocument();
     expect(transport.post).toHaveBeenCalledTimes(1);
     expect(transport.post.mock.calls[0]?.[0]).toBe("/api/v1/pools/{pool_id}/entries");
@@ -246,10 +270,10 @@ describe("the pool lobby", () => {
         return Promise.resolve(
           entered
             ? { data: { entry_id: "entry-one", entry_status: "SUBMITTED", receipt } }
-            : { error: {} },
+            : { error: { error: { code: "NOT_FOUND" } } },
         );
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     show();
     await screen.findByRole("heading", { level: 1, name: "27-inch 4K monitor" });
@@ -293,7 +317,7 @@ describe("the pool lobby", () => {
           data: { entry_id: "entry-one", entry_status: "SUBMITTED", receipt },
         });
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     transport.del.mockResolvedValue({ data: { entry_id: "entry-one", entry_status: "WITHDRAWN" } });
     show();
@@ -318,7 +342,7 @@ describe("the pool lobby", () => {
       if (path === "/api/v1/pools/{pool_id}") {
         return Promise.resolve({ data: { ...detail, status: "CLOSED", close_at: null } });
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     show();
     expect(
@@ -336,7 +360,7 @@ describe("the pool lobby", () => {
       if (path === "/api/v1/pools/{pool_id}") {
         return Promise.resolve({ data: { ...detail, close_at: "2026-11-02T10:20:00Z" } });
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     show();
     await screen.findByRole("heading", { level: 1, name: "27-inch 4K monitor" });
@@ -357,7 +381,7 @@ describe("the pool lobby", () => {
       if (path === "/api/v1/pools/{pool_id}/rules") {
         return Promise.resolve({ data: { rules_document: { allocation: "seeded_lottery_v1" }, rules_hash: "a".repeat(64) } });
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     show();
     await screen.findByRole("heading", { level: 1, name: "27-inch 4K monitor" });
@@ -394,7 +418,7 @@ describe("the pool lobby", () => {
       if (path === "/api/v1/pools/{pool_id}") {
         return Promise.resolve({ data: { ...detail, mode: "SIMULATION" } });
       }
-      return Promise.resolve({ error: {} });
+      return Promise.resolve({ error: { error: { code: "NOT_FOUND" } } });
     });
     show();
     expect(await screen.findByText("SIMULATED")).toBeInTheDocument();

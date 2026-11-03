@@ -155,7 +155,8 @@ it("opens the private receipt as a closable dialog", async () => {
   show(<OrderStatusCard buyerOrderId="order-one" />);
   fireEvent.click(await screen.findByRole("button", { name: /View entry receipt/ }));
   const dialog = await screen.findByRole("dialog", { name: "Entry receipt" });
-  expect(dialog).toHaveTextContent("commitment-one");
+  expect(dialog).toHaveTextContent("entry-one");
+  expect(dialog).not.toHaveTextContent("commitment-one");
   fireEvent.click(screen.getByRole("button", { name: "Close receipt" }));
   await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
 });

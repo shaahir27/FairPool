@@ -62,3 +62,16 @@ async def test_no_web_directory_means_no_static_routes(monkeypatch, tmp_path):
         transport=httpx.ASGITransport(app=create_app(None)), base_url="https://api.test"
     ) as client:
         assert (await _get(client, "/")).status_code == 404
+
+
+async def test_only_fingerprinted_assets_are_cached_across_reloads(web_dir):
+    (web_dir / "assets" / "app-12345678.js").write_text("//versioned", encoding="utf-8")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app(None)), base_url="https://api.test"
+    ) as client:
+        asset = await client.get("/assets/app-12345678.js")
+        assert asset.headers["cache-control"] == "public, max-age=31536000, immutable"
+        assert (await client.get("/")).headers["cache-control"] == "no-cache"
+        assert "cache-control" not in (await client.get("/assets/app.js")).headers
+        assert "cache-control" not in (await client.get("/health")).headers
+        assert "cache-control" not in (await client.get("/assets/missing-12345678.js")).headers

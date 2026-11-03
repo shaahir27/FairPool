@@ -73,7 +73,7 @@ function show() {
 
 function ask(text: string) {
   fireEvent.change(screen.getByLabelText(PLACEHOLDER), { target: { value: text } });
-  fireEvent.click(screen.getByRole("button", { name: /^Ask$/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Find matches" }));
 }
 
 beforeEach(() => {

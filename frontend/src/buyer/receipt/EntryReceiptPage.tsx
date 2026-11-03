@@ -1,40 +1,48 @@
 import { useState } from "react";
 
-import { type ApiComponents, formatDateTime, Icon } from "../../shared";
+import { type ApiComponents, accountState, Brand, formatDateTime, Icon, ProductArt } from "../../shared";
 
 type EntryReceipt = ApiComponents["schemas"]["EntryReceipt"];
 
-/**
- * The entry receipt as a page (T06B05; FR-SL-07).
- *
- * Same values and the same copy affordance as the checkout drawer, because it is the
- * same object: proof that the entry was received, signed by FairPool over the commitment
- * the pool publishes. The drawer lives in the checkout area and the checkout barrel
- * exports three components only (scaffold section 5.8), so the buyer area renders its
- * own copy of this table rather than reaching across.
- *
- * The download is built in the browser from the receipt the server returned (CR-9): the
- * payload is copied as it arrived, because the signature covers that text and a
- * re-serialised timestamp would no longer verify.
- */
+/** CR-9: the PDF is a readable acknowledgement; the JSON keeps the signed payload unchanged. */
 export function EntryReceiptPage({
   receipt,
   poolTitle,
   onBack,
+  productDetails,
 }: {
   receipt: EntryReceipt;
   poolTitle: string;
   onBack: () => void;
+  productDetails?: { condition: string; variant?: string | null; entryStatus: string };
 }) {
   const [message, setMessage] = useState("");
-  const fields: [string, string, string][] = [
-    ["Commitment", receipt.payload.commitment, "A fingerprint of your entry"],
-    ["Entry ID", receipt.payload.entry_id, "Your place in the pool"],
-    ["Pool ID", receipt.payload.pool_id, "The pool you joined"],
-    ["Received time", formatDateTime(receipt.payload.received_at), "When we got it"],
-    ["Salt", receipt.salt_hex, "Keeps your fingerprint private"],
-    ["Request hash", receipt.request_hash, "Fingerprint of your request"],
-    ["Signature", receipt.signature, "Signed by FairPool"],
+  const [downloading, setDownloading] = useState(false);
+  const downloadPdf = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const { createReceiptPdf } = await import("./receiptPdf");
+      const fontResponse = await fetch("/fonts/noto-sans-receipt.ttf");
+      if (!fontResponse.ok) throw new Error("Receipt font unavailable");
+      const fontBytes = new Uint8Array(await fontResponse.arrayBuffer());
+      const fontData = btoa(fontBytes.reduce((text, byte) => text + String.fromCharCode(byte), ""));
+      createReceiptPdf(receipt, poolTitle, fontData, fields).save(`fairpool-entry-receipt-${receipt.payload.entry_id}.pdf`);
+      setMessage("PDF receipt downloaded. Keep the signed proof for verification.");
+    } catch {
+      setMessage("Could not download the PDF. Try again, or use Print to save a PDF.");
+    } finally { setDownloading(false); }
+  };
+  const account = accountState();
+  const fields: [string, string][] = [
+    ["Receipt reference", receipt.payload.entry_id],
+    ["Received time", formatDateTime(receipt.payload.received_at)],
+    ...(account ? [["Account name", account.display_name]] as [string, string][] : []),
+    ...(productDetails ? [["Condition", productDetails.condition.replaceAll("_", " ")],
+      ...(productDetails.variant ? [["Variant", productDetails.variant]] : []),
+      ["Current entry status", productDetails.entryStatus.replaceAll("_", " ")]] as [string, string][] : []),
+    ["Joining fee", "$0.00 USD"],
+    ["Purchase payment", "Not recorded by this entry receipt. View Orders for payment details."],
   ];
 
   const copy = async (label: string, value: string) => {
@@ -68,7 +76,7 @@ export function EntryReceiptPage({
       document.body.append(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setMessage("Receipt downloaded as a JSON file. Keep it: it proves this entry.");
     } catch {
       setMessage("Your browser blocked the download. Copy the values above instead.");
@@ -76,93 +84,37 @@ export function EntryReceiptPage({
   };
 
   return (
-    <section aria-labelledby="entry-receipt-title">
-      <div className="shop-heading flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <h1 id="entry-receipt-title" className="font-display text-[32px] leading-[1.12] tracking-[-.04em]">
-            Entry receipt
-          </h1>
-          <p className="shop-copy mt-2">
-            {poolTitle} · received {formatDateTime(receipt.payload.received_at)}
-          </p>
-        </div>
-        <div className="no-print order-page-actions">
-          <button type="button" className="shop-quiet-button" onClick={download}>
-            <Icon name="receipt" />
-            Download receipt
-          </button>
-          <button type="button" className="shop-quiet-button" onClick={() => window.print()}>
-            <Icon name="box" />
-            Print
-          </button>
-        </div>
+    <section aria-labelledby="entry-receipt-title" className="entry-receipt-page">
+      <div className="receipt-page-heading no-print">
+        <button type="button" className="shop-back" onClick={onBack}><Icon name="arrow" />Back to the pool</button>
+        <h1 id="entry-receipt-title" className="shop-title">Entry receipt</h1>
+        <p className="shop-copy">Your pool entry, saved in one place.</p>
       </div>
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="shop-panel">
-          <div className="panel-band">
-            <h2>What this proves</h2>
-          </div>
-          <div className="shop-panel-pad">
-            <p className="shop-copy">
-              Your entry was received and recorded. Nothing has been charged and no hold placed: a
-              merchant still has to win the lot, and you approve your own payment.
-            </p>
-            <dl className="receipt-fields">
-              {fields.map(([label, value, help]) => (
-                <div className="receipt-field" key={label}>
-                  <dt>
-                    {label}
-                    <button
-                      type="button"
-                      className="icon-button no-print"
-                      aria-label={`Copy ${label.toLowerCase()}`}
-                      onClick={() => void copy(label, value)}
-                    >
-                      <Icon name="copy" />
-                    </button>
-                  </dt>
-                  <dd>
-                    {value}
-                    <span className="receipt-help">{help}</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <p className="secondary-copy mt-3" role="status">
-              {message}
-            </p>
-          </div>
-        </section>
-
-        <aside className="grid content-start gap-5">
-          <section className="shop-panel order-info">
-            <h2>Keep it, verify it</h2>
-            <p className="shop-copy mt-2">
-              The pool keeps this receipt, so it comes back whenever you open the pool — on any
-              device you sign in from. Download a copy to keep, and check it against the published
-              commitments.
-            </p>
-            <a
-              className="mt-4 inline-block text-sm font-semibold underline underline-offset-4"
-              href={`/audit/${receipt.payload.pool_id}`}
-            >
-              Check it on the public audit page
-            </a>
+      <article className="shop-panel receipt-paper" aria-label="Your entry document">
+        <header className="receipt-paper-header"><Brand /><div className="receipt-document-title"><p>Entry receipt</p><span>PayPal Sandbox</span></div></header>
+        <div className="receipt-document-body">
+          <dl className="receipt-metadata">
+            {fields.filter(([label]) => !["Condition", "Variant", "Joining fee", "Purchase payment"].includes(label)).map(([label, value]) => <div key={label}>
+              <dt>{label}{label === "Receipt reference" ? <button type="button" className="icon-button no-print" aria-label="Copy receipt reference" onClick={() => void copy(label, value)}><Icon name="copy" /></button> : null}</dt>
+              <dd>{value}</dd>
+            </div>)}
+          </dl>
+          <section className="receipt-item" aria-label="Pool item">
+            <ProductArt title={poolTitle} />
+            <div><h2 className="receipt-product">{poolTitle}</h2><p className="shop-copy">{[productDetails?.condition.replaceAll("_", " "), productDetails?.variant].filter(Boolean).join(" · ")}</p><p className="receipt-item-caption">Pool participation · category illustration</p></div>
           </section>
-          <section className="order-help">
-            <h2>What happens next</h2>
-            <p>
-              The pool closes its entry window, publishes the commitments, and only then draws the
-              order. If a merchant wins your lot and a seat comes to you, you get your own offer to
-              approve.
-            </p>
-            <button type="button" className="signup-back mt-4 no-print" onClick={onBack}>
-              Back to the pool
-            </button>
+          <section className="receipt-summary" aria-labelledby="receipt-summary-title">
+            <div><h2 id="receipt-summary-title">Entry summary</h2><p className="shop-copy">Your entry was received and recorded. Joining did not charge you or place a hold.</p><p className="shop-copy mt-2">This confirms an entry, not a purchase or a guaranteed seat.</p></div>
+            <dl><div><dt>Joining fee</dt><dd className="receipt-fee">$0.00 <span>USD</span></dd></div><div><dt>Purchase payment</dt><dd>View Orders for payment details.</dd></div></dl>
           </section>
-        </aside>
-      </div>
+          <div className="receipt-document-note"><Icon name="shield" /><p>The pool keeps this receipt, so it comes back whenever you open the pool. You can check your entry against the published commitments.</p></div>
+        </div>
+        <footer className="receipt-document-footer no-print">
+          <div className="receipt-download-actions"><button type="button" className="button-primary" disabled={downloading} onClick={() => void downloadPdf()}><Icon name="receipt" />{downloading ? "Preparing PDF…" : "Download PDF"}</button><button type="button" className="button-secondary" onClick={() => window.print()}>Print</button></div>
+          <div className="receipt-verification-actions"><a href={`/audit/${receipt.payload.pool_id}`}>Check it on the public audit page</a><button type="button" onClick={download}>Signed proof (JSON)</button></div>
+        </footer>
+      </article>
+      <p className="secondary-copy mt-3 no-print" role="status">{message}</p>
     </section>
   );
 }

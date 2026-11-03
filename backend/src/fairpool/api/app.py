@@ -7,6 +7,7 @@ environment-free and `/health` usable before configuration exists.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -72,7 +73,7 @@ def _serve_web(app: FastAPI) -> None:
         file = (WEB_DIR / path).resolve() if path else index
         if path and file.is_file() and file.is_relative_to(WEB_DIR.resolve()):
             return FileResponse(file)
-        return FileResponse(index)
+        return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 ROUTERS = (
@@ -105,6 +106,11 @@ async def add_request_id(
     finally:
         request_id.reset(token)
     response.headers[REQUEST_ID_HEADER] = value
+    # Vite changes the filename when bytes change; private API responses never match.
+    if response.status_code == 200 and re.fullmatch(
+        r"/assets/[^/]+-[A-Za-z0-9_-]{8}\.(?:js|css)", request.url.path
+    ):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
 
 
