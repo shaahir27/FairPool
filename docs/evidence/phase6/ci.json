@@ -1,4 +1,7 @@
 {
-  "status": "pending",
-  "note": "The branch is not pushed, so there is no GitHub Actions run to cite."
+  "status": "passed",
+  "date": "2026-11-03",
+  "note": "CI ran green on main for the Phase 6 merge. Run 41645830783 on commit 7ada764: completed/success with all nine jobs passing -- Lint, Typecheck, Test, Frontend, Compose, Import boundaries, Docs check, Merchant OpenAPI check and Secret scan. Previous run 41644948952 on 7b81fc5 failed one job, and the failure was real and self-inflicted: the Compose smoke test grepped the served page for the word 'placeholder', which was only ever true while the meta description still said the screens were Phase 1 placeholders. That sentence was replaced because it is no longer what the app is, and the check went red with it. The assertion now names what the step was actually proving -- that the frontend container serves the built page -- by looking for the SPA mount point, and that was checked against both the local build and the live page before pushing.",
+  "how_to_reproduce": "gh run view 41645830783 --json status,conclusion,jobs",
+  "what_this_does_not_prove": "CI covers the offline suite, the compose stack, migrations and drift, the generated types, the docs validator and a secret scan. It does not run anything against PayPal Sandbox, does not run the fault suite on a live provider, and does not review the code -- those are sandbox_contracts.json, it6_sandbox.json, failure_net_zero.json, webhook_delivery.json and independent_review.json."
 }
