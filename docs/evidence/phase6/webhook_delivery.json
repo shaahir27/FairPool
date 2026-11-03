@@ -5,6 +5,6 @@
     "C-15 needs one captured real delivery: set FAIRPOOL_WEBHOOK_EVIDENCE_FILE and FAIRPOOL_WEBHOOK_HEADER_EVIDENCE_FILE, then run make test-sandbox",
     "S5 registered the listener and verified a simulate-event only; AUTHORIZATION.VOIDED, CAPTURE.PENDING and CAPTURE.DENIED still cannot be produced"
   ],
-  "proved_locally": "tests/integration/test_webhook_ingest.py and tests/faults/test_webhooks_f02_f04.py: store-first, verification gate, duplicate absorbed, unmappable dead-lettered, F2/F3/F4.",
+  "proved_locally": "tests/integration/test_webhook_ingest.py and tests/faults/test_webhooks_f02_f04.py: store-first, verification gate, duplicate absorbed, unmappable dead-lettered, F2/F3/F4. The review found the store-first claim was not true on one path -- the ingest row was not committed before verification, so a body the adapter could not parse raised inside the verify call and the rollback took it -- and both halves are fixed and tested now: the insert commits first, and an unparseable delivery is stored, answered 200 and never processed.",
   "note": "IT-6 accepts the alternative its own text names: with webhooks off, the reconciler is the only path, and it is proven locally."
 }

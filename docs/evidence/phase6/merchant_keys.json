@@ -1,4 +1,16 @@
 {
-  "status": "pending",
-  "note": "T06A07 lands in the fourth Phase 6 commit; PT-15 and the key lifecycle are recorded there."
+  "status": "passed",
+  "date": "2026-11-03",
+  "scope": "local only",
+  "note": "T06A07 as shipped: create, list and revoke over HTTP; the secret appears once in the 201 body and the row keeps only key_prefix plus an HMAC-SHA256 of the full key under HMAC_KEY; every bad key (malformed, unknown prefix, wrong secret, revoked) answers the same 401 API_KEY_INVALID; another merchant's key id answers 404, not 403; a key resolves to the same principal a session does and carries only its granted scopes; PT-15 is proved through that principal on a merchant-scoped read.",
+  "tests": [
+    "tests/unit/test_api_key_hash.py",
+    "tests/integration/test_merchant_api_keys.py",
+    "tests/integration/test_bid_sealing.py (the session half of the same sealing rule)"
+  ],
+  "not_covered_by_this_phase": [
+    "The ten /merchant-api/v1/* routes that consume require_merchant_key arrive with T07A06, so a key has no agent-facing endpoint to call in this build; require_scope is delivered and tested for the routes that will call it.",
+    "The 120 requests per minute per key limit in api.md section 4.3 is not implemented: no Phase 6 task names it, and the limiter belongs to the routes that will need it (T07A06). The in-repo UserRateLimiter is the shape to reuse.",
+    "No hosted key has been issued: creating one needs the merchant's three attestations accepted, which the live demo merchant has on the hosted database but not on a fresh local one."
+  ]
 }

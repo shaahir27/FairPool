@@ -771,3 +771,81 @@ async def test_pools_list_q_uses_the_search_service(db_session: AsyncSession) ->
     # api.md fixes for this route; the unfiltered listing is not asserted here because
     # the shared test database holds rows other suites committed (D-P3-01).
     assert all({"pool_id", "title", "status", "seats"} <= set(row) for row in found)
+
+
+async def _seed_entries(
+    db: AsyncSession, pool_id: uuid.UUID, *, entered: int, withdrawn: int = 0
+) -> None:
+    """Entries written straight to the table: this route only counts them (fixture write).
+
+    A withdrawn entry has given up its place, so ``sort=trending`` must not count it;
+    reaching this through the join flow would need a signed-up buyer per row and would
+    test ``pool_entries``, not the order.
+    """
+    for _index in range(entered + withdrawn):
+        user = new_id()
+        await db.execute(
+            text(
+                "INSERT INTO users (id, email, password_hash, role, display_name) "
+                "VALUES (:id, :email, 'hash', 'buyer', 'Trend Buyer')"
+            ),
+            {"id": user, "email": f"trend-{user}@example.test"},
+        )
+        await db.execute(
+            text(
+                "INSERT INTO pool_entries (id, pool_id, user_id, canonical_request, "
+                "request_hash, cap_cents, zone_id, status, submitted_via) VALUES (:id, :pool, "
+                ":user, CAST(:request AS jsonb), :hash, 60000, 'US-EAST', "
+                "CAST(:status AS entry_status), 'human'::submitted_via)"
+            ),
+            {
+                "id": new_id(),
+                "pool": pool_id,
+                "user": user,
+                "request": json.dumps({"currency": "USD", "max_total_cents": 60000}),
+                "hash": "a" * 64,
+                "status": "WITHDRAWN" if _index >= entered else "SUBMITTED",
+            },
+        )
+    await db.flush()
+
+
+async def test_pools_list_sort_trending_orders_by_the_public_entry_count(
+    db_session: AsyncSession,
+) -> None:
+    """FR-UI-01: the card grid is "sorted by public entry count", and nothing else.
+
+    A withdrawn entry does not count, and two pools with the same count keep a stable
+    order, because a grid that reshuffles itself between two refreshes cannot be scanned.
+    """
+    # Every pool here closes one hour after it was inserted, so the two-entry pair is
+    # ordered by the time each was created: the tie-break is the same closing order the
+    # other sorts use, and it never depends on a row's uuid.
+    quiet = await add_pool(db_session, title="Trending quiet fictional pool")
+    first_tied = await add_pool(db_session, title="Trending first fictional pool")
+    second_tied = await add_pool(db_session, title="Trending second fictional pool")
+    busy = await add_pool(db_session, title="Trending busy fictional pool")
+    await _seed_entries(db_session, busy, entered=3)
+    # Two counted entries plus two withdrawn ones: only the two that still hold a place
+    # may count, which is what puts this pair level with ``second_tied``.
+    await _seed_entries(db_session, first_tied, entered=2, withdrawn=2)
+    await _seed_entries(db_session, second_tied, entered=2)
+
+    app = create_app(make_settings())
+
+    async def db() -> Any:
+        yield db_session
+
+    app.dependency_overrides[database_session] = db
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://example.test"
+    ) as client:
+        listed = await client.get("/api/v1/pools", params={"sort": "trending", "limit": 100})
+        trending = listed.json()
+        bad = await client.get("/api/v1/pools", params={"sort": "most_hyped"})
+
+    mine = {str(pool) for pool in (quiet, first_tied, second_tied, busy)}
+    order = [row["pool_id"] for row in trending if row["pool_id"] in mine]
+    assert order == [str(busy), str(first_tied), str(second_tied), str(quiet)]
+    assert bad.status_code == 422
+    assert bad.json()["error"]["code"] == "VALIDATION_ERROR"

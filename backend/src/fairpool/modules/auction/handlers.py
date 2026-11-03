@@ -81,14 +81,27 @@ ATTESTATION_KEYS: Final[tuple[str, ...]] = (
 #: stand-in seller that ``PAYMENT_ROUTER=single_seller`` creates (FR-AU-03).
 AWARDABLE_ONBOARDING: Final[frozenset[str]] = frozenset({"COMPLETE", "DEMO"})
 
-#: A lower lot counts as decided once it is AWARDED or CANCELLED: both are past award,
-#: so its seats are already charged against its merchant's capacity (R9).
-DECIDED_LOT_STATES: Final[frozenset[str]] = frozenset({"AWARDED", "CANCELLED"})
+#: The states a lower ``lot_order`` lot can hold without being past BID_CLOSED
+#: (``state-machines.md`` LS-03, ``domain-ports.md`` section 5). AWARDED, CANCELLED and
+#: everything past them have left the award window, so they release the next lot.
+_UNDECIDED_LOT_STATES: Final[frozenset[str]] = frozenset({"PLANNED", "BIDDING", "BID_CLOSED"})
 
 #: The bid states ``lot.award`` may reject, each by its own whitelist edge: BS-06 from
 #: CONFIRMED, BS-10 from FLAGGED, BS-11 from DRAFT or PROPOSED. All four share the
 #: ``job:lot.award`` trigger, so the bid's own state picks the edge.
 _REJECTABLE_STATES: Final[frozenset[str]] = frozenset({"DRAFT", "PROPOSED", "CONFIRMED", "FLAGGED"})
+
+
+def lot_tiebreak_hash(seed_hex: str, lot_id: UUID, merchant_id: UUID) -> str:
+    """The FR-AU-04 ranking tie-break for one bid on one lot.
+
+    It is derived from the LOT seed, never the pool seed
+    (``fairness-and-hashing.md`` section 1), because that is what a buyer recomputes from
+    the published seed: the audit page's verify widget (``frontend/src/audit/verify.ts``,
+    still to be written) must use the same two derivations. Guarded against the vector
+    file by ``tests/unit/test_fairness_vectors.py``.
+    """
+    return hashing.tiebreak_hash(hashing.lot_seed(seed_hex, str(lot_id)), str(merchant_id))
 
 
 def _iso(moment: datetime) -> str:
@@ -279,15 +292,13 @@ class LotAuctionHandlers:
                 # BS-10. Leave it out and say so rather than inventing an edge.
                 logger.warning("auction.award.flagged_without_flags bid_id=%s", row.bid.id)
                 continue
-            await self._move(session, row=row, to_status="ELIGIBLE")
-            seed_hex = str(pool.seed_hex)
             offers.append(
                 BidOffer(
                     bid_id=str(row.bid.id),
                     merchant_id=str(row.merchant.id),
                     tiers=facts.tiers,
                     capacity=int(facts.capacity or 0),
-                    tiebreak_hash=hashing.tiebreak_hash(seed_hex, str(row.merchant.id)),
+                    tiebreak_hash=lot_tiebreak_hash(str(pool.seed_hex), lot.id, row.merchant.id),
                 )
             )
             survivors[str(row.bid.id)] = row
@@ -314,7 +325,16 @@ class LotAuctionHandlers:
             await self._remaining_capacity(session, pool_id=pool.id, lot=lot, rows=rows),
         )[str(lot.id)]
 
+        # ELIGIBLE (BS-07) means "all rules pass", so a bid only reaches it once R8 and
+        # R9 have agreed: those the rules rejected go to REJECTED with their reason
+        # (BS-06), the rest are the winner (BS-08) or LOST (BS-09).
+        rejected_by_bid = dict(assignment.rejected)
         for bid_id, row in survivors.items():
+            rule_why = rejected_by_bid.get(bid_id)
+            if rule_why is not None:
+                await self._reject(session, row=row, reason=rule_why)
+                continue
+            await self._move(session, row=row, to_status="ELIGIBLE")
             if bid_id != assignment.bid_id:
                 await self._move(session, row=row, to_status="LOST")
         if assignment.bid_id is None:
@@ -323,7 +343,6 @@ class LotAuctionHandlers:
                 lot=lot,
                 rows=rows,
                 why=assignment.reject or "no bid was feasible",
-                reject_reason=assignment.reject,
             )
             return
 
@@ -442,13 +461,13 @@ class LotAuctionHandlers:
         return pool
 
     async def _lower_lot_undecided(self, session: AsyncSession, *, pool_id: UUID, lot: Lot) -> bool:
-        """True while any lower ``lot_order`` lot has not reached AWARDED or CANCELLED."""
+        """True while any lower ``lot_order`` lot has not advanced past BID_CLOSED."""
         found = await session.scalar(
             select(Lot.id)
             .where(
                 Lot.pool_id == pool_id,
                 Lot.lot_order < lot.lot_order,
-                ~Lot.status.in_([LotStatus(state) for state in sorted(DECIDED_LOT_STATES)]),
+                Lot.status.in_([LotStatus(state) for state in sorted(_UNDECIDED_LOT_STATES)]),
             )
             .limit(1)
         )
@@ -713,13 +732,12 @@ class LotAuctionHandlers:
         lot: Lot,
         rows: list[_BidRow],
         why: str,
-        reject_reason: str | None = None,
     ) -> None:
-        """LS-04: no feasible bid and no money exists, so the lot is cancelled."""
-        if reject_reason is not None:
-            for row in rows:
-                if str(row.bid.status) == str(BidStatus.LOST):
-                    row.bid.reject_reason = reject_reason
+        """LS-04: no feasible bid and no money exists, so the lot is cancelled.
+
+        Every bid that got this far has already been REJECTED by BS-06 with its own rule
+        code, so the lot-level reason belongs in the audit payload and nowhere else.
+        """
         await self._lot_transition(
             session,
             lot=lot,

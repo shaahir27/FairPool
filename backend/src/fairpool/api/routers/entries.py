@@ -10,6 +10,7 @@ consent, attempt, quarantine and deletion bookkeeping.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import OrderedDict, deque
 from typing import Annotated
@@ -24,6 +25,7 @@ from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
 from fairpool.config import Settings
 from fairpool.db.models.catalog import PoolEntry
+from fairpool.domain.errors import ApplicationError
 from fairpool.fakes.vault import FakePaymentVaultProvider
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
@@ -31,11 +33,13 @@ from fairpool.infra.crypto import AesGcmCipher, DecryptionError
 from fairpool.infra.idempotency import PostgresIdempotencyStore
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.pools.join import JoinService
-from fairpool.modules.pools.receipts import signing_seed
+from fairpool.modules.pools.receipts import receipt_for_entry, signing_seed
 from fairpool.modules.pools.vault import VaultService
 from fairpool.ports import PaymentVaultProvider
 
 router = APIRouter()
+
+logger = logging.getLogger("fairpool.entries")
 
 #: config-and-errors.md section 3: POST /api/v1/pools/{pool_id}/entries is 10/min/user.
 JOIN_RATE_LIMIT = 10
@@ -222,14 +226,40 @@ async def entries_me_get(
     if _settings(request).vault_token_key is not None:
         permission = await _vault_service(request).status(db, entry_id=entry.id)
         vault_status, vault_label = permission.status, permission.label
-    return {
-        "entry_id": entry.id,
-        "entry_status": str(entry.status),
-        "allocation": None,
-        "offer": None,
-        "vault_status": vault_status,
-        "vault_label": vault_label,
-    }
+    return JSONResponse(
+        status_code=200,
+        content={
+            "entry_id": str(entry.id),
+            "entry_status": str(entry.status),
+            "allocation": None,
+            "offer": None,
+            "vault_status": vault_status,
+            "vault_label": vault_label,
+            # CR-9: the same helper the join replay uses, so the read-back is the receipt
+            # the pool signed. Returned as the exact JSON bytes for the same reason the
+            # join is: FastAPI must not re-serialise the timestamp (fairness §1), or the
+            # payload a buyer downloads would no longer be the text the signature covers.
+            "receipt": await _stored_receipt(db, entry),
+        },
+    )
+
+
+async def _stored_receipt(db: AsyncSession, entry: PoolEntry) -> dict[str, object] | None:
+    """The buyer's own stored receipt, or None when its row is missing.
+
+    `receipt_for_entry` treats a missing `entry_receipts` row as an integrity break, which
+    is right for the join replay that wrote it moments earlier. On a read that only reports
+    state the same break must not blank the buyer's whole pool screen: the receipt is
+    reported as absent and the break is logged, because inventing a receipt is never
+    allowed (fairness §1, CR-9).
+    """
+    try:
+        return await receipt_for_entry(db, entry)
+    except ApplicationError as exc:
+        if exc.code != "INTEGRITY_ERROR":
+            raise
+        logger.error("entries.me.receipt_missing entry_id=%s", entry.id)
+        return None
 
 
 @router.delete(

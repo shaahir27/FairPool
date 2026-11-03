@@ -10,7 +10,7 @@ vi.mock("../src/shared/api/client", () => ({
 
 import { OfferCheckout, OrderStatusCard } from "../src/checkout";
 import { LoginPage } from "../src/buyer/pages";
-import { useCountdown } from "../src/shared";
+import { setAccount, useCountdown } from "../src/shared";
 
 const offer = {
   buyer_order_id: "order-one", status: "OFFERED",
@@ -28,10 +28,22 @@ function show(component: React.ReactNode) {
 }
 
 beforeEach(() => {
+  setAccount(null);
   transport.get.mockReset().mockResolvedValue({ data: offer });
   transport.post.mockReset();
 });
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+it("uses the account already checked by the guard instead of fetching it again for an order", async () => {
+  setAccount({ display_name: "Pool Buyer", role: "buyer", paypal_linked: true });
+  transport.get.mockResolvedValue({ data: {
+    buyer_order_id: "order-one", status: "AUTHORIZING", lot_status: "CHECKOUT_OPEN", total_cents: 49900,
+    history: [], paypal: {}, labels: [], receipt: null,
+  } });
+  show(<OrderStatusCard buyerOrderId="order-one" />);
+  expect(await screen.findByText("Pool Buyer")).toBeInTheDocument();
+  expect(transport.get.mock.calls.some(([path]) => path === "/api/v1/me")).toBe(false);
+});
 
 describe("checkout actions", () => {
   it("loads the default saved delivery address and allows a different destination", async () => {

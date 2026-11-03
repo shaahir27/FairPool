@@ -129,15 +129,17 @@ Started 2026-11-03 on branch `phase-6` (solo operation, both lanes, CR-8 first).
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T06A01 | A | L | IN PROGRESS | | Funding sweep and failure path on the real Sandbox. The services are already wired to the real gateway (`wiring.py:210-229`), so the deliverable is the live C-10 replay test and IT-6 evidence |
-| T06A02 | A | M | IN PROGRESS | | Webhooks |
-| T06A03 | A | L | IN PROGRESS | | Reconciler and unknown-outcome resolution. `modules/reconciler/resolve.py` already exists; the missing part is the authorization age guard |
-| T06A04 | A | M | IN PROGRESS | | Payload ladder levels and shipping address |
-| T06B01 | B | M | IN PROGRESS | | Quote parsing and confirmation |
-| T06A05 | A | M | IN PROGRESS | | AI offer reconciliation and flags |
-| T06A06 | A | L | IN PROGRESS | | Lot handlers: bid_open, bid_close, award, plus the rules DB loader T05A05 deferred |
-| T06A07 | A | M | IN PROGRESS | | Merchant API keys and MerchantAuth |
-| T06B05 | B | L | IN PROGRESS | | Buyer UI v1: Discover and Join |
+| T06A01 | A | L | IN PROGRESS | phase-6 | The harness exists and the run is now partly executed for real: on 2026-11-03 the API and worker ran live against the FairPool Sandbox app, a two-lot pool went open, seeded, allocated and awarded from four real sealed bids, and three real PayPal orders were created (lot 2's losing bid landed `REJECTED R9_CAPACITY_EXHAUSTED`, which is the review's fix proved in a running server). What is not executed is the buyer approval, so no live authorization or capture in this run: PayPal rendered the checkout as an India-located guest flow behind a captcha-gated sign-in, and our own checks refuse a non-US payer (V12), so the run was stopped rather than the check bent. `docs/evidence/phase6/it6_sandbox.json` holds the executed detail, the short local URL that finishes it and the command that would close each part |
+| T06A02 | A | M | DONE | phase-6 | Webhook ingest verifies through the adapter when `PAYPAL_WEBHOOK_ID` is configured, stores the raw body first either way, answers 200 for verified/duplicate and 400 for a configured refusal, and enqueues `webhook.process`; the processor maps an event to its stored resource, GETs it and applies it through the state machine, and unmappable events reach the dead letter with a working retry route. F2, F3 and F4 pass. Review found the "stored first" claim was not true on one path -- the ingest row was not committed before verification, so a delivery the adapter could not parse raised inside the verify call, the request died as a 500 and the rollback took the body with it (`paypal-adapter.md` section 8). Both halves fixed: the row is committed straight after the insert, and an unparseable body is an unverified delivery rather than a 500. That early commit narrows one guarantee, and it is recorded rather than hidden: a delivery whose process died between the commit and the enqueue is absorbed as a duplicate on redelivery, so that one acceleration hint is lost -- webhooks accelerate and a GET confirms (P4), so the reconciler still settles the money. Live delivery is a hosted item (`webhook_delivery.json`) |
+| T06A03 | A | L | DONE | phase-6 | The authorization age guard settles a hung `AUTHORIZING` seat by provider evidence through BO-04/BO-05/BO-20 only, and an aged `AUTHORIZED` seat voids with `void_source="age_guard"`. F10 covers the expired seat, the vacancy, the sweep stopping and the half review added: a seat the provider never saw is settled by a read and never by a replayed write. `authorization_age_guard_s` is no longer dead config |
+| T06A04 | A | M | DONE | phase-6 | Payload levels proven per level (`tests/unit/test_payload_levels.py`) and the sealed shipping address is read back when a provider order is re-created, so a retry does not lose it. Shipped default stays `PAYPAL_PAYLOAD_LEVEL=0`; the flip is hosted config and is handed back |
+| T06B01 | B | M | DONE | phase-6 | `POST /api/v1/merchant/lots/{lot_id}/quote` parses a pasted quote into a PROPOSED revision with unresolved fields left empty for the merchant, prefills `product_key` server-side, enforces flat-delivered at the write, and D-P2-01 is closed: a conflicting capacity returns null plus an ambiguity instead of a definite number |
+| T06A05 | A | M | DONE | phase-6 | `modules/auction/reconcile.py` runs inline after confirm, writes `bid_flags`, moves a BLOCKING flag to FLAGGED (BS-04) which award rejects as R7, and holds a free-text bid for ops review when the model is unavailable. No path in the file can produce ELIGIBLE or AWARDED; F20's injection half passes locally, the Gemini half needs a quota key |
+| T06A06 | A | L | DONE | phase-6 | `lot.bid_open`, `lot.bid_close` and `lot.award` with the DB loader over `domain/auction_rules.py` (the T05A05 carry-in) and the R5 rate-table gap. Award walks every lot in `lot_order` through one `select_across_lots`, stamps router and mode (N8), marks priced-out seats, enqueues `lot.open_checkout`, and returns without a transition when a job arrives for a lot that has already decided. `pool.allocate` now emits its declared `job:lot.bid_open`. Independent review found three, all fixed: LS-03 counted only `AWARDED`/`CANCELLED` as decided, so every lot behind one that had reached checkout requeued for ever; the ranking tie-break was derived from the pool seed instead of the lot seed the audit page republishes; and a bid that failed R8 or R9 was moved to `ELIGIBLE` (BS-07, "all rules pass") and then `LOST` instead of `REJECTED` with its reason (BS-06) |
+| T06A07 | A | M | DONE | phase-6 | Keys create (secret shown once, HMAC stored, prefix only thereafter), list and revoke; `PostgresMerchantAuth` resolves a `fpm_` bearer to the same principal a session gets, refuses every bad key with one answer, and `require_merchant_key` is live. PT-15 is proved through a key's own principal on a real merchant-scoped read. `require_scope` delivers the contracted `403 API_KEY_SCOPE` for the routes that call it (T07A06) |
+| T06B05 | B | L | DONE | phase-6 | Discover (prompt bar, server-built confirmation card with its notices verbatim, trending grid with the exact FR-UI-01 badge), the pool lobby (stage strip, server-clocked countdown from the SSE `tick`, lot plan, rules with its hash, join and withdraw), and the entry receipt as a page with copy, **download** and print. A workspace rail in the brand field, a measured tonal ramp, and sign-out in every shell came with it. CR-9 gives the lobby the durable receipt read-back. Live-rendered against the local API at 390 and desktop widths |
+
+IG-6 is **not** claimed by these rows. The items that need a human, a PayPal dashboard, a Gemini quota or hosted config are listed in `docs/evidence/phase6/` with `status: "pending"` and the command that would close each one.
 
 ### PH7: Live end to end and the agent and merchant lanes
 
@@ -217,17 +219,34 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | PH3 | 2.25 | not yet recorded | 2.00 | not yet recorded |
 | PH4 | 3.00 | not yet recorded | 3.25 | not yet recorded |
 | PH5 | 2.50 | not yet recorded | 2.50 | not yet recorded |
-| PH6 | 3.00 | not yet recorded | 3.50 | not yet recorded |
+| PH6 | 3.00 | not measured (see the note below the table) | 3.50 | not measured (see the note below the table) |
 | PH7 | 3.25 | not yet recorded | 4.00 | not yet recorded |
 | PH8 | 3.50 | not yet recorded | 3.50 | not yet recorded |
 | PH9 | 3.00 | not yet recorded | 3.75 | not yet recorded |
 | PH10 | 2.50 | not yet recorded | 2.00 | not yet recorded |
 | PH11 | 0.38 | not yet recorded | 0.38 | not yet recorded |
 
+**PH6 actuals, and why they are not day counts.** One operator ran both lanes in a
+single session with no time tracking, so an honest day figure does not exist for either
+lane and the cells stay empty rather than carry an invented one. What is measurable is
+recorded here: the branch is 80 files, +8119/-243 against `fbaf6e8` - backend
++4821/-130, frontend +2830/-69 of hand-written screens and tests, generated API types
++59/-10, docs +281/-27.
+
+The planned column also disagrees with itself. The PH6 task sizes sum to **5.00 days for
+Member A and 1.50 for Member B** (T06A01 L, A02 M, A03 L, A04 M, A05 M, A06 L, A07 M;
+T06B01 M, B05 L), while this table's PH6 row says 3.00 and 3.50. `implementation-plan.md`
+is not edited here, because AGENTS.md section 2 ranks it above a re-estimate note; both
+figures are recorded so the IG-6 review sees the discrepancy instead of inheriting one
+of them silently.
+
 ## Open questions
 
 | ID | Raised by | Question and the two readings | Source of each reading | Status |
 |---|---|---|---|---|
+| Q-2026-11-03-31 | T06A03 (review round) | The aged path settles a hung `AUTHORIZING` seat by reading the provider, and a read can legitimately return nothing: the order exists, it carries no authorization at all because the send died before PayPal saw it, and the seat's own BO-03 re-check has already failed. The row then stays `AUTHORIZING` and logs `checkout.authorize.aged_without_evidence` on every sweep, for as long as anyone runs the job. Reading (a): that is what I7 demands, money may be in flight in a form we cannot see, so the seat stays locked, ops settles it and the log is the alert. Reading (b): CR-8 note 1 exists precisely so a seat is not locked for ever, so a definitive read that shows nothing is itself the evidence to end it. | (a) `docs/contracts/state-machines.md` BO-03 with I7, and `paypal-adapter.md` section 4: an unknown outcome is never a success. (b) `state-machines.md` CR-8 note 1 and `Q-2026-11-01-18`, which speak of a seat whose authorization GET *reports* EXPIRED, VOIDED or CREATED -- the contract names no zero-evidence case at all. | OPEN. The code takes reading (a), because the other reading settles a seat by the absence of evidence and would be the write this round just removed wearing a different hat. The consequence is recorded rather than argued: a lot whose only live seat is in this state counts as holding a live authorization in `failure.py`'s `LIVE_AUTH_STATES`, so `lot.finalize_fail` (LS-10) can never close it at net zero -- the sweep re-drives the authorize and raises one stuck alert. Closing this needs a human reading or a CR, not a code change on this branch. |
+| Q-2026-11-03-30 | T06B05 | `Notifier.notify` writes `notifications` rows and `GET /api/v1/me` reports `unread_notifications`, but no route lets a buyer read them, so the buyer shell shows no bell: a count with nothing behind it is a promise the app cannot keep. Reading (a): add a notifications list route (a new row in the frozen endpoint table, so a change request); reading (b): leave it to T07B01, whose My Pools screen is where an entry's outcome belongs anyway. Phase 6 takes (b) and states the count nowhere. | `docs/contracts/domain-ports.md` section 6 (Notifications); `docs/contracts/api.md` section 2 route table; `modules/notify/service.py` | OPEN: owed by T07B01. If a list is wanted before then, it is a change request |
+| Q-2026-11-03-29 | T06B05 | `api.md` says `POST /api/v1/intake/confirm` returns `201`, and the route returns `200`. Reading (a): set `status_code=201` on the route, which changes the committed OpenAPI snapshot and its generated types; reading (b): leave it, because no client branches on it (openapi-fetch returns the parsed body for either) and the merchant-key routes were the Phase 6 surface that needed the contracted code. Phase 6 takes (b) for intake and takes (a) for `POST /api/v1/merchant/api-keys`, which is the route this phase ships. | `docs/contracts/api.md` section "Intake"; `api/routers/intake.py:122-125`; `docs/contracts/api.md` section 4.2 | OPEN (record): a follow-up should align intake/confirm with the contract in one small commit |
 | Q-2026-11-03-28 | T06A06 | `BID_PRICING_MODE=itemised` has no award path. `select_across_lots` ranks every offer with one lot-level seat list, so shipping and tax are the same for all bids on the lot -- exact while every bid is one flat delivered price, wrong the moment each merchant brings their own shipping table and rate table. Reading (a): give each `BidOffer` its own seated list, which changes the pure function's shape and its vectors; reading (b): refuse. `modules/auction/handlers.py` takes (b) and raises `FEATURE_DISABLED` at award when the mode is not `flat_delivered`, so an itemised deployment cannot silently award on the wrong totals. The shipped default is `flat_delivered` (`config.py:89`), so no path anyone runs today reaches the refusal. | `docs/contracts/flat-delivered-bids.md`; `docs/contracts/fairness-and-hashing.md` section 10; `domain/auction_rules.py` `select_across_lots`; `docs/contracts/config-and-errors.md` `BID_PRICING_MODE` | OPEN (record): reading (a) is owed before `itemised` is ever enabled; CR-8's R5 row describes the itemised rule that award does not yet evaluate |
 | Q-2026-11-03-26 | Phase 6 planning | PS-07 closes a pool when `system.lots_terminal` finds every lot CLOSED, FAILED_CLOSED or CANCELLED, but `system.lots_terminal` is not a job kind in `domain-ports.md` section 5 and no handler emits it, so a pool whose last lot ends stays RUNNING until something else moves it. Reading (a): add a `pool.complete` kind, which is a contract change and a new registered handler; reading (b): evaluate PS-07 inline inside `lot.finalize_close` and `lot.finalize_fail`, which already hold the lot and its pool in a transaction, so no kind and no new job is needed. Neither is implemented today and no Phase 6 task names it, so Phase 6 does not decide it. | `docs/contracts/state-machines.md` PS-07; `docs/contracts/domain-ports.md` section 5; `modules/checkout/funding.py` finalize_close, `modules/checkout/failure.py` finalize_fail | OPEN: owed by Phase 7 or Phase 8. T06A06 deliberately does not add a job kind to work around it |
 | Q-2026-11-03-27 | T06A06 planning | `lot_advisory_lock_key` and `apply_lot_transition` live in Member A's `modules/checkout/engine.py` and `modules/checkout/funding.py`, but the Phase 6 lot handlers belong to Member B's `modules/auction/`, and `tools/check_imports.py` rule 5 forbids the import. The per-lot advisory key must be **identical on both sides** or `lot.award` and `lot.try_fund` do not contend and I8 breaks silently. Reading (a): Member B duplicates the key derivation with a unit test asserting both sides produce the same int for the same UUID; reading (b): relocate the key and the lot-transition helper to a lane-neutral home, which edits Member A's engine and every caller. T06A06 takes reading (a) because it is the smaller change and the test makes the drift loud. | `tools/check_imports.py` rule 5; `modules/checkout/engine.py` LOT_LOCK_NAMESPACE; `docs/contracts/domain-ports.md` section 6 | OPEN (record): a follow-up should perform reading (b); the equality test guards it until then |
@@ -256,7 +275,7 @@ Record planned versus actual days per phase and member at each gate. The plan is
 | Q-2026-11-01-15 | implementation planning | `docs/spike-results.md` S5's neighbour S6 is headed "RECORDED Oct 29" but its body is only the "Record:" template: no chain hash, round period, round number or verified round value. `decisions.md` section 4 records `BEACON_MODE=drand` and says signature checks succeeded. Reading (a): the values exist somewhere and were not pasted; reading (b): the spike was never completed. Phase 4 does not decide it: `pool.seed` uses the demo seed unless `DRAND_BASE_URL` and `DRAND_CHAIN_HASH` are configured, and a read-only drand check is attempted at IG-4. | `docs/spike-results.md` S6; `docs/decisions.md` section 4; `modules/pools/seed.py` | open, narrowed 2026-11-01: the read-only check found `DRAND_BASE_URL`/`DRAND_CHAIN_HASH` absent from `.env` (commented placeholders only) and from the environment, so S6 records `not configured` and no round was fetched or invented. It also found that `cryptography` 50.0.2 has no BLS12-381 verify primitive and `BeaconAnnouncement.fetch` raises `NotImplementedError`, so a configured chain would still need a BLS library and the fetch path before any signature claim is possible. `BEACON_MODE=drand` stays unexecutable here; record a real round before claiming a live beacon |
 | Q-2026-11-01-16 | implementation | The vacancy rule after the `buyer_order` table says the `lot.refill` job runs while the lot is `CHECKOUT_OPEN` **or** `FUNDING`, but the only transition that continues a refilled offer, BO-01, requires `lot CHECKOUT_OPEN`, and BO-03 re-checks the same status. A refill that runs in `FUNDING` therefore creates an `OFFERED` order the whitelist can never move, and the seat stays stuck. Reading (a): the vacancy rule is the intent and BO-01/BO-03 are too narrow; reading (b): a FUNDING refill is not fundable and the vacancy sentence lists FUNDING for a top-up that no task delivers. Phase 4 code takes reading (b) and refuses a refill outside `CHECKOUT_OPEN` (`modules/checkout/refill.py`), so no unpayable offer exists; F8 proves vacancy to refill while the lot is `CHECKOUT_OPEN`. Aligning the contract needs a change request: either BO-01/BO-03 admit a refilled offer in `FUNDING`, or the vacancy sentence drops `FUNDING`. | `docs/contracts/state-machines.md` (vacancy rule, BO-01, BO-03), `docs/contracts/domain-ports.md` section 6 | RESOLVED by CR-8 note 4: reading (b) is the contract now. `lot.refill` runs only while the lot is `CHECKOUT_OPEN`, which `modules/checkout/refill.py` already enforces, so no `OFFERED` seat can exist that the whitelist cannot move |
 | Q-2026-11-01-17 | implementation | `docs/contracts/api.md` section 3 fixes the offer notice `hold` as "PayPal places a hold for the total shown only after you approve", which is false under `PAYMENT_MODE=vault_charge`: `vault-charge.md` section 1 says no funds are reserved and PayPal's approval screen shows no purchase amount. Reading (a): api.md's notice is the authorize_capture wording and must be mode-aware; reading (b): api.md overrides and the vault text is wrong. Phase 4 code takes reading (a): `GET /offers/{id}` returns the vault wording (`VAULT_NOTICE` in `api/routers/checkout.py`) when the lot is stamped `vault_charge` and the api.md sentence otherwise. api.md needs a change request to carry both sentences. | `docs/contracts/api.md` section 3; `docs/contracts/vault-charge.md` sections 1 and 3 | RESOLVED by CR-8: api.md's offer `hold` notice is now explicitly the stamped mode's sentence, and it carries `VAULT_NOTICE`'s exact text beside the `authorize_capture` one. No code change |
-| Q-2026-11-01-18 | implementation planning | If a lot leaves CHECKOUT_OPEN while one of its orders is AUTHORIZING, the authorize retry is now refused (authorizing after close would be wrong) and the whitelist offers no exit from AUTHORIZING except BO-04, BO-05 and BO-20, all driven by the same job; `void.run` is Phase 5. The seat therefore stays locked until then. Reading (a): accept it, because money is already in flight and the Phase 5 void path is what settles it; reading (b): a CR allowing an age-guarded AUTHORIZING to AUTH_FAILED/REJECTED. Phase 4 records it and does not decide. | `docs/contracts/state-machines.md` BO-03/04/05/20 and BO-12; `modules/checkout/authorize.py`; `docs/implementation-plan.md` T05A03 | RESOLVED by CR-8 as **neither reading whole**. An aged seat is settled by provider evidence, not by the clock alone: `get_authorization` or a replay under the same `auth:{buyer_order_id}` key produces the observation BO-04/BO-05/BO-20 already require, and CR-8 widens BO-05 to the statuses `paypal-adapter.md` section 4 already names. No transition is invented. A seat that lands `AUTHORIZED` after its lot left `CHECKOUT_OPEN` is voided with `void_source` `age_guard`. The implementation is T06A03, which also reads `authorization_age_guard_s` (dead config until now) and settles the row through `_observe_authorization`: a stored authorization is read with a GET, otherwise the authorize is replayed under the same key. No `age_guard` void was needed, and CR-8 note 2 was rewritten to say so rather than describe code that does not exist. `tests/faults/test_f10_authorization_expired_vacancy.py` proves both halves: aged settles, un-aged waits |
+| Q-2026-11-01-18 | implementation planning | If a lot leaves CHECKOUT_OPEN while one of its orders is AUTHORIZING, the authorize retry is now refused (authorizing after close would be wrong) and the whitelist offers no exit from AUTHORIZING except BO-04, BO-05 and BO-20, all driven by the same job; `void.run` is Phase 5. The seat therefore stays locked until then. Reading (a): accept it, because money is already in flight and the Phase 5 void path is what settles it; reading (b): a CR allowing an age-guarded AUTHORIZING to AUTH_FAILED/REJECTED. Phase 4 records it and does not decide. | `docs/contracts/state-machines.md` BO-03/04/05/20 and BO-12; `modules/checkout/authorize.py`; `docs/implementation-plan.md` T05A03 | RESOLVED by CR-8 as **neither reading whole**. An aged seat is settled by provider evidence, not by the clock alone: `get_authorization`, or `get_order` where no authorization id was ever stored, produces the observation BO-04/BO-05/BO-20 already require, and CR-8 widens BO-05 to the statuses `paypal-adapter.md` section 4 already names. No transition is invented. A seat that lands `AUTHORIZED` after its lot left `CHECKOUT_OPEN` is voided with `void_source` `age_guard`. The implementation is T06A03, which also reads `authorization_age_guard_s` (dead config until now) and settles the row through `_observe_authorization`: a stored authorization is read with a GET, and a seat with nothing stored is settled by reading the order. The authorize replay this note first described was dropped in review, because when the send died before it arrived `auth:{buyer_order_id}` is a key PayPal has never seen and the replay would be a fresh write on a seat the BO-03 re-check had just refused (I7, I9). No `age_guard` void was needed, and CR-8 note 2 was rewritten to say so rather than describe code that does not exist. `tests/faults/test_f10_authorization_expired_vacancy.py` proves three halves: aged settles and leaves the reconciler's sweep with nothing to re-drive, aged-with-nothing-at-the-provider stays locked without a second write, un-aged waits |
 | Q-2026-11-01-19 | implementation | `docs/contracts/api.md` line 133 fixes the intake card's `no_charge` notice as "Nothing is charged now. PayPal places a hold only after a merchant and exact price are known and you approve." That sentence is false in the primary mode: `vault-charge.md` section 1 says `PAYMENT_MODE=vault_charge` reserves nothing and places no hold, and the card cannot know a lot's stamped mode because the mode is stamped on the lot at award (N8). Reading (a): the contract sentence describes `authorize_capture` only and must become mode-aware or hold-neutral; reading (b): the card must keep the contracted sentence and vault mode is out of scope. The code takes reading (a): `NO_CHARGE_NOTICE` in `modules/intake/pipeline.py` promises no charge and no hold at all, and `test_the_intake_card_notice_does_not_promise_a_hold` asserts it. api.md needs a change request to carry the mode-neutral wording. | `docs/contracts/api.md` section 3 line 133; `docs/contracts/vault-charge.md` section 1 | RESOLVED by CR-8: api.md's intake `no_charge` sentence is now the mode-neutral one the card ships, because the card is read before any lot exists and cannot know the mode N8 stamps later. No code change |
 | Q-2026-11-02-21 | auction rules (T05A05) | R1 to R7 are named in `config-and-errors.md` section 5 but their parameter readings are not written down: which comparison R4 makes, what R6 measures validity against, and whether R5 tax coverage is the flat-delivered rule. Reading (a): implement the narrowest deterministic comparison for each name and record it; reading (b): stop until a CR specifies each rule. Code takes reading (a) and records it here: R1 is shape plus `submitted_at > bid_close_at` on the frozen close time plus `confirmed`; R2 is the merchant's onboarding state and attestations; R3 compares product key, condition and the lot's bundle key; R4 requires a declared capacity of at least the lot MOQ; R5 compares delivery days against the lot maximum, returns days against the lot minimum, and in flat-delivered mode requires tax INCLUDED with no per-zone shipping; R6 requires `validity_end` strictly after `bid_close_at`; R7 rejects any remaining BLOCKING AI flag and never a LOW_SIMILARITY warning. Rules apply in that order and the first failure is stored. A CR can tighten any reading without changing the code's shape. | `docs/contracts/config-and-errors.md` section 5; `domain/auction_rules.py` `bid_rejection`; `tests/unit/test_auction_guards.py` | RESOLVED by CR-8: the recorded readings are now the contract text (see the R1 to R7 table in `config-and-errors.md` section 5). No code change |
 | Q-2026-11-01-20 | implementation | BO-24's guard needs the provider's amount and payee, and BO-26 lists only definitive declines (`INSTRUMENT_DECLINED`, `DENIED`, 403 `PERMISSION_DENIED`). A read-back that says COMPLETED for another amount or payee, or that omits `payee.email_address` altogether, therefore satisfies neither edge: `order.resolve` refused on every sweep and the row looped in CAPTURING forever. Reading (a): such a capture is a definitive failure of this seat and must terminate; reading (b): it stays CAPTURING until a human or a later phase decides. Code takes reading (a) without inventing a whitelisted pair: the same BO-26 edge is applied with `status DENIED`, `reject_reason` `AMOUNT_MISMATCH`/`PAYEE_MISMATCH` (both contracted) or an `error_code` of `UNVERIFIABLE` in the audit evidence, the unverifiable case only after three `capture_grace_s` windows from the order's CAPTURING timestamp (a bound on the order rather than `current_attempt`, which is the re-quote counter, N9). The refused capture is not recorded as a `paypal_captures` row, so `lot.finalize_close` never sees a completed capture the ledger cannot balance; the provider's capture id is logged for the Phase 5 refund path. BO-26's guard text needs a change request to name this case. | `docs/contracts/state-machines.md` BO-24/BO-26; `docs/contracts/vault-charge.md` section 7; `modules/checkout/vault_charge.py` | RESOLVED by CR-8: reading (a) is now written into `vault-charge.md` section 7 as a named outcome row. `vault_charge.py` already implements it, including the three-window bound on the order's `CAPTURING` timestamp; BO-26's guard text in `state-machines.md` did not need to change because the code satisfies it with a `DENIED` observation |
@@ -781,3 +800,134 @@ serve, so the signed-in linking flow could never complete; it is now the real
 `/api/v1/paypal/login/callback`. That link callback is not yet a registered PayPal return
 URL on either host, which is the owner's dashboard step if linking is wanted for the demo -
 registration does not need it.
+
+## Phase 6 execution record (2026-11-03, branch `phase-6`)
+
+Verification on this branch, recorded in `docs/evidence/phase6/local_checks.json`:
+`make verify` exits 0 - 1027 backend tests pass with the domain coverage floor met at
+94.52%, mypy --strict is clean over 70 files, 107 frontend tests pass across 13 files
+(with the owner's own restyle in place), `make test-faults` is 18 passed,
+`tools/check_imports.py` reports 0 lane violations, `tools/validate_docs.py` reports 0
+errors (two warnings, both the illustrative no-such-endpoint path the IT-1 probe uses), the merchant
+OpenAPI document still holds exactly ten operations, and gitleaks finds no leak across
+82 commits.
+
+
+Four commits, both lanes run by one operator, nothing pushed and no gate claimed. CR-8
+landed first so no later commit had to re-litigate the guard it depends on.
+
+**CR-9, raised and authorized inside this phase.** The owner asked for the buyer receipt
+screen to be worth keeping. `POST /api/v1/pools/{pool_id}/entries` issues the signed
+receipt once and nothing else returned it, so a reload in another browser left the buyer
+with nothing to keep and the screen had to cache the value in `sessionStorage` to look
+whole. `entry_receipts` already stores every field and `receipt_for_entry` already
+rebuilds the exact body for the join replay, so the fix was one optional field on a
+B-owned read route rather than a new endpoint: `GET /api/v1/pools/{pool_id}/entries/me`
+now returns `receipt`, as the bytes that were signed (the route answers with a
+`JSONResponse` for the same reason the join does — a re-serialised timestamp would no
+longer verify). The browser copy went out of `drafts.ts` with it: one source of truth.
+Written into `api.md`, the change log, and `tests/integration/test_join_receipts.py`.
+
+**Buyer UI v1 (T06B05) and the design pass the owner asked for.** `frontend/src/buyer/`
+gained `discover/DiscoverPage.tsx`, `lobby/PoolPage.tsx`, `lobby/money.ts` and
+`receipt/EntryReceiptPage.tsx`; the two placeholders in `pages.tsx` are gone. The
+contracted FR-UI-01 badge is one exported constant and is asserted as a literal. The
+countdown is fed by the SSE `tick` frame and never by `new Date()`; before the first
+sample the screen states the deadline in absolute terms. `usdToCents` parses the
+contracted `^\d+(\.\d{1,2})?$` shape with integer arithmetic only (BD-14).
+
+Two things this pass got wrong at first, and both were corrected after the owner
+pushed back rather than left in: cards were painted near-white, which is foreign to a
+glacier-blue palette, and the workspace rail's logo badge was recoloured to marigold
+while `canvas` was deepened - and `PoolMark` draws its glyph *in* `canvas`, so that
+edit changed a brand asset. `canvas` is restored to `209 224 248`, the mark renders
+exactly as it does on the sign-in panel, and the colour work moved to a token layer.
+
+The flatness the owner described has a number: page-to-panel was **ΔL\* 5.5**, which is
+why every surface read as one shade. The new ramp is `page 186 206 236` → `card
+238 245 254` (**ΔL\* 13.1**) with `surface` kept for inset wells and two semantic bands,
+`tint` for the buyer's own stake and `coral-tint` for the one destructive confirm. The
+rail takes `--color-brand-field` (35 67 168) - the sign-in panel's own surface, not a new
+hue - with `field-band` for the active row. Every text pair is measured, not assumed:
+`ink` on card 13.21, `muted` on card 7.85, `on-field` on the rail 7.44, `field-muted`
+5.36, marigold on the rail 5.80, all AA. `--color-canvas` is used inside the logo and as
+an in-panel chip, so it was left alone. Coral is unchanged as the single action colour
+and gained a 1px `accent-strong` edge because the fill against a card measures 2.89:1
+and a control boundary needs 3:1. New tokens live in `index.css` and `tailwind.config.js`
+only; no component carries a raw colour. A scoped `@media print` block prints the receipt
+without the workspace chrome, and the caret, scrollbars and text selection are now themed
+from the palette instead of shipped as platform defaults.
+
+Copy was cut where it had become lawyer-speak: the intake panel's helper paragraph about
+what the server owns is gone, the confirmation card says "This is what we understood.
+Check it before it goes to the merchants", and the receipt states what it proves in one
+line. The FR-UI-01 badge and the two server-built notices are still rendered verbatim,
+because those are the API's words, not mine (FR-UI-08, I13).
+
+**Sign-out** exists at last: one control in `shared/components/AreaLayout.tsx`, so the
+buyer rail, the mobile menu and the merchant/ops header all get it. It calls the route
+that has existed since Phase 1, clears the CSRF token and the session cache, and says
+"Still signed in" when the call fails rather than pretending. The shell also greets the
+buyer by the name `/api/v1/me` reported and states the PayPal-link fact; `RequireAuth`
+caches that one answer instead of the shell asking a second time, and it validates the
+payload at the boundary (a stub `/me` without a name is recorded as no account info, not
+handed to the shell as something to call `.split()` on - which is how the first version
+broke two guard tests).
+
+**Found while rendering, not while writing tests:** the receipt's "Back to the pool" was
+a `<Link>` to the same route the lobby already occupied, so clicking it re-mounted the
+lobby with the receipt state still set and the buyer could not leave. It is a button that
+clears the view now. The same run showed the lobby offering "Confirm and join" while the
+server-clock countdown said the window had closed; the panel now reads that from the
+feed's own sample and refuses to offer an action the server will reject.
+
+**Deliberately not built:** no notification bell. `Notifier` writes rows and `/api/v1/me`
+reports a count, but no route lets a buyer read them, so a bell would promise a screen
+that does not exist - recorded as `Q-2026-11-03-30` for T07B01. `intake/confirm` still
+answers 200 where `api.md` says 201 (`Q-2026-11-03-29`): no client branches on it and
+this phase had no reason to move a Phase 3 route.
+
+**Rendered, not assumed.** Every changed screen was driven in a real browser against a
+local API on the compose database (never the hosted demo one): Discover with a live
+trending card, the lobby with a countdown ticking from the SSE feed, the join through
+`intake/manual` to a real entry, and the receipt read back from the server after a fresh
+navigation with no browser copy to fall on. The narrow pass ran in a same-origin 390px
+frame: no horizontal scroll on any of the three, and the one overflow it found - a
+64-character rules hash - now wraps. Screenshots were not captured: the in-app browser
+surface is not visible from here, so the check is the live DOM and computed styles, not
+pixels.
+
+**Independent review, and what it found.** Four read-only review agents ran over this
+branch - the money lane, the auction lane, the buyer UI and CR-9, then a confirmation
+round over the fixes - and their verdicts, the findings that were not acted on and why,
+are in `docs/evidence/phase6/independent_review.json`. Ten real defects came out of them
+and every one is fixed here rather than argued about. Three were bugs a demo would have
+shown: the award's lower-lot gate read only AWARDED and CANCELLED as decided where LS-03
+says "past BID_CLOSED", so the moment lot 1 reached checkout every later lot requeued for
+ever and its seats were never awarded; the ranking tie-break was derived from the pool
+seed while the published vectors derive it from the lot seed, so a tie broke in a way no
+buyer could reproduce; and a bid that failed R8 or R9 was moved to ELIGIBLE - whose guard
+is "all rules pass" - and then to LOST, with no reason code and no notice to the merchant.
+One was a money bug: an aged seat with no stored authorization fell through to a replayed
+authorize, and when the original send died before PayPal saw it that key is one the
+provider has never seen, so the "replay" created a fresh authorization on a seat the BO-03
+re-check had just refused (I7, I9). It reads the order now, and a seat with nothing to
+read stays locked - which is an open reading, not a settled one, and is written up as
+`Q-2026-11-03-31` rather than quietly lived with. The webhook ingest committed nothing
+before verifying, so a delivery the adapter could not parse lost its raw body in the
+rollback, which is the one thing `paypal-adapter.md` section 8 forbids; the missing CR-9
+receipt row answered 500 and took the buyer's own status screen with it; the cancelled-pool
+copy promised a hold release that PS-08 makes impossible; and `engine._enqueue` still
+carried the pre-CR-8 field name `reason`, in a branch no transition can even reach.
+
+F10's own fake was lying too: it wrote the EXPIRED status *after* its simulated timeout had
+already raised, so the expiry never landed and the test passed only through the replay path
+the money fix removed. The fake now states the expiry into the order, the authorization
+table and the replay before losing the response, which is what its docstring always said,
+and the aged seat settles through a read. The confirmation round was asked to treat that
+fixture as suspect precisely because it changed in the same round as the code it tests; its
+verdict was that the fake is honest rather than shaped to pass, and `Ship` with nothing
+in must-fix. Four small items it then raised - the narrowed duplicate-recovery guarantee,
+the zero-evidence open question, an over-wide ValueError log and a dead LOST-stamp loop
+that bought six deleted lines - are applied after that verdict, and the evidence file says
+plainly that no agent has read them since.

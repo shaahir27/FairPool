@@ -97,6 +97,13 @@ async def _verification(
         # the row stays unverified and the reconciler remains the authority.
         logger.error("webhooks.verify.error class=%s code=%s", exc.category, exc.code)
         return "not-attempted", f"verify_error:{exc.category}"
+    except ValueError:
+        # The adapter parses the body inside the signature call, so a delivery of broken
+        # JSON arrives as a ValueError and cannot be verified. The traceback is logged
+        # because wiring a bad router raises this class too, and the responder must be
+        # able to tell the two apart rather than being told it was PayPal's body.
+        logger.error("webhooks.verify.value_error", exc_info=True)
+        return "not-attempted", "verify_error:value_error"
     return ("verified", "verified") if verified else ("rejected", "rejected:signature")
 
 
@@ -132,8 +139,16 @@ async def webhooks_paypal(
     )
     if stored is None:
         # A duplicate delivery: already stored, already answered for. 200, no re-processing.
+        # The early commit below narrows this: if the process died between the commit and
+        # the enqueue, the redelivery is absorbed here and that one acceleration hint is
+        # lost. Webhooks accelerate and a GET confirms (P4), so the reconciler still
+        # settles the money -- which is why absorbing is allowed to stop.
         logger.info("webhooks.duplicate event_id=%s", event_id)
         return schemas.WebhookAck()
+    # The raw body and sanitised headers are stored first, and the row is on its way
+    # before anything can fail: S5's evidence survives a later 500 or a refused
+    # signature (``paypal-adapter.md`` section 8).
+    await session.commit()
 
     row_id = uuid.UUID(str(stored))
     outcome, detail = await _verification(request, settings, headers, raw)

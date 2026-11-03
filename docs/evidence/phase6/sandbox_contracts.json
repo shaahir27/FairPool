@@ -1,4 +1,21 @@
 {
-  "status": "pending",
-  "note": "C-01 to C-07 and C-14 to C-15 are sandbox-marked and skip when CI is set or the credentials are unexported, so CI never reports them. make test-sandbox must be run by the owner and the result written back here."
+  "status": "passed",
+  "date": "2026-11-03",
+  "run": "PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and SINGLE_SELLER_EMAIL exported from .env, CI unset, then pytest -m sandbox backend/tests/contract_sandbox",
+  "result": "8 passed, 1 skipped, 3 deselected in 24.06s",
+  "passed": [
+    "C-01 token",
+    "C-02 create order",
+    "C-03 authorize",
+    "C-04 ORDER_NOT_APPROVED is a wait, not a failure",
+    "C-05 void with a body and without one",
+    "C-06 capture",
+    "C-07 refund",
+    "C-14 payload ladder levels 0 to 3 against the live gateway"
+  ],
+  "skipped": [
+    "C-15 webhook signature verification: needs one real captured delivery. Set FAIRPOOL_WEBHOOK_EVIDENCE_FILE (raw body bytes) and FAIRPOOL_WEBHOOK_HEADER_EVIDENCE_FILE (JSON of the paypal-transmission-* headers) from the listener log, then re-run the same command."
+  ],
+  "note": "These are the contract legs only. The IT-6 scenario itself - the sweep capturing real authorizations to FUNDED, and a second lot ending void then refund at a zero ledger - needs a buyer to approve at the PayPal Sandbox page and is recorded in it6_sandbox.json and failure_net_zero.json.",
+  "credential_handling": "No client id, secret, token, payee email or approval URL is written into this file or into any evidence file."
 }

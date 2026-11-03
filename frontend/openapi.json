@@ -1495,6 +1495,16 @@
               }
             ]
           },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EntryReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "vault_label": {
             "anyOf": [
               {
@@ -6892,6 +6902,7 @@
     },
     "/api/v1/merchant/api-keys": {
       "get": {
+        "description": "Every key this merchant issued, newest last, with the hash left in the database.",
         "operationId": "merchant_api_keys_list",
         "parameters": [
           {
@@ -6941,6 +6952,7 @@
         "summary": "Merchant Api Keys List"
       },
       "post": {
+        "description": "Issue a key and show its secret here and only here (I14, FR-IG-04).",
         "operationId": "merchant_api_keys_create",
         "parameters": [
           {
@@ -6971,7 +6983,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -7002,6 +7014,7 @@
     },
     "/api/v1/merchant/api-keys/{key_id}": {
       "delete": {
+        "description": "Revoke a key; a row that belongs to another merchant is not there (I11).",
         "operationId": "merchant_api_keys_delete",
         "parameters": [
           {

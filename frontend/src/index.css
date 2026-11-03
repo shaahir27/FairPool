@@ -3,23 +3,37 @@
 @tailwind utilities;
 
 /*
- * FairPool: cobalt fields, glacier-blue surfaces, coral actions and marigold
- * marks. All surfaces
- * consume the same semantic tokens, including authentication and every workspace.
+ * FairPool: cerulean fields, raspberry actions and apricot support surfaces.
+ * The same semantic roles serve authentication, shopping and merchant workspaces.
  */
 :root {
-  --color-canvas: 209 224 248;
-  --color-surface: 231 239 252;
-  --color-on-accent: 23 39 82;
-  --color-mark: 255 205 92;
-  --color-brand-field: 35 67 168;
-  --color-on-field: 231 239 252;
-  --color-ink: 23 39 82;
-  --color-muted: 55 75 119;
-  --color-line: 173 191 222;
-  --color-accent: 239 100 80;
-  --color-accent-strong: 210 68 54;
-  --color-accent-soft: 253 221 150;
+  --color-canvas: 180 222 244;
+  --color-page: 160 205 233;
+  --color-frame: 8 111 165;
+  --color-surface: 201 230 243;
+  --color-card: 222 238 247;
+  --color-tint: 167 215 239;
+  --color-tint-line: 116 177 209;
+  --color-coral-tint: 242 189 204;
+  --color-on-accent: 255 245 248;
+  --color-mark: 255 195 79;
+  --color-action: 190 40 89;
+  --color-action-hover: 166 31 75;
+  --color-action-border: 140 23 64;
+  --color-detail: 245 105 82;
+  --color-brand-field: 8 111 165;
+  --color-field-band: 4 91 139;
+  --color-on-field: 239 247 252;
+  --color-field-muted: 215 237 249;
+  --color-ink: 23 54 76;
+  --color-muted: 58 83 105;
+  --color-line: 115 170 201;
+  --color-accent: 0 83 131;
+  --color-accent-strong: 0 64 106;
+  --color-accent-soft: 255 219 159;
+  --color-product-screen: 121 189 227;
+  --color-product-hill: 32 127 177;
+  --color-product-warm: 240 206 187;
   --color-warn: 128 85 24;
   --color-warn-soft: 248 240 222;
   --color-danger: 158 43 37;
@@ -54,11 +68,11 @@
 
 @layer base {
   html {
-    @apply bg-canvas;
+    @apply bg-page;
   }
 
   body {
-    @apply min-h-screen bg-canvas font-sans text-ink antialiased;
+    @apply min-h-screen bg-page font-sans text-ink antialiased;
   }
 
   #root {
@@ -70,7 +84,74 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-ink ring-offset-2 ring-offset-canvas;
+    @apply outline-none ring-2 ring-ink ring-offset-2 ring-offset-page;
+  }
+}
+
+/*
+ * Browser surfaces the palette owns. The caret, the scrollbar and the text selection
+ * are drawn by the platform when a design system does not claim them, and that is the
+ * cheapest tell that a screen was assembled rather than built.
+ */
+:root {
+  color-scheme: light;
+  caret-color: rgb(var(--color-brand-field));
+  scrollbar-color: rgb(var(--color-line)) rgb(var(--color-page));
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--color-page));
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid rgb(var(--color-page));
+  border-radius: 999px;
+  background: rgb(var(--color-line));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-muted) / 0.55);
+}
+
+/*
+ * A receipt should print as a receipt. The workspace chrome and the controls that only
+ * make sense on screen stay off the paper, and the page prints on the lightest surface
+ * so the mono values stay legible.
+ */
+@media print {
+  .skip-link,
+  .account-sidebar,
+  .account-topbar,
+  .app-header,
+  .app-footer,
+  .checkout-header,
+  .checkout-footer,
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: rgb(var(--color-card));
+  }
+  .commerce-shell {
+    display: block;
+    min-height: 0;
+  }
+  .commerce-content,
+  .app-main {
+    max-width: none;
+    padding: 0;
+  }
+  .shop-panel,
+  .panel {
+    border: 1px solid rgb(var(--color-line));
+    box-shadow: none;
   }
 }
 
@@ -132,8 +213,8 @@
 }
 /* Shared interface primitives; colour roles come from the global palette above. */
 :root {
-  --panel-shadow: 0 12px 28px rgb(var(--color-ink) / .065);
-  --control-border: rgb(var(--color-muted) / .6);
+  --panel-shadow: 0 8px 24px rgb(var(--color-ink) / .04);
+  --control-border: rgb(var(--color-muted) / .72);
 }
 .icon { width: 18px; height: 18px; flex: 0 0 auto; }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -142,13 +223,16 @@
 .brand-wordmark span { font-style: italic; }
 .skip-link { position: absolute; top: 12px; left: 12px; z-index: 50; padding: 12px 18px; background: rgb(var(--color-surface)); border-radius: 10px; transform: translateY(-200%); }
 .skip-link:focus { transform: none; }
-.button-primary, .button-secondary { min-height: 48px; padding: 12px 20px; border-radius: 12px; display: inline-flex; justify-content: center; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
-.button-primary { background: rgb(var(--color-accent)); color: rgb(var(--color-on-accent)); box-shadow: 0 5px 14px rgb(var(--color-ink) / .1); }
+.button-primary, .button-secondary { min-height: 48px; padding: 12px 20px; border: 1px solid transparent; border-radius: 12px; display: inline-flex; justify-content: center; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+.button-primary { background: rgb(var(--color-action)); border-color: rgb(var(--color-action-border)); color: rgb(var(--color-on-accent)); box-shadow: none; }
+.button-primary:not(:disabled):focus-visible { background: rgb(var(--color-action-hover)); }
 .button-secondary { border: 1px solid rgb(var(--color-ink)); color: rgb(var(--color-ink)); }
 .button-primary:disabled, .button-secondary:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 .button-primary:not(:disabled):active, .button-secondary:not(:disabled):active { transform: scale(.98); }
 .form-input { display: block; width: 100%; min-width: 0; height: 44px; margin-top: 6px; border: 1px solid var(--control-border); border-radius: 9px; background: rgb(var(--color-surface)); padding: 10px 13px; color: rgb(var(--color-ink)); font-size: 14px; caret-color: rgb(var(--color-ink)); }
 .form-input::placeholder { color: rgb(var(--color-muted)); }
+/* The intake prompt is a two-line ask, not a single field: same control, taller box. */
+.prompt-input { height: auto; min-height: 78px; padding: 11px 13px; line-height: 1.6; resize: vertical; }
 .password-field { position: relative; display: block; }
 .password-field input { padding-right: 48px; }
 .password-toggle { position: absolute; inset: 0 0 0 auto; display: grid; place-items: center; width: 44px; color: rgb(var(--color-muted)); border-radius: 8px; }
@@ -159,7 +243,7 @@
 .pool-illustration { position: relative; width: min(100%, 38svh, 420px); margin: 0 auto; flex-shrink: 0; aspect-ratio: 1; color: rgb(var(--color-canvas)); }
 .pool-illustration > svg:first-child { width: 100%; height: 100%; }
 .pool-seat { fill: rgb(var(--color-mark)); }
-.pool-seat:nth-of-type(3n) { fill: rgb(var(--color-accent)); }
+.pool-seat:nth-of-type(3n) { fill: rgb(var(--color-detail)); }
 .pool-person { fill: rgb(var(--color-on-field) / .65); }
 .pool-center { fill: rgb(var(--color-canvas) / .12); stroke: rgb(var(--color-canvas) / .3); }
 .pool-illustration-mark { position: absolute; width: 16%; height: 16%; top: 42%; left: 42%; }
@@ -170,8 +254,8 @@
 .pool-stat-seats { bottom: 15%; right: 0; }
 .auth-story { max-width: 510px; }
 .auth-story h2 { font-size: clamp(30px, 3vw, 42px); font-weight: 700; line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
-.auth-story p { margin-top: 14px; font-size: 15px; line-height: 1.65; color: rgb(var(--color-canvas) / .85); }
-.auth-panel { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 96px clamp(28px, 5vw, 80px); }
+.auth-story p { margin-top: 14px; font-size: 15px; line-height: 1.65; color: rgb(var(--color-field-muted)); }
+.auth-panel { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 96px clamp(28px, 5vw, 80px); background: rgb(var(--color-product-warm)); }
 .auth-label { position: absolute; top: 36px; right: 40px; }
 .auth-form { width: min(100%, 28vw); max-width: 380px; margin: auto; }
 .auth-title { font-size: 36px; font-weight: 700; line-height: 1.15; letter-spacing: -.045em; }
@@ -226,14 +310,16 @@
 .utility-links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: rgb(var(--color-muted)); }
 .app-main { width: 100%; max-width: 1216px; margin: 0 auto; flex: 1; padding: 20px 0 48px; }
 .app-footer { width: 100%; max-width: 1216px; margin: 0 auto; padding: 20px 0; font-size: 11px; color: rgb(var(--color-muted)); }
-.panel { background: rgb(var(--color-surface)); border-radius: 22px; padding: 26px; box-shadow: var(--panel-shadow); min-width: 0; }
+.panel { background: rgb(var(--color-card)); border: 1px solid rgb(var(--color-tint-line) / .7); border-radius: 22px; padding: 26px; box-shadow: var(--panel-shadow); min-width: 0; }
 .panel h2:not(.meta-label) { font-weight: 650; font-size: 18px; letter-spacing: -.035em; }
 .meta-label { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
 .secondary-copy { font-size: 13px; line-height: 1.6; color: rgb(var(--color-muted)); }
 .checkout-grid { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(300px, 1fr); gap: 18px; align-items: start; }
-.product-art { flex: 0 0 auto; width: 170px; height: 160px; display: grid; place-items: center; border-radius: 18px; background: rgb(var(--color-canvas) / .1); }
+.product-art { flex: 0 0 auto; width: 170px; height: 160px; display: grid; place-items: center; border-radius: 12px; background: rgb(var(--color-tint)); color: rgb(var(--color-ink)); }
 .product-art svg { width: 80%; height: 80%; }
-.product-art-small { width: 62px; height: 62px; background: rgb(var(--color-ink)); border-radius: 12px; }
+.product-art-small { width: 62px; height: 62px; border-radius: 10px; }
+.route-loading { min-height: 100svh; display: grid; place-content: center; gap: 14px; padding: 28px; color: rgb(var(--color-muted)); }
+.route-loading .skeleton { width: min(280px, 75vw); height: 5px; }
 .price-rows { display: grid; gap: 16px; font-size: 13px; }
 .price-rows > div { display: flex; justify-content: space-between; gap: 12px; }
 .price-rows dt { color: rgb(var(--color-muted)); }
@@ -257,8 +343,10 @@
 .receipt-drawer[open] { animation: receipt-enter var(--dur-sheet) var(--ease-drawer); }
 @keyframes receipt-enter { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 @media (hover: hover) and (pointer: fine) {
-  .button-primary:not(:disabled):hover { background: color-mix(in srgb, rgb(var(--color-accent)), rgb(var(--color-canvas)) 12%); }
-  .button-secondary:not(:disabled):hover, .icon-button:hover { background: rgb(var(--color-ink) / .055); }
+  /* One hover rule: the label stays fixed while only the fill transitions. */
+  .button-primary:not(:disabled):hover { background: rgb(var(--color-action-hover)); }
+  .button-secondary:not(:disabled):hover { background: rgb(var(--color-tint)); }
+  .icon-button:hover { background: rgb(var(--color-ink) / .055); }
   .workspace-tab:hover { color: rgb(var(--color-ink)); }
 }
 @media (min-width: 1500px) { .auth-aside-content { padding-top: 36px; } }

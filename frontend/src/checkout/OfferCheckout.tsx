@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type ApiComponents, formatCents, Icon, Notice, StatusPill, startRouteTransition, useCountdown } from "../shared";
+import { api, type ApiComponents, formatCents, Icon, Notice, ProductArt, StatusPill, startRouteTransition, useCountdown } from "../shared";
 
 type Offer = ApiComponents["schemas"]["OfferResponse"];
 const ADDRESS_FIELDS = [
@@ -167,11 +167,6 @@ function OfferDetails({ offer }: { offer: Offer }) {
   </div>;
 }
 
-export function ProductArt({ title, small = false }: { title: string; small?: boolean }) {
-  return <div className={`product-art ${small ? "product-art-small" : ""}`} aria-hidden="true">
-    {/monitor/i.test(title) ? <svg viewBox="0 0 160 130" fill="none"><rect x="15" y="12" width="130" height="84" rx="7" fill="rgb(var(--color-ink))" stroke="rgb(var(--color-canvas) / .7)" strokeWidth="3" /><rect x="22" y="19" width="116" height="70" rx="3" fill="rgb(var(--color-accent-soft))" /><path d="M22 69Q48 48 76 62T138 56V89H22Z" fill="rgb(var(--color-accent))" opacity=".8" /><path d="M22 76Q50 56 77 70T138 65V89H22Z" fill="rgb(var(--color-muted))" /><path d="M80 97v21 M57 119h46" stroke="rgb(var(--color-canvas))" strokeWidth="4" strokeLinecap="round" /></svg> : <Icon name="box" />}
-  </div>;
-}
 function Price({ label, cents }: { label: string; cents: number }) { return <div><dt>{label}</dt><dd>{formatCents(cents)}</dd></div>; }
 function codeOf(failure: unknown): { code: string; message: string } {
   const envelope = failure as { error?: { code?: string; message?: string } } | undefined;

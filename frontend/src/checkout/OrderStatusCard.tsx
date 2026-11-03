@@ -1,8 +1,6 @@
 ﻿import { type ReactNode, useEffect, useId, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Link } from "react-router-dom";
-import { api, type ApiComponents, formatCents, formatDateTime, Icon, Notice, REJECT_REASON_LABELS, StatusPill, statusStyle } from "../shared";
-import { ProductArt } from "./OfferCheckout";
+import { accountState, api, type ApiComponents, formatCents, formatDateTime, Icon, Notice, ProductArt, REJECT_REASON_LABELS, StatusPill, statusStyle } from "../shared";
 import { ReceiptDrawer } from "./ReceiptDrawer";
 
 type OrderStatus = ApiComponents["schemas"]["OrderStatusResponse"];
@@ -37,15 +35,15 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [offer, setOffer] = useState<ApiComponents["schemas"]["OfferResponse"] | null>(null);
   const [buyerName, setBuyerName] = useState<string | null>(null);
-  const reduced = useReducedMotion();
 
   useEffect(() => {
     let live = true;
-    setOffer(null); setBuyerName(null); setReceiptOpen(false);
+    const knownName = accountState()?.display_name ?? null;
+    setOffer(null); setBuyerName(knownName); setReceiptOpen(false);
     // Metadata is optional; a failed disclosure lookup must not hide payment status.
     void api.GET("/api/v1/offers/{buyer_order_id}", { params: { path: { buyer_order_id: buyerOrderId } } })
       .then(({ data }) => { if (live && data?.product) setOffer(data); }).catch(() => {});
-    void api.GET("/api/v1/me").then(({ data }) => { if (live && data?.display_name) setBuyerName(data.display_name); }).catch(() => {});
+    if (!knownName) void api.GET("/api/v1/me").then(({ data }) => { if (live && data?.display_name) setBuyerName(data.display_name); }).catch(() => {});
     return () => { live = false; };
   }, [buyerOrderId]);
 
@@ -90,12 +88,10 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
     <div className="order-display-grid">
       <div className="order-primary-column">
         <section className="shop-panel" aria-label="Order progress">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={order.status} className={`order-current ${negative ? "is-negative" : ""}`} initial={{ opacity: 0, transform: reduced ? "none" : "translateY(6px)" }} animate={{ opacity: 1, transform: "none" }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .2, ease: [.23, 1, .32, 1] }}>
+            <div key={order.status} className={`order-current ${negative ? "is-negative" : ""}`}>
               <span className="order-current-symbol"><Icon name={negative ? "returns" : order.status === "CAPTURED" ? "check" : "clock"} /></span>
               <div><h2>{ORDER_TITLES[order.status] ?? statusStyle(order.status).label}</h2><p className="shop-copy">{copy}</p><code className="order-code">{order.status}</code></div>
-            </motion.div>
-          </AnimatePresence>
+            </div>
           <ol className="order-milestones" aria-label="Your order journey">{milestones.map((stage, index) => <li key={stage.title} className={stage.done ? "milestone-recorded" : ""} aria-current={stage.current ? "step" : undefined}><span className="milestone-dot">{stage.done ? <Icon name="check" /> : index + 1}</span><strong>{stage.title}</strong><small>{stage.text}</small></li>)}</ol>
           <div className="order-group-note"><Icon name="layers" /><div><strong>{funded ? "Your group reached its minimum" : failedLot ? "This lot is closing or has closed" : "Your purchase is part of a group"}</strong><p>{funded ? "Enough buyers' completed payments met the lot minimum." : failedLot ? statusStyle(order.lot_status).label : "The lot is funded only after enough payments complete. A hold or approval does not count as paid."}</p><code>{order.lot_status}</code></div></div>
         </section>
@@ -116,8 +112,7 @@ export function OrderStatusCard({ buyerOrderId }: { buyerOrderId: string }) {
 function Disclosure({ title, icon, children }: { title: string; icon: "wallet" | "clock"; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const id = useId();
-  const reduced = useReducedMotion();
-  return <section className="shop-panel order-expand"><button type="button" className="order-expand-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}><span><Icon name={icon} />{title}</span><Icon name="down" /></button><AnimatePresence initial={false}>{open ? <motion.div id={id} key="content" className="order-expand-content" initial={{ opacity: 0, transform: reduced ? "none" : "translateY(-4px)" }} animate={{ opacity: 1, transform: "none" }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : .16, ease: [.23, 1, .32, 1] }}>{children}</motion.div> : null}</AnimatePresence></section>;
+  return <section className="shop-panel order-expand"><button type="button" className="order-expand-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}><span><Icon name={icon} />{title}</span><Icon name="down" /></button>{open ? <div id={id} className="order-expand-content">{children}</div> : null}</section>;
 }
 function Info({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) { return <div><dt>{label}</dt><dd className={mono ? "font-mono text-xs" : ""}>{value}</dd></div>; }
 function Provider({ label, value }: { label: string; value: string | null | undefined }) { return <div><dt>{label}</dt><dd>{value ? <StatusPill status={value} tone="neutral" /> : <span>Not reported</span>}</dd></div>; }

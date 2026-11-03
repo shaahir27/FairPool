@@ -15,7 +15,8 @@ export type { DeliveryAddress } from "./lib/address";
 export { HonestyLabels } from "./components/HonestyLabels";
 export { PlaceholderPage } from "./components/PlaceholderPage";
 export { RequireAuth } from "./components/RequireAuth";
-export { resetSessionCache, sessionState } from "./lib/session";
+export { accountState, resetSessionCache, sessionState, setAccount } from "./lib/session";
+export type { Account } from "./lib/session";
 export { PublicLayout } from "./components/PublicLayout";
 export { AuthAside } from "./components/AuthAside";
 export { Brand, PoolMark } from "./components/Brand";
@@ -35,3 +36,4 @@ export {
 export type { StatusStyle, StatusTone } from "./lib/status";
 export { HONESTY_LABELS } from "./lib/labels";
 export type { HonestyLabelKind } from "./lib/labels";
+export { ProductArt } from "./components/ProductArt";

@@ -16,8 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.db.models.auction import Merchant
 from fairpool.db.session import create_engine
+from fairpool.domain.errors import ApplicationError
 from fairpool.infra.clock import DbClock
 from fairpool.modules.identity.service import IdentityService, Principal
+from fairpool.modules.merchants.auth import PostgresMerchantAuth
+from fairpool.ports import MerchantPrincipal
 
 session_cookie = APIKeyCookie(name="session", auto_error=False)
 bearer = HTTPBearer(auto_error=False)
@@ -104,6 +107,23 @@ async def require_agent(
 
 
 async def require_merchant_key(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(database_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Security(bearer)] = None,
-) -> None:
-    raise _unauthenticated()
+) -> MerchantPrincipal:
+    """A merchant API key resolves to the same principal a session does, narrower scopes.
+
+    Every refusal is ``API_KEY_INVALID`` at 401 (``api.md`` section 4.3): an absent
+    header, a malformed key, an unknown prefix, a hash that does not match and a revoked
+    key are not distinguished, because the difference is a probe answer. A key that
+    resolves but lacks the scope is the route's own ``API_KEY_SCOPE`` at 403.
+    """
+    settings = request.app.state.settings
+    if credentials is None or settings is None:
+        raise ApplicationError("API_KEY_INVALID")
+    auth = PostgresMerchantAuth(clock=DbClock(), hmac_key=settings.hmac_key.get_secret_value())
+    principal = await auth.from_api_key(db, credentials.credentials)
+    # ``last_used_at`` is the only write and it must survive the request, so it is
+    # committed here rather than left to the session's end-of-request flush.
+    await db.commit()
+    return principal

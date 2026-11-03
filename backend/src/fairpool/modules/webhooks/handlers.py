@@ -38,27 +38,12 @@ from fairpool.ports import Clock, JobQueue
 
 logger: Final[logging.Logger] = logging.getLogger("fairpool.webhooks")
 
-#: The seven types the contracted listener registers.
-EVENT_TYPES: Final[frozenset[str]] = frozenset(
-    {
-        "CHECKOUT.ORDER.APPROVED",
-        "PAYMENT.AUTHORIZATION.CREATED",
-        "PAYMENT.AUTHORIZATION.VOIDED",
-        "PAYMENT.CAPTURE.PENDING",
-        "PAYMENT.CAPTURE.COMPLETED",
-        "PAYMENT.CAPTURE.DENIED",
-        "PAYMENT.CAPTURE.REFUNDED",
-    }
-)
-
 #: An order event carries its own id; a capture event names its order under
 #: ``supplementary_data.related_ids.order_id`` (``paypal-adapter.md`` section 8).
 ORDER_EVENT: Final[str] = "CHECKOUT.ORDER.APPROVED"
 
 #: ``settle`` and ``approve`` are the handlers that own the provider call for one order.
 type Settle = Callable[[AsyncSession, UUID], Awaitable[None]]
-
-#: ``settle`` and ``approve`` are the handlers that own the provider call for one order.
 
 
 class WebhookProcessor:

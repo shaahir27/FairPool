@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, lazy, Suspense, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -9,7 +9,7 @@ import {
   resetSessionCache,
   setCsrfToken,
 } from "../shared";
-import { OrderStatusCard } from "../checkout";
+const OrderStatusCard = lazy(() => import("../checkout").then((module) => ({ default: module.OrderStatusCard })));
 
 import { AuthFrame } from "./AuthFrame";
 export { RegisterPage } from "./signup";
@@ -120,23 +120,7 @@ export function BuyerOrderPage() {
   if (!buyerOrderId) {
     return <p className="p-6 text-sm text-muted">This order link is incomplete.</p>;
   }
-  return <OrderStatusCard buyerOrderId={buyerOrderId} />;
-}
-
-export function DiscoverPage() {
-  return (
-    <PlaceholderPage
-      title="Discover and Join"
-      route="/"
-      task="T06B05"
-      taskTitle="Buyer UI v1: Discover and Join"
-      planned={[
-        "The prompt bar and the manual request form for intake.",
-        "Open pools with their public entry counts.",
-        "The confirmation card, the join action and the entry receipt.",
-      ]}
-    />
-  );
+  return <Suspense fallback={<p role="status">Loading your order…</p>}><OrderStatusCard buyerOrderId={buyerOrderId} /></Suspense>;
 }
 
 export function MyPoolsPage() {
@@ -166,22 +150,6 @@ export function OrdersPage() {
         "Orders grouped by outcome: funded, voided, refunded.",
         "Each row with its amount and winning merchant.",
         "Status history and the PayPal capture reference.",
-      ]}
-    />
-  );
-}
-
-export function PoolPage() {
-  return (
-    <PlaceholderPage
-      title="Pool detail"
-      route="/pools/:poolId"
-      task="T06B05"
-      taskTitle="Buyer UI v1: Discover and Join"
-      planned={[
-        "Lot plan, timeline and the live entry count.",
-        "The rules link and rules_hash.",
-        "The join action and the buyer's entry status.",
       ]}
     />
   );

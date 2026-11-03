@@ -10,11 +10,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import pytest
 
 from fairpool.domain import auction_rules, fairness, hashing, money
 from fairpool.domain.errors import AllocationError, HashingError
+from fairpool.modules.auction.handlers import lot_tiebreak_hash
 
 ROOT = Path(__file__).resolve().parents[3]
 VECTORS_PATH = ROOT / "docs" / "contracts" / "vectors" / "fairness_v1.json"
@@ -141,6 +143,23 @@ def test_lot_seed_and_tiebreaks(vectors: dict[str, Any]) -> None:
         hashing.tiebreak_hash(tiebreak["lot_seed"], tiebreak["merchant_b"])
         == tiebreak["tiebreak_b"]
     )
+
+
+def test_the_award_handler_ranks_on_the_published_tiebreak(vectors: dict[str, Any]) -> None:
+    """``lot.award`` must feed the ranking the tie-break the audit page republishes.
+
+    The derivation is two calls, and passing the pool seed where the lot seed belongs
+    still produces a valid hex64 hash, so nothing but this pins it to the vectors.
+    """
+    tiebreak = vectors["tiebreak"]
+    for merchant, expected in (
+        (tiebreak["merchant_a"], tiebreak["tiebreak_a"]),
+        (tiebreak["merchant_b"], tiebreak["tiebreak_b"]),
+    ):
+        assert (
+            lot_tiebreak_hash(vectors["seed_hex"], UUID(tiebreak["lot_id"]), UUID(merchant))
+            == expected
+        )
 
 
 def test_tier_case(vectors: dict[str, Any]) -> None:

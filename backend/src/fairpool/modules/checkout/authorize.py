@@ -604,6 +604,20 @@ class CheckoutAuthorizeHandlers:
             )
             if stored is not None:
                 return await self.router.gateway.get_authorization(stored.paypal_auth_id)
+            # The I7 seat re-check failed to reach here, so the replay is a write on a
+            # seat that no longer holds one: an id PayPal never saw would create a fresh
+            # authorization rather than replay the lost one (I7, I9). Read the order and
+            # leave the seat locked when it carries nothing -- an open reading, and the
+            # only one that cannot authorize a seat that does not exist (Q-2026-11-03-31).
+            record_order = await self.router.gateway.get_order(record.paypal_order_id)
+            if not record_order.authorizations:
+                logger.error(
+                    "checkout.authorize.aged_without_evidence buyer_order_id=%s paypal_order_id=%s",
+                    buyer_order_id,
+                    record.paypal_order_id,
+                )
+                return None
+            return record_order.authorizations[0]
         result = await self.router.gateway.authorize_order(
             record.paypal_order_id, request_key=f"auth:{buyer_order_id}"
         )

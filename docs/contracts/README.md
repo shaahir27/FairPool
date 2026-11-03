@@ -54,6 +54,30 @@ No payment, fairness, account-verification or agent permission changes are inclu
 
 ## Change log
 
+### CR-9: The entry read returns the receipt it issued (owner authorized 2026-11-03)
+
+The owner authorized this change request inside the Phase 6 branch while asking for the
+buyer receipt screen. `POST /api/v1/pools/{pool_id}/entries` issues the signed receipt
+once, and the only way to see it again was to replay the join with the original
+idempotency key: a buyer who reloads in another browser, or who wants to keep a copy, had
+no way to reach the proof their own entry carries. `entry_receipts` already stores every
+field, `receipt_for_entry` already rebuilds the exact body for the join replay, and
+`db-schema.md` freezes the table, so the gap is a missing read, not missing data.
+
+One route gains one optional response field: `GET /api/v1/pools/{pool_id}/entries/me`
+returns `receipt` beside the status it already reported. No new route, no migration, no
+new error code, no change to the join, the withdrawal or the audit chain. The read is
+owner-scoped and keeps the existing `404` for "no entry here", so it discloses nothing
+about anyone else. The value is returned as the bytes that were signed rather than
+re-serialised by the response model, because the payload text is what the Ed25519
+signature covers (`fairness-and-hashing.md` section 6) — the same rule the join route
+already follows. A withdrawn entry keeps its receipt: it is the record that the entry
+existed. When that row is absent, which only a data-integrity fault can cause, the read
+answers with `receipt: null` rather than failing beside the status it also owns.
+
+Affected task: T06B05 (Buyer UI v1: Discover and Join). **No new contract tag and no
+phase-gate claim is made by this change request.**
+
 ### CR-8: Phase 6 contract write-ups and one guard widening (owner authorized 2026-11-03)
 
 The owner authorized this change request inside the Phase 6 branch, on the finding

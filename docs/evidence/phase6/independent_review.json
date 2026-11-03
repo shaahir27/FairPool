@@ -1,4 +1,86 @@
 {
-  "status": "pending",
-  "note": "No review has been run on the phase-6 branch. The gate stays open until one has, and this file is not written by the implementing agent."
+  "status": "complete",
+  "date": "2026-11-03",
+  "what_this_is": "Four read-only review agents run over the phase-6 branch by the implementing operator, who is also the only human on the project. AGENTS.md section 6 allows a self-merge after green CI and an independent agent review when one operator runs both lanes; this file is that agent review, transcribed by the implementer rather than written by the reviewers, and it is not a human member's approval. Nothing was pushed, so the CI half of that sentence is still open (ci.json).",
+  "reviews": [
+    {
+      "lane": "buyer UI, CR-9 and the design pass",
+      "verdict": "PASS with two MINOR findings, both fixed",
+      "confirmed": [
+        "the truth of the UI's claims about what the server owns",
+        "the database clock driving every countdown and window state",
+        "API conformance of the three buyer screens",
+        "CR-9's receipt bytes being returned unsigned-over rather than re-serialised"
+      ],
+      "findings_fixed": [
+        "MINOR: entries/me turned a missing entry_receipts row into a 500, which took the buyer's own entry status screen down with the proof. It now returns receipt null and logs. backend/src/fairpool/api/routers/entries.py",
+        "MINOR: the lobby's cancelled-pool copy claimed a hold had been released, which PS-08 makes impossible because a pool is cancellable only while no buyer order exists. Reworded. frontend/src/buyer/lobby/PoolPage.tsx"
+      ]
+    },
+    {
+      "lane": "money: authorize age guard, CR-8 widening, webhook ingest and processing, reconciler sweep",
+      "verdict": "fix 1 first; 2 and 3 with it (all four applied)",
+      "passed_unchanged": [
+        "CR-8's BO-05 widening is byte-identical to state-machines.md line 97 and keeps ORDER_NOT_APPROVED a wait (V4)",
+        "no webhook path writes buyer_orders, and event text is never a money signal (I4)",
+        "the sweep stops once a row is settled; void is GET first and a 422 becomes success only on a VOIDED read (I9)",
+        "the age guard compares db_wall_now to a DB-written timestamp, with no application clock anywhere in it (I15)"
+      ],
+      "findings_fixed": [
+        "MAJOR: an aged seat with no stored paypal_authorizations row fell through to authorize_order, a write, on a seat whose BO-03 I7 re-check had just failed. When the send died before PayPal saw it, auth:{buyer_order_id} is a key the provider has never seen, so the replay would create a fresh authorization that BO-04 could ledger and BO-06/07 could capture. It reads the order instead and leaves the seat locked when the order carries nothing. backend/src/fairpool/modules/checkout/authorize.py",
+        "MINOR: the ingest row was not committed before verification and only PaymentError was caught, so a delivery the adapter could not parse raised inside the verify call, the request died as a 500 and the rollback took the raw body -- against paypal-adapter.md section 8's always-stored-first rule. Both halves fixed. backend/src/fairpool/api/routers/webhooks.py",
+        "MINOR: engine._enqueue still carried the pre-CR-8 payload name reason for void.run, the field CR-8 renamed to void_source precisely because the default stopped a buyer-withdraw void freeing its seat (I8). No transition effect enqueues void.run or refund.run, so both branches were unreachable and are deleted. backend/src/fairpool/modules/checkout/engine.py",
+        "MINOR: docs/progress.md claimed F10 covered the sweep stopping while the test asserted nothing about it. One assertion added (Reconciler.sweep returns 0 and enqueues nothing once the row is settled). tests/faults/test_f10_authorization_expired_vacancy.py"
+      ],
+      "not_acted_on": [
+        "NIT: EVENT_TYPES in modules/webhooks/handlers.py was never read -- deleted rather than kept as documentation. The contract's processes only the verified types is enforced by resource identity instead, which is stricter: an event naming a resource we never stored dead-letters before any call is made.",
+        "NIT: an observation fed to BO-05 carries a status string the provider never reported, which lands verbatim in the audit payload. No money fact is wrong (BO-05 writes no ledger entry), so it is left for Phase 7 rather than widened into this branch."
+      ]
+    },
+    {
+      "lane": "auction: lot handlers, award rules, quote parsing and reconciliation, merchant API keys, and their tests",
+      "verdict": "two BLOCKERS and one MAJOR, all fixed, each with the test it lacked",
+      "passed_unchanged": [
+        "the per-lot advisory key is byte-identical to the checkout lane's derivation",
+        "past-window jobs return with a log and no transition or alert",
+        "money stays integer cents and every timestamp comes from the DB clock or a stored row",
+        "the rules loader builds LotFacts, BidFacts and SeatedBuyer from real rows, and R5 closes exactly as section 5 states",
+        "AI only ever writes PROPOSED, FLAGGED or DRAFT; an ungrounded or self-contradictory answer is a hold; the flat-delivered refusal carries the contracted sentence (rule 5, F20)",
+        "keys are shown once, stored only as an HMAC, never listed, never audited, refuse every bad key with one answer, revoke immediately and 404 across merchants; PT-15 is proved through a key's own principal"
+      ],
+      "findings_fixed": [
+        "BLOCKER: the lower-lot gate counted only AWARDED and CANCELLED as decided, where LS-03 and domain-ports.md section 5 both say past BID_CLOSED. In any multi-lot pool, once lot 1 reached CHECKOUT_OPEN, lot 2 and beyond requeued every two seconds for ever and their seats were never awarded. The gate now selects PLANNED, BIDDING and BID_CLOSED as the undecided states. backend/src/fairpool/modules/auction/handlers.py",
+        "BLOCKER: the ranking tie-break was derived from the pool seed while fairness-and-hashing.md and vectors/fairness_v1.json derive it from the lot seed, so a tie could be broken in a way the published rule and the buyer's recomputation do not reproduce. It now derives lot_seed then tiebreak_hash, pinned to the vector file by a new test.",
+        "MAJOR: every R1 to R7 survivor was moved to ELIGIBLE, whose guard is all rules pass, before R8 and R9 ran; a bid that then failed them was recorded ELIGIBLE to LOST with no reason code and no bid.rejected notice, where BS-06 and fairness-and-hashing.md 10.3/11 say it is REJECTED with R8 or R9. select_across_lots now reports the per-bid rejection and the handler lands it."
+      ],
+      "not_acted_on": [
+        "MINOR: the requeue base uses the transaction clock rather than the wall clock. A backoff carries no deadline, so I15 does not apply and the difference is under a transaction's duration. Left alone.",
+        "MINOR: a corrupt total_capacity of JSON true reads as 1 and fails R9 closed rather than awarding wrongly. Fails in the safe direction; no validation added.",
+        "MINOR: auth.py returns before compare_digest when no prefix row exists, so timing confirms a prefix's existence. The prefix is not the secret and is shown in the list view; not a leak."
+      ]
+    },
+    {
+      "lane": "confirmation round over the seven fixes above, with the F10 fake gateway treated as suspect because it changed in the same round as the code it tests",
+      "verdict": "Ship. Must fix: none found.",
+      "checks": [
+        "all eleven LotStatus values enumerated against LS-01 to LS-14: PLANNED, BIDDING and BID_CLOSED are exactly not-past-BID_CLOSED, and CANCELLED and FAILED_CLOSED belong on the decided side, so the gate cannot reopen",
+        "no bid can be left in a state with no whitelist edge, a winner can never appear in the rejected list, and an exception between moves rolls the whole job back",
+        "nothing downstream reads ELIGIBLE or LOST bids: priced-out marking reads the award's chosen price and open_checkout reads allocations, a different enum",
+        "the only PayPal write still reachable for an aged seat is the protective void on an amount mismatch, which BO-20 and N5 require",
+        "the early commit breaks neither the refused-signature UPDATE, the duplicate branch, nor get_session's own commit",
+        "the rewritten fake states the expiry into the order, the authorization table and the replay before losing the response, so the code under test does not decide what expired looks like -- it was not shaped to pass",
+        "the new never-arrived test would have failed against the old code, and the sweep assertion discriminates settle from stall"
+      ],
+      "findings_fixed_after_this_verdict": [
+        "SHOULD FIX: the early commit narrows duplicate recovery, and the router and progress.md now say so rather than leave it implied.",
+        "SHOULD FIX: a zero-evidence aged seat has no contracted exit, so it is recorded as an open question with both readings and a pointer from the code (Q-2026-11-03-31), per AGENTS.md section 9.",
+        "NICE TO HAVE: the ValueError catch also wraps the adapter's construction, so the log now carries the traceback and a neutral code instead of naming PayPal's body.",
+        "LEAN: _cancel's LOST-stamp loop became dead once R8/R9 losers are REJECTED, and the reject_reason parameter went with it (-6 lines).",
+        "TRUTHFULNESS: the lot_tiebreak_hash docstring claimed the verify widget recomputes it; frontend/src/audit/verify.ts is still unwritten, so it now says the widget must use the same derivations."
+      ]
+    }
+  ],
+  "what_the_last_edits_are_not_covered_by": "The four items under findings_fixed_after_this_verdict were applied after the confirmation round returned Ship, and no agent has read them since. They are comments, one log line, one dead-loop deletion and one open-question row; make verify and the 48 affected tests were re-run green over them. Any later review should start there.",
+  "still_open_for_this_gate": "The reviewers never ran the code against PayPal Sandbox, and the money legs of IT-6 need the human approval steps in it6_sandbox.json. CI needs a push (ci.json). No tag, gate claim or merge is made from this file.",
+  "verification_after_review": "make verify exits 0: 1027 backend tests, 94.52% domain coverage against the 90% floor, mypy --strict clean over 70 files, 107 frontend tests in 13 files, 18 fault tests, 0 import-lane violations, 0 docs errors, gitleaks clean. Re-run after the last four edits: the same ruff, mypy and 48 award, webhook and fault tests green."
 }

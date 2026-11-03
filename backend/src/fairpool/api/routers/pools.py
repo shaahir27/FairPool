@@ -6,18 +6,33 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session
-from fairpool.db.models.catalog import Pool
-from fairpool.db.models.enums import PoolStatus
+from fairpool.db.models.catalog import Pool, PoolEntry
+from fairpool.db.models.enums import EntryStatus, PoolStatus
 from fairpool.db.session import create_engine
 from fairpool.modules.pools.events import stream_pool_events
 from fairpool.modules.pools.service import rules_document, summary
 
 router = APIRouter()
+
+
+def _entry_count():
+    """The public entry count behind FR-UI-01's "trending".
+
+    Not ``pools.entries_count``: that column is only written when the pool closes
+    (``pool.close``), and a trending list is read while pools are open.
+    """
+    return (
+        select(func.count())
+        .select_from(PoolEntry)
+        .where(PoolEntry.pool_id == Pool.id, PoolEntry.status != EntryStatus.WITHDRAWN)
+        .correlate(Pool)
+        .scalar_subquery()
+    )
 
 
 def _search_service(request: Request):
@@ -66,11 +81,23 @@ async def pools_list(
         if not ids:
             return []
         query = query.where(Pool.id.in_(ids))
-    if sort not in (None, "closing", "title"):
+    if sort not in (None, "closing", "title", "trending"):
         raise HTTPException(422, "VALIDATION_ERROR")
-    query = query.order_by(
-        Pool.title if sort == "title" else Pool.timeline["close_at"].astext, Pool.id
-    )
+    if sort == "trending":
+        # FR-UI-01 defines "trending" as the public entry count, so that is the whole
+        # score: no invented weighting and no new field on the card. A withdrawn entry
+        # has given up its place, so it does not count; the tie-break is the same
+        # closing-then-id order the other sorts use, because a list that changes order
+        # between two identical refreshes cannot be scanned.
+        query = query.order_by(
+            _entry_count().desc(),
+            Pool.timeline["close_at"].astext,
+            Pool.id,
+        )
+    else:
+        query = query.order_by(
+            Pool.title if sort == "title" else Pool.timeline["close_at"].astext, Pool.id
+        )
     pools = list((await db.scalars(query.limit(limit or 20))).all())
     if hits is not None:
         # Keep the retrieval ranking the service produced; the SQL order above exists

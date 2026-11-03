@@ -389,12 +389,17 @@ class BidOffer:
 
 @dataclass(frozen=True)
 class Assignment:
-    """Outcome for one lot: a winning bid, or no bid and why."""
+    """Outcome for one lot: a winning bid, or no bid and why.
+
+    ``rejected`` pairs every bid that failed R8 or R9 with its reason code, so the
+    handler can land it on BS-06 instead of calling it a loser (BS-09).
+    """
 
     lot_id: str
     bid_id: str | None
     merchant_id: str | None
     reject: str | None
+    rejected: tuple[tuple[str, str], ...] = ()
 
 
 def select_across_lots(
@@ -414,18 +419,21 @@ def select_across_lots(
     for lot in ordered:
         seated = seated_by_lot.get(lot.lot_id, ())
         ranked: list[tuple[tuple[int, int, str], BidOffer]] = []
+        rejected: list[tuple[str, str]] = []
         for offer in offers_by_lot.get(lot.lot_id, ()):
             resolution = resolve_tiers(seated, offer.tiers, lot.moq)
             if not resolution.feasible:
+                rejected.append((offer.bid_id, resolution.rejection or R8_NO_FEASIBLE_TIER))
                 continue
             ranked.append((bid_ranking_key(resolution, offer.tiebreak_hash), offer))
         ranked.sort(key=lambda item: item[0])
-        assignment: Assignment | None = None
+        winner: BidOffer | None = None
         reject: str | None = R8_NO_FEASIBLE_TIER if not ranked else None
         for _key, offer in ranked:
             total_capacity = total_capacity_by_merchant.get(offer.merchant_id)
             if total_capacity is None:
                 reject = reject or R9_CAPACITY_EXHAUSTED
+                rejected.append((offer.bid_id, R9_CAPACITY_EXHAUSTED))
                 continue
             remaining = remaining_capacity(total_capacity, offer.merchant_id, awarded)
             # Contract section 11 compares the bid's capacity only; a bid that
@@ -433,13 +441,9 @@ def select_across_lots(
             # in T06A04), not an award-time one.
             if offer.capacity > remaining:
                 reject = R9_CAPACITY_EXHAUSTED
+                rejected.append((offer.bid_id, R9_CAPACITY_EXHAUSTED))
                 continue
-            assignment = Assignment(
-                lot_id=lot.lot_id,
-                bid_id=offer.bid_id,
-                merchant_id=offer.merchant_id,
-                reject=None,
-            )
+            winner = offer
             awarded.append(
                 AwardedLot(
                     lot_order=lot.lot_order,
@@ -448,7 +452,11 @@ def select_across_lots(
                 )
             )
             break
-        assignments[lot.lot_id] = assignment or Assignment(
-            lot_id=lot.lot_id, bid_id=None, merchant_id=None, reject=reject
+        assignments[lot.lot_id] = Assignment(
+            lot_id=lot.lot_id,
+            bid_id=winner.bid_id if winner else None,
+            merchant_id=winner.merchant_id if winner else None,
+            reject=None if winner else reject,
+            rejected=tuple(rejected),
         )
     return assignments

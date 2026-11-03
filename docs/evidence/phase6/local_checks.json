@@ -1,5 +1,22 @@
 {
   "status": "passed",
   "date": "2026-11-03",
-  "note": "make verify (ruff, ruff format, mypy --strict on domain and modules, the pytest suite with the domain coverage floor, frontend lint/typecheck/test/build, tools/check_imports.py, tools/validate_docs.py, merchant OpenAPI check, gitleaks) and make test-faults on the phase-6 branch."
+  "note": "make verify (ruff, ruff format, mypy --strict on domain and modules, the pytest suite with the domain coverage floor, frontend lint/typecheck/test/build, tools/check_imports.py, tools/validate_docs.py, merchant OpenAPI check, gitleaks) and make test-faults on the phase-6 branch, re-run after the independent review fixes. The frontend counts include the owner's own restyle, which this branch does not touch.",
+  "counts": {
+    "backend_tests_passed": 1027,
+    "backend_tests_skipped": "1, pre-existing: the Elastic half of the search parity check, no ELASTICSEARCH_URL in this environment",
+    "backend_tests_deselected": 37,
+    "domain_coverage": "94.52% against a 90% floor",
+    "mypy_strict": "no issues in 70 source files (domain and modules)",
+    "frontend_tests_passed": 107,
+    "frontend_test_files": 13,
+    "fault_tests_passed": 18,
+    "import_lane_violations": 0,
+    "docs_errors": 0,
+    "docs_warnings": "2, both the illustrative /api/v1/nope path: one in an older progress.md row, one in docs/frontend-design-review.md (the owner's untracked review note)",
+    "merchant_openapi": "10 operations, matches api.md section 4.3",
+    "gitleaks": "82 commits scanned, no leaks found"
+  },
+  "rendered_not_assumed": "Discover, the pool lobby, the join through intake/manual and the entry receipt were driven in a real browser against a local API on the compose database, and the receipt was re-read from the server after a fresh navigation with no browser copy. The narrow pass ran in a same-origin 390px frame with no horizontal scroll on any screen. Screenshots were not captured: the in-app browser surface is not visible from this session, so the visual check is the live DOM and computed styles rather than pixels.",
+  "not_in_this_file": "The live Sandbox and hosted items are recorded separately in it6_sandbox.json, sandbox_contracts.json, failure_net_zero.json, webhook_delivery.json and ci.json, each with status pending and the command that would close it."
 }

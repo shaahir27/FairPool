@@ -296,6 +296,83 @@ async def test_join_returns_201_with_a_verifiable_signed_receipt(
     assert "entry.join" in actions
 
 
+async def test_the_entry_read_returns_the_receipt_the_pool_signed(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """CR-9: a buyer's own entry read carries the durable proof, not a fresh one.
+
+    The receipt is the signed bytes the join issued. The route must not re-serialise the
+    timestamp it signs over, so the read-back is byte-for-byte the join's receipt and
+    still verifies against the published key: a buyer who reloads in another browser can
+    still keep proof, and a downloaded copy still proves the same thing.
+    """
+    csrf = await login(client, "receipt-read@example.test")
+    user_id = uuid.UUID((await client.get("/api/v1/me")).json()["user_id"])
+    pool_id = await open_pool(db_session)
+    cr_id = await manual_confirm(db_session, user_id, pool_id)
+    joined = await client.post(
+        f"/api/v1/pools/{pool_id}/entries",
+        json={"confirmed_request_id": str(cr_id)},
+        headers={"Idempotency-Key": "read-back", "X-CSRF-Token": csrf},
+    )
+    issued = joined.json()["receipt"]
+
+    mine = await client.get(f"/api/v1/pools/{pool_id}/entries/me")
+    assert mine.status_code == 200, mine.text
+    body = mine.json()
+    assert body["entry_id"] == joined.json()["entry_id"]
+    assert body["entry_status"] == "SUBMITTED"
+    assert body["receipt"] == issued
+    public_key = (await client.get("/api/v1/public/keys")).json()["public_key"]
+    assert verify_ed25519(body["receipt"]["payload"], body["receipt"]["signature"], public_key)
+
+    # After a withdraw the proof survives: the row is the record that the entry existed.
+    await client.delete(f"/api/v1/pools/{pool_id}/entries/me", headers={"X-CSRF-Token": csrf})
+    after = (await client.get(f"/api/v1/pools/{pool_id}/entries/me")).json()
+    assert after["entry_status"] == "WITHDRAWN" and after["receipt"] == issued
+
+    # A second buyer's read is the same 404 as an unknown pool: no existence leak (I11).
+    async with httpx.AsyncClient(transport=client._transport, base_url="https://api.test") as other:
+        await login(other, "receipt-other@example.test")
+        stranger = await other.get(f"/api/v1/pools/{pool_id}/entries/me")
+    assert stranger.status_code == 404 and error_code(stranger) == "NOT_FOUND"
+
+
+async def test_a_missing_receipt_row_reports_absent_rather_than_failing_the_read(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """CR-9's one deliberate exception: the status read survives a broken receipt row.
+
+    `receipt_for_entry` calls a missing `entry_receipts` row an integrity break, and for the
+    join replay that just wrote it, it is. On a read whose only job is to tell a buyer their
+    own state, the same break would blank the whole pool screen - so the receipt is reported
+    as absent and never invented, and the state still arrives.
+    """
+    csrf = await login(client, "receipt-missing@example.test")
+    user_id = uuid.UUID((await client.get("/api/v1/me")).json()["user_id"])
+    pool_id = await open_pool(db_session)
+    cr_id = await manual_confirm(db_session, user_id, pool_id)
+    joined = await client.post(
+        f"/api/v1/pools/{pool_id}/entries",
+        json={"confirmed_request_id": str(cr_id)},
+        headers={"Idempotency-Key": "missing-row", "X-CSRF-Token": csrf},
+    )
+    entry_id = joined.json()["entry_id"]
+
+    # Fixture-only direct write: the row a corruption or a partial restore would lack.
+    await db_session.execute(
+        text("DELETE FROM entry_receipts WHERE entry_id = :id"), {"id": entry_id}
+    )
+    await db_session.flush()
+
+    mine = await client.get(f"/api/v1/pools/{pool_id}/entries/me")
+    assert mine.status_code == 200, mine.text
+    body = mine.json()
+    assert body["entry_id"] == entry_id
+    assert body["entry_status"] == "SUBMITTED"
+    assert body["receipt"] is None
+
+
 async def test_idempotency_key_is_required_and_bounded(client: httpx.AsyncClient, db_session):
     csrf = await login(client, "idem-required@example.test")
     user_id = uuid.UUID((await client.get("/api/v1/me")).json()["user_id"])

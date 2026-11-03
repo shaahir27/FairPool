@@ -209,6 +209,29 @@ async def test_a_verification_call_failure_is_not_a_refusal(db_session: AsyncSes
     assert await process_count(db_session) == 0
 
 
+async def test_a_verifier_that_cannot_parse_the_body_keeps_the_row(
+    db_session: AsyncSession,
+) -> None:
+    """Section 8 stores first, so a failure after the insert has nothing left to roll back.
+
+    The adapter parses the body inside the signature call, which means a delivery of
+    broken JSON raised there, the request died as a 500 and the ingest went with it.
+    """
+    event_id = f"WH-{uuid.uuid4()}"
+    response = await deliver(
+        db_session,
+        settings=settings_for(webhooks_enabled=True, paypal_webhook_id="WH-LISTENER"),
+        verifier=StubVerifier(error=json.JSONDecodeError("broken", "<html>", 0)),
+        event_id=event_id,
+    )
+
+    assert response.status_code == 200, "an unparseable delivery is not our failure to answer"
+    stored = await row(db_session, event_id)
+    assert stored.verified is False
+    assert str(stored.status) == "RECEIVED", "the bytes PayPal sent are kept either way"
+    assert await process_count(db_session) == 0
+
+
 async def test_a_duplicate_delivery_is_stored_once_and_answered_again(
     db_session: AsyncSession,
 ) -> None:

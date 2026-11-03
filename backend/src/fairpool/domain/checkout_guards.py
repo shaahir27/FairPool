@@ -450,7 +450,8 @@ def _bo_04(facts: BuyerOrderFacts) -> str | None:
 
 
 def _bo_05(facts: BuyerOrderFacts) -> str | None:
-    # "definitive denial (status DENIED or definitive 4xx other than ORDER_NOT_APPROVED)"
+    # "definitive denial (authorization status DENIED, EXPIRED or VOIDED, or a
+    # definitive 4xx other than ORDER_NOT_APPROVED)" -- the CR-8 widening of BO-05.
     reason = _evidence(facts, "authorization", "approval")
     if reason:
         return reason

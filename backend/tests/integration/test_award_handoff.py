@@ -347,3 +347,63 @@ async def test_an_award_waits_for_a_lower_lot_to_be_decided(db_session: AsyncSes
     assert await lot_status(db_session, world.lot_id) == "CANCELLED"
     await auction.award(db_session, {"lot_id": str(second)})
     assert await lot_status(db_session, second) == "CANCELLED"
+
+
+async def test_a_lower_lot_past_bid_closed_releases_the_next_award(
+    db_session: AsyncSession,
+) -> None:
+    """LS-03 gates on "past BID_CLOSED", and a lot that reached checkout is past it.
+
+    The test above covers the requeue. This is the half that used to deadlock a pool: a
+    lower lot counted as decided only at AWARDED or CANCELLED, so once lot 1 opened its
+    checkout lot 2 requeued every two seconds for ever and its seats were never awarded.
+    """
+    world = await open_window(db_session, seats=3, min_seats=1, seated=2, waitlisted=0)
+    second = uuid4()
+    await db_session.execute(
+        text(
+            "INSERT INTO lots (id, pool_id, zone_id, lot_index, lot_order, seats, min_seats, "
+            "status, bid_open_at, bid_close_at) VALUES (:id, :pool, :zone, 1, 2, 3, 1, "
+            "'BID_CLOSED'::lot_status, :now, :now)"
+        ),
+        {"id": second, "pool": world.pool_id, "zone": ZONE_ID, "now": world.now},
+    )
+    await db_session.execute(
+        text("UPDATE lots SET status = 'CHECKOUT_OPEN'::lot_status WHERE id = :lot"),
+        {"lot": world.lot_id},
+    )
+    await db_session.flush()
+
+    await handlers(world).award(db_session, {"lot_id": str(second)})
+
+    assert await lot_status(db_session, second) == "CANCELLED", "no bid, so LS-04 decides it"
+    assert [job for job in world.ports.jobs.jobs if job.kind == "lot.award"] == []
+
+
+async def test_a_bid_with_no_applicable_tier_is_rejected_not_a_loser(
+    db_session: AsyncSession,
+) -> None:
+    """BS-06 says an R8 failure is a REJECTED with its reason; LOST is only for a loser.
+
+    ELIGIBLE (BS-07) means "all rules pass", so the award cannot mark a bid ELIGIBLE
+    before R8 and R9 have had their say. Both tiers start at three units and two seats
+    are seated, so no tier applies (``fairness-and-hashing.md`` section 10.3).
+    """
+    world = await open_window(db_session, seats=3, min_seats=1, seated=2, waitlisted=0)
+    bid_id = await confirmed_bid(
+        db_session,
+        world,
+        tiers=[{"min_qty": 3, "item_price_cents": 47_000}],
+        moq=1,
+        target_quantity=2,
+    )
+    await close_and_award(db_session, world)
+
+    bid = await db_session.get(Bid, bid_id)
+    assert bid is not None
+    assert str(bid.status) == str(BidStatus.REJECTED)
+    assert str(bid.reject_reason) == "R8_NO_FEASIBLE_TIER"
+    assert await lot_status(db_session, world.lot_id) == "CANCELLED"
+    assert [call.kind for call in world.ports.notifier.calls if call.kind == "bid.rejected"] == [
+        "bid.rejected"
+    ]

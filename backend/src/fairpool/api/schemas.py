@@ -312,6 +312,9 @@ class EntryStatusResponse(ResponseModel):
     offer: OfferRef | None = None
     vault_status: str | None = None
     vault_label: str | None = None
+    # CR-9: the buyer's own signed receipt, rebuilt from the stored rows. Optional so a
+    # response written before this field stays valid.
+    receipt: EntryReceipt | None = None
 
 
 class VaultStartRequest(StrictModel):

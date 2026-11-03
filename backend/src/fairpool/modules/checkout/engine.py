@@ -1016,15 +1016,12 @@ class CheckoutEngine:
             if kind == "lot.refill":
                 dedupe = f"refill:{lot.id}"
         else:
+            # No ``buyer_order`` effect carries a payload: ``job:void.run`` and
+            # ``job:refund.run`` are enqueued by ``failure.py`` with their own keys, and
+            # ``void_source`` there is what the vacancy rule reads (CR-8).
             payload = {"buyer_order_id": str(order.id)}
             concurrency = f"bo:{order.id}"
             dedupe = None
-            if kind == "void.run" and request.void_source is not None:
-                payload["reason"] = request.void_source
-            if kind == "refund.run":
-                if request.refund_seq is None:
-                    raise ApplicationError("INTEGRITY_ERROR")
-                payload["seq"] = request.refund_seq
         await self.jobs.enqueue(
             session, kind, payload, concurrency_key=concurrency, dedupe_key=dedupe
         )

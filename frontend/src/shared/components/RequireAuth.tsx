@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 
 import { Notice } from "./Notice";
 import { api } from "../api/client";
-import { resetSessionCache, sessionState } from "../lib/session";
+import { resetSessionCache, setAccount, sessionState } from "../lib/session";
 
 type GuardState = "checking" | "in" | "out" | "unreachable";
 
@@ -29,7 +29,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     let live = true;
     api
       .GET("/api/v1/me")
-      .then(({ response }) => {
+      .then(({ data, response }) => {
         if (!live) return;
         // Only a 401 says the cookie is dead. A 500, a proxy error or a refused
         // request says nothing about the session and must not read as signed out.
@@ -40,6 +40,20 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         }
         if (response.ok) {
           resetSessionCache("in");
+          // The shell shows who is signed in from this one answer rather than asking
+          // /me a second time for the same row. The payload is a boundary: a response
+          // without a name is recorded as "no account info" rather than passed on as
+          // something the shell can call string methods on.
+          const name = typeof data?.display_name === "string" ? data.display_name.trim() : "";
+          setAccount(
+            name
+              ? {
+                  display_name: name,
+                  role: typeof data?.role === "string" ? data.role : "",
+                  paypal_linked: data?.paypal_linked === true,
+                }
+              : null,
+          );
           setState("in");
           return;
         }

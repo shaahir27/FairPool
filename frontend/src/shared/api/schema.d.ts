@@ -752,10 +752,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Merchant Api Keys List */
+        /**
+         * Merchant Api Keys List
+         * @description Every key this merchant issued, newest last, with the hash left in the database.
+         */
         get: operations["merchant_api_keys_list"];
         put?: never;
-        /** Merchant Api Keys Create */
+        /**
+         * Merchant Api Keys Create
+         * @description Issue a key and show its secret here and only here (I14, FR-IG-04).
+         */
         post: operations["merchant_api_keys_create"];
         delete?: never;
         options?: never;
@@ -773,7 +779,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Merchant Api Keys Delete */
+        /**
+         * Merchant Api Keys Delete
+         * @description Revoke a key; a row that belongs to another merchant is not there (I11).
+         */
         delete: operations["merchant_api_keys_delete"];
         options?: never;
         head?: never;
@@ -2032,6 +2041,7 @@ export interface components {
             /** Entry Status */
             entry_status: string;
             offer?: components["schemas"]["OfferRef"] | null;
+            receipt?: components["schemas"]["EntryReceipt"] | null;
             /** Vault Label */
             vault_label?: string | null;
             /** Vault Status */
@@ -4714,7 +4724,7 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

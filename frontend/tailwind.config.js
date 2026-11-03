@@ -4,8 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
+        page: "rgb(var(--color-page) / <alpha-value>)",
         canvas: "rgb(var(--color-canvas) / <alpha-value>)",
         surface: "rgb(var(--color-surface) / <alpha-value>)",
+        card: "rgb(var(--color-card) / <alpha-value>)",
+        tint: "rgb(var(--color-tint) / <alpha-value>)",
+        "tint-line": "rgb(var(--color-tint-line) / <alpha-value>)",
+        field: "rgb(var(--color-brand-field) / <alpha-value>)",
+        "field-band": "rgb(var(--color-field-band) / <alpha-value>)",
+        "on-field": "rgb(var(--color-on-field) / <alpha-value>)",
+        "field-muted": "rgb(var(--color-field-muted) / <alpha-value>)",
         ink: "rgb(var(--color-ink) / <alpha-value>)",
         muted: "rgb(var(--color-muted) / <alpha-value>)",
         line: "rgb(var(--color-line) / <alpha-value>)",
@@ -13,6 +21,7 @@ export default {
           DEFAULT: "rgb(var(--color-accent) / <alpha-value>)",
           strong: "rgb(var(--color-accent-strong) / <alpha-value>)",
           soft: "rgb(var(--color-accent-soft) / <alpha-value>)",
+          tint: "rgb(var(--color-coral-tint) / <alpha-value>)",
         },
         warn: {
           DEFAULT: "rgb(var(--color-warn) / <alpha-value>)",
