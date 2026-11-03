@@ -412,7 +412,7 @@ Free-tier limits: the Render API sleeps after 15 minutes idle and there is no fr
 - [docs/progress.md](docs/progress.md) — current status, gates and open questions
 - [AGENTS.md](AGENTS.md) — rules for AI coding agents working in this repository
 
-The contracts in `docs/contracts/` are tagged `contracts-v1.5` on `main`. CR-4's `contracts-v1.4` was never tagged, and CR-8 and CR-9 carry no tag of their own: CR-9 says so in the change log, and `contracts-v1.6` moves only when the Phase 6 gate is claimed.
+The contracts in `docs/contracts/` are tagged through `contracts-v1.6` on `main`. That tag is the first to carry CR-8's guard widening and CR-9's receipt read-back: CR-9's own change-log entry deliberately claimed no tag of its own, so it rides on the gate tag.
 
 ---
 
