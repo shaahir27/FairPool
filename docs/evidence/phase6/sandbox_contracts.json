@@ -1,0 +1,4 @@
+{
+  "status": "pending",
+  "note": "C-01 to C-07 and C-14 to C-15 are sandbox-marked and skip when CI is set or the credentials are unexported, so CI never reports them. make test-sandbox must be run by the owner and the result written back here."
+}

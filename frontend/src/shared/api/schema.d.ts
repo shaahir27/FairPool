@@ -285,7 +285,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Admin Dead Letter */
+        /**
+         * Admin Dead Letter
+         * @description Events that arrived and were never applied: unmappable or refused.
+         *
+         *     ``api.md`` names the route but fixes no body, so this returns what the row holds and
+         *     nothing else: no raw body, because it can carry payer detail an operator does not
+         *     need to see here (I14).
+         */
         get: operations["admin_dead_letter"];
         put?: never;
         post?: never;
@@ -304,7 +311,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Admin Webhook Retry */
+        /**
+         * Admin Webhook Retry
+         * @description Re-arm one event: the dead letter is a mapping gap, not a bad delivery.
+         *
+         *     Once a later capture stores the resource the event named, the same row maps and the
+         *     order gets its GET. Only an admin may re-drive it, and the actor is in the audit trail.
+         */
         post: operations["admin_webhook_retry"];
         delete?: never;
         options?: never;

@@ -69,6 +69,7 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
         "refund.run",
         "order.resolve",
         "reconciler.sweep",
+        "webhook.process",
     }
 )
 
@@ -303,6 +304,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     from fairpool.modules.reconciler.resolve import Reconciler
     from fairpool.modules.search.handlers import search_index_handler
     from fairpool.modules.search.indexer import build_search_indexer
+    from fairpool.modules.webhooks.handlers import WebhookProcessor
 
     clock, audit, jobs = DbClock(), PostgresAuditLog(), PostgresJobQueue()
     notifier = PostgresNotifier()
@@ -343,6 +345,16 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     async def sweep(session, payload) -> None:
         await reconciler.sweep(session, payload)
 
+    async def settle_order(session: Any, buyer_order_id: UUID) -> None:
+        """A webhook's "read this again": the resolve handler, which owns the GET."""
+        await reconciler.resolve(session, {"buyer_order_id": str(buyer_order_id)})
+
+    async def approve_order(session: Any, buyer_order_id: UUID) -> None:
+        """``CHECKOUT.ORDER.APPROVED``: the same FR-CK-05 checks the return URL runs."""
+        await surface.authorize.approved(session, buyer_order_id=buyer_order_id)
+
+    webhooks = WebhookProcessor(clock=clock, jobs=jobs, settle=settle_order, approve=approve_order)
+
     return {
         "pool.open": pools.open,
         "pool.close": close.close,
@@ -366,6 +378,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "refund.run": surface.failure.run_refund,
         "order.resolve": reconciler.resolve,
         "reconciler.sweep": sweep,
+        "webhook.process": webhooks.process,
     }
 
 

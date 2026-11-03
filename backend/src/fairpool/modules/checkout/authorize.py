@@ -83,6 +83,8 @@ class AuthorizeGateway(Protocol):
 
     async def authorize_order(self, paypal_order_id: str, *, request_key: str) -> GatewayOrder: ...
 
+    async def get_authorization(self, auth_id: str) -> GatewayAuthorization: ...
+
     async def void_authorization(self, auth_id: str) -> None: ...
 
 
@@ -428,28 +430,26 @@ class CheckoutAuthorizeHandlers:
         if status != str(BuyerOrderStatus.AUTHORIZING):
             # AUTHORIZED, terminal or not yet approved: nothing this trigger may do.
             return
+        aged = False
         if await self.engine.recheck(session, buyer_order_id=buyer_order_id, transition_id="BO-03"):
             # I7: every authorize call re-proves the seat under the row lock, including
             # a retry, so a seat released while a previous attempt timed out cannot be
-            # authorized now. Nothing is called and the row keeps its state.
-            return
+            # authorized now. Nothing is called and the row keeps its state -- until the
+            # pool's age guard has passed, when the seat is settled by what PayPal says
+            # about it instead of staying locked for ever (CR-8 note 1, Q-2026-11-01-18).
+            aged = await self._aged_past_guard(session, order)
+            if not aged:
+                return
         expected = int(order.total_cents)
         try:
-            result = await self.router.gateway.authorize_order(
-                record.paypal_order_id, request_key=f"auth:{buyer_order_id}"
+            authorization = await self._observe_authorization(
+                session, buyer_order_id=buyer_order_id, record=record, aged=aged
             )
         except PaymentError as exc:
             await self._authorize_error(session, buyer_order_id, record, exc)
             return
-        if not result.authorizations:
-            # No authorization object is an unknown outcome, never a success (V8).
-            logger.error(
-                "checkout.authorize.no_resource buyer_order_id=%s paypal_order_id=%s",
-                buyer_order_id,
-                record.paypal_order_id,
-            )
+        if authorization is None:
             return
-        authorization = result.authorizations[0]
         await self._record_authorization(session, buyer_order_id, record, authorization)
         observation = Observation(
             "authorization",
@@ -579,6 +579,58 @@ class CheckoutAuthorizeHandlers:
             # the order keeps the state the contract gives it (F5).
             return False
         return True
+
+    async def _observe_authorization(
+        self,
+        session: AsyncSession,
+        *,
+        buyer_order_id: UUID,
+        record: PayPalOrder,
+        aged: bool,
+    ) -> GatewayAuthorization | None:
+        """What the authorization actually is: a GET when its id is stored, else the replay.
+
+        S2 proved an authorize replays safely under the same ``auth:{buyer_order_id}``
+        key, so an aged seat is resolved by evidence and never under a second identity
+        (I9). The GET comes first when the row exists, because it cannot bring something
+        into being the way a write could.
+        """
+        if aged:
+            stored = await session.scalar(
+                select(PayPalAuthorization)
+                .where(PayPalAuthorization.buyer_order_id == buyer_order_id)
+                .order_by(PayPalAuthorization.created_at.desc())
+                .limit(1)
+            )
+            if stored is not None:
+                return await self.router.gateway.get_authorization(stored.paypal_auth_id)
+        result = await self.router.gateway.authorize_order(
+            record.paypal_order_id, request_key=f"auth:{buyer_order_id}"
+        )
+        if not result.authorizations:
+            # No authorization object is an unknown outcome, never a success (V8).
+            logger.error(
+                "checkout.authorize.no_resource buyer_order_id=%s paypal_order_id=%s",
+                buyer_order_id,
+                record.paypal_order_id,
+            )
+            return None
+        return result.authorizations[0]
+
+    async def _aged_past_guard(self, session: AsyncSession, order: BuyerOrder) -> bool:
+        """True once the seat has sat in AUTHORIZING past its pool's age guard (I15).
+
+        ``authorization_age_guard_s`` is the timeline value ``pool_config.py`` validates
+        below 72 hours; it existed as configuration only, which is why a seat whose
+        authorization had already expired at PayPal stayed locked.
+        """
+        if order.updated_at is None:
+            return False
+        timeline = await session.scalar(
+            select(Pool.timeline).join(Lot, Lot.pool_id == Pool.id).where(Lot.id == order.lot_id)
+        )
+        guard = int((timeline or {}).get("authorization_age_guard_s", 216_000))
+        return await self.clock.db_wall_now(session) >= order.updated_at + timedelta(seconds=guard)
 
     async def _authorize_error(
         self,

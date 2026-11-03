@@ -1,0 +1,10 @@
+{
+  "status": "pending",
+  "blocks": [
+    "PAYPAL_WEBHOOK_ID is set locally but WEBHOOKS_ENABLED is false, so no automated path verifies a signature",
+    "C-15 needs one captured real delivery: set FAIRPOOL_WEBHOOK_EVIDENCE_FILE and FAIRPOOL_WEBHOOK_HEADER_EVIDENCE_FILE, then run make test-sandbox",
+    "S5 registered the listener and verified a simulate-event only; AUTHORIZATION.VOIDED, CAPTURE.PENDING and CAPTURE.DENIED still cannot be produced"
+  ],
+  "proved_locally": "tests/integration/test_webhook_ingest.py and tests/faults/test_webhooks_f02_f04.py: store-first, verification gate, duplicate absorbed, unmappable dead-lettered, F2/F3/F4.",
+  "note": "IT-6 accepts the alternative its own text names: with webhooks off, the reconciler is the only path, and it is proven locally."
+}

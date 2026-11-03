@@ -1,0 +1,10 @@
+{
+  "status": "pending",
+  "requires": [
+    "export PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and SINGLE_SELLER_EMAIL for the app-owning FairPool Sandbox app",
+    "a US personal buyer that can approve at the Sandbox page",
+    "make test-sandbox-interactive for C-08, C-09, C-10 and the ladder leg of C-14",
+    "one lot that funds and a second that misses its minimum and closes at net zero, driven through the real router"
+  ],
+  "note": "The sweep and the failure path are already wired to the real gateway (wiring.checkout_services); this file is the run, not the code."
+}

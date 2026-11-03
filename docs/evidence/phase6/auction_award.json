@@ -1,0 +1,5 @@
+{
+  "status": "passed",
+  "note": "T06A06, T06B01 and T06A05 locally: tests/integration/test_award_handoff.py (LS-01 to LS-04, PS-06, award snapshot with the N8 stamps, priced-out release, no-bid cancellation, unconfirmed rejection, the force-award no-op and the lot_order requeue), tests/integration/test_quote_confirm.py (BS-01 to BS-05, RECONCILE holds, warnings never move state, ungrounded flag is a hold, F20 integration half), tests/unit/test_payload_levels.py and tests/unit/test_award_lock_key_matches_checkout_lane.py.",
+  "does_not_prove": "An award from real bids on the Sandbox: that leg of IT-6 needs the live run recorded in it6_sandbox.json."
+}

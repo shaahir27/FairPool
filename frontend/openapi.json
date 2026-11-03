@@ -5305,6 +5305,7 @@
     },
     "/api/v1/admin/webhooks/dead-letter": {
       "get": {
+        "description": "Events that arrived and were never applied: unmappable or refused.\n\n``api.md`` names the route but fixes no body, so this returns what the row holds and\nnothing else: no raw body, because it can carry payer detail an operator does not\nneed to see here (I14).",
         "operationId": "admin_dead_letter",
         "parameters": [
           {
@@ -5354,6 +5355,7 @@
     },
     "/api/v1/admin/webhooks/{event_id}/retry": {
       "post": {
+        "description": "Re-arm one event: the dead letter is a mapping gap, not a bad delivery.\n\nOnce a later capture stores the resource the event named, the same row maps and the\norder gets its GET. Only an admin may re-drive it, and the actor is in the audit trail.",
         "operationId": "admin_webhook_retry",
         "parameters": [
           {

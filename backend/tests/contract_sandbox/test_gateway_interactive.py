@@ -132,3 +132,37 @@ async def test_c09_authorize_capture_then_refund(gateway: RestPayPalGateway) -> 
     read = await gateway.get_refund(refund.id)
     assert read.status == "COMPLETED"
     assert read.amount_cents == 100
+
+
+async def test_c10_replay_authorize_capture_and_refund(gateway: RestPayPalGateway) -> None:
+    """C-10 (V10, S2): every money key replays the original, so a retry cannot pay twice.
+
+    This is the leg IT-6 depends on: the funding sweep re-drives ``order.capture`` after a
+    timeout, and the only thing that makes that safe is that the same ``cap:`` key returns
+    the same capture instead of creating another one. Refund replays too; void does not,
+    which is why the adapter GETs first (S2).
+    """
+    order_id = await approved_order(gateway, gateway.get_order, "c10")
+    first = await gateway.authorize_order(order_id, request_key=f"c10:{order_id}")
+    replay = await gateway.authorize_order(order_id, request_key=f"c10:{order_id}")
+    assert [a.id for a in first.authorizations] == [a.id for a in replay.authorizations], (
+        "authorize replayed under the same key into a second authorization"
+    )
+    authorization = first.authorizations[0]
+
+    capture = await gateway.capture_authorization(
+        authorization.id, amount_cents=100, request_key=f"cap:{authorization.id}"
+    )
+    recaptured = await gateway.capture_authorization(
+        authorization.id, amount_cents=100, request_key=f"cap:{authorization.id}"
+    )
+    assert capture.id == recaptured.id, "a replayed capture key made a second capture"
+
+    if capture.status == "COMPLETED":
+        refund = await gateway.refund_capture(
+            capture.id, amount_cents=100, request_key=f"refund:{capture.id}:1"
+        )
+        refund_again = await gateway.refund_capture(
+            capture.id, amount_cents=100, request_key=f"refund:{capture.id}:1"
+        )
+        assert refund.id == refund_again.id, "a replayed refund key made a second refund"

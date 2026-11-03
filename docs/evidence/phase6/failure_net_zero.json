@@ -1,0 +1,4 @@
+{
+  "status": "pending",
+  "note": "The FAILING path is proven locally (test_failure_path.py, F9, F24, and F10 for the seat that used to hang). A real refund of a real capture, and whether PayPal keeps its fee on a refund, is an owner run."
+}

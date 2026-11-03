@@ -36,6 +36,7 @@ from fairpool.modules.checkout.funding import apply_lot_transition, lock_lot
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.notify.service import PostgresNotifier
 from fairpool.modules.reconciler.resolve import Reconciler
+from fairpool.modules.webhooks.handlers import retry_dead_letter
 
 router = APIRouter()
 
@@ -260,8 +261,39 @@ async def admin_reconciler_run(
     operation_id="admin_dead_letter",
     dependencies=[Security(require_admin)],
 )
-async def admin_dead_letter() -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_dead_letter(db: AsyncSession = Depends(database_session)) -> JSONResponse:
+    """Events that arrived and were never applied: unmappable or refused.
+
+    ``api.md`` names the route but fixes no body, so this returns what the row holds and
+    nothing else: no raw body, because it can carry payer detail an operator does not
+    need to see here (I14).
+    """
+    rows = (
+        await db.execute(
+            text(
+                "SELECT id, paypal_event_id, event_type, status::text, verified, "
+                "verification_detail, received_at FROM webhook_events "
+                "WHERE status IN ('DEAD_LETTER','REJECTED') ORDER BY received_at, id LIMIT 200"
+            )
+        )
+    ).all()
+    return JSONResponse(
+        status_code=200,
+        content={
+            "events": [
+                {
+                    "id": str(row[0]),
+                    "paypal_event_id": str(row[1]),
+                    "event_type": str(row[2]),
+                    "status": str(row[3]),
+                    "verified": bool(row[4]),
+                    "verification_detail": row[5],
+                    "received_at": row[6].isoformat(),
+                }
+                for row in rows
+            ]
+        },
+    )
 
 
 @router.post(
@@ -269,8 +301,19 @@ async def admin_dead_letter() -> None:
     operation_id="admin_webhook_retry",
     dependencies=[Security(require_admin)],
 )
-async def admin_webhook_retry(event_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_webhook_retry(
+    event_id: UUID,
+    principal: Annotated[Principal, Security(require_admin)],
+    db: AsyncSession = Depends(database_session),
+) -> JSONResponse:
+    """Re-arm one event: the dead letter is a mapping gap, not a bad delivery.
+
+    Once a later capture stores the resource the event named, the same row maps and the
+    order gets its GET. Only an admin may re-drive it, and the actor is in the audit trail.
+    """
+    del principal  # The dependency is the check; the route writes no audit row of its own.
+    await retry_dead_letter(db, DbClock(), PostgresJobQueue(), event_id=event_id)
+    return JSONResponse(status_code=202, content={"enqueued": True})
 
 
 @router.get(

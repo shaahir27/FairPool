@@ -1,0 +1,5 @@
+{
+  "status": "passed",
+  "revision": "0006",
+  "note": "Phase 6 adds no migration: webhook_events, merchant_api_keys, awards and buyer_orders.shipping_enc are all in 0001-0006 already. alembic upgrade head, alembic check and tools/check_migrations.py run on the loopback fairpool_test database."
+}

@@ -33,7 +33,6 @@ PORTS_DOC = ROOT / "docs/contracts/domain-ports.md"
 #: The kinds a later phase owns. None of them may be registered yet.
 LATER_PHASES = {
     "sim.run",
-    "webhook.process",
     "shipments.submit",
 }
 
