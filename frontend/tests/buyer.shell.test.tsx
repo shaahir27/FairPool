@@ -38,6 +38,17 @@ beforeEach(() => {
 });
 
 describe("the buyer workspace shell", () => {
+  it("exposes shopping destinations separately from mobile account settings", () => {
+    render(<MemoryRouter initialEntries={["/orders"]}>
+      <AreaLayout workspace="Buyer workspace" tabs={[{ to: "/", label: "Discover and Join", end: true }, { to: "/my-pools", label: "My Pools", end: true }, { to: "/orders", label: "Orders", end: true }]} utilityLinks={[{ to: "/addresses", label: "Delivery addresses" }]}><h1>Orders</h1></AreaLayout>
+    </MemoryRouter>);
+    const shopping = screen.getByRole("navigation", { name: "Mobile shopping navigation" });
+    expect(within(shopping).getByRole("link", { name: "Orders" })).toHaveAttribute("aria-current", "page");
+    expect(within(shopping).getAllByRole("link")).toHaveLength(3);
+    const settings = screen.getByRole("navigation", { name: "Mobile buyer navigation", hidden: true });
+    expect(within(settings).getByText("Delivery addresses")).toBeInTheDocument();
+    expect(within(settings).queryByText("Orders")).toBeNull();
+  });
   it("keeps navigation visible while the next page downloads", async () => {
     let finish!: (value: { default: () => React.JSX.Element }) => void;
     const PendingPage = lazy(() => new Promise<{ default: () => React.JSX.Element }>((resolve) => { finish = resolve; }));

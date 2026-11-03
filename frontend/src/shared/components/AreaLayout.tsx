@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Brand } from "./Brand";
 import { HonestyLabels } from "./HonestyLabels";
 import { Icon } from "./Icon";
+import { LoadingScreen } from "./LoadingScreen";
 import { api } from "../api/client";
 import { setCsrfToken } from "../lib/csrf";
 import { accountState, resetSessionCache } from "../lib/session";
@@ -14,7 +15,7 @@ export type AreaUtilityLink = { to: string; label: string };
 type AreaLayoutProps = { workspace: string; tabs: readonly AreaTab[]; utilityLinks?: readonly AreaUtilityLink[]; children?: ReactNode };
 
 function WorkspaceContent({ children }: { children?: ReactNode }) {
-  return <Suspense fallback={<div className="workspace-loading" role="status" aria-label="Loading workspace page"><p>Loading your page…</p><div className="skeleton" /></div>}>
+  return <Suspense fallback={<LoadingScreen label="Loading workspace page" compact />}>
     {children ?? <Outlet />}
   </Suspense>;
 }
@@ -110,9 +111,10 @@ export function AreaLayout({ workspace, tabs, utilityLinks = [], children }: Are
             <div className="account-mobile-brand"><Link to="/" aria-label="FairPool home"><Brand /></Link></div>
             <span className="account-context">{account ? `${account.display_name}'s account` : "Your account"}</span>
             <div className="account-topbar-right"><HonestyLabels kinds={["sandbox"]} />
-              <details className="account-mobile-menu" onClick={(event) => { if ((event.target as Element).closest("a")) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary><Icon name="menu" /><span className="sr-only">Open account navigation</span></summary><nav aria-label="Mobile buyer navigation">{links}{utilityLinks.map((link) => <Link key={link.to} className="account-nav-link" to={link.to}>{link.label}</Link>)}<SignOut /></nav></details>
+              <details className="account-mobile-menu" onClick={(event) => { if ((event.target as Element).closest("a")) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary aria-label="Open account navigation"><Icon name="user" /><span>Account</span></summary><nav aria-label="Mobile buyer navigation"><p className="mobile-menu-title">Your account</p>{utilityLinks.map((link) => <Link key={link.to} className="account-nav-link" to={link.to}>{link.label}</Link>)}<SignOut /></nav></details>
             </div>
           </header>
+          <nav className="mobile-primary-navigation" aria-label="Mobile shopping navigation">{links}</nav>
           <main id="main" className="commerce-content"><WorkspaceContent>{children}</WorkspaceContent></main>
         </div>
       </div>

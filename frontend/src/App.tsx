@@ -1,7 +1,7 @@
-import { Component, lazy, Suspense, type ReactNode } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Component, lazy, Suspense, useEffect, type ReactNode } from "react";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 
-import { RequireAuth } from "./shared";
+import { LoadingScreen, RequireAuth } from "./shared";
 
 // Load a workspace when it is visited, instead of downloading every screen at login.
 const AuditPage = lazy(() => import("./audit").then((m) => ({ default: m.AuditPage })));
@@ -46,9 +46,21 @@ export class RouteLoadBoundary extends Component<{ children: ReactNode }, { fail
  * Workspace routes plus the browser-bound PayPal signup steps (CR-6).
  */
 export function AppRoutes() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    // Download the requested buyer screen while /me validates the session.
+    // This warms code only; private data still waits for RequireAuth.
+    if (pathname === "/" || pathname.startsWith("/pools/") || pathname.startsWith("/orders") || pathname === "/my-pools") {
+      void import("./buyer/BuyerLayout").catch(() => {});
+      const page = pathname === "/" ? import("./buyer/discover/DiscoverPage")
+        : pathname.startsWith("/pools/") ? import("./buyer/lobby/PoolPage")
+        : import("./buyer/pages");
+      void page.catch(() => {});
+    }
+  }, [pathname]);
   return (
     <RouteLoadBoundary>
-    <Suspense fallback={<div className="route-loading" role="status" aria-label="Loading page"><p>Opening FairPool…</p><div className="skeleton" /></div>}>
+    <Suspense fallback={<LoadingScreen label="Loading page" />}>
     <Routes>
       <Route path="/audit/:poolId" element={<AuditPage />} />
       <Route path="/login" element={<LoginPage />} />

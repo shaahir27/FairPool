@@ -111,6 +111,8 @@ export function PoolPage() {
 
   const [entry, setEntry] = useState<EntryStatus | null>(null);
   const [entryRevision, setEntryRevision] = useState(0);
+  const [entryPoolId, setEntryPoolId] = useState<string | null>(null);
+  const [entryError, setEntryError] = useState(false);
   const [serverNow, setServerNow] = useState<string | null>(null);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
   const [liveLots, setLiveLots] = useState<Record<string, string>>({});
@@ -151,16 +153,24 @@ export function PoolPage() {
   useEffect(() => {
     if (!poolId) return;
     let live = true;
+    setEntryPoolId(null);
+    setEntryError(false);
     setPending(readPendingRequest(poolId));
     void api
       .GET("/api/v1/pools/{pool_id}/entries/me", { params: { path: { pool_id: poolId } } })
-      .then(({ data, error: failure }) => {
+      .then(({ data, error: failure, response }) => {
         if (!live) return;
         // 404 is the honest answer for "you have no entry here", not a failed load.
-        setEntry(failure || !data ? null : data);
+        const absent = response?.status === 404 || envelope(failure).code === "NOT_FOUND";
+        if (data && !failure) setEntry(data);
+        else if (absent) setEntry(null);
+        else setEntryError(true);
       })
       .catch(() => {
-        if (live) setEntry(null);
+        if (live) setEntryError(true);
+      })
+      .finally(() => {
+        if (live) setEntryPoolId(poolId);
       });
     return () => {
       live = false;
@@ -250,7 +260,7 @@ export function PoolPage() {
       </section>
     );
   }
-  if (!detail) {
+  if (!detail || detail.pool_id !== poolId) {
     return (
       <section
         className="shop-panel shop-panel-pad"
@@ -264,12 +274,13 @@ export function PoolPage() {
     );
   }
 
-  const receipt = entry?.receipt ?? null;
+  const receipt = entryPoolId === poolId && !entryError ? entry?.receipt ?? null : null;
   if (showReceipt && receipt) {
     return (
       <EntryReceiptPage
         receipt={receipt}
         poolTitle={detail.title}
+        productDetails={{ condition: detail.condition, variant: detail.variant ?? null, entryStatus: entry?.entry_status ?? "Not available" }}
         onBack={() => setShowReceipt(false)}
       />
     );
@@ -317,8 +328,8 @@ export function PoolPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_356px]">
-        <div className="grid min-w-0 gap-5">
+      <div className="pool-page-sections">
+        <div className="pool-information">
           <section className="shop-panel lobby-product" aria-label="Product overview">
             <ProductArt title={detail.title} />
             <div>
@@ -333,6 +344,30 @@ export function PoolPage() {
             </div>
           </section>
           <StageStrip status={status} />
+        <section className="pool-entry-section" aria-label="Your place in this pool">
+          {entryPoolId !== poolId ? <section className="shop-panel shop-panel-pad" role="status" aria-label="Checking your entry" aria-busy="true"><p>Checking your entry…</p><div className="skeleton mt-4 h-10" /></section>
+          : entryError ? <section className="shop-panel shop-panel-pad"><Notice kind="error">We couldn’t check your entry. Try again before joining.</Notice><button type="button" className="button-secondary mt-4" onClick={() => setEntryRevision((value) => value + 1)}>Retry entry check</button></section>
+          : <JoinPanel
+            detail={detail}
+            entry={entry}
+            pending={pending}
+            status={status}
+            windowPassed={windowPassed}
+            onCleared={() => setPending(null)}
+            onPending={(value) => setPending(value)}
+            onViewReceipt={() => setShowReceipt(true)}
+            onJoined={() => {
+              setPending(null);
+              setEntryRevision((value) => value + 1);
+              setShowReceipt(false);
+            }}
+            onWithdrew={() => {
+              setShowReceipt(false);
+              setEntryRevision((value) => value + 1);
+            }}
+          />}
+          <TrustRow />
+        </section>
 
           <section className="shop-panel" aria-labelledby="lobby-timeline">
             <div className="shop-panel-pad">
@@ -379,28 +414,7 @@ export function PoolPage() {
           <RulesPanel poolId={detail.pool_id} rulesHash={detail.rules_hash ?? null} />
         </div>
 
-        <aside className="grid min-w-0 gap-5" aria-label="Your place in this pool">
-          <JoinPanel
-            detail={detail}
-            entry={entry}
-            pending={pending}
-            status={status}
-            windowPassed={windowPassed}
-            onCleared={() => setPending(null)}
-            onPending={(value) => setPending(value)}
-            onViewReceipt={() => setShowReceipt(true)}
-            onJoined={() => {
-              setPending(null);
-              setEntryRevision((value) => value + 1);
-              setShowReceipt(true);
-            }}
-            onWithdrew={() => {
-              setShowReceipt(false);
-              setEntryRevision((value) => value + 1);
-            }}
-          />
-          <TrustRow />
-        </aside>
+
       </div>
     </section>
   );
@@ -410,7 +424,7 @@ export function PoolPage() {
 function StageStrip({ status }: { status: string }) {
   if (status === "CANCELLED") {
     return (
-      <section className="shop-panel shop-panel-pad" aria-label="Pool outcome">
+      <section className="shop-panel shop-panel-pad pool-stage-panel" aria-label="Pool outcome">
         <h2>This pool was cancelled</h2>
         <p className="shop-copy mt-1">
           No lots will be awarded. A pool can only be cancelled while no buyer order exists, so
@@ -421,7 +435,7 @@ function StageStrip({ status }: { status: string }) {
   }
   const current = stageIndex(status);
   return (
-    <section className="shop-panel" aria-labelledby="lobby-stages">
+    <section className="shop-panel pool-stage-panel" aria-labelledby="lobby-stages">
       <div className="shop-panel-pad">
         <h2 id="lobby-stages">What happens next</h2>
       </div>

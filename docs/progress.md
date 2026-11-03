@@ -939,3 +939,11 @@ in must-fix. Four small items it then raised - the narrowed duplicate-recovery g
 the zero-evidence open question, an over-wide ValueError log and a dead LOST-stamp loop
 that bought six deleted lines - are applied after that verdict, and the evidence file says
 plainly that no agent has read them since.
+
+### T06B05 usability and loading follow-up (2026-11-03)
+
+The buyer pool page now keeps product information first and places the entry controls below the product and stages, rather than in a narrow side column. Joining stays on the pool page; opening the receipt is an explicit action. The receipt has grouped references/account details, a product row, a separate joining-fee summary, and download/print controls below the document. The PDF is an entry acknowledgement, not evidence of a purchase payment; signed proof remains an unchanged JSON download. Unsupported font characters refuse PDF export and offer Print instead of losing a buyer's name.
+
+Mobile shopping tabs are separate from the labeled Account menu. The desktop rail is compact, request examples are shorter, and shared loading screens use transform-only motion with a reduced-motion alternative. Entry checks now distinguish loading, absence and failure; only a confirmed absence offers joining. Buyer page code downloads during the session check, and versioned static JS/CSS can be cached while HTML revalidates.
+
+Validation: `make verify` passed for the backend/static-serving and initial frontend changes; the latest UI refinements passed all 115 frontend tests, production build/typecheck and lint. Named regression checks are in `lobby.behavior.test.tsx`, `receipt.behavior.test.tsx`, `receipt.pdf.test.ts`, `buyer.shell.test.tsx` and `test_web_serving.py`. The generated sample PDF was rendered and visually inspected. Browser screenshots and authenticated hosted performance profiling were unavailable; public HTTP timing was measured without credentials. Independent review covers correctness and the font fallback; deployment verification is recorded in the pull request.
