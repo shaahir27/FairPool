@@ -295,8 +295,8 @@ jobs:
           done
           docker compose --env-file .env -f deploy/docker-compose.yml logs api
           exit 1
-      - name: Check frontend placeholder
-        run: curl -fsS http://localhost:5173/ | grep -qi "placeholder"
+      - name: Check the frontend serves
+        run: curl -fsS http://localhost:5173/ | grep -qi 'id="root"'
       - name: Stop containers
         if: always()
         run: docker compose --env-file .env -f deploy/docker-compose.yml down -v
