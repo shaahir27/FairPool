@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.domain import hashing
 from fairpool.fakes.audit import FakeAuditLog
 from fairpool.fakes.clock import FakeClock
+from fairpool.fakes.jobs import FakeJobQueue
 from fairpool.infra.clock import DbClock
 from fairpool.modules.allocation.read_service import LotViewDetail, PostgresAllocationRead
 from fairpool.modules.allocation.service import AllocationService
@@ -163,7 +164,7 @@ async def run_allocate(
     session: AsyncSession, pool_id: UUID
 ) -> tuple[AllocationService, FakeAuditLog]:
     audit = FakeAuditLog()
-    service = AllocationService(FakeClock(), audit)
+    service = AllocationService(FakeClock(), audit, FakeJobQueue())
     await service.allocate(session, {"pool_id": str(pool_id)})
     return service, audit
 

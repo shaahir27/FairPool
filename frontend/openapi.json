@@ -7188,7 +7188,7 @@
     },
     "/api/v1/merchant/bids/{bid_id}/confirm": {
       "post": {
-        "description": "Confirm the current revision; a stale revision is a validation error.",
+        "description": "Confirm the current revision, then reconcile it in the same transaction.\n\nThe confirm is BS-02/03/05 and the reconciliation is BS-04: both are written before\nthe commit, so a merchant never sees a CONFIRMED bid that the flags already overturn.",
         "operationId": "merchant_bid_confirm",
         "parameters": [
           {
@@ -7578,6 +7578,7 @@
     },
     "/api/v1/merchant/lots/{lot_id}/quote": {
       "post": {
+        "description": "Parse a pasted quote into a PROPOSED revision the merchant must confirm.\n\nNothing stored here can enter the auction: an unconfirmed revision is rejected at\naward (R1, BS-11), and the fields the quote did not state stay empty to be filled\n(``ai-schemas.md`` section 3).",
         "operationId": "merchant_quote",
         "parameters": [
           {

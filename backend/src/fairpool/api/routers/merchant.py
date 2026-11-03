@@ -2,24 +2,51 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fairpool.adapters.ai.client import PROMPT_VERSION, AIUnavailable
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_merchant, require_session
-from fairpool.db.models.auction import Merchant
+from fairpool.db.models.auction import BidRevision, Merchant
+from fairpool.db.models.catalog import Pool
+from fairpool.db.models.pools import Lot
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.modules.auction.bids import BidService
+from fairpool.modules.auction.quote import QuoteService
+from fairpool.modules.auction.reconcile import OfferReconciler
 from fairpool.modules.identity.service import Principal
+from fairpool.modules.intake.run_log import PostgresAiRunLogger
 from fairpool.modules.merchants.profile import MerchantProfileService
+from fairpool.modules.notify.service import PostgresNotifier
 from fairpool.modules.pools.receipts import signing_seed
+from fairpool.wiring import ai_client
 
 router = APIRouter()
+_MISSING = object()
+
+
+def _auction_ai(request: Request) -> Any | None:
+    """The model behind quote parsing and reconciliation, or ``None`` for the fallback.
+
+    ``app.state.auction_ai`` is the test seam, exactly as intake has one; otherwise
+    ``wiring.ai_client`` decides from ``AI_ENABLED``. A provider that is off does not
+    fail a merchant: the quote route answers ``FEATURE_DISABLED`` and a confirmed bid
+    with free text waits for ops review (``ai-schemas.md`` section 4).
+    """
+    injected = getattr(request.app.state, "auction_ai", _MISSING)
+    if injected is not _MISSING:
+        return injected  # type: ignore[no-any-return]
+    settings = request.app.state.settings
+    try:
+        return ai_client(settings)
+    except AIUnavailable:
+        return None
 
 
 @router.post(
@@ -75,10 +102,29 @@ async def merchant_lots(q: str | None = Query(None)) -> None:
     "/api/v1/merchant/lots/{lot_id}/quote",
     response_model=schemas.QuoteResponse,
     operation_id="merchant_quote",
-    dependencies=[Security(require_merchant)],
 )
-async def merchant_quote(lot_id: UUID, payload: schemas.QuoteRequest) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def merchant_quote(
+    lot_id: UUID,
+    payload: schemas.QuoteRequest,
+    request: Request,
+    principal: Annotated[Principal, Security(require_merchant)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+) -> schemas.QuoteResponse:
+    """Parse a pasted quote into a PROPOSED revision the merchant must confirm.
+
+    Nothing stored here can enter the auction: an unconfirmed revision is rejected at
+    award (R1, BS-11), and the fields the quote did not state stay empty to be filled
+    (``ai-schemas.md`` section 3).
+    """
+    service = _quote_service(request)
+    result = await service.propose(
+        db,
+        merchant_id=await _merchant_id(db, principal),
+        lot_id=lot_id,
+        quote_text=payload.quote_text,
+    )
+    await db.commit()
+    return schemas.QuoteResponse(**result)
 
 
 async def _merchant_id(db: AsyncSession, principal: Principal) -> UUID:
@@ -95,6 +141,34 @@ def _bid_service(request: Request) -> BidService:
         audit=PostgresAuditLog(),
         seed=signing_seed(settings.receipt_signing_key.get_secret_value()),
         flat_delivered=settings.bid_pricing_mode == "flat_delivered",
+    )
+
+
+def _quote_service(request: Request) -> QuoteService:
+    """The paste-a-quote helper: it proposes, the merchant confirms (DEP-2)."""
+    settings = request.app.state.settings
+    return QuoteService(
+        clock=DbClock(),
+        audit=PostgresAuditLog(),
+        run_logger=PostgresAiRunLogger(),
+        ai=_auction_ai(request),
+        model=settings.ai_model_parse,
+        prompt_version=PROMPT_VERSION,
+        signing_seed=signing_seed(settings.receipt_signing_key.get_secret_value()),
+        flat_delivered=settings.bid_pricing_mode == "flat_delivered",
+    )
+
+
+def _offer_reconciler(request: Request) -> OfferReconciler:
+    """The RECONCILE task behind a confirm: flags can withhold a bid, never qualify one."""
+    settings = request.app.state.settings
+    return OfferReconciler(
+        audit=PostgresAuditLog(),
+        run_logger=PostgresAiRunLogger(),
+        notifier=PostgresNotifier(),
+        ai=_auction_ai(request),
+        model=settings.ai_model_parse,
+        prompt_version=PROMPT_VERSION,
     )
 
 
@@ -143,14 +217,34 @@ async def merchant_bid_confirm(
     principal: Annotated[Principal, Security(require_merchant)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.BidConfirmResponse:
-    """Confirm the current revision; a stale revision is a validation error."""
+    """Confirm the current revision, then reconcile it in the same transaction.
+
+    The confirm is BS-02/03/05 and the reconciliation is BS-04: both are written before
+    the commit, so a merchant never sees a CONFIRMED bid that the flags already overturn.
+    """
     service = _bid_service(request)
+    merchant_id = await _merchant_id(db, principal)
     bid = await service.confirm(
-        db,
-        merchant_id=await _merchant_id(db, principal),
-        bid_id=bid_id,
-        revision=payload.revision,
+        db, merchant_id=merchant_id, bid_id=bid_id, revision=payload.revision
     )
+    lot = await db.get(Lot, bid.lot_id)
+    if lot is not None:
+        pool = await db.get(Pool, lot.pool_id)
+        revision = await db.scalar(
+            select(BidRevision).where(
+                BidRevision.bid_id == bid.id,
+                BidRevision.revision == int(bid.current_revision),
+            )
+        )
+        if pool is not None and revision is not None:
+            await _offer_reconciler(request).reconcile(
+                db,
+                bid=bid,
+                revision=revision,
+                lot=lot,
+                pool=pool,
+                merchant_user_id=principal.user_id,
+            )
     await db.commit()
     return schemas.BidConfirmResponse(
         bid_id=bid.id, revision=int(bid.current_revision), status=str(bid.status)

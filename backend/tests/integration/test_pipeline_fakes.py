@@ -432,7 +432,7 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
                 {"id": pool_id},
             )
         ).one()
-        assert str(seeded.status) == "ALLOCATED"
+        assert str(seeded.status) == "RUNNING"
         assert seeded.seed_hex == hashing.demo_seed(str(pool_id)) and seeded.seed_is_demo
 
         lots = (
@@ -444,11 +444,24 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
                 {"pool": pool_id},
             )
         ).all()
+        # PS-05 now carries its declared effect: ``pool.allocate`` enqueues
+        # ``lot.bid_open`` for every lot it leaves PLANNED, the drain runs it, and the
+        # first one to enter BIDDING moves the pool ALLOCATED to RUNNING (PS-06). The
+        # third lot was cancelled at allocation (LS-12) and never opens a window.
         assert [(row.zone_id, row.lot_order, row.seats, row.status) for row in lots] == [
-            ("US-EAST", 1, 3, "PLANNED"),
-            ("US-EAST", 2, 2, "PLANNED"),
+            ("US-EAST", 1, 3, "BIDDING"),
+            ("US-EAST", 2, 2, "BIDDING"),
             ("US-WEST", 3, 6, "CANCELLED"),
         ]
+        closing = (
+            await db_session.execute(
+                text(
+                    "SELECT count(*) FROM jobs WHERE kind = 'lot.bid_close' "
+                    "AND status = 'PENDING' AND run_at > now()"
+                )
+            )
+        ).scalar_one()
+        assert int(closing) == 2
         east_lots = [row for row in lots if row.zone_id == "US-EAST"]
         waitlisted = (
             await db_session.execute(
@@ -580,7 +593,10 @@ async def test_it4_pool_to_funded_lot_with_the_real_services(db_session: AsyncSe
         assert await PostgresAuditLog().verify_chain(db_session) is True
 
         audit = await public_audit(client, pool_id)
-        assert audit["pool_status"] == "ALLOCATED"
+        # The pool is RUNNING, not COMPLETED: PS-07 needs ``system.lots_terminal``,
+        # which is not a job kind in domain-ports.md section 5 and so nothing emits it.
+        # Recorded as Q-2026-11-03-26 rather than worked around by inventing a kind.
+        assert audit["pool_status"] == "RUNNING"
         assert audit["seed_is_demo"] is True and audit["seed_hex"] == hashing.demo_seed(
             str(pool_id)
         )

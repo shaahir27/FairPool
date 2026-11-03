@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.fakes.audit import FakeAuditLog
 from fairpool.fakes.clock import FakeClock
+from fairpool.fakes.jobs import FakeJobQueue
 from fairpool.modules.allocation.read_service import PostgresAllocationRead
 from fairpool.modules.allocation.service import AllocationService
 from fairpool.modules.checkout.funding import FundingService
@@ -78,7 +79,7 @@ async def test_pool_allocate_returns_silently_on_a_retry(db_session: AsyncSessio
 
 async def _allocate(session: AsyncSession, pool_id: UUID) -> tuple[Any, Any]:
     audit = FakeAuditLog()
-    service = AllocationService(FakeClock(), audit)
+    service = AllocationService(FakeClock(), audit, FakeJobQueue())
     await service.allocate(session, {"pool_id": str(pool_id)})
     return service, audit
 

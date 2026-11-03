@@ -17,8 +17,9 @@ seed (I11). This handler only persists the result:
 * PS-05 moves the pool SEEDED to ALLOCATED, and PS-09 completes a pool whose
   every lot was cancelled because then no lot can ever be awarded.
 
-Nothing here enqueues bid jobs: Phase 5 owns ``lot.bid_open``, so every created
-lot stays PLANNED (AGENTS.md rule 20: no unasked-for scope).
+Nothing here decides a bid: it emits the PS-05 effect ``job:lot.bid_open`` for every
+lot it leaves PLANNED, timed at the lot's own ``bid_open_at``, and the auction handlers
+own the window from there.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ from fairpool.db.models.pools import Allocation, Lot
 from fairpool.domain import fairness
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.states import assert_transition
-from fairpool.ports import AuditLog, Clock
+from fairpool.ports import AuditLog, Clock, JobQueue
 
 LOT_STATUS_PLANNED: Final[str] = "PLANNED"
 LOT_STATUS_CANCELLED: Final[str] = "CANCELLED"
@@ -66,9 +67,10 @@ def _lot_plan(pool: Pool) -> list[fairness.ZoneLotPlan]:
 class AllocationService:
     """The ``pool.allocate`` job handler."""
 
-    def __init__(self, clock: Clock, audit: AuditLog) -> None:
+    def __init__(self, clock: Clock, audit: AuditLog, jobs: JobQueue) -> None:
         self.clock = clock
         self.audit = audit
+        self.jobs = jobs
 
     async def allocate(self, session: AsyncSession, payload: dict[str, Any]) -> None:
         pool_id = UUID(str(payload["pool_id"]))
@@ -179,6 +181,20 @@ class AllocationService:
                 "waitlisted": len(result.waitlist),
             },
         )
+
+        # PS-05's declared effect (domain-ports.md section 5): every lot left PLANNED
+        # gets its bidding window opened on a timer, and the job row is the timer (I15).
+        for planned in result.lots:
+            if planned.status != LOT_STATUS_PLANNED:
+                continue
+            lot = lots[planned.lot_order]
+            await self.jobs.enqueue(
+                session,
+                "lot.bid_open",
+                {"lot_id": str(lot.id)},
+                run_at=lot.bid_open_at,
+                concurrency_key=f"lot:{lot.id}",
+            )
 
         if not any(planned.status == LOT_STATUS_PLANNED for planned in result.lots):
             # PS-09: with every lot cancelled no award can ever happen, so the

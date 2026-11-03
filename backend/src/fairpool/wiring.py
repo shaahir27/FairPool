@@ -52,6 +52,9 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
         "pool.seed",
         "pool.allocate",
         "search.index",
+        "lot.bid_open",
+        "lot.bid_close",
+        "lot.award",
         "lot.open_checkout",
         "offer.expire",
         "order.vault_charge",
@@ -291,6 +294,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     from fairpool.infra.clock import DbClock
     from fairpool.infra.jobs import PostgresJobQueue
     from fairpool.modules.allocation.service import AllocationService
+    from fairpool.modules.auction.handlers import LotAuctionHandlers
     from fairpool.modules.checkout.expiry import OfferExpiry
     from fairpool.modules.notify.service import PostgresNotifier
     from fairpool.modules.pools.close import PoolCloseService
@@ -301,17 +305,25 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     from fairpool.modules.search.indexer import build_search_indexer
 
     clock, audit, jobs = DbClock(), PostgresAuditLog(), PostgresJobQueue()
+    notifier = PostgresNotifier()
     beacon = BeaconAnnouncement(
         mode=settings.beacon_mode,
         base_url=settings.drand_base_url,
         chain_hash=settings.drand_chain_hash,
     )
     pools = PoolService(clock, audit, jobs, beacon)
-    close = PoolCloseService(
-        clock, audit, jobs, PostgresNotifier(), payment_mode=settings.payment_mode
-    )
+    close = PoolCloseService(clock, audit, jobs, notifier, payment_mode=settings.payment_mode)
     seed = PoolSeedService(clock, audit, jobs, beacon)
-    allocation = AllocationService(clock, audit)
+    allocation = AllocationService(clock, audit, jobs)
+    auction = LotAuctionHandlers(
+        clock=clock,
+        audit=audit,
+        jobs=jobs,
+        notifier=notifier,
+        payment_router=settings.payment_router,
+        payment_mode=settings.payment_mode,
+        flat_delivered=settings.bid_pricing_mode == "flat_delivered",
+    )
     surface = checkout if checkout is not None else checkout_services(settings)
     expiry = OfferExpiry(engine=surface.engine, jobs=jobs)
 
@@ -337,6 +349,9 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "pool.seed": seed.seed,
         "pool.allocate": allocation.allocate,
         "search.index": search_index_handler(build_search_indexer(settings)),
+        "lot.bid_open": auction.bid_open,
+        "lot.bid_close": auction.bid_close,
+        "lot.award": auction.award,
         "lot.open_checkout": surface.open_checkout.open,
         "offer.expire": expiry.expire,
         "order.vault_charge": surface.vault_charge.charge,

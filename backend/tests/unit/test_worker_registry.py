@@ -8,8 +8,8 @@ evidence that work happened. So this test proves three things at once:
   being registered, or be registered without existing;
 * every registered handler is a callable, and the checkout ones are bound methods of
   the real engines (not a fake and not a stub);
-* the kinds whose work belongs to a later phase (bidding, failure finalisation,
-  voids, refunds, webhooks, shipments, simulation) stay unregistered.
+* the kinds whose work belongs to a later phase (failure finalisation, voids,
+  refunds, webhooks, shipments, simulation) stay unregistered.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from fairpool.modules.auction.handlers import LotAuctionHandlers
 from fairpool.modules.checkout.authorize import CheckoutAuthorizeHandlers
 from fairpool.modules.checkout.failure import FailureService
 from fairpool.modules.checkout.funding import FundingService
@@ -31,9 +32,6 @@ PORTS_DOC = ROOT / "docs/contracts/domain-ports.md"
 
 #: The kinds a later phase owns. None of them may be registered yet.
 LATER_PHASES = {
-    "lot.bid_open",
-    "lot.bid_close",
-    "lot.award",
     "sim.run",
     "webhook.process",
     "shipments.submit",
@@ -42,6 +40,9 @@ LATER_PHASES = {
 #: kind -> the real owner whose bound method must be registered.
 OWNERS = {
     "lot.open_checkout": OpenCheckoutHandler,
+    "lot.bid_open": LotAuctionHandlers,
+    "lot.bid_close": LotAuctionHandlers,
+    "lot.award": LotAuctionHandlers,
     "order.authorize": CheckoutAuthorizeHandlers,
     "order.capture": FundingService,
     "capture.poll": FundingService,

@@ -815,7 +815,10 @@ export interface paths {
         put?: never;
         /**
          * Merchant Bid Confirm
-         * @description Confirm the current revision; a stale revision is a validation error.
+         * @description Confirm the current revision, then reconcile it in the same transaction.
+         *
+         *     The confirm is BS-02/03/05 and the reconciliation is BS-04: both are written before
+         *     the commit, so a merchant never sees a CONFIRMED bid that the flags already overturn.
          */
         post: operations["merchant_bid_confirm"];
         delete?: never;
@@ -921,7 +924,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Merchant Quote */
+        /**
+         * Merchant Quote
+         * @description Parse a pasted quote into a PROPOSED revision the merchant must confirm.
+         *
+         *     Nothing stored here can enter the auction: an unconfirmed revision is rejected at
+         *     award (R1, BS-11), and the fields the quote did not state stay empty to be filled
+         *     (``ai-schemas.md`` section 3).
+         */
         post: operations["merchant_quote"];
         delete?: never;
         options?: never;
