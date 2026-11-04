@@ -1,13 +1,17 @@
-"""Admin operations: force-award and the reconciler run (T04X01, T04A03).
+"""Admin operations: helper routes and the ops console backend (T04X01, T07A04).
 
-``api.md`` section 3 fixes both bodies. The force-award helper is a demo and test
-tool: it writes the immutable award a real ``lot.award`` would write and then
-applies LS-14 through the whitelist, so it can never leave a lot in a state the
-state machine does not name (CR-4). It refuses with ``FEATURE_DISABLED`` unless
-``APP_ENV`` is ``local``/``test`` or ``MOCK_TOGGLES_ENABLED`` is set.
+``api.md`` section 3 fixes the force-award and reconciler bodies. The force-award
+helper is a demo and test tool: it writes the immutable award a real ``lot.award``
+would write and then applies LS-14 through the whitelist, so it can never leave a
+lot in a state the state machine does not name (CR-4). It refuses with
+``FEATURE_DISABLED`` unless ``APP_ENV`` is ``local``/``test`` or
+``MOCK_TOGGLES_ENABLED`` is set.
 
-Everything else in this module stays the generated Phase 1 stub; the fixed route
-table in ``api.md`` is the contract and those routes arrive with their own tasks.
+The lot view, abort, alerts, mock toggles and audit export delegate to
+``modules.checkout.ops``; this module only fixes their HTTP shapes. The view
+returns the declared ``AdminLotView`` (the money facts stay on the function for
+the console's own read), the silent routes return the minimal objects the ops
+tests assert, and the audit export returns the declared checkpoint list.
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ from fairpool.domain.errors import ApplicationError
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.jobs import PostgresJobQueue
+from fairpool.modules.checkout import ops
 from fairpool.modules.checkout.funding import apply_lot_transition, lock_lot
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.notify.service import PostgresNotifier
@@ -53,8 +58,12 @@ FORCE_AWARD_ENVS: frozenset[str] = frozenset({"local", "test"})
     operation_id="admin_lot_get",
     dependencies=[Security(require_admin)],
 )
-async def admin_lot_get(lot_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_lot_get(
+    lot_id: UUID,
+    db: AsyncSession = Depends(database_session),
+):
+    # The declared lot view; the money facts stay in ``ops.lot_view`` for the console.
+    return await ops.lot_view(db, lot_id)
 
 
 @router.post(
@@ -62,8 +71,16 @@ async def admin_lot_get(lot_id: UUID) -> None:
     operation_id="admin_lot_abort",
     dependencies=[Security(require_admin)],
 )
-async def admin_lot_abort(lot_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_lot_abort(
+    lot_id: UUID,
+    principal: Annotated[Principal, Security(require_admin)],
+    db: AsyncSession = Depends(database_session),
+) -> JSONResponse:
+    # Abort on the whitelist: LS-13 before checkout, or LS-08/LS-09 into FAILING.
+    result = await ops.abort(
+        db, lot_id=lot_id, actor=str(principal.user_id), notifier=PostgresNotifier()
+    )
+    return JSONResponse(status_code=200, content=result)
 
 
 @router.post(
@@ -321,8 +338,9 @@ async def admin_webhook_retry(
     operation_id="admin_alerts",
     dependencies=[Security(require_admin)],
 )
-async def admin_alerts() -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_alerts(db: AsyncSession = Depends(database_session)) -> JSONResponse:
+    # Open alerts: dead letters, overdue lots, aged holds and stuck failing lots.
+    return JSONResponse(status_code=200, content=await ops.alerts(db))
 
 
 @router.post(
@@ -330,8 +348,12 @@ async def admin_alerts() -> None:
     operation_id="admin_mock",
     dependencies=[Security(require_admin)],
 )
-async def admin_mock(payload: schemas.MockToggleRequest) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_mock(payload: schemas.MockToggleRequest, request: Request) -> JSONResponse:
+    # Arm one demo toggle; FEATURE_DISABLED unless MOCK_TOGGLES_ENABLED.
+    settings = request.app.state.settings
+    enabled = bool(settings is not None and settings.mock_toggles_enabled)
+    result = ops.mock_toggle(payload.kind, payload.value, payload.ttl_s, enabled=enabled)
+    return JSONResponse(status_code=200, content=result)
 
 
 @router.get(
@@ -340,5 +362,15 @@ async def admin_mock(payload: schemas.MockToggleRequest) -> None:
     operation_id="admin_audit_export",
     dependencies=[Security(require_admin)],
 )
-async def admin_audit_export() -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def admin_audit_export(
+    request: Request,
+    db: AsyncSession = Depends(database_session),
+):
+    # The chained audit rows; ?since_seq= returns only what came after a checkpoint.
+    raw = request.query_params.get("since_seq")
+    try:
+        since_seq = int(raw) if raw is not None else 0
+    except ValueError:
+        raise ApplicationError("VALIDATION_ERROR") from None
+    rows = await ops.audit_export(db, since_seq)
+    return {"checkpoints": [{"action": row["action"], "hash": row["hash"]} for row in rows]}

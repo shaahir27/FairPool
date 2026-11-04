@@ -151,6 +151,65 @@ class RestPayPalGateway:
             self.token_until = time.monotonic() + max(1, int(body["expires_in"]) - 300)
             return self.token
 
+    async def client_token(self, domain: str) -> tuple[str, int]:
+        """A browser-safe SDK v6 token for ``domain``, never logged (INT-7, S13).
+
+        The endpoint takes the client-credentials grant as an **encoded form**
+        (``response_type=client_token`` and ``domains[]``); S13 recorded the form
+        encoding as one of the harness fixes. The retry table and timeout match
+        ``_request``, but the helper cannot be reused because it sends JSON under a
+        Bearer token, and this call authenticates the client itself.
+        """
+        if not domain:
+            raise PaymentError("CONFIG", "CLIENT_TOKEN_DOMAIN_REQUIRED")
+        form = {
+            "grant_type": "client_credentials",
+            "response_type": "client_token",
+            "domains[]": domain,
+        }
+        for attempt in range(5):
+            response: httpx.Response | None = None
+            try:
+                response = await self.client.post(
+                    self.settings.paypal_api_base + "/v1/oauth2/token",
+                    auth=(
+                        self.settings.paypal_client_id,
+                        self.settings.paypal_client_secret.get_secret_value(),
+                    ),
+                    data=form,
+                    timeout=20,
+                )
+            except httpx.TransportError:
+                pass
+            if response is not None:
+                if response.status_code == 200:
+                    try:
+                        body = response.json()
+                    except ValueError:
+                        raise PaymentError("UNKNOWN", "INVALID_PROVIDER_RESPONSE") from None
+                    token = body.get("access_token") if isinstance(body, dict) else None
+                    if not isinstance(token, str) or not token:
+                        raise PaymentError("UNKNOWN", "INVALID_PROVIDER_RESPONSE")
+                    try:
+                        expires_in = int(body.get("expires_in") or 900)
+                    except (TypeError, ValueError):
+                        expires_in = 900
+                    return token, expires_in
+                if response.status_code != 429 and response.status_code < 500:
+                    try:
+                        error = response.json()
+                    except ValueError:
+                        error = {}
+                    issue = str(error.get("error") or error.get("name") or "CLIENT_TOKEN_FAILED")
+                    raise PaymentError(
+                        "CONFIG",
+                        issue,
+                        debug_id=response.headers.get("paypal-debug-id"),
+                    )
+            if attempt < 4:
+                await asyncio.sleep(min(30, 2**attempt + random.random()))
+        raise PaymentError("UNKNOWN", "OUTCOME_UNKNOWN")
+
     async def _request(
         self,
         method: str,

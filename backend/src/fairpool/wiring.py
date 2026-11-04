@@ -17,11 +17,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 from uuid import UUID
 
+from fairpool.adapters.paypal import routers as paypal_routers
 from fairpool.adapters.paypal.gateway import RestPayPalGateway
 from fairpool.adapters.paypal.identity import RestPayPalIdentity
 from fairpool.config import Settings
 from fairpool.domain.errors import ApplicationError
-from fairpool.domain.payments import NotEnabled, Payee
+from fairpool.domain.payments import Payee
 from fairpool.fakes.payments import FakePayPalGateway
 from fairpool.ports import AwardView, PayeeRef, PayPalIdentity
 
@@ -77,34 +78,42 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
 @dataclass
 class PaymentRouter:
     name: str
-    gateway: RestPayPalGateway | FakePayPalGateway
+    # A concrete union of gateway classes cannot be passed where a handler protocol
+    # declares a narrower ``gateway`` attribute, because mutable attributes are
+    # invariant; each handler re-types its own view of this object.
+    gateway: Any
     seller: Payee
 
     def payee_for(self, award: AwardView, payee_ref: PayeeRef) -> Payee:
         return self.seller
 
-    def label(self) -> str:
-        return (
-            "SIMULATED"
-            if self.name == "fake"
-            else "Sandbox demo: one test seller stands in for the winning merchant."
-        )
+    def label(self) -> str | None:
+        # One registry owns the sentence (T07A03); no copy lives here any more.
+        return paypal_routers.label(self.name)
 
 
 def payment_router(
     settings: Settings, *, simulated: bool = False, fake_outcome: str = "completed"
 ) -> PaymentRouter:
     if simulated or settings.payment_router == "fake":
-        return PaymentRouter(
+        router = PaymentRouter(
             "fake", FakePayPalGateway(outcome=fake_outcome), Payee("fake@example.test", None)
         )
-    if settings.payment_router != "single_seller":
-        raise NotEnabled()
-    return PaymentRouter(
-        "single_seller",
-        RestPayPalGateway(settings),
-        Payee(settings.single_seller_email, settings.single_seller_merchant_id or None),
-    )
+    else:
+        # ``payee_email`` and ``platform`` raise NotEnabled (S7, G4, G9).
+        spec = paypal_routers.require(settings.payment_router)
+        router = PaymentRouter(
+            spec.name,
+            RestPayPalGateway(settings),
+            Payee(settings.single_seller_email, settings.single_seller_merchant_id or None),
+        )
+    if settings.mock_toggles_enabled:
+        # T07A04: the demo wrapper exists only behind the flag; without it no
+        # object here can add ``PayPal-Mock-Response`` at all (paypal-adapter.md §10).
+        from fairpool.modules.checkout.mock_gateway import FaultInjectingGateway
+
+        router.gateway = FaultInjectingGateway(router.gateway)
+    return router
 
 
 class _VaultKeyMissing:
