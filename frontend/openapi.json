@@ -170,6 +170,11 @@
               }
             ]
           },
+          "already_entered": {
+            "default": false,
+            "title": "Already Entered",
+            "type": "boolean"
+          },
           "checkout_hint": {
             "default": "A human approves payment on PayPal; this API cannot pay.",
             "title": "Checkout Hint",
@@ -2390,6 +2395,7 @@
       },
       "MockToggleRequest": {
         "additionalProperties": false,
+        "description": "delay_webhooks is recorded and labelled only: it does not delay delivery.",
         "properties": {
           "kind": {
             "enum": [
@@ -2402,6 +2408,7 @@
           },
           "ttl_s": {
             "default": 300,
+            "maximum": 3600.0,
             "minimum": 1.0,
             "title": "Ttl S",
             "type": "integer"
@@ -4355,7 +4362,26 @@
         "summary": "Agent Entries List"
       },
       "post": {
+        "description": "Create the buyer's entry through the web flow's validator (FR-SL-03).",
         "operationId": "agent_entries_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4458,7 +4484,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AgentWithdrawResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -4536,6 +4564,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
                   "type": "string"
                 },
                 {
@@ -4552,6 +4581,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 20,
+                  "minimum": 1,
                   "type": "integer"
                 },
                 {
@@ -6679,6 +6710,7 @@
         "summary": "Delegations List"
       },
       "post": {
+        "description": "Issue a delegation token and show it here and only here (rule 25).",
         "operationId": "delegations_create",
         "parameters": [
           {
@@ -6709,7 +6741,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -6740,6 +6772,7 @@
     },
     "/api/v1/me/delegations/{delegation_id}": {
       "delete": {
+        "description": "Revoke; another buyer's delegation id answers 404 like an unknown one.",
         "operationId": "delegations_delete",
         "parameters": [
           {

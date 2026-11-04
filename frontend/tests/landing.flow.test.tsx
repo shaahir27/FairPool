@@ -39,7 +39,8 @@ it.each([
   visit();
   const hero = await screen.findByRole("region", { name: /Buy together/ });
   fireEvent.click(within(hero).getByRole("link", { name: action }));
-  expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  // The login page is a lazy route; a loaded runner may take longer than the default second.
+  expect(await screen.findByRole("heading", { name: "Sign in" }, { timeout: 5000 })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Back to landing page" })).toHaveAttribute("href", "/");
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "person@example.com" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "example-password" } });

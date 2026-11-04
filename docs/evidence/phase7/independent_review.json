@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "date": "2026-11-04",
+  "passes": 3,
+  "scope": [
+    "money/ops: ops.py, mock_gateway.py, sdk.py, gateway client_token, routers.py, wiring, admin_ops, checkout route changes",
+    "agent/merchant/MCP: delegations, agentapi, mcp, require_agent, agent routes, merchant-api lots/bids, confirm, similarity, flags",
+    "frontend: My Pools, Orders, prefetch, ops console, PayPalButton, OfferCheckout, AreaLayout"
+  ],
+  "must_fix_found_and_resolved": [
+    "sdk: the client-token lock was held across the retry ladder, so one slow PayPal call queued every buyer. Fetch moved outside the lock with a double-checked single-flight and a five-second bound.",
+    "ops: lot_view computed six money queries that AdminLotView then discarded. Deleted.",
+    "ops: abort now refuses with 409 ORDER_STATE_INVALID while a capture or authorization is in flight (the states funding.py waits for).",
+    "checkout: the SDK callback stamped approval_channel on the newest attempt instead of the row named by the callback body. Fixed and tested with two attempts.",
+    "labels: SANDBOX was duplicated and a fake router showed no SIMULATED label. One registry now produces SANDBOX + SIMULATED + MOCK; AGENTS rule 19 is tested.",
+    "merchant API: list_bids was an unbounded N+1. Capped at 100 newest and read in three batched queries.",
+    "mcp: opened a second engine per process and never closed it. Reuses the app session factory.",
+    "agent: delegation scope was enforced only on create; list, get and withdraw now filter by pool scope and answer 404 otherwise.",
+    "mcp: no body or batch cap. 64 KiB and 20 messages now answer 413 before any DB work.",
+    "similarity: awaited in the request despite its contract; moved to FastAPI BackgroundTasks on both confirm edges, still unable to fail a confirm.",
+    "flags: a select-then-insert could write two WARNING rows for one revision; serialized with a transaction-scoped advisory lock and a re-select.",
+    "flags: the advisory logged its bookkeeping run as SIM_TEXT (simulation variety); it now uses RECONCILE.",
+    "merchant API: get_lot read DRAFT and closed lots; the public-pool filter now applies.",
+    "agent withdraw deleted the buyer's saved PayPal permission, a PayPal write on an AI-callable route (rule 22). The agent lane no longer touches the provider; the buyer's settings page keeps that action.",
+    "frontend: a paid entry showed under Action required; only OFFERED and ORDER_CREATED group there now.",
+    "frontend: PayPal Cancel/X declined the offer without asking; an inline confirm now guards it.",
+    "frontend: a lot lookup race could abort the lot shown while the input named another; sequence guard and clear-on-change.",
+    "frontend: delay_webhooks copy promised a delivery delay it does not perform; the hint is now verbatim and the process scope of mocks is stated.",
+    "frontend: the approve response was ignored; status and reason are surfaced and the order refreshes.",
+    "frontend: SDK init could hang; an eight-second race falls back to redirect.",
+    "frontend: the prefetch cache survived sign-out and approvals; it is cleared on sign-out/sign-in and refreshed after approval.",
+    "frontend: armed MOCK toggles vanished on reload; they persist in sessionStorage with their expiry.",
+    "frontend: duplicate accessible names and focus loss on dialog close; ids added and focus restored."
+  ],
+  "recorded_limits": [
+    "Q-2026-11-04-37: mock toggles are in-process. The API process arms them; a separate worker process does not see them, so force_capture_failure cannot reach a worker-run capture in the deployed topology. The console says so, the label is honest, and the upgrade is a database-backed toggle or an inline-worker demo (carried to T10A01). The real capture path is unaffected; only the failure simulation is.",
+    "The three earlier review passes each found real defects; every one above was fixed in the closure commit rather than argued away."
+  ],
+  "verdict": "No unresolved blocker or major in the money path. One demo-tool limitation is recorded with its task rather than hidden."
+}

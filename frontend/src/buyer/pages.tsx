@@ -12,6 +12,9 @@ import {
 const OrderStatusCard = lazy(() => import("../checkout").then((module) => ({ default: module.OrderStatusCard })));
 
 import { AuthFrame } from "./AuthFrame";
+import { resetBuyerPrefetch } from "./prefetch";
+export { MyPoolsPage } from "./my-pools/MyPoolsPage";
+export { OrdersPage } from "./orders/OrdersPage";
 export { RegisterPage } from "./signup";
 
 function envelope(failure: unknown): { code: string; message: string } {
@@ -46,6 +49,8 @@ export function LoginPage() {
       if (failure || !data) { setError(envelope(failure)); return; }
       setCsrfToken(data.csrf_token);
       resetSessionCache();
+      // A new sign-in may be a different person on the same browser.
+      resetBuyerPrefetch();
       navigate(from, { replace: true });
     } catch {
       setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
@@ -127,38 +132,6 @@ export function BuyerOrderPage() {
     return <p className="p-6 text-sm text-muted">This order link is incomplete.</p>;
   }
   return <Suspense fallback={<p role="status">Loading your order…</p>}><OrderStatusCard buyerOrderId={buyerOrderId} /></Suspense>;
-}
-
-export function MyPoolsPage() {
-  return (
-    <PlaceholderPage
-      title="My Pools"
-      route="/my-pools"
-      task="T07B01"
-      taskTitle="Buyer UI v2: My Pools and Orders"
-      planned={[
-        "Pending entries for open, closed and bidding pools.",
-        "Waitlist positions reported by the allocation.",
-        "Action-required entries with the offer countdown and checkout hand-off.",
-      ]}
-    />
-  );
-}
-
-export function OrdersPage() {
-  return (
-    <PlaceholderPage
-      title="Orders"
-      route="/orders"
-      task="T07B01"
-      taskTitle="Buyer UI v2: My Pools and Orders"
-      planned={[
-        "Orders grouped by outcome: funded, voided, refunded.",
-        "Each row with its amount and winning merchant.",
-        "Status history and the PayPal capture reference.",
-      ]}
-    />
-  );
 }
 
 export function PayPalSettingsPage() {

@@ -5,19 +5,24 @@ from __future__ import annotations
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Security
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.adapters.ai.client import PROMPT_VERSION, AIUnavailable
+from fairpool.adapters.search.projection import OPEN_LOT_STATUSES, PUBLIC_POOL_STATUSES
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_merchant, require_session
-from fairpool.db.models.auction import BidRevision, Merchant
+from fairpool.api.routers.pools import _search_service
+from fairpool.db.models.auction import Bid, BidFlag, BidRevision, Merchant
 from fairpool.db.models.catalog import Pool
 from fairpool.db.models.pools import Lot
+from fairpool.db.session import create_engine
+from fairpool.domain.errors import ApplicationError
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.modules.auction.bids import BidService
+from fairpool.modules.auction.confirm import confirm_and_reconcile
 from fairpool.modules.auction.quote import QuoteService
 from fairpool.modules.auction.reconcile import OfferReconciler
 from fairpool.modules.identity.service import Principal
@@ -25,10 +30,15 @@ from fairpool.modules.intake.run_log import PostgresAiRunLogger
 from fairpool.modules.merchants.profile import MerchantProfileService
 from fairpool.modules.notify.service import PostgresNotifier
 from fairpool.modules.pools.receipts import signing_seed
+from fairpool.modules.search.similarity import advise_confirmed_bid
+from fairpool.ports import SearchService
 from fairpool.wiring import ai_client
 
 router = APIRouter()
 _MISSING = object()
+
+#: The most lots one merchant list answers with; the frozen Agent API has no page param.
+OPEN_LOT_LIMIT = 100
 
 
 def _auction_ai(request: Request) -> Any | None:
@@ -94,8 +104,133 @@ async def merchant_profile(
     operation_id="merchant_lots",
     dependencies=[Security(require_merchant)],
 )
-async def merchant_lots(q: str | None = Query(None)) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def merchant_lots(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(database_session)],
+    q: str | None = Query(None),
+) -> list[schemas.MerchantLotSummary]:
+    search = _search_service(request) if q else None
+    return await list_open_lots(db, search=search, q=q)
+
+
+def _lot_summary(lot: Lot, pool: Pool) -> schemas.MerchantLotSummary:
+    template = pool.template or {}
+    return schemas.MerchantLotSummary(
+        lot_id=lot.id,
+        pool_id=lot.pool_id,
+        zone_id=lot.zone_id,
+        seats=lot.seats,
+        min_seats=lot.min_seats,
+        status=str(lot.status),
+        bid_close_at=lot.bid_close_at,
+        product_key=str(template.get("product_key") or ""),
+        variant=str(template["variant"]) if template.get("variant") else None,
+        condition=str(template.get("condition") or ""),
+        delivery_sla_days=int(template.get("delivery_sla_days") or 0),
+        min_return_days=int(template.get("min_return_days") or 0),
+    )
+
+
+async def list_open_lots(
+    db: AsyncSession,
+    *,
+    search: SearchService | None,
+    q: str | None,
+    status: str | None = None,
+) -> list[schemas.MerchantLotSummary]:
+    """Lots in an open status; a ``q`` search ranks them, an empty one lists them (INT-1)."""
+    statuses = list(OPEN_LOT_STATUSES)
+    if status is not None:
+        if status not in statuses:
+            raise HTTPException(422, "VALIDATION_ERROR")
+        statuses = [status]
+    query = (
+        select(Lot, Pool)
+        .join(Pool, Pool.id == Lot.pool_id)
+        .where(
+            Lot.status.in_(statuses),
+            Pool.status.in_(sorted(PUBLIC_POOL_STATUSES)),
+        )
+    )
+    hits = None
+    if q:
+        if search is None:
+            raise HTTPException(500, "INTERNAL_ERROR")
+        hits = await search.search(db, q=q, kinds=["lot"], status=statuses, limit=OPEN_LOT_LIMIT)
+        ids = [hit.lot_id for hit in hits if hit.lot_id is not None]
+        if not ids:
+            return []
+        query = query.where(Lot.id.in_(ids))
+    found = (await db.execute(query.order_by(Lot.bid_close_at, Lot.id).limit(OPEN_LOT_LIMIT))).all()
+    if hits is not None:
+        # Keep the retrieval ranking; the SQL order above only makes the unranked path stable.
+        by_id = {lot.id: (lot, pool) for lot, pool in found}
+        found = [by_id[hit.lot_id] for hit in hits if hit.lot_id in by_id]
+    return [_lot_summary(lot, pool) for lot, pool in found]
+
+
+async def lot_summary_for(db: AsyncSession, lot_id: UUID) -> schemas.MerchantLotSummary:
+    """One lot's requirement detail; an unknown id is the same ``404`` as a foreign bid.
+
+    The pool filter is ``list_lots``'s: a DRAFT or cancelled pool's lots are not a
+    merchant's to read, and the id alone must not open one.
+    """
+    row = (
+        await db.execute(
+            select(Lot, Pool)
+            .join(Pool, Pool.id == Lot.pool_id)
+            .where(Lot.id == lot_id, Pool.status.in_(sorted(PUBLIC_POOL_STATUSES)))
+        )
+    ).first()
+    if row is None:
+        raise ApplicationError("NOT_FOUND")
+    return _lot_summary(row[0], row[1])
+
+
+def bid_view(bid: Bid, revision: BidRevision, flags: list[BidFlag]) -> schemas.BidView:
+    """The console and the Agent API return one bid shape; only the door differs."""
+    return schemas.BidView(
+        bid_id=bid.id,
+        lot_id=bid.lot_id,
+        status=str(bid.status),
+        current_revision=int(bid.current_revision),
+        structured=revision.structured,
+        reject_reason=bid.reject_reason,
+        flags=[
+            schemas.BidFlagView(
+                code=flag.code,
+                severity=str(flag.severity),
+                field=flag.field,
+                evidence=flag.evidence,
+            )
+            for flag in flags
+        ],
+    )
+
+
+def _app_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
+    """The app's session factory, created lazily exactly as ``api/deps.py`` does.
+
+    A background task outlives the request's session, so it opens its own unit of
+    work here; the engine belongs to the app and is never disposed by this helper.
+    """
+    state = request.app.state
+    if not hasattr(state, "session_factory"):
+        state.engine = create_engine(state.settings)
+        state.session_factory = async_sessionmaker(state.engine, expire_on_commit=False)
+    factory: async_sessionmaker[AsyncSession] = state.session_factory
+    return factory
+
+
+async def advise_similarity(request: Request, bid_id: UUID) -> None:
+    """Advisory only, after the response: it never fails or delays the confirm (INT-1)."""
+    settings = request.app.state.settings
+    if settings is None or not settings.similarity_check_enabled:
+        return
+    async with _app_session_factory(request)() as session:
+        await advise_confirmed_bid(
+            session, settings=settings, search=_search_service(request), bid_id=bid_id
+        )
 
 
 @router.post(
@@ -214,6 +349,7 @@ async def merchant_bid_confirm(
     bid_id: UUID,
     payload: schemas.BidConfirmRequest,
     request: Request,
+    background: BackgroundTasks,
     principal: Annotated[Principal, Security(require_merchant)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.BidConfirmResponse:
@@ -223,29 +359,18 @@ async def merchant_bid_confirm(
     the commit, so a merchant never sees a CONFIRMED bid that the flags already overturn.
     """
     service = _bid_service(request)
-    merchant_id = await _merchant_id(db, principal)
-    bid = await service.confirm(
-        db, merchant_id=merchant_id, bid_id=bid_id, revision=payload.revision
+    bid = await confirm_and_reconcile(
+        db,
+        bid_service=service,
+        reconciler=_offer_reconciler(request),
+        merchant_id=await _merchant_id(db, principal),
+        bid_id=bid_id,
+        revision=payload.revision,
+        merchant_user_id=principal.user_id,
     )
-    lot = await db.get(Lot, bid.lot_id)
-    if lot is not None:
-        pool = await db.get(Pool, lot.pool_id)
-        revision = await db.scalar(
-            select(BidRevision).where(
-                BidRevision.bid_id == bid.id,
-                BidRevision.revision == int(bid.current_revision),
-            )
-        )
-        if pool is not None and revision is not None:
-            await _offer_reconciler(request).reconcile(
-                db,
-                bid=bid,
-                revision=revision,
-                lot=lot,
-                pool=pool,
-                merchant_user_id=principal.user_id,
-            )
     await db.commit()
+    # Advisory only, after the response: it never fails or delays the confirm (INT-1).
+    background.add_task(advise_similarity, request, bid.id)
     return schemas.BidConfirmResponse(
         bid_id=bid.id, revision=int(bid.current_revision), status=str(bid.status)
     )
@@ -267,23 +392,7 @@ async def merchant_bid_get(
     bid, revision, flags = await service.get(
         db, merchant_id=await _merchant_id(db, principal), bid_id=bid_id
     )
-    return schemas.BidView(
-        bid_id=bid.id,
-        lot_id=bid.lot_id,
-        status=str(bid.status),
-        current_revision=int(bid.current_revision),
-        structured=revision.structured,
-        reject_reason=bid.reject_reason,
-        flags=[
-            schemas.BidFlagView(
-                code=flag.code,
-                severity=str(flag.severity),
-                field=flag.field,
-                evidence=flag.evidence,
-            )
-            for flag in flags
-        ],
-    )
+    return bid_view(bid, revision, flags)
 
 
 @router.get(

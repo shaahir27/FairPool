@@ -14,7 +14,10 @@ export interface paths {
         /** Agent Entries List */
         get: operations["agent_entries_list"];
         put?: never;
-        /** Agent Entries Create */
+        /**
+         * Agent Entries Create
+         * @description Create the buyer's entry through the web flow's validator (FR-SL-03).
+         */
         post: operations["agent_entries_create"];
         delete?: never;
         options?: never;
@@ -683,7 +686,10 @@ export interface paths {
         /** Delegations List */
         get: operations["delegations_list"];
         put?: never;
-        /** Delegations Create */
+        /**
+         * Delegations Create
+         * @description Issue a delegation token and show it here and only here (rule 25).
+         */
         post: operations["delegations_create"];
         delete?: never;
         options?: never;
@@ -701,7 +707,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delegations Delete */
+        /**
+         * Delegations Delete
+         * @description Revoke; another buyer's delegation id answers 404 like an unknown one.
+         */
         delete: operations["delegations_delete"];
         options?: never;
         head?: never;
@@ -1524,6 +1533,11 @@ export interface components {
         /** AgentEntryResponse */
         AgentEntryResponse: {
             allocation?: components["schemas"]["AllocationView"] | null;
+            /**
+             * Already Entered
+             * @default false
+             */
+            already_entered: boolean;
             /**
              * Checkout Hint
              * @default A human approves payment on PayPal; this API cannot pay.
@@ -2398,7 +2412,10 @@ export interface components {
             /** Onboarding Status */
             onboarding_status: string;
         };
-        /** MockToggleRequest */
+        /**
+         * MockToggleRequest
+         * @description delay_webhooks is recorded and labelled only: it does not delay delivery.
+         */
         MockToggleRequest: {
             /**
              * Kind
@@ -3197,7 +3214,9 @@ export interface operations {
     agent_entries_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3308,7 +3327,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AgentWithdrawResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4563,7 +4582,7 @@ export interface operations {
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import OrderedDict, deque
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Security
@@ -25,12 +25,14 @@ from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
 from fairpool.config import Settings
 from fairpool.db.models.catalog import PoolEntry
+from fairpool.db.models.enums import BuyerOrderStatus
 from fairpool.domain.errors import ApplicationError
 from fairpool.fakes.vault import FakePaymentVaultProvider
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.crypto import AesGcmCipher, DecryptionError
 from fairpool.infra.idempotency import PostgresIdempotencyStore
+from fairpool.modules.agentapi.views import entry_view, entry_views
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.pools.join import JoinService
 from fairpool.modules.pools.receipts import receipt_for_entry, signing_seed
@@ -40,6 +42,19 @@ from fairpool.ports import PaymentVaultProvider
 router = APIRouter()
 
 logger = logging.getLogger("fairpool.entries")
+
+#: The statuses under which a buyer order is still the entry's live offer (api.md "Entry").
+ACTIVE_ORDER_STATUSES: tuple[BuyerOrderStatus, ...] = (
+    BuyerOrderStatus.OFFERED,
+    BuyerOrderStatus.ORDER_CREATED,
+    BuyerOrderStatus.APPROVED,
+    BuyerOrderStatus.AUTHORIZING,
+    BuyerOrderStatus.AUTHORIZED,
+    BuyerOrderStatus.CAPTURING,
+    BuyerOrderStatus.CAPTURE_PENDING,
+    BuyerOrderStatus.CAPTURED,
+    BuyerOrderStatus.REFUNDING,
+)
 
 #: config-and-errors.md section 3: POST /api/v1/pools/{pool_id}/entries is 10/min/user.
 JOIN_RATE_LIMIT = 10
@@ -376,8 +391,20 @@ async def vault_delete(
     operation_id="me_entries",
     dependencies=[Security(require_session)],
 )
-async def me_entries() -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def me_entries(
+    request: Request,
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+) -> schemas.MeEntryList:
+    entries = list(
+        await db.scalars(
+            select(PoolEntry)
+            .where(PoolEntry.user_id == principal.user_id)
+            .order_by(PoolEntry.created_at, PoolEntry.id)
+        )
+    )
+    views = await entry_views(db, entries, frontend_base_url=_settings(request).frontend_base_url)
+    return schemas.MeEntryList(items=[_me_entry(view) for view in views])
 
 
 @router.get(
@@ -386,5 +413,41 @@ async def me_entries() -> None:
     operation_id="entry_status",
     dependencies=[Security(require_session)],
 )
-async def entry_status(entry_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def entry_status(
+    entry_id: UUID,
+    request: Request,
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+):
+    entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
+    view = await _entry_view(db, entry, frontend_base_url=_settings(request).frontend_base_url)
+    vault_status: str | None = None
+    vault_label: str | None = None
+    if _settings(request).vault_token_key is not None:
+        permission = await _vault_service(request).status(db, entry_id=entry.id)
+        vault_status, vault_label = permission.status, permission.label
+    # The receipt is returned as the stored JSON so its timestamp is not re-serialised
+    # (CR-9); every other field is the one view helper both reads share.
+    body = view.model_dump(mode="json")
+    body["vault_status"] = vault_status
+    body["vault_label"] = vault_label
+    body["receipt"] = await _stored_receipt(db, entry)
+    return JSONResponse(status_code=200, content=body)
+
+
+async def _entry_view(
+    db: AsyncSession, entry: PoolEntry, *, frontend_base_url: str
+) -> schemas.MeEntry:
+    return _me_entry(await entry_view(db, entry, frontend_base_url=frontend_base_url))
+
+
+def _me_entry(view: dict[str, Any]) -> schemas.MeEntry:
+    allocation = view["allocation"]
+    offer = view["offer"]
+    return schemas.MeEntry(
+        entry_id=view["entry_id"],
+        pool_id=view["pool_id"],
+        entry_status=view["entry_status"],
+        allocation=None if allocation is None else schemas.AllocationView(**allocation),
+        offer=None if offer is None else schemas.OfferRef(**offer),
+    )

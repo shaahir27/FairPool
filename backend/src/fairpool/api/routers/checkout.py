@@ -27,6 +27,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fairpool.adapters.paypal import routers as paypal_routers
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
 from fairpool.config import Settings
@@ -41,18 +42,15 @@ from fairpool.db.models.checkout import (
 )
 from fairpool.db.models.pools import Lot
 from fairpool.domain.errors import ApplicationError, IllegalTransition
+from fairpool.modules.checkout import mock_gateway
 from fairpool.modules.checkout.engine import TransitionRequest
+from fairpool.modules.checkout.sdk import FALLBACK_LABEL, SdkService
 from fairpool.modules.identity.service import Principal
 from fairpool.wiring import CheckoutServices, checkout_services
 
 router = APIRouter()
 
-#: api.md section 4.1: the SDK v6 core script on the Sandbox checkout host.
-SDK_URL = "https://www.sandbox.paypal.com/web-sdk/v6/core"
-SDK_COMPONENTS = ["paypal-payments"]
-SANDBOX_LABEL = "SANDBOX"
-FALLBACK_LABEL = "FALLBACK: single stand-in seller"
-SINGLE_SELLER_NOTICE = "Sandbox demo: one test seller stands in for the winning merchant."
+SINGLE_SELLER_NOTICE = paypal_routers.SINGLE_SELLER_LABEL
 CAPTURE_ONLY_NOTICE = "Sandbox demo: the lot is captured without a separate authorization hold."
 HOLD_NOTICE = (
     "PayPal places a hold for the total shown only after you approve. "
@@ -87,6 +85,23 @@ def _services(request: Request) -> CheckoutServices:
     return built
 
 
+def _sdk(request: Request) -> SdkService:
+    """The SDK configuration and token cache; ``app.state.sdk_service`` is the test seam."""
+    cached: SdkService | None = getattr(request.app.state, "sdk_service", None)
+    if cached is not None:
+        return cached
+    services = _services(request)
+    gateway = services.router.gateway
+    token_gateway = (
+        gateway
+        if services.router.name != "fake" and callable(getattr(gateway, "client_token", None))
+        else None
+    )
+    built = SdkService.from_settings(_settings(request), token_gateway)
+    request.app.state.sdk_service = built
+    return built
+
+
 async def _owned_order(db: AsyncSession, *, buyer_order_id: UUID, user_id: UUID) -> BuyerOrder:
     """Owner-scoped fetch: someone else's order id answers exactly like an unknown one."""
     row = (
@@ -111,6 +126,7 @@ async def _lot(db: AsyncSession, lot_id: UUID) -> Lot:
 def _fallback_notice(lot: Lot) -> str | None:
     """DEP-4: the screen says so whenever the stand-in routing or the mode applies."""
     if str(lot.payment_router) == "single_seller":
+        # The sentence comes from the one registry (paypal-adapter.md section 9).
         return SINGLE_SELLER_NOTICE
     if str(lot.payment_mode) == "capture_only":
         return CAPTURE_ONLY_NOTICE
@@ -118,9 +134,15 @@ def _fallback_notice(lot: Lot) -> str | None:
 
 
 def _labels(lot: Lot) -> list[str]:
-    labels = [SANDBOX_LABEL]
+    # One registry builds the badges: SANDBOX, the fake router's SIMULATED, then
+    # the fallback sentence and an active demo toggle (AGENTS rule 19).
+    labels = paypal_routers.checkout_labels(str(lot.payment_router))
     if _fallback_notice(lot) is not None:
         labels.append(FALLBACK_LABEL)
+    mock = mock_gateway.label()
+    if mock is not None:
+        # An active demo toggle is never silent (paypal-adapter.md section 10).
+        labels.append(mock)
     return labels
 
 
@@ -467,17 +489,7 @@ async def orders_withdraw(buyer_order_id: UUID) -> None:
 )
 async def checkout_config(request: Request):
     """Public SDK values only: no secret, no token, no amount (api.md section 4.1)."""
-    settings = _settings(request)
-    return {
-        "approval_ui": settings.paypal_approval_ui,
-        "sdk_auth": settings.paypal_sdk_auth,
-        "client_id": settings.paypal_client_id,
-        "sdk_url": SDK_URL,
-        "components": SDK_COMPONENTS,
-        "page_type": "checkout",
-        "currency": "USD",
-        "labels": [SANDBOX_LABEL],
-    }
+    return _sdk(request).config()
 
 
 @router.get(
@@ -486,8 +498,9 @@ async def checkout_config(request: Request):
     operation_id="checkout_client_token",
     dependencies=[Security(require_session)],
 )
-async def checkout_client_token() -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def checkout_client_token(request: Request):
+    # The browser-safe token, cached server-side; only client_token mode has one.
+    return await _sdk(request).client_token()
 
 
 # ------------------------------------------------------------------- callbacks
@@ -507,17 +520,24 @@ async def offers_approved(
 ):
     """The SDK ``onApprove`` hint: verify it names our order, then run the checks."""
     order = await _owned_order(db, buyer_order_id=buyer_order_id, user_id=principal.user_id)
-    known = await db.scalar(
-        select(PayPalOrder.id).where(
+    record = await db.scalar(
+        select(PayPalOrder).where(
             PayPalOrder.buyer_order_id == order.id,
             PayPalOrder.paypal_order_id == payload.paypal_order_id,
         )
     )
-    if known is None:
+    if record is None:
         # A reported order id this buyer order never created cannot be approved.
         raise ApplicationError("VALIDATION_ERROR")
     result = await _services(request).authorize.approved(db, buyer_order_id=order.id, trigger=None)
     status = str(result.get("status"))
+    if status == "APPROVED":
+        # INT-7: this route is the SDK popup's callback, so the provider order it
+        # named records that channel. The redirect return never reaches here and
+        # keeps ``redirect``, which ``continue`` wrote at create time
+        # (paypal-adapter.md section 12).
+        record.approval_channel = "sdk_popup"
+        await db.flush()
     if status == "REJECTED":
         return {
             "buyer_order_id": order.id,

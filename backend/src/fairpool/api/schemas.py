@@ -675,9 +675,12 @@ class AdminForceAwardResponse(ResponseModel):
 
 
 class MockToggleRequest(StrictModel):
+    """delay_webhooks is recorded and labelled only: it does not delay delivery."""
+
     kind: Literal["paypal_mock_response", "force_capture_failure", "delay_webhooks"]
     value: str | None = None
-    ttl_s: int = Field(default=300, ge=1)
+    # A demo toggle cannot outlive the demo.
+    ttl_s: int = Field(default=300, ge=1, le=3600)
 
 
 class SimRunRequest(StrictModel):
@@ -745,6 +748,7 @@ class AgentEntryResponse(ResponseModel):
     entry_id: UUID
     pool_id: UUID
     entry_status: str
+    already_entered: bool = False
     allocation: AllocationView | None = None
     offer: OfferRef | None = None
     checkout_url: str | None = None

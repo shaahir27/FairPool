@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "date": "2026-11-04",
+  "c17": "Passed live on 2026-11-04. The checkout page loaded the PayPal v6 core script on the documented local mode (client_id; PayPal refuses client tokens on localhost, recorded in S13), the buyer approved in the PayPal popup, the browser posted only {paypal_order_id} to /api/v1/offers/{buyer_order_id}/approved, the server fetched the order and ran FR-CK-05, and the order moved to AUTHORIZED on authorization 01H970211Y409711B with approval_channel=sdk_popup. No amount left the browser.",
+  "c01_to_c15": "Unchanged from the Phase 2 to Phase 6 records; they are not re-run by this gate.",
+  "note": "The redirect fallback stays the path proven in IT-5 and IT-6 and remains the documented fallback when the SDK is blocked."
+}
