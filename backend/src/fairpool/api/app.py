@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
+from starlette.routing import Route
 
 from fairpool.api.errors import REQUEST_ID_HEADER, register_exception_handlers
 from fairpool.api.merchant_api.app import app as merchant_api_app
@@ -46,7 +47,9 @@ from fairpool.config import (
     Settings,
     assert_sandbox_host,
 )
+from fairpool.infra.clock import DbClock
 from fairpool.logging import request_id
+from fairpool.modules.mcp.transport import build_mcp_app
 
 #: Where the hosted image puts the built frontend, so the page and the API share one
 #: origin. `onrender.com` is on the Public Suffix List, which makes the two
@@ -54,7 +57,17 @@ from fairpool.logging import request_id
 #: fetch response is dropped: login answered 200 and /me then read 401.
 WEB_DIR: Final = Path("/app/web")
 _API_PREFIXES: Final = frozenset(
-    {"api", "docs", "health", "merchant-api", "openapi.json", "ready", "redoc", "webhooks"}
+    {
+        "api",
+        "docs",
+        "health",
+        "mcp",
+        "merchant-api",
+        "openapi.json",
+        "ready",
+        "redoc",
+        "webhooks",
+    }
 )
 
 
@@ -139,10 +152,22 @@ def create_app(
 
     app.middleware("http")(add_request_id)
     register_exception_handlers(app)
+    # The merchant sub-app answers with the same error envelope as the parent and
+    # reads the same settings; both are set before the mount (T07A06).
+    merchant_api_app.state.settings = settings
+    register_exception_handlers(merchant_api_app)
     app.include_router(health.router)
     for module in ROUTERS:
         app.include_router(module.router)
     if settings is None or settings.merchant_api_enabled:
         app.mount("/merchant-api/v1", merchant_api_app)
+    if settings is not None and settings.mcp_enabled:
+        # An ASGI app at exactly /mcp, not a documented route: the parent OpenAPI
+        # must not grow an operation for it. ``Mount`` is not used because the
+        # pinned Starlette matches a mount path only with a trailing slash, and
+        # api.md section 2 fixes the path as ``/mcp``.
+        app.router.routes.append(
+            Route("/mcp", endpoint=build_mcp_app(app, settings, clock=DbClock()))
+        )
     _serve_web(app)
     return app

@@ -18,13 +18,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Security
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
 from fairpool.config import Settings
 from fairpool.db.models.catalog import PoolEntry
+from fairpool.db.models.checkout import BuyerOrder
+from fairpool.db.models.enums import AllocationStatus, BuyerOrderStatus
+from fairpool.db.models.pools import Allocation, Lot
 from fairpool.domain.errors import ApplicationError
 from fairpool.fakes.vault import FakePaymentVaultProvider
 from fairpool.infra.audit import PostgresAuditLog
@@ -40,6 +43,19 @@ from fairpool.ports import PaymentVaultProvider
 router = APIRouter()
 
 logger = logging.getLogger("fairpool.entries")
+
+#: The statuses under which a buyer order is still the entry's live offer (api.md "Entry").
+ACTIVE_ORDER_STATUSES: tuple[BuyerOrderStatus, ...] = (
+    BuyerOrderStatus.OFFERED,
+    BuyerOrderStatus.ORDER_CREATED,
+    BuyerOrderStatus.APPROVED,
+    BuyerOrderStatus.AUTHORIZING,
+    BuyerOrderStatus.AUTHORIZED,
+    BuyerOrderStatus.CAPTURING,
+    BuyerOrderStatus.CAPTURE_PENDING,
+    BuyerOrderStatus.CAPTURED,
+    BuyerOrderStatus.REFUNDING,
+)
 
 #: config-and-errors.md section 3: POST /api/v1/pools/{pool_id}/entries is 10/min/user.
 JOIN_RATE_LIMIT = 10
@@ -376,8 +392,18 @@ async def vault_delete(
     operation_id="me_entries",
     dependencies=[Security(require_session)],
 )
-async def me_entries() -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def me_entries(
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+) -> schemas.MeEntryList:
+    entries = list(
+        await db.scalars(
+            select(PoolEntry)
+            .where(PoolEntry.user_id == principal.user_id)
+            .order_by(PoolEntry.created_at, PoolEntry.id)
+        )
+    )
+    return schemas.MeEntryList(items=[await _entry_view(db, entry) for entry in entries])
 
 
 @router.get(
@@ -386,5 +412,75 @@ async def me_entries() -> None:
     operation_id="entry_status",
     dependencies=[Security(require_session)],
 )
-async def entry_status(entry_id: UUID) -> None:
-    raise NotImplementedError("route arrives in a later phase")
+async def entry_status(
+    entry_id: UUID,
+    request: Request,
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+):
+    entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
+    view = await _entry_view(db, entry)
+    vault_status: str | None = None
+    vault_label: str | None = None
+    if _settings(request).vault_token_key is not None:
+        permission = await _vault_service(request).status(db, entry_id=entry.id)
+        vault_status, vault_label = permission.status, permission.label
+    # The receipt is returned as the stored JSON so its timestamp is not re-serialised
+    # (CR-9); every other field is the one view helper both reads share.
+    body = view.model_dump(mode="json")
+    body["vault_status"] = vault_status
+    body["vault_label"] = vault_label
+    body["receipt"] = await _stored_receipt(db, entry)
+    return JSONResponse(status_code=200, content=body)
+
+
+async def _entry_view(db: AsyncSession, entry: PoolEntry) -> schemas.MeEntry:
+    """The allocation and the live offer behind one entry (api.md "Entry")."""
+    allocation = await db.scalar(
+        select(Allocation).where(
+            Allocation.pool_id == entry.pool_id, Allocation.entry_id == entry.id
+        )
+    )
+    allocation_view: schemas.AllocationView | None = None
+    if allocation is not None:
+        waitlist_position: int | None = None
+        if allocation.status == AllocationStatus.WAITLISTED:
+            # rank is 1-based within the zone and the seats ahead are the zone's lot
+            # seats, so the position is measured against what is actually seated.
+            seats = await db.scalar(
+                select(func.coalesce(func.sum(Lot.seats), 0)).where(
+                    Lot.pool_id == entry.pool_id, Lot.zone_id == allocation.zone_id
+                )
+            )
+            waitlist_position = max(1, allocation.rank - int(seats or 0))
+        allocation_view = schemas.AllocationView(
+            status=str(allocation.status),
+            zone_id=allocation.zone_id,
+            rank=allocation.rank,
+            lot_id=allocation.lot_id,
+            waitlist_position=waitlist_position,
+        )
+    order = await db.scalar(
+        select(BuyerOrder)
+        .where(
+            BuyerOrder.entry_id == entry.id,
+            BuyerOrder.status.in_(ACTIVE_ORDER_STATUSES),
+        )
+        .order_by(BuyerOrder.created_at.desc(), BuyerOrder.id)
+        .limit(1)
+    )
+    return schemas.MeEntry(
+        entry_id=entry.id,
+        pool_id=entry.pool_id,
+        entry_status=str(entry.status),
+        allocation=allocation_view,
+        offer=(
+            schemas.OfferRef(
+                buyer_order_id=order.id,
+                status=str(order.status),
+                offer_expires_at=order.offer_expires_at,
+            )
+            if order is not None
+            else None
+        ),
+    )

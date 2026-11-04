@@ -1,7 +1,8 @@
 """Auth dependency declarations for the frozen route table (T01B01).
 
-Sessions, CSRF and roles use the database-backed identity service. Delegation
-and merchant-key authentication remain fail-closed until their scheduled phase.
+Sessions, CSRF and roles use the database-backed identity service. Delegations
+(``fpd_``) and merchant API keys (``fpm_``) resolve through their own HMAC
+lookups; both are fail-closed.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from fairpool.db.models.auction import Merchant
 from fairpool.db.session import create_engine
 from fairpool.domain.errors import ApplicationError
 from fairpool.infra.clock import DbClock
+from fairpool.modules.identity.delegations import AgentPrincipal, PostgresDelegationAuth
 from fairpool.modules.identity.service import IdentityService, Principal
 from fairpool.modules.merchants.auth import PostgresMerchantAuth
 from fairpool.ports import MerchantPrincipal
@@ -101,9 +103,22 @@ async def require_admin(principal: Annotated[Principal, Security(require_session
 
 
 async def require_agent(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(database_session)],
     credentials: Annotated[HTTPAuthorizationCredentials | None, Security(bearer)] = None,
-) -> None:
-    raise _unauthenticated()
+) -> AgentPrincipal:
+    """Resolve ``Authorization: Bearer fpd_<prefix>_<secret>`` (api.md section 4.4).
+
+    Every refusal is ``DELEGATION_INVALID`` at 401: an absent header, a malformed
+    token, an unknown hash, an expired row and a revoked row are not distinguished
+    (I11). Authentication writes nothing, so unlike the merchant-key path there is
+    no ``last_used_at`` to commit here.
+    """
+    settings = request.app.state.settings
+    if credentials is None or settings is None:
+        raise ApplicationError("DELEGATION_INVALID")
+    auth = PostgresDelegationAuth(clock=DbClock(), hmac_key=settings.hmac_key.get_secret_value())
+    return await auth.from_token(db, credentials.credentials)
 
 
 async def require_merchant_key(

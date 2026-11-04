@@ -745,6 +745,7 @@ class AgentEntryResponse(ResponseModel):
     entry_id: UUID
     pool_id: UUID
     entry_status: str
+    already_entered: bool = False
     allocation: AllocationView | None = None
     offer: OfferRef | None = None
     checkout_url: str | None = None
