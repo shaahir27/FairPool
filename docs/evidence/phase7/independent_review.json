@@ -1,0 +1,5 @@
+{
+  "status": "pending",
+  "date": "2026-11-04",
+  "note": "Three read-only review passes are scheduled for the closure commit (money/ops, agent/merchant/MCP, frontend). This file is flipped to passed only after every finding is either fixed or recorded with its reason."
+}

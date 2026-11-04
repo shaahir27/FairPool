@@ -1,0 +1,12 @@
+{
+  "status": "pending",
+  "date": "2026-11-04",
+  "blocks": [
+    "Three real PayPal Sandbox buyer approvals are an owner-only gesture (C-17 and IT-7 both need them)",
+    "C-17 needs one SDK v6 popup approval: PAYPAL_APPROVAL_UI=sdk_popup, PAYPAL_SDK_AUTH=client_token, then approve one offer in a browser"
+  ],
+  "what_is_proven": "tools/it7_live.py exists in two modes. --dry-run passed against a loopback API: preflight refused the hosted Supabase URL and a fake router with --live, fixtures were created the way tools/demo_seed.py makes them, one two-lot pool was created, published and driven DRAFT to COMPLETED through pool.open/close/seed/allocate, and the live plan printed. A no-PayPal rehearsal proved the rest against the real API: four signed-receipt joins, the agent API join/list/withdraw, the MCP initialize/tools-list/enter/list/withdraw round trip, console quote fallback, API-key bids, merchant search with a LOW_SIMILARITY WARNING, both lots awarded from real bids (47000 console, 49000 API key), three offers, three SEATED and one WAITLISTED, checkout open, and all four ops reads.",
+  "what_this_gate_still_needs": "The money legs: three real approvals, lot 1 FUNDED on completed captures, lot 2 void then refund at a zero ledger, one offer expiring and refilling from the waitlist, and the C-17 popup approval.",
+  "how_to_finish_it": "Export loopback DATABASE_URL, PAYMENT_ROUTER=single_seller, PAYMENT_MODE=authorize_capture, PAYPAL_APPROVAL_UI=sdk_popup and SEARCH_BACKEND=postgres; run `make api`; run `.venv/Scripts/python.exe tools/it7_live.py --live --out .tmp/it7_report.json`; open the three short local approval paths it prints (never a token or a full PayPal URL), sign in as a US Sandbox buyer, then let the harness finish. Paste the report's provider references into this file.",
+  "credential_handling": "Buyer passwords stay in .env as IT6_BUYER_PASSWORD and are never printed. The harness refuses the hosted database and prints only short loopback paths."
+}

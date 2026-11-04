@@ -1,0 +1,5 @@
+{
+  "status": "pending",
+  "date": "2026-11-04",
+  "note": "The phase-7 branch had not been pushed when this file was written. The run id is recorded here once the PR exists and all nine jobs are green."
+}

@@ -69,6 +69,17 @@ GATE_EVIDENCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "ci",
         ),
     ),
+    "ig-7": (
+        "phase7",
+        (
+            "migrations",
+            "local_checks",
+            "it7_sandbox",
+            "sandbox_contracts",
+            "independent_review",
+            "ci",
+        ),
+    ),
 }
 REQUIRED_EVIDENCE = GATE_EVIDENCE["ig-2"][1]
 
@@ -245,9 +256,9 @@ def main() -> int:
                     [py, "-m", "alembic", "-c", "backend/alembic.ini", "check"],
                 ]
             )
-        if args.gate in ("ig-2", "ig-3", "ig-4", "ig-5", "ig-6"):
+        if args.gate in ("ig-2", "ig-3", "ig-4", "ig-5", "ig-6", "ig-7"):
             commands.append([py, "tools/check_migrations.py"])
-        if args.gate in ("ig-3", "ig-4", "ig-5", "ig-6"):
+        if args.gate in ("ig-3", "ig-4", "ig-5", "ig-6", "ig-7"):
             # testing-strategy.md section 1: the fault suite is run by gate-check,
             # not by CI. IG-3 owns F5 and F16; IG-4 adds F7 and F8; IG-5 adds F9
             # and F24; IG-6 adds F2, F3, F4 and F10.

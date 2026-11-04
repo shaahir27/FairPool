@@ -1,0 +1,8 @@
+{
+  "status": "pending",
+  "date": "2026-11-04",
+  "blocks": [
+    "C-17 (SDK v6 popup approval of an AUTHORIZE order, then server-side authorize) needs the owner's browser; the redirect path is already proven live in IT-5 and IT-6"
+  ],
+  "note": "C-01 to C-15 are unchanged and were proven in the Phase 2 to Phase 6 records. Phase 7 adds C-17 only: the popup hands over an order id, the server fetches the order, runs the same FR-CK-05 checks and authorizes. The no-amount property is proven locally by tests/integration/test_checkout_sdk.py, and the client token is cached rather than exposed."
+}
