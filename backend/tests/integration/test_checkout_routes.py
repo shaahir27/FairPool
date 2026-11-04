@@ -409,6 +409,6 @@ async def test_checkout_config_is_public_and_carries_no_secret(
         "components": ["paypal-payments"],
         "page_type": "checkout",
         "currency": "USD",
-        "labels": ["SANDBOX"],
+        "labels": ["SANDBOX", "SIMULATED"],
     }
     assert "secret" not in response.text.lower()

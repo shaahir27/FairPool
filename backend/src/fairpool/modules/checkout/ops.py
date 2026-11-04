@@ -40,7 +40,7 @@ ABORT_NOOP_STATUSES: Final[frozenset[str]] = frozenset({"FAILING", "FAILED_CLOSE
 
 
 async def lot_view(session: AsyncSession, lot_id: UUID) -> dict[str, Any]:
-    """The declared ``AdminLotView`` plus the money facts an operator needs."""
+    """The declared ``AdminLotView``; the dead-letter list has its own route."""
     lot = (
         await session.execute(
             text(
@@ -52,41 +52,6 @@ async def lot_view(session: AsyncSession, lot_id: UUID) -> dict[str, Any]:
     ).first()
     if lot is None:
         raise ApplicationError("NOT_FOUND")
-
-    order_rows = (
-        await session.execute(
-            text(
-                "SELECT status::text, count(*) FROM buyer_orders "
-                "WHERE lot_id = :lot GROUP BY status ORDER BY status::text"
-            ),
-            {"lot": lot_id},
-        )
-    ).all()
-    captures = await _resource_totals(session, "paypal_captures", lot_id)
-    refunds = await _resource_totals(session, "paypal_refunds", lot_id)
-    ledger = await session.execute(
-        text(
-            "SELECT count(*), COALESCE(sum(CASE WHEN kind = 'CAPTURE_COMPLETED' "
-            "THEN amount_cents WHEN kind = 'REFUND_COMPLETED' THEN -amount_cents "
-            "ELSE 0 END), 0) FROM ledger_entries WHERE lot_id = :lot"
-        ),
-        {"lot": lot_id},
-    )
-    ledger_count, net_cents = ledger.one()
-    dead_letters = (
-        await session.execute(
-            text(
-                "SELECT DISTINCT w.id, w.event_type, w.status::text FROM webhook_events w "
-                "WHERE w.status IN ('DEAD_LETTER','REJECTED') AND EXISTS ("
-                "  SELECT 1 FROM paypal_orders po "
-                "  JOIN buyer_orders bo ON bo.id = po.buyer_order_id "
-                "  WHERE bo.lot_id = :lot AND position(po.paypal_order_id IN w.raw_body) > 0"
-                ") ORDER BY w.id"
-            ),
-            {"lot": lot_id},
-        )
-    ).all()
-
     return {
         "lot_id": lot.id,
         "pool_id": lot.pool_id,
@@ -96,43 +61,7 @@ async def lot_view(session: AsyncSession, lot_id: UUID) -> dict[str, Any]:
         "award_id": lot.award_id,
         "payment_router": lot.payment_router,
         "payment_mode": lot.payment_mode,
-        "money": {
-            "orders_by_status": {str(row[0]): int(row[1]) for row in order_rows},
-            "captures": captures,
-            "refunds": refunds,
-            "ledger": {"entries": int(ledger_count), "net_cents": int(net_cents)},
-            "dead_letters": [
-                {"event_id": str(row[0]), "event_type": str(row[1]), "status": str(row[2])}
-                for row in dead_letters
-            ],
-        },
     }
-
-
-async def _resource_totals(session: AsyncSession, table: str, lot_id: UUID) -> dict[str, Any]:
-    """Per-status counts and cents for captures or refunds of one lot."""
-    # The table name comes from this module's own two literals, never from input.
-    if table not in {"paypal_captures", "paypal_refunds"}:
-        raise ApplicationError("INTEGRITY_ERROR")
-    rows = (
-        await session.execute(
-            text(
-                f"SELECT r.status, count(*), COALESCE(sum(r.amount_cents), 0) FROM {table} r "
-                "JOIN buyer_orders bo ON bo.id = r.buyer_order_id "
-                "WHERE bo.lot_id = :lot GROUP BY r.status ORDER BY r.status"
-            ),
-            {"lot": lot_id},
-        )
-    ).all()
-    by_status = {str(row[0]): {"count": int(row[1]), "cents": int(row[2])} for row in rows}
-    total = await session.scalar(
-        text(
-            f"SELECT count(*) FROM {table} r JOIN buyer_orders bo "
-            "ON bo.id = r.buyer_order_id WHERE bo.lot_id = :lot"
-        ),
-        {"lot": lot_id},
-    )
-    return {"total": int(total or 0), "by_status": by_status}
 
 
 async def abort(
@@ -162,6 +91,10 @@ async def abort(
         return {"lot_id": str(lot.id), "status": "CANCELLED", "transition_id": "LS-13"}
 
     if status in {"CHECKOUT_OPEN", "FUNDING"}:
+        if await _money_in_flight(session, lot_id):
+            # funding.py waits for these same states before failing a lot; an abort
+            # must not close over a capture or an authorize that is still landing.
+            raise ApplicationError("ORDER_STATE_INVALID")
         transition_id = "LS-08" if status == "CHECKOUT_OPEN" else "LS-09"
         moq = await session.scalar(select(Award.moq).where(Award.lot_id == lot_id))
         if moq is None:
@@ -189,6 +122,20 @@ async def abort(
     # AWARDED, CHECKOUT_OPEN and FUNDING are the only abortable states (LS-13,
     # LS-08 and LS-09); anything else keeps the state the machine gave it.
     raise ApplicationError("ORDER_STATE_INVALID")
+
+
+async def _money_in_flight(session: AsyncSession, lot_id: UUID) -> bool:
+    """A PENDING capture or an AUTHORIZING seat still belongs to the provider."""
+    found = await session.scalar(
+        text(
+            "SELECT 1 FROM paypal_captures pc JOIN buyer_orders bo "
+            "ON bo.id = pc.buyer_order_id WHERE bo.lot_id = :lot AND pc.status = 'PENDING' "
+            "UNION ALL SELECT 1 FROM buyer_orders bo WHERE bo.lot_id = :lot "
+            "AND bo.status = 'AUTHORIZING' LIMIT 1"
+        ),
+        {"lot": lot_id},
+    )
+    return found is not None
 
 
 async def _money_exists(session: AsyncSession, lot_id: UUID) -> bool:
@@ -372,11 +319,3 @@ def mock_toggle(kind: str, value: str | None, ttl_s: int, *, enabled: bool) -> d
     """Arm one demo toggle, or ``FEATURE_DISABLED`` when the gate is off."""
     mock_gateway.set_toggle(kind=kind, value=value, ttl_s=ttl_s, enabled=enabled)
     return {"kind": kind, "value": value, "ttl_s": int(ttl_s), "labels": [mock_gateway.MOCK_LABEL]}
-
-
-def mock_reset(*, enabled: bool) -> dict[str, Any]:
-    """Clear every demo toggle; the ordinary path is never gated."""
-    if not enabled:
-        raise ApplicationError("FEATURE_DISABLED")
-    mock_gateway.reset()
-    return {"labels": [], "active": []}

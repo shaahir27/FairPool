@@ -116,6 +116,7 @@ export function DeadLettersPanel() {
                       <button
                         type="button"
                         className="button-secondary ops-small-action"
+                        aria-label={`Retry ${event.event_type} ${event.paypal_event_id}`}
                         disabled={retrying !== null}
                         onClick={() => retry(event)}
                       >

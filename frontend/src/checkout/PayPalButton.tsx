@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { api, type ApiComponents, type DeliveryAddress, Notice } from "../shared";
 
 type CheckoutConfig = ApiComponents["schemas"]["CheckoutConfigResponse"];
+type ApprovalResult = ApiComponents["schemas"]["ApprovedResponse"];
 type ApiFailure = { code: string; message: string };
 type Phase = "loading" | "ready" | "fallback";
+
+/** The whole init (script, token, instance, eligibility) may not hang a checkout. */
+const INIT_TIMEOUT_MS = 8_000;
 
 type OneTimeSession = {
   start: (
@@ -68,6 +73,9 @@ function fallbackMessage(reason: unknown): string {
   if (reason instanceof Error && reason.message === "PAYPAL_NOT_ELIGIBLE") {
     return "PayPal's inline button is not available for this checkout, so the standard PayPal page is used.";
   }
+  if (reason instanceof Error && reason.message === "SDK_TIMEOUT") {
+    return "PayPal did not finish loading in time, so the standard PayPal page is used.";
+  }
   return "The inline PayPal button could not load, so the standard PayPal page is used.";
 }
 
@@ -86,6 +94,7 @@ export function PayPalButton({
   disabled = false,
   ensureShipping,
   onRefresh,
+  onApproved,
   onFallback,
 }: {
   config: CheckoutConfig;
@@ -95,10 +104,15 @@ export function PayPalButton({
   /** Returns false after showing the incomplete-address message. */
   ensureShipping: () => boolean;
   onRefresh: () => void;
+  /** Fired only after the server confirms an approval, so a list can reload. */
+  onApproved?: (() => void) | undefined;
   onFallback: (message: string) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<ApiFailure | null>(null);
+  const [approval, setApproval] = useState<ApprovalResult | null>(null);
+  const [cancelPending, setCancelPending] = useState(false);
+  const [busy, setBusy] = useState(false);
   const instance = useRef<PayPalInstance | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const startRef = useRef<() => void>(() => {});
@@ -107,21 +121,30 @@ export function PayPalButton({
 
   useEffect(() => {
     let live = true;
+    let timer: number | undefined;
+    const prepare = async (): Promise<PayPalInstance> => {
+      const sdk = await loadSdk(config.sdk_url);
+      const base = { components: config.components, pageType: config.page_type };
+      let created: PayPalInstance;
+      if (config.sdk_auth === "client_token") {
+        const { data, error: failure } = await api.GET("/api/v1/checkout/client-token");
+        if (failure || !data?.client_token) throw new Error("TOKEN_UNAVAILABLE");
+        created = await sdk.createInstance({ ...base, clientToken: data.client_token });
+      } else {
+        created = await sdk.createInstance({ ...base, clientId: config.client_id });
+      }
+      const methods = await created.findEligibleMethods({ currencyCode: config.currency });
+      // api.md section 4.1: the button is shown only when PayPal itself is eligible.
+      if (methods?.isEligible?.("paypal") !== true) throw new Error("PAYPAL_NOT_ELIGIBLE");
+      return created;
+    };
+    // A stuck script or token request would otherwise leave a spinner forever.
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = window.setTimeout(() => reject(new Error("SDK_TIMEOUT")), INIT_TIMEOUT_MS);
+    });
     const init = async () => {
       try {
-        const sdk = await loadSdk(config.sdk_url);
-        const base = { components: config.components, pageType: config.page_type };
-        let created: PayPalInstance;
-        if (config.sdk_auth === "client_token") {
-          const { data, error: failure } = await api.GET("/api/v1/checkout/client-token");
-          if (failure || !data?.client_token) throw new Error("TOKEN_UNAVAILABLE");
-          created = await sdk.createInstance({ ...base, clientToken: data.client_token });
-        } else {
-          created = await sdk.createInstance({ ...base, clientId: config.client_id });
-        }
-        const methods = await created.findEligibleMethods({ currencyCode: config.currency });
-        // api.md section 4.1: the button is shown only when PayPal itself is eligible.
-        if (methods?.isEligible?.("paypal") !== true) throw new Error("PAYPAL_NOT_ELIGIBLE");
+        const created = await Promise.race([prepare(), timeout]);
         if (!live) return;
         instance.current = created;
         setPhase("ready");
@@ -129,11 +152,14 @@ export function PayPalButton({
         if (!live) return;
         setPhase("fallback");
         fallback.current(fallbackMessage(reason));
+      } finally {
+        if (timer !== undefined) window.clearTimeout(timer);
       }
     };
     void init();
     return () => {
       live = false;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [config]);
 
@@ -145,27 +171,43 @@ export function PayPalButton({
     }
     // INT-7: the browser posts the order ID only; the server fetches and verifies
     // the order from PayPal, then authorizes. No amount ever leaves this page.
-    const { error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/approved", {
+    const { data: result, error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/approved", {
       params: { path: { buyer_order_id: buyerOrderId } },
       body: { paypal_order_id: orderId },
     });
-    if (failure) {
+    if (failure || !result) {
       setError(codeOf(failure));
       return;
     }
-    onRefresh();
+    setApproval(result);
+    // APPROVED moves the order on; REJECTED/EXPIRED keeps the offer visible so
+    // the reason and the order link stay readable instead of being replaced.
+    if (result.status === "APPROVED") {
+      onApproved?.();
+      onRefresh();
+    }
   };
 
-  const cancel = async () => {
-    const { error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/cancelled", {
-      params: { path: { buyer_order_id: buyerOrderId } },
-      body: {},
-    });
-    if (failure) {
-      setError(codeOf(failure));
-      return;
+  const decline = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/cancelled", {
+        params: { path: { buyer_order_id: buyerOrderId } },
+        body: {},
+      });
+      if (failure) {
+        setError(codeOf(failure));
+        return;
+      }
+      setCancelPending(false);
+      onRefresh();
+    } catch {
+      setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
+    } finally {
+      setBusy(false);
     }
-    onRefresh();
   };
 
   const sdkError = (reason: unknown) => {
@@ -201,7 +243,8 @@ export function PayPalButton({
     try {
       const session = sdk.createPayPalOneTimePaymentSession({
         onApprove: approve,
-        onCancel: cancel,
+        // Closing the PayPal window must not decline the offer by accident.
+        onCancel: () => setCancelPending(true),
         onError: sdkError,
       });
       void session.start({ presentationMode: "auto" }, createOrder()).catch(() => {
@@ -245,11 +288,67 @@ export function PayPalButton({
         </p>
       ) : null}
       <div ref={host} className="checkout-paypal-host w-full" />
+      {cancelPending ? (
+        <div
+          className="enter-rise rounded-xl border border-line px-4 py-3 text-sm"
+          role="alertdialog"
+          aria-labelledby="paypal-cancel-title"
+          aria-describedby="paypal-cancel-copy"
+        >
+          <p id="paypal-cancel-title" className="font-semibold">
+            Cancel this PayPal approval?
+          </p>
+          <p id="paypal-cancel-copy" className="mt-1 text-muted">
+            Cancel now declines this offer. Keep the offer?
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="button-secondary"
+              autoFocus
+              disabled={busy}
+              onClick={() => setCancelPending(false)}
+            >
+              Keep the offer
+            </button>
+            <button type="button" className="button-secondary" disabled={busy} onClick={() => void decline()}>
+              {busy ? "Declining…" : "Decline the offer"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {approval ? (
+        <ApprovalNotice approval={approval} buyerOrderId={buyerOrderId} />
+      ) : null}
       {error ? (
         <Notice kind="error" code={error.code}>
           {error.message}
         </Notice>
       ) : null}
     </div>
+  );
+}
+
+/** What `/approved` decided: a move forward, or a refusal with its reason. */
+function ApprovalNotice({ approval, buyerOrderId }: { approval: ApprovalResult; buyerOrderId: string }) {
+  const reason = approval.reason ?? approval.status;
+  const orderLink = (
+    <Link className="mt-2 inline-flex min-h-[44px] items-center underline" to={`/orders/${buyerOrderId}`}>
+      Open order for {buyerOrderId}
+    </Link>
+  );
+  if (approval.status === "APPROVED") {
+    return (
+      <Notice kind="info" code={approval.status}>
+        Approval received. Your order is moving to payment confirmation.
+        {orderLink}
+      </Notice>
+    );
+  }
+  return (
+    <Notice kind="error" code={reason}>
+      PayPal did not complete this approval: {reason}.
+      {orderLink}
+    </Notice>
   );
 }

@@ -75,7 +75,7 @@ describe("Orders grouping", () => {
     expect(within(closed).getByText("$15.00")).toBeInTheDocument();
   });
 
-  it("says whether a receipt exists and links to that order", async () => {
+  it("says whether a receipt exists and links to that order by name", async () => {
     transport.get.mockResolvedValue({ data: { items: orders } });
     show();
 
@@ -83,9 +83,15 @@ describe("Orders grouping", () => {
     const progress = screen.getByRole("region", { name: "In progress" });
 
     expect(within(paid).getByText("Receipt available")).toBeInTheDocument();
-    expect(within(paid).getByRole("link", { name: "Open order and receipt" })).toHaveAttribute("href", "/orders/order-paid");
+    expect(within(paid).getByRole("link", { name: "Open order and receipt for order-paid" })).toHaveAttribute(
+      "href",
+      "/orders/order-paid",
+    );
     expect(within(progress).getByText("No receipt for this order")).toBeInTheDocument();
-    expect(within(progress).getByRole("link", { name: "Open order" })).toHaveAttribute("href", "/orders/order-progress");
+    expect(within(progress).getByRole("link", { name: "Open order for order-progress" })).toHaveAttribute(
+      "href",
+      "/orders/order-progress",
+    );
   });
 });
 

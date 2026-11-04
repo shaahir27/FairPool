@@ -29,6 +29,17 @@ SINGLE_SELLER_LABEL: Final[str] = (
 #: The simulation banner's short label (FR-SM-01, I12).
 SIMULATED_LABEL: Final[str] = "SIMULATED"
 
+#: The first badge on every checkout surface: nothing here talks to live PayPal.
+SANDBOX_LABEL: Final[str] = "SANDBOX"
+
+
+def checkout_labels(router: str) -> list[str]:
+    """SANDBOX plus the registry label of a simulated router (AGENTS rule 19)."""
+    labels = [SANDBOX_LABEL]
+    if router == "fake":
+        labels.append(SIMULATED_LABEL)
+    return labels
+
 
 @dataclass(frozen=True)
 class RouterSpec:

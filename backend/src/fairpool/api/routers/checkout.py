@@ -50,7 +50,6 @@ from fairpool.wiring import CheckoutServices, checkout_services
 
 router = APIRouter()
 
-SANDBOX_LABEL = "SANDBOX"
 SINGLE_SELLER_NOTICE = paypal_routers.SINGLE_SELLER_LABEL
 CAPTURE_ONLY_NOTICE = "Sandbox demo: the lot is captured without a separate authorization hold."
 HOLD_NOTICE = (
@@ -135,7 +134,9 @@ def _fallback_notice(lot: Lot) -> str | None:
 
 
 def _labels(lot: Lot) -> list[str]:
-    labels = [SANDBOX_LABEL]
+    # One registry builds the badges: SANDBOX, the fake router's SIMULATED, then
+    # the fallback sentence and an active demo toggle (AGENTS rule 19).
+    labels = paypal_routers.checkout_labels(str(lot.payment_router))
     if _fallback_notice(lot) is not None:
         labels.append(FALLBACK_LABEL)
     mock = mock_gateway.label()
@@ -519,30 +520,24 @@ async def offers_approved(
 ):
     """The SDK ``onApprove`` hint: verify it names our order, then run the checks."""
     order = await _owned_order(db, buyer_order_id=buyer_order_id, user_id=principal.user_id)
-    known = await db.scalar(
-        select(PayPalOrder.id).where(
+    record = await db.scalar(
+        select(PayPalOrder).where(
             PayPalOrder.buyer_order_id == order.id,
             PayPalOrder.paypal_order_id == payload.paypal_order_id,
         )
     )
-    if known is None:
+    if record is None:
         # A reported order id this buyer order never created cannot be approved.
         raise ApplicationError("VALIDATION_ERROR")
     result = await _services(request).authorize.approved(db, buyer_order_id=order.id, trigger=None)
     status = str(result.get("status"))
     if status == "APPROVED":
-        # INT-7: this route is the SDK popup's callback, so the provider order records
-        # that channel. The redirect return never reaches here and keeps ``redirect``,
-        # which ``continue`` wrote at create time (paypal-adapter.md section 12).
-        record = await db.scalar(
-            select(PayPalOrder)
-            .where(PayPalOrder.buyer_order_id == order.id)
-            .order_by(PayPalOrder.attempt.desc(), PayPalOrder.created_at.desc())
-            .limit(1)
-        )
-        if record is not None:
-            record.approval_channel = "sdk_popup"
-            await db.flush()
+        # INT-7: this route is the SDK popup's callback, so the provider order it
+        # named records that channel. The redirect return never reaches here and
+        # keeps ``redirect``, which ``continue`` wrote at create time
+        # (paypal-adapter.md section 12).
+        record.approval_channel = "sdk_popup"
+        await db.flush()
     if status == "REJECTED":
         return {
             "buyer_order_id": order.id,

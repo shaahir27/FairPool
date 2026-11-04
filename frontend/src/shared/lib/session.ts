@@ -15,6 +15,13 @@ export interface Account {
   paypal_linked: boolean;
 }
 
+/**
+ * Announced on the window when a session ends, so per-session caches held by
+ * another area (the buyer entry prefetch) can forget whose data they hold.
+ * A plain event keeps `shared` free of imports from the areas it serves.
+ */
+export const SESSION_ENDED_EVENT = "fairpool:session-ended";
+
 let sessionKnown: SessionState = null;
 let account: Account | null = null;
 
@@ -34,4 +41,8 @@ export function resetSessionCache(next: SessionState = null): void {
   sessionKnown = next;
   // A session that is no longer known is no longer evidence about who it belongs to.
   if (next !== "in") account = null;
+  if (next === "out" && typeof window !== "undefined") {
+    // Sign-out, or a 401 from any call: whatever was cached belonged to that session.
+    window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+  }
 }

@@ -56,7 +56,7 @@
 .shop-panel h3 { font-size: 14px; font-weight: 600; }
 .shop-title { font-size: 28px; font-weight: 650; letter-spacing: -.04em; line-height: 1.25; }
 .shop-copy { font-size: 14px; line-height: 1.7; color: rgb(var(--color-muted)); }
-.shop-back { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: rgb(var(--color-muted)); margin-bottom: 22px; }
+.shop-back { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; font-size: 12px; color: rgb(var(--color-muted)); margin-bottom: 22px; }
 .shop-back .icon { width: 14px; height: 14px; transform: rotate(180deg); }
 .shop-heading { margin-bottom: 24px; }
 .shop-heading .shop-copy { margin-top: 8px; }
@@ -91,7 +91,7 @@
 .checkout-actions .button-primary .icon { width: 16px; }
 .checkout-fineprint { display: flex; gap: 7px; justify-content: center; margin-top: 12px; font-size: 12px; color: rgb(var(--color-muted)); }
 .checkout-fineprint .icon { width: 13px; height: 13px; }
-.decline-link { display: block; margin: 20px auto 0; min-height: 36px; text-decoration: underline; text-underline-offset: 4px; font-size: 12px; color: rgb(var(--color-muted)); }
+.decline-link { display: block; margin: 20px auto 0; min-height: 44px; line-height: 44px; text-decoration: underline; text-underline-offset: 4px; font-size: 12px; color: rgb(var(--color-muted)); }
 .decline-link:disabled { opacity: .55; }
 .shop-summary { position: sticky; top: 24px; }
 .shop-summary-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 24px; border-bottom: 1px solid rgb(var(--color-ink) / .08); }

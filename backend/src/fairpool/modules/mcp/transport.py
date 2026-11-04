@@ -32,6 +32,11 @@ from fairpool.ports import Clock
 
 JSON: Final[bytes] = b"application/json"
 
+#: One POST body and one JSON-RPC batch are small by contract (api.md section 4.5):
+#: a larger body is refused before any tool runs, so no DB work is spent on it.
+MAX_BODY_BYTES: Final[int] = 64 * 1024
+MAX_BATCH_MESSAGES: Final[int] = 20
+
 
 def build_mcp_app(parent: Any, settings: Settings, *, clock: Clock) -> MCPApp:
     return MCPApp(parent=parent, settings=settings, clock=clock)
@@ -45,7 +50,6 @@ class MCPApp:
         self.settings = settings
         self.clock = clock
         self.server = MCPServer(parent)
-        self._factory: async_sessionmaker[AsyncSession] | None = None
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] != "http":  # pragma: no cover - no websocket/lifespan use
@@ -61,37 +65,59 @@ class MCPApp:
         if bearer is None:
             await _send_json(send, 401, _error_body("DELEGATION_INVALID", _INVALID_MESSAGE))
             return
+        body = b""
+        if method == "POST":
+            read = await _read_body(receive, limit=MAX_BODY_BYTES)
+            if read is None:
+                await _send_json(send, 413, _error_body("VALIDATION_ERROR", _TOO_LARGE_MESSAGE))
+                return
+            body = read
         try:
             await self._authenticate(bearer)
         except ApplicationError:
             await _send_json(send, 401, _error_body("DELEGATION_INVALID", _INVALID_MESSAGE))
             return
         if method == "POST":
-            await self._post(bearer, receive, send)
+            await self._post(body, bearer, send)
         elif method == "GET":
             await self._stream(send, receive)
         else:
             await _send_json(send, 405, _error_body("VALIDATION_ERROR", "Use POST or GET."))
 
+    def _session_factory(self) -> async_sessionmaker[AsyncSession]:
+        """The app's one factory, created lazily exactly as ``api/deps.py`` does.
+
+        The transport must not own a second pool next to the API's, and it never
+        disposes the app's engine: the process that built it still uses it.
+        """
+        state = self.parent.state
+        if not hasattr(state, "session_factory"):
+            # Same engine and factory attributes ``database_session`` builds, so the
+            # API and /mcp share one pool.
+            settings: Settings = state.settings if state.settings is not None else self.settings
+            state.engine = create_engine(settings)
+            state.session_factory = async_sessionmaker(state.engine, expire_on_commit=False)
+        factory: async_sessionmaker[AsyncSession] = state.session_factory
+        return factory
+
     async def _authenticate(self, bearer: str) -> AgentPrincipal:
-        """Resolve the token on its own short session; authentication writes nothing."""
-        if self._factory is None:
-            engine = create_engine(self.settings)
-            self._factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with self._factory() as session:
+        """Resolve the token on the app's factory; authentication writes nothing."""
+        async with self._session_factory()() as session:
             auth = PostgresDelegationAuth(
                 clock=self.clock, hmac_key=self.settings.hmac_key.get_secret_value()
             )
             return await auth.from_token(session, bearer)
 
-    async def _post(self, bearer: str, receive: Any, send: Any) -> None:
-        body = await _read_body(receive)
+    async def _post(self, body: bytes, bearer: str, send: Any) -> None:
         try:
             message = json.loads(body or b"null")
         except ValueError:
             await _send_json(send, 400, _rpc_error(None, -32700, "Parse error"))
             return
         messages = message if isinstance(message, list) else [message]
+        if len(messages) > MAX_BATCH_MESSAGES:
+            await _send_json(send, 413, _error_body("VALIDATION_ERROR", _TOO_LARGE_MESSAGE))
+            return
         replies: list[dict[str, Any]] = []
         for item in messages:
             if not isinstance(item, dict):
@@ -129,6 +155,7 @@ class MCPApp:
 
 
 _INVALID_MESSAGE: Final[str] = "Agent token unknown, expired or revoked."
+_TOO_LARGE_MESSAGE: Final[str] = "Request body or JSON-RPC batch exceeds the MCP limit."
 
 
 def _bearer(scope: dict[str, Any]) -> str | None:
@@ -143,13 +170,19 @@ def _bearer(scope: dict[str, Any]) -> str | None:
     return None
 
 
-async def _read_body(receive: Any) -> bytes:
+async def _read_body(receive: Any, *, limit: int) -> bytes | None:
+    """Read one request body, or ``None`` as soon as it passes ``limit`` bytes."""
     chunks: list[bytes] = []
+    total = 0
     while True:
         message = await receive()
         if message["type"] != "http.request":  # pragma: no cover - disconnect mid-body
             return b"".join(chunks)
-        chunks.append(message.get("body", b""))
+        chunk = message.get("body", b"")
+        total += len(chunk)
+        if total > limit:
+            return None
+        chunks.append(chunk)
         if not message.get("more_body", False):
             return b"".join(chunks)
 

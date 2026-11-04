@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,17 +15,25 @@ vi.mock("../src/checkout", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/checkout")>();
   return {
     ...actual,
-    OfferCheckout: (props: { buyerOrderId: string }) =>
+    OfferCheckout: (props: { buyerOrderId: string; onChanged?: () => void }) =>
       checkoutStub.real ? (
         <actual.OfferCheckout {...props} />
       ) : (
-        <div data-testid="offer-checkout">Checkout for {props.buyerOrderId}</div>
+        <div data-testid="offer-checkout">
+          Checkout for {props.buyerOrderId}
+          {props.onChanged ? (
+            <button type="button" onClick={props.onChanged}>
+              Simulate approval
+            </button>
+          ) : null}
+        </div>
       ),
   };
 });
 
 import { MyPoolsPage } from "../src/buyer/my-pools/MyPoolsPage";
 import { resetBuyerPrefetch } from "../src/buyer/prefetch";
+import { resetSessionCache } from "../src/shared";
 
 const offerEntry = {
   entry_id: "entry-offer",
@@ -57,6 +65,14 @@ const pricedOutEntry = {
   entry_status: "ELIGIBLE",
   allocation: { status: "PRICED_OUT", zone_id: "US-EAST", rank: 4, lot_id: "lot-two", waitlist_position: null },
   offer: null,
+};
+
+const capturedEntry = {
+  entry_id: "entry-captured",
+  pool_id: "pool-captured",
+  entry_status: "ELIGIBLE",
+  allocation: { status: "SEATED", zone_id: "US-EAST", rank: 1, lot_id: "lot-one", waitlist_position: null },
+  offer: { buyer_order_id: "order-captured", status: "CAPTURED", offer_expires_at: "2026-11-02T10:15:00Z" },
 };
 
 const offerResponse = {
@@ -141,14 +157,37 @@ describe("My Pools grouping", () => {
     expect(within(waitlist).getByText("Waitlisted, position #5")).toBeInTheDocument();
   });
 
-  it("links every entry to its pool lobby", async () => {
+  it("treats an offer past approval as a line linking to its order, not an action", async () => {
+    respondWithEntries([capturedEntry]);
+    show();
+
+    const pending = await screen.findByRole("region", { name: "Pending" });
+    const action = screen.getByRole("region", { name: "Action required" });
+
+    expect(within(action).getByText("No offers are waiting for you.")).toBeInTheDocument();
+    expect(within(action).queryByTestId("offer-checkout")).not.toBeInTheDocument();
+    expect(within(pending).getByText("Payment completed")).toBeInTheDocument();
+    expect(within(pending).getByRole("link", { name: "Open order for order-captured" })).toHaveAttribute(
+      "href",
+      "/orders/order-captured",
+    );
+    expect(within(pending).queryByTestId("offer-checkout")).not.toBeInTheDocument();
+  });
+
+  it("links every entry to its pool lobby by name", async () => {
     respondWithEntries([pendingEntry, waitlistEntry]);
     show();
 
     const pending = await screen.findByRole("region", { name: "Pending" });
     const waitlist = screen.getByRole("region", { name: "Waitlist" });
-    expect(within(pending).getByRole("link", { name: /Open pool lobby/ })).toHaveAttribute("href", "/pools/pool-pending");
-    expect(within(waitlist).getByRole("link", { name: /Open pool lobby/ })).toHaveAttribute("href", "/pools/pool-wait");
+    expect(within(pending).getByRole("link", { name: "Open pool lobby for pool-pending" })).toHaveAttribute(
+      "href",
+      "/pools/pool-pending",
+    );
+    expect(within(waitlist).getByRole("link", { name: "Open pool lobby for pool-wait" })).toHaveAttribute(
+      "href",
+      "/pools/pool-wait",
+    );
   });
 
   it("renders the offer countdown from the server's clock, not the device's", async () => {
@@ -180,5 +219,34 @@ describe("My Pools states", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/connection|try again/i);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("region", { name: "Pending" })).toBeInTheDocument();
+  });
+
+  it("reloads the entry list when an inline approval changes the offer", async () => {
+    respondWithEntries([offerEntry]);
+    show();
+
+    await screen.findByTestId("offer-checkout");
+    fireEvent.click(screen.getByRole("button", { name: "Simulate approval" }));
+
+    await waitFor(() =>
+      expect(transport.get.mock.calls.filter(([path]) => path === "/api/v1/me/entries")).toHaveLength(2),
+    );
+  });
+
+  it("never shows the previous session's cached entries to the next user", async () => {
+    respondWithEntries([pendingEntry]);
+    const first = show();
+    expect(await screen.findByText("pool-pending")).toBeInTheDocument();
+    first.unmount();
+
+    // What sign-out (and any 401) does: the session ends, so the cached pages go too.
+    resetSessionCache("out");
+
+    respondWithEntries([waitlistEntry]);
+    show();
+    const waitlist = await screen.findByRole("region", { name: "Waitlist" });
+    expect(within(waitlist).getByText("Waitlisted, position #3")).toBeInTheDocument();
+    expect(screen.queryByText("pool-pending")).not.toBeInTheDocument();
+    expect(transport.get.mock.calls.filter(([path]) => path === "/api/v1/me/entries")).toHaveLength(2);
   });
 });

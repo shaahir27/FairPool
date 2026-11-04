@@ -17,7 +17,14 @@ const ADDRESS_FIELDS = [
 type AddressField = (typeof ADDRESS_FIELDS)[number]["name"];
 const EMPTY_ADDRESS: Record<AddressField, string> = { name: "", line1: "", line2: "", city: "", region: "", postal_code: "", country_code: "US" };
 
-export function OfferCheckout({ buyerOrderId }: { buyerOrderId: string }) {
+export function OfferCheckout({
+  buyerOrderId,
+  onChanged,
+}: {
+  buyerOrderId: string;
+  /** Fired after PayPal confirms an approval, so a list showing this entry can reload. */
+  onChanged?: (() => void) | undefined;
+}) {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   // Approval reloads the offer instead of guessing the new state in the browser.
@@ -40,10 +47,10 @@ export function OfferCheckout({ buyerOrderId }: { buyerOrderId: string }) {
   }, [buyerOrderId, reload]);
   if (error) return <Notice kind="error" code={error.code}>{error.message}</Notice>;
   if (!offer) return <section className="panel" role="status" aria-label="Loading offer" aria-busy="true"><p className="meta-label">Loading offer</p><div className="skeleton mt-5 h-10 w-2/3" /><div className="skeleton mt-4 h-40" /><div className="skeleton mt-4 h-12" /></section>;
-  return <OfferDetails key={buyerOrderId} offer={offer} onRefresh={() => setReload((count) => count + 1)} />;
+  return <OfferDetails key={buyerOrderId} offer={offer} onRefresh={() => setReload((count) => count + 1)} onChanged={onChanged} />;
 }
 
-function OfferDetails({ offer, onRefresh }: { offer: Offer; onRefresh: () => void }) {
+function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh: () => void; onChanged?: (() => void) | undefined }) {
   const navigate = useNavigate();
   const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [savedAddresses, setSavedAddresses] = useState<ApiComponents["schemas"]["SavedAddressResponse"][]>([]);
@@ -124,7 +131,7 @@ function OfferDetails({ offer, onRefresh }: { offer: Offer; onRefresh: () => voi
       <StatusPill status={expired ? "EXPIRED" : offer.status} />
       <h1>{expired ? "This offer can no longer be approved." : offer.status === "DECLINED" ? "Offer declined" : "Your offer has moved on"}</h1>
       <p className="secondary-copy mt-3">{expired ? "Your approval window has ended. Check your order for the latest status." : "Check your order for the latest payment and lot status."}</p>
-      <Link to={orderPath} className="button-secondary mt-6">View order status <Icon name="arrow" /></Link>
+      <Link to={orderPath} className="button-secondary mt-6">View order status for {offer.buyer_order_id} <Icon name="arrow" /></Link>
     </section>;
   }
   const unused = offer.totals.cap_cents - offer.totals.total_cents;
@@ -176,6 +183,7 @@ function OfferDetails({ offer, onRefresh }: { offer: Offer; onRefresh: () => voi
                 disabled={busy !== null || countdown.expired}
                 ensureShipping={ensureShipping}
                 onRefresh={onRefresh}
+                onApproved={onChanged}
                 onFallback={setSdkFallback}
               />
             ) : (

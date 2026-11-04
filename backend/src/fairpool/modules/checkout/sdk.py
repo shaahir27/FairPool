@@ -18,6 +18,7 @@ import time
 from typing import Any, Final, Protocol
 from urllib.parse import urlsplit
 
+from fairpool.adapters.paypal.routers import checkout_labels
 from fairpool.config import Settings
 from fairpool.domain.errors import ApplicationError
 from fairpool.modules.checkout import mock_gateway
@@ -25,11 +26,12 @@ from fairpool.modules.checkout import mock_gateway
 #: The SDK v6 core script on the Sandbox checkout host (INT-7).
 SDK_URL: Final[str] = "https://www.sandbox.paypal.com/web-sdk/v6/core"
 SDK_COMPONENTS: Final[tuple[str, ...]] = ("paypal-payments",)
-SANDBOX_LABEL: Final[str] = "SANDBOX"
 #: The short label of DEP-4, shown wherever the stand-in routing applies.
 FALLBACK_LABEL: Final[str] = "FALLBACK: single stand-in seller"
 #: The contract caches a client token until one minute before expiry.
 TOKEN_SAFETY_MARGIN_S: Final[int] = 60
+#: A token fetch is one bounded call: a stuck PayPal call must not stall every buyer.
+CLIENT_TOKEN_TIMEOUT_S: Final[float] = 5.0
 
 
 class ClientTokenGateway(Protocol):
@@ -50,6 +52,7 @@ class SdkService:
         approval_ui: str,
         fallback: bool,
         domain: str | None,
+        router: str = "",
     ) -> None:
         self.gateway = gateway
         self.client_id = client_id
@@ -57,7 +60,9 @@ class SdkService:
         self.approval_ui = approval_ui
         self.fallback = fallback
         self.domain = domain
+        self.router = router
         self._lock = asyncio.Lock()
+        self._pending: asyncio.Task[tuple[str, float]] | None = None
         self._token: str | None = None
         self._until = 0.0
 
@@ -74,11 +79,12 @@ class SdkService:
                 or settings.payment_mode == "capture_only"
             ),
             domain=urlsplit(settings.frontend_base_url).hostname,
+            router=settings.payment_router,
         )
 
     def config(self) -> dict[str, Any]:
         """The exact public object of ``api.md`` section 4.1; no secret, no amount."""
-        labels = [SANDBOX_LABEL]
+        labels = checkout_labels(self.router)
         if self.fallback:
             labels.append(FALLBACK_LABEL)
         mock = mock_gateway.label()
@@ -105,12 +111,42 @@ class SdkService:
             raise ApplicationError("FEATURE_DISABLED")
         if self.gateway is None or not self.domain:
             raise ApplicationError("FEATURE_DISABLED")
+        cached = self._cached()
+        if cached is not None:
+            return cached
         async with self._lock:
-            now = time.monotonic()
-            if self._token is not None and now < self._until:
-                return {"client_token": self._token, "expires_in": max(1, int(self._until - now))}
-            token, expires_in = await self.gateway.client_token(self.domain)
-            ttl = max(1, int(expires_in) - TOKEN_SAFETY_MARGIN_S)
-            self._token = token
-            self._until = time.monotonic() + ttl
-            return {"client_token": token, "expires_in": ttl}
+            cached = self._cached()
+            if cached is not None:
+                return cached
+            # One shared fetch: concurrent buyers wait on that task, not on the lock
+            # while PayPal is slow (T07A01).
+            task = self._pending
+            if task is None:
+                task = asyncio.ensure_future(self._fetch())
+                self._pending = task
+        try:
+            token, until = await task
+        except TimeoutError:
+            raise ApplicationError("PAYPAL_UNAVAILABLE") from None
+        return {"client_token": token, "expires_in": max(1, int(until - time.monotonic()))}
+
+    def _cached(self) -> dict[str, Any] | None:
+        now = time.monotonic()
+        if self._token is not None and now < self._until:
+            return {"client_token": self._token, "expires_in": max(1, int(self._until - now))}
+        return None
+
+    async def _fetch(self) -> tuple[str, float]:
+        """One short attempt: a stuck PayPal call does not hold up every buyer."""
+        gateway, domain = self.gateway, self.domain
+        assert gateway is not None and domain is not None
+        try:
+            token, expires_in = await asyncio.wait_for(
+                gateway.client_token(domain), CLIENT_TOKEN_TIMEOUT_S
+            )
+        finally:
+            self._pending = None
+        ttl = max(1, int(expires_in) - TOKEN_SAFETY_MARGIN_S)
+        until = time.monotonic() + ttl
+        self._token, self._until = token, until
+        return token, until

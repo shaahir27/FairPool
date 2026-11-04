@@ -79,7 +79,9 @@ TOOL_SPECS: Final[list[dict[str, Any]]] = [
     },
 ]
 
-TOOL_NAMES: Final[frozenset[str]] = frozenset(spec["name"] for spec in TOOL_SPECS)
+TOOL_SPECS_BY_NAME: Final[dict[str, dict[str, Any]]] = {spec["name"]: spec for spec in TOOL_SPECS}
+
+TOOL_NAMES: Final[frozenset[str]] = frozenset(TOOL_SPECS_BY_NAME)
 
 
 def _client(app: Any) -> httpx.AsyncClient:

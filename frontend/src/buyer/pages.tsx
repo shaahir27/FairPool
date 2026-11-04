@@ -12,6 +12,7 @@ import {
 const OrderStatusCard = lazy(() => import("../checkout").then((module) => ({ default: module.OrderStatusCard })));
 
 import { AuthFrame } from "./AuthFrame";
+import { resetBuyerPrefetch } from "./prefetch";
 export { MyPoolsPage } from "./my-pools/MyPoolsPage";
 export { OrdersPage } from "./orders/OrdersPage";
 export { RegisterPage } from "./signup";
@@ -48,6 +49,8 @@ export function LoginPage() {
       if (failure || !data) { setError(envelope(failure)); return; }
       setCsrfToken(data.csrf_token);
       resetSessionCache();
+      // A new sign-in may be a different person on the same browser.
+      resetBuyerPrefetch();
       navigate(from, { replace: true });
     } catch {
       setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });

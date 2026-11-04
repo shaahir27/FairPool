@@ -93,40 +93,24 @@ async def finalize_jobs(db: AsyncSession, lot_id: UUID) -> int:
     )
 
 
-async def test_lot_view_returns_the_declared_fields_and_money_facts(
+async def test_lot_view_returns_only_the_declared_fields(
     db_session: AsyncSession,
 ) -> None:
     world = await build_world(db_session, seats=2, min_seats=1, seated=2, waitlisted=0)
     await open_handler(world).open(db_session, {"lot_id": str(world.lot_id)})
-    buyer_order_id = await db_session.scalar(
-        text("SELECT id FROM buyer_orders WHERE lot_id = :lot ORDER BY id LIMIT 1"),
-        {"lot": world.lot_id},
-    )
-    await db_session.execute(
-        text(
-            "INSERT INTO paypal_orders (id, buyer_order_id, attempt, paypal_order_id, status, "
-            "intent, amount_cents, raw) VALUES (:id, :bo, 0, 'PP-LOT-VIEW', 'APPROVED', "
-            "'AUTHORIZE', 50000, '{}'::jsonb)"
-        ),
-        {"id": uuid4(), "bo": buyer_order_id},
-    )
-    await db_session.execute(
-        text(
-            "INSERT INTO webhook_events (id, paypal_event_id, event_type, raw_body, verified, "
-            "verification_detail, status, received_at) VALUES (:id, 'EVT-LOT-VIEW', "
-            "'PAYMENT.CAPTURE.COMPLETED', :body, false, 'unmappable', "
-            "'DEAD_LETTER'::webhook_status, now())"
-        ),
-        {
-            "id": uuid4(),
-            "body": '{"resource":{"supplementary_data":{"related_ids":'
-            '{"order_id":"PP-LOT-VIEW"}}}}',
-        },
-    )
-    await db_session.flush()
 
     view = await ops.lot_view(db_session, world.lot_id)
 
+    assert set(view) == {
+        "lot_id",
+        "pool_id",
+        "status",
+        "seats",
+        "min_seats",
+        "award_id",
+        "payment_router",
+        "payment_mode",
+    }
     assert view["lot_id"] == world.lot_id
     assert view["pool_id"] == world.pool_id
     assert view["status"] == "CHECKOUT_OPEN"
@@ -134,9 +118,6 @@ async def test_lot_view_returns_the_declared_fields_and_money_facts(
     assert view["award_id"] is not None
     assert view["payment_router"] == "single_seller"
     assert view["payment_mode"] == "authorize_capture"
-    assert view["money"]["orders_by_status"] == {"OFFERED": 2}
-    assert view["money"]["ledger"] == {"entries": 0, "net_cents": 0}
-    assert [row["event_id"] for row in view["money"]["dead_letters"]] != []
 
     app = app_for(db_session)
     async with http_for(app) as client:
@@ -248,6 +229,67 @@ async def test_abort_refuses_a_lot_that_is_already_funded(db_session: AsyncSessi
     assert await lot_status(db_session, world.lot_id) == "FUNDED"
 
 
+async def first_order_id(db: AsyncSession, lot_id: UUID) -> UUID:
+    value = await db.scalar(
+        text("SELECT id FROM buyer_orders WHERE lot_id = :lot ORDER BY id LIMIT 1"),
+        {"lot": lot_id},
+    )
+    assert value is not None
+    return UUID(str(value))
+
+
+async def test_abort_refuses_a_lot_with_a_pending_capture(db_session: AsyncSession) -> None:
+    """funding.py waits for a PENDING capture before failing a lot; abort must too."""
+    world = await seated_world(db_session)
+    buyer_order_id = await first_order_id(db_session, world.lot_id)
+    await db_session.execute(
+        text(
+            "INSERT INTO paypal_captures (id, buyer_order_id, paypal_capture_id, status, "
+            "amount_cents, final_capture, raw) VALUES (:id, :bo, 'CAP-PENDING', 'PENDING', "
+            "50000, true, '{}'::jsonb)"
+        ),
+        {"id": uuid4(), "bo": buyer_order_id},
+    )
+    await db_session.flush()
+
+    app = app_for(db_session)
+    async with http_for(app) as client:
+        csrf = await admin_login(client, db_session, "ops-abort-capture@example.test")
+        response = await client.post(
+            f"/api/v1/admin/lots/{world.lot_id}/abort", headers={"X-CSRF-Token": csrf}
+        )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "ORDER_STATE_INVALID"
+    assert await lot_status(db_session, world.lot_id) == "CHECKOUT_OPEN"
+    assert await finalize_jobs(db_session, world.lot_id) == 0
+
+
+async def test_abort_refuses_a_lot_with_an_in_flight_authorization(
+    db_session: AsyncSession,
+) -> None:
+    """An AUTHORIZING seat has no other exit; abort must let the authorize land."""
+    world = await seated_world(db_session)
+    buyer_order_id = await first_order_id(db_session, world.lot_id)
+    await db_session.execute(
+        text("UPDATE buyer_orders SET status = 'AUTHORIZING' WHERE id = :id"),
+        {"id": buyer_order_id},
+    )
+    await db_session.flush()
+
+    app = app_for(db_session)
+    async with http_for(app) as client:
+        csrf = await admin_login(client, db_session, "ops-abort-authorizing@example.test")
+        response = await client.post(
+            f"/api/v1/admin/lots/{world.lot_id}/abort", headers={"X-CSRF-Token": csrf}
+        )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "ORDER_STATE_INVALID"
+    assert await lot_status(db_session, world.lot_id) == "CHECKOUT_OPEN"
+    assert await finalize_jobs(db_session, world.lot_id) == 0
+
+
 async def test_alerts_report_dead_letters_overdue_lots_and_stuck_lots(
     db_session: AsyncSession,
 ) -> None:
@@ -355,6 +397,17 @@ async def test_mock_toggle_is_gated_and_labels_the_affected_response(
     enabled = app_for(db_session, mock_toggles_enabled=True)
     async with http_for(enabled) as client:
         csrf = await admin_login(client, db_session, "ops-mock-on@example.test")
+        null_value = await client.post(
+            "/api/v1/admin/mock",
+            json={"kind": "paypal_mock_response", "value": None, "ttl_s": 300},
+            headers={"X-CSRF-Token": csrf},
+        )
+        too_long = await client.post(
+            "/api/v1/admin/mock",
+            json={"kind": "paypal_mock_response", "value": "X", "ttl_s": 3601},
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert not mock_gateway.is_active()
         armed = await client.post(
             "/api/v1/admin/mock",
             json={"kind": "paypal_mock_response", "value": "DUPLICATE_INVOICE_ID", "ttl_s": 300},
@@ -362,6 +415,10 @@ async def test_mock_toggle_is_gated_and_labels_the_affected_response(
         )
         config = await client.get("/api/v1/checkout/config")
 
+    assert null_value.status_code == 422, null_value.text
+    assert null_value.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert too_long.status_code == 422, too_long.text
+    assert too_long.json()["error"]["code"] == "VALIDATION_ERROR"
     assert armed.status_code == 200, armed.text
     assert armed.json()["labels"] == ["MOCK"]
     assert mock_gateway.active_kinds() == ["paypal_mock_response"]

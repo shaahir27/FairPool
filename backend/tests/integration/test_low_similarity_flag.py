@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
@@ -62,6 +62,9 @@ async def harness(
     app = create_app(SETTINGS)
     app.state.search_service = search
     app.state.auction_ai = ai
+    # The advisory now runs as a background task on the app's factory, so the test
+    # installs the one factory that sees this session's savepoint-released rows.
+    app.state.session_factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
 
     async def session() -> AsyncIterator[AsyncSession]:
         yield db_session
@@ -90,6 +93,9 @@ async def agent_api_harness(
     app = create_app(SETTINGS)
     merchant_api_app.state.search_service = search
     merchant_api_app.state.auction_ai = ai
+    merchant_api_app.state.session_factory = async_sessionmaker(
+        db_session.bind, expire_on_commit=False
+    )
 
     async def session() -> AsyncIterator[AsyncSession]:
         yield db_session
@@ -103,7 +109,7 @@ async def agent_api_harness(
             yield http
     finally:
         merchant_api_app.dependency_overrides.clear()
-        for name in ("search_service", "auction_ai"):
+        for name in ("search_service", "auction_ai", "session_factory"):
             if hasattr(merchant_api_app.state, name):
                 delattr(merchant_api_app.state, name)
 
@@ -131,7 +137,7 @@ async def test_a_different_product_ranked_first_writes_one_warning(
             {"id": rows[0].ai_run_id},
         )
     ).one()
-    assert str(run[0]) == "SIM_TEXT"
+    assert str(run[0]) == "RECONCILE"
     assert (run[1], run[2], run[3]) == (0, 0, None)
     assert search.similarity_calls[0].lot_id == lot_id
     assert REVIEWED_TEXT in search.similarity_calls[0].text

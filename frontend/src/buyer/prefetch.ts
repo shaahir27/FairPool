@@ -27,6 +27,10 @@ export function resetBuyerPrefetch(): void {
   cache.clear();
 }
 
+// Signing out, or any 401, ends the session the cached pages belonged to; the
+// event name mirrors shared/lib/session.ts without importing across the boundary.
+window.addEventListener("fairpool:session-ended", resetBuyerPrefetch);
+
 /** Warm the code and the data for a buyer tab the moment it is pointed at. */
 export function prefetchBuyer(to: string): void {
   if (to === "/my-pools") {

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-from fairpool.modules.mcp.tools import TOOL_NAMES, TOOL_SPECS, invoke
+from fairpool.modules.mcp.tools import TOOL_NAMES, TOOL_SPECS, TOOL_SPECS_BY_NAME, invoke
 
 PROTOCOL_VERSION: Final[str] = "2025-06-18"
 SERVER_INFO: Final[dict[str, str]] = {"name": "fairpool", "version": "0.1.0"}
@@ -69,6 +69,15 @@ class MCPServer:
                 raise MissingToolArguments(f"Unknown tool {name!r}")
             if not isinstance(arguments, dict):
                 raise MissingToolArguments("arguments must be an object")
+            # -32602 names the parameter the client forgot, instead of letting the
+            # KeyError surface as an internal -32603.
+            missing = [
+                key
+                for key in TOOL_SPECS_BY_NAME[name]["inputSchema"].get("required", [])
+                if key not in arguments
+            ]
+            if missing:
+                raise MissingToolArguments(f"Missing required parameter: {missing[0]}")
             return await invoke(self.app, bearer, name, arguments)
         raise MissingToolArguments(f"Unsupported method {method!r}")
 

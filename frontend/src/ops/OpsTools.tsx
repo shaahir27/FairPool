@@ -5,8 +5,49 @@ import { api, formatDateTime, HonestyLabels, Notice } from "../shared";
 import { failureOf, MOCK_KINDS, type MockKind, type MockToggle } from "./api";
 
 type ActiveMock = { value: string | null; ttl_s: number; expiresAt: number };
+type StoredMock = { kind: MockKind; value: string | null; expires_at: string };
 
 const DEFAULT_TTL = "300";
+/** Armed toggles survive a reload: the server keeps them until their TTL ends. */
+const MOCK_STORAGE_KEY = "fairpool.ops.mockToggles";
+
+function readArmed(): Partial<Record<MockKind, ActiveMock>> {
+  const restored: Partial<Record<MockKind, ActiveMock>> = {};
+  try {
+    const raw = window.sessionStorage.getItem(MOCK_STORAGE_KEY);
+    if (!raw) return restored;
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return restored;
+    const now = Date.now();
+    for (const item of parsed) {
+      const row = item as Partial<StoredMock>;
+      if (typeof row.kind !== "string" || !MOCK_KINDS.some((entry) => entry.kind === row.kind)) continue;
+      const expiresAt = typeof row.expires_at === "string" ? Date.parse(row.expires_at) : Number.NaN;
+      // An expired row is dropped here as well as on the server.
+      if (!Number.isFinite(expiresAt) || expiresAt <= now) continue;
+      restored[row.kind as MockKind] = {
+        value: typeof row.value === "string" ? row.value : null,
+        ttl_s: Math.max(1, Math.round((expiresAt - now) / 1000)),
+        expiresAt,
+      };
+    }
+  } catch {
+    // A missing or unreadable store only costs this view its memory.
+  }
+  return restored;
+}
+
+function writeArmed(active: Partial<Record<MockKind, ActiveMock>>): void {
+  try {
+    const rows: StoredMock[] = Object.entries(active).flatMap(([kind, entry]) =>
+      entry ? [{ kind: kind as MockKind, value: entry.value, expires_at: new Date(entry.expiresAt).toISOString() }] : [],
+    );
+    if (rows.length === 0) window.sessionStorage.removeItem(MOCK_STORAGE_KEY);
+    else window.sessionStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // Storage can be blocked; the console still works for this view.
+  }
+}
 
 export function ReconcilerPanel() {
   const [busy, setBusy] = useState(false);
@@ -76,9 +117,14 @@ export function MockTogglesPanel() {
     force_capture_failure: DEFAULT_TTL,
     delay_webhooks: DEFAULT_TTL,
   });
-  const [active, setActive] = useState<Partial<Record<MockKind, ActiveMock>>>({});
+  const [active, setActive] = useState<Partial<Record<MockKind, ActiveMock>>>(readArmed);
   const [busy, setBusy] = useState<MockKind | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+
+  // The MOCK label comes from this state, so a reload shows the same truth.
+  useEffect(() => {
+    writeArmed(active);
+  }, [active]);
 
   // A toggle stops being visible when its own TTL runs out; the server arms it the same way.
   useEffect(() => {
@@ -201,8 +247,8 @@ export function MockTogglesPanel() {
           );
         })}
         <p className="ops-note">
-          The server does not return the list of armed toggles, so this console marks only the toggles it armed
-          in this session.
+          Armed toggles are kept for this tab&rsquo;s session, so a reload still shows them until their TTL
+          ends. A toggle applies to the process serving the request; captures run in the worker.
         </p>
       </div>
     </section>

@@ -30,6 +30,11 @@ def test_fake_router_is_labelled_simulated() -> None:
     assert routers.label("fake") == "SIMULATED"
 
 
+def test_checkout_labels_always_start_with_sandbox_and_name_a_simulated_router() -> None:
+    assert routers.checkout_labels("single_seller") == ["SANDBOX"]
+    assert routers.checkout_labels("fake") == ["SANDBOX", "SIMULATED"]
+
+
 @pytest.mark.parametrize("name", ["payee_email", "platform"])
 def test_rejected_routers_raise_not_enabled(name: str) -> None:
     with pytest.raises(NotEnabled):

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, Notice, StatusPill, statusStyle } from "../shared";
 
@@ -18,6 +18,23 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
   const [confirming, setConfirming] = useState(false);
   const [aborting, setAborting] = useState(false);
   const [abortResult, setAbortResult] = useState<AbortResult | null>(null);
+  // Ties a response to the lookup that asked for it: an older request that
+  // resolves late must never replace what the box now names.
+  const request = useRef(0);
+  const abortTrigger = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+
+  useEffect(() => {
+    if (!confirming && restoreFocus.current) {
+      restoreFocus.current = false;
+      abortTrigger.current?.focus();
+    }
+  }, [confirming]);
+
+  const closeConfirm = () => {
+    restoreFocus.current = true;
+    setConfirming(false);
+  };
 
   const lookup = (raw: string) => {
     const lotId = raw.trim();
@@ -30,11 +47,13 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
       });
       return;
     }
+    const ticket = ++request.current;
     setLoading(true);
     setError(null);
     void api
       .GET("/api/v1/admin/lots/{lot_id}", { params: { path: { lot_id: lotId } } })
       .then(({ data, error: failure }) => {
+        if (ticket !== request.current) return;
         if (failure || !data) {
           setError(failureOf(failure, "The lot could not be loaded."));
           return;
@@ -44,9 +63,12 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
         setRecent((previous) => [lotId, ...previous.filter((item) => item !== lotId)].slice(0, 5));
       })
       .catch(() => {
+        if (ticket !== request.current) return;
         setError({ code: "REQUEST_FAILED", message: "The lot could not be loaded. Check your connection and try again." });
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (ticket === request.current) setLoading(false);
+      });
   };
 
   const abort = () => {
@@ -89,6 +111,8 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
           className="ops-lookup"
           onSubmit={(event) => {
             event.preventDefault();
+            // Enter must not queue a second lookup while one is in flight.
+            if (loading) return;
             lookup(input);
           }}
         >
@@ -97,7 +121,15 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
             <input
               className="form-input"
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) => {
+                setInput(event.target.value);
+                // Whatever was loaded belonged to the ID that used to be here.
+                request.current += 1;
+                setLoading(false);
+                setLot(null);
+                setConfirming(false);
+                setAbortResult(null);
+              }}
               placeholder="00000000-0000-4000-8000-000000000000"
               autoComplete="off"
               spellCheck={false}
@@ -186,7 +218,7 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
                     aria-labelledby="ops-abort-title"
                     aria-describedby="ops-abort-copy"
                     onKeyDown={(event) => {
-                      if (event.key === "Escape") setConfirming(false);
+                      if (event.key === "Escape") closeConfirm();
                     }}
                   >
                     <strong id="ops-abort-title">Abort this lot?</strong>
@@ -200,7 +232,7 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
                         className="button-secondary"
                         disabled={aborting}
                         autoFocus
-                        onClick={() => setConfirming(false)}
+                        onClick={closeConfirm}
                       >
                         Keep lot running
                       </button>
@@ -215,7 +247,13 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
                     </div>
                   </div>
                 ) : (
-                  <button type="button" className="button-secondary ops-danger" onClick={() => setConfirming(true)}>
+                  <button
+                    ref={abortTrigger}
+                    type="button"
+                    className="button-secondary ops-danger"
+                    aria-label={`Abort lot ${lot.lot_id}`}
+                    onClick={() => setConfirming(true)}
+                  >
                     Abort lot
                   </button>
                 )

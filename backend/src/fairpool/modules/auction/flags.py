@@ -13,11 +13,11 @@ from __future__ import annotations
 from typing import Final
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.db.models.auction import BidFlag, BidRevision
-from fairpool.db.models.enums import FlagCode, FlagSeverity
+from fairpool.db.models.enums import AiTask, FlagCode, FlagSeverity
 from fairpool.ports import AiRunLogger
 
 LOW_SIMILARITY: Final[str] = FlagCode.LOW_SIMILARITY.value
@@ -26,10 +26,10 @@ WARNING: Final[str] = FlagSeverity.WARNING.value
 #: The evidence column's limit in ``db-schema.md``.
 EVIDENCE_LIMIT: Final[int] = 200
 
-#: ``ai_runs.prompt_version`` for a retrieval check that has no prompt. The task value
-#: is ``SIM_TEXT``: it is the only ``ai_task`` the frozen enum offers for a similarity
-#: run (``db-schema.md`` "ai_task").
-TASK: Final[str] = "SIM_TEXT"
+#: ``ai_runs.prompt_version`` for a retrieval check that has no prompt. The task
+#: value is ``RECONCILE``: ``SIM_TEXT`` names the simulation-variety task, while a
+#: similarity run belongs to reconciliation (``db-schema.md`` "ai_task").
+TASK: Final[str] = AiTask.RECONCILE.value
 PROMPT_VERSION: Final[str] = "similarity_v1"
 
 
@@ -43,6 +43,13 @@ async def record_low_similarity(
     input_hash: str,
 ) -> BidFlag:
     """One WARNING row per revision: a re-run of the check returns the row it wrote."""
+    # The frozen schema has no unique index on (revision, code), so two confirms of
+    # one revision could both insert. A transaction-scoped lock on the revision id
+    # serialises the pair and the re-select below sees the other transaction's row.
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": str(revision.id)},
+    )
     existing = await session.scalar(
         select(BidFlag).where(
             BidFlag.bid_revision_id == revision.id, BidFlag.code == FlagCode.LOW_SIMILARITY

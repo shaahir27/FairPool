@@ -12,8 +12,8 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Security
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Query, Request, Security
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
@@ -27,7 +27,7 @@ from fairpool.api.routers.merchant import (
     lot_summary_for,
 )
 from fairpool.api.routers.pools import _search_service
-from fairpool.db.models.auction import Bid
+from fairpool.db.models.auction import Bid, BidFlag, BidRevision
 from fairpool.domain import hashing
 from fairpool.domain.errors import ApplicationError
 from fairpool.infra.idempotency import PostgresIdempotencyStore
@@ -38,6 +38,10 @@ from fairpool.ports import IdemNew, IdemReplay, MerchantPrincipal
 router = APIRouter()
 
 _IDEM_SCOPE = "merchant_api.submit_bid"
+
+#: The newest bids one list answers with. The contract has no page parameter, so
+#: the cap keeps an unbounded history from becoming an unbounded response.
+BID_LIST_LIMIT = 100
 
 
 @router.get(
@@ -80,6 +84,7 @@ async def submit_bid(
     lot_id: UUID,
     payload: schemas.MerchantApiBidRequest,
     request: Request,
+    background: BackgroundTasks,
     principal: Annotated[MerchantPrincipal, Security(require_merchant_key)],
     db: Annotated[AsyncSession, Depends(database_session)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
@@ -132,7 +137,8 @@ async def submit_bid(
     )
     await store.complete(db, key=key, response=response.model_dump(mode="json"))
     await db.commit()
-    await advise_similarity(request, db, bid.id)
+    # Advisory only, after the response: it never fails or delays the confirm (INT-1).
+    background.add_task(advise_similarity, request, bid.id)
     return response
 
 
@@ -147,20 +153,38 @@ async def list_bids(
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.MerchantBidList:
     require_scope(principal, "bids:read")
-    service = _bid_service(request)
-    ids = list(
+    # The newest 100 bids, then one query per table (bids, revisions, flags): the
+    # previous id-then-get loop ran three queries per bid over an unbounded history.
+    bids = list(
         await db.scalars(
-            select(Bid.id)
+            select(Bid)
             .where(Bid.merchant_id == principal.merchant_id)
-            .order_by(Bid.created_at, Bid.id)
+            .order_by(Bid.created_at.desc(), Bid.id.desc())
+            .limit(BID_LIST_LIMIT)
         )
     )
-    items: list[schemas.BidView] = []
-    for bid_id in ids:
-        bid, revision, flags = await service.get(
-            db, merchant_id=principal.merchant_id, bid_id=bid_id
-        )
-        items.append(bid_view(bid, revision, flags))
+    if not bids:
+        return schemas.MerchantBidList(items=[])
+    current = tuple_(BidRevision.bid_id, BidRevision.revision).in_(
+        [(bid.id, int(bid.current_revision)) for bid in bids]
+    )
+    revisions = {
+        revision.bid_id: revision
+        for revision in await db.scalars(select(BidRevision).where(current))
+    }
+    flags: dict[UUID, list[BidFlag]] = {}
+    revision_ids = [revision.id for revision in revisions.values()]
+    if revision_ids:
+        for flag in await db.scalars(
+            select(BidFlag).where(BidFlag.bid_revision_id.in_(revision_ids))
+        ):
+            flags.setdefault(flag.bid_revision_id, []).append(flag)
+    items = [
+        bid_view(bid, revisions[bid.id], flags.get(revisions[bid.id].id, []))
+        # SQL answered newest first; the body keeps the historical oldest-first order.
+        for bid in reversed(bids)
+        if bid.id in revisions
+    ]
     return schemas.MerchantBidList(items=items)
 
 

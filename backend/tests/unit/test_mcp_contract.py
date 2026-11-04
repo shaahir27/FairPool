@@ -199,3 +199,96 @@ async def test_notifications_are_accepted_without_a_response(
         assert response.content == b""
     finally:
         await forget(db_engine, user_id)
+
+
+async def test_a_missing_required_argument_is_invalid_params(
+    client: httpx.AsyncClient, db_engine: AsyncEngine
+) -> None:
+    """-32602 names the forgotten parameter instead of surfacing a -32603."""
+    token, user_id = await committed_delegation(db_engine)
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        withdraw = await client.post(
+            "/mcp",
+            headers=headers,
+            json=rpc(1, "tools/call", {"name": "withdraw_entry", "arguments": {}}),
+        )
+        assert withdraw.status_code == 200, withdraw.text
+        assert withdraw.json()["error"]["code"] == -32602
+        assert "entry_id" in withdraw.json()["error"]["message"]
+
+        enter = await client.post(
+            "/mcp",
+            headers=headers,
+            json=rpc(
+                2,
+                "tools/call",
+                {"name": "enter_pool", "arguments": {"pool_id": str(uuid4())}},
+            ),
+        )
+        assert enter.json()["error"]["code"] == -32602
+        assert "delivery_region" in enter.json()["error"]["message"]
+    finally:
+        await forget(db_engine, user_id)
+
+
+async def test_an_oversized_body_is_a_413_before_any_dispatch(
+    client: httpx.AsyncClient,
+) -> None:
+    """64 KiB is the POST cap: the body is refused before auth or any tool call."""
+    over = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"pad": "x" * (64 * 1024)},
+    }
+    refused = await client.post(
+        "/mcp",
+        headers={"Authorization": "Bearer fpd_00000000_" + "A" * 43},
+        json=over,
+    )
+    assert refused.status_code == 413, refused.text
+    assert refused.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_a_batch_over_twenty_messages_is_a_413(
+    client: httpx.AsyncClient, db_engine: AsyncEngine
+) -> None:
+    token, user_id = await committed_delegation(db_engine)
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        refused = await client.post(
+            "/mcp", headers=headers, json=[rpc(i, "ping") for i in range(21)]
+        )
+        assert refused.status_code == 413, refused.text
+        assert refused.json()["error"]["code"] == "VALIDATION_ERROR"
+
+        accepted = await client.post(
+            "/mcp", headers=headers, json=[rpc(i, "ping") for i in range(20)]
+        )
+        assert accepted.status_code == 200
+        assert len(accepted.json()) == 20
+    finally:
+        await forget(db_engine, user_id)
+
+
+async def test_the_transport_reuses_the_apps_session_factory(
+    db_engine: AsyncEngine,
+) -> None:
+    """One pool for the API and /mcp: the transport never builds or disposes its own."""
+    app = create_app(SETTINGS)
+    token, user_id = await committed_delegation(db_engine)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://api.test"
+        ) as http:
+            headers = {"Authorization": f"Bearer {token}"}
+            first = await http.post("/mcp", headers=headers, json=rpc(1, "ping"))
+            assert first.status_code == 200, first.text
+            factory = app.state.session_factory
+            second = await http.post("/mcp", headers=headers, json=rpc(2, "ping"))
+            assert second.status_code == 200, second.text
+            assert app.state.session_factory is factory
+    finally:
+        await forget(db_engine, user_id)
+        await app.state.engine.dispose()

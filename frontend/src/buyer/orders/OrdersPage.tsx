@@ -163,7 +163,7 @@ function OrderRow({ order }: { order: MeOrder }) {
             className="signup-back mt-1 inline-flex min-h-[44px] items-center gap-2"
             to={`/orders/${order.buyer_order_id}`}
           >
-            {hasReceipt ? "Open order and receipt" : "Open order"}
+            {hasReceipt ? "Open order and receipt for" : "Open order for"} {order.buyer_order_id}
             <Icon name="arrow" />
           </Link>
         </div>

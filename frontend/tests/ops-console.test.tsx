@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,9 @@ import { OpsPage } from "../src/ops";
 
 const LOT_ID = "11111111-1111-4111-8111-111111111111";
 const POOL_ID = "22222222-2222-4222-8222-222222222222";
+const SECOND_LOT_ID = "55555555-5555-4555-8555-555555555555";
+const SECOND_POOL_ID = "66666666-6666-4666-8666-666666666666";
+const MOCK_STORAGE_KEY = "fairpool.ops.mockToggles";
 
 const LOT = {
   lot_id: LOT_ID,
@@ -90,6 +93,8 @@ async function lookupLot() {
 }
 
 beforeEach(() => {
+  // The console remembers armed toggles per browser session; each test starts clean.
+  window.sessionStorage.clear();
   transport.get.mockReset().mockImplementation(defaultGet);
   transport.post.mockReset();
 });
@@ -116,7 +121,7 @@ describe("the ops console", () => {
     expect(screen.getByText("3 seats, minimum 2")).toBeInTheDocument();
     expect(screen.getByText("CHECKOUT_OPEN")).toBeInTheDocument();
     expect(screen.getByText("authorize_capture")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Abort lot" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Abort lot ${LOT_ID}` })).toBeInTheDocument();
   });
 
   it("asks twice before aborting and sends exactly one abort request", async () => {
@@ -126,7 +131,7 @@ describe("the ops console", () => {
     show();
     await lookupLot();
 
-    fireEvent.click(screen.getByRole("button", { name: "Abort lot" }));
+    fireEvent.click(screen.getByRole("button", { name: `Abort lot ${LOT_ID}` }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Abort this lot?")).toBeInTheDocument();
     expect(transport.post).not.toHaveBeenCalled();
@@ -139,6 +144,7 @@ describe("the ops console", () => {
   });
 
   it("shows the MOCK label only while a toggle is armed", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     transport.post.mockResolvedValue({
       data: { kind: "paypal_mock_response", value: null, ttl_s: 300, labels: ["MOCK"] },
     });
@@ -151,6 +157,57 @@ describe("the ops console", () => {
     expect(transport.post).toHaveBeenCalledWith("/api/v1/admin/mock", {
       body: { kind: "paypal_mock_response", value: null, ttl_s: 300 },
     });
+
+    // One second past the TTL the label and the stored row must both be gone.
+    act(() => {
+      vi.advanceTimersByTime(301_000);
+    });
+    await waitFor(() => expect(screen.queryAllByText("MOCK")).toHaveLength(0));
+    await waitFor(() =>
+      expect(JSON.parse(window.sessionStorage.getItem(MOCK_STORAGE_KEY) ?? "[]")).toHaveLength(0),
+    );
+  });
+
+  it("restores armed toggles after a reload and drops expired ones", async () => {
+    window.sessionStorage.setItem(
+      MOCK_STORAGE_KEY,
+      JSON.stringify([
+        {
+          kind: "force_capture_failure",
+          value: null,
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+        {
+          kind: "delay_webhooks",
+          value: null,
+          expires_at: new Date(Date.now() - 1_000).toISOString(),
+        },
+      ]),
+    );
+    const first = show();
+    await screen.findByRole("heading", { name: "Demo mock toggles" });
+    expect((await screen.findAllByText("MOCK")).length).toBeGreaterThan(0);
+    await waitFor(() => {
+      const stored = window.sessionStorage.getItem(MOCK_STORAGE_KEY) ?? "";
+      expect(stored).toContain("force_capture_failure");
+      expect(stored).not.toContain("delay_webhooks");
+    });
+
+    // A reload is a fresh mount: the armed toggle and its MOCK label come back.
+    first.unmount();
+    show();
+    expect((await screen.findAllByText("MOCK")).length).toBeGreaterThan(0);
+  });
+
+  it("states the delay_webhooks behaviour exactly as the API does", async () => {
+    show();
+    await screen.findByRole("heading", { name: "Demo mock toggles" });
+
+    expect(
+      screen.getByText("delay_webhooks is recorded and labelled only: it does not delay delivery."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/process serving the request/)).toBeInTheDocument();
+    expect(screen.getByText(/captures run in the worker/)).toBeInTheDocument();
   });
 
   it("says honestly when mock toggles are switched off", async () => {
@@ -232,5 +289,71 @@ describe("the ops console", () => {
     await waitFor(() => {
       expect(transport.get.mock.calls.some(([path]) => path === "/api/v1/admin/lots/{lot_id}")).toBe(false);
     });
+  });
+
+  it("ignores an older lot lookup that resolves after a newer one", async () => {
+    const waiting = new Map<string, (value: unknown) => void>();
+    transport.get.mockImplementation((path: string, init?: { params?: { path?: { lot_id?: string } } }) => {
+      if (path === "/api/v1/admin/lots/{lot_id}") {
+        const lotId = init?.params?.path?.lot_id ?? "";
+        return new Promise((resolve) => {
+          waiting.set(lotId, resolve);
+        });
+      }
+      return defaultGet(path);
+    });
+    show();
+    const input = await screen.findByLabelText("Lot ID");
+
+    fireEvent.change(input, { target: { value: LOT_ID } });
+    fireEvent.click(screen.getByRole("button", { name: "Look up lot" }));
+    await waitFor(() => expect(waiting.has(LOT_ID)).toBe(true));
+
+    // Enter while the first lookup is loading must not queue a second request.
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+    expect(waiting.size).toBe(1);
+
+    // Editing the box cancels the first answer, so the second submit is allowed.
+    fireEvent.change(input, { target: { value: SECOND_LOT_ID } });
+    fireEvent.click(screen.getByRole("button", { name: "Look up lot" }));
+    await waitFor(() => expect(waiting.has(SECOND_LOT_ID)).toBe(true));
+
+    // The newer lookup resolves first; the older one lands afterwards and is dropped.
+    act(() => waiting.get(SECOND_LOT_ID)?.({ data: { ...LOT, lot_id: SECOND_LOT_ID, pool_id: SECOND_POOL_ID } }));
+    expect(await screen.findByText(SECOND_POOL_ID)).toBeInTheDocument();
+    act(() => waiting.get(LOT_ID)?.({ data: LOT }));
+
+    expect(screen.getByText(SECOND_POOL_ID)).toBeInTheDocument();
+    expect(screen.queryByText(POOL_ID)).not.toBeInTheDocument();
+  });
+
+  it("clears the shown lot as soon as the ID in the box changes", async () => {
+    show();
+    await lookupLot();
+    fireEvent.change(screen.getByLabelText("Lot ID"), { target: { value: SECOND_LOT_ID } });
+
+    expect(screen.queryByText(POOL_ID)).not.toBeInTheDocument();
+    expect(screen.getByText(/No lot loaded yet/)).toBeInTheDocument();
+  });
+
+  it("returns focus to the abort button when the confirmation is dismissed", async () => {
+    show();
+    await lookupLot();
+    const trigger = screen.getByRole("button", { name: `Abort lot ${LOT_ID}` });
+    fireEvent.click(trigger);
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep lot running" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    // The confirm replaces the trigger in the DOM, so re-query the button that is back.
+    expect(screen.getByRole("button", { name: `Abort lot ${LOT_ID}` })).toHaveFocus();
+    expect(transport.post).not.toHaveBeenCalled();
+  });
+
+  it("names each dead-letter action with the event it retries", async () => {
+    show();
+    expect(
+      await screen.findByRole("button", { name: "Retry PAYMENT.CAPTURE.COMPLETED WH-DEAD-1" }),
+    ).toBeInTheDocument();
   });
 });

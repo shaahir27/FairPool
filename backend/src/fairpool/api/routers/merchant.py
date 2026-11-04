@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Security
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from fairpool.adapters.ai.client import PROMPT_VERSION, AIUnavailable
 from fairpool.adapters.search.projection import OPEN_LOT_STATUSES, PUBLIC_POOL_STATUSES
@@ -17,6 +17,7 @@ from fairpool.api.routers.pools import _search_service
 from fairpool.db.models.auction import Bid, BidFlag, BidRevision, Merchant
 from fairpool.db.models.catalog import Pool
 from fairpool.db.models.pools import Lot
+from fairpool.db.session import create_engine
 from fairpool.domain.errors import ApplicationError
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
@@ -169,10 +170,16 @@ async def list_open_lots(
 
 
 async def lot_summary_for(db: AsyncSession, lot_id: UUID) -> schemas.MerchantLotSummary:
-    """One lot's requirement detail; an unknown id is the same ``404`` as a foreign bid."""
+    """One lot's requirement detail; an unknown id is the same ``404`` as a foreign bid.
+
+    The pool filter is ``list_lots``'s: a DRAFT or cancelled pool's lots are not a
+    merchant's to read, and the id alone must not open one.
+    """
     row = (
         await db.execute(
-            select(Lot, Pool).join(Pool, Pool.id == Lot.pool_id).where(Lot.id == lot_id)
+            select(Lot, Pool)
+            .join(Pool, Pool.id == Lot.pool_id)
+            .where(Lot.id == lot_id, Pool.status.in_(sorted(PUBLIC_POOL_STATUSES)))
         )
     ).first()
     if row is None:
@@ -201,12 +208,28 @@ def bid_view(bid: Bid, revision: BidRevision, flags: list[BidFlag]) -> schemas.B
     )
 
 
-async def advise_similarity(request: Request, db: AsyncSession, bid_id: UUID) -> None:
-    """Advisory only, after the commit: it never fails or delays the confirm (INT-1)."""
+def _app_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
+    """The app's session factory, created lazily exactly as ``api/deps.py`` does.
+
+    A background task outlives the request's session, so it opens its own unit of
+    work here; the engine belongs to the app and is never disposed by this helper.
+    """
+    state = request.app.state
+    if not hasattr(state, "session_factory"):
+        state.engine = create_engine(state.settings)
+        state.session_factory = async_sessionmaker(state.engine, expire_on_commit=False)
+    factory: async_sessionmaker[AsyncSession] = state.session_factory
+    return factory
+
+
+async def advise_similarity(request: Request, bid_id: UUID) -> None:
+    """Advisory only, after the response: it never fails or delays the confirm (INT-1)."""
     settings = request.app.state.settings
-    if settings is not None and settings.similarity_check_enabled:
+    if settings is None or not settings.similarity_check_enabled:
+        return
+    async with _app_session_factory(request)() as session:
         await advise_confirmed_bid(
-            db, settings=settings, search=_search_service(request), bid_id=bid_id
+            session, settings=settings, search=_search_service(request), bid_id=bid_id
         )
 
 
@@ -326,6 +349,7 @@ async def merchant_bid_confirm(
     bid_id: UUID,
     payload: schemas.BidConfirmRequest,
     request: Request,
+    background: BackgroundTasks,
     principal: Annotated[Principal, Security(require_merchant)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.BidConfirmResponse:
@@ -345,7 +369,8 @@ async def merchant_bid_confirm(
         merchant_user_id=principal.user_id,
     )
     await db.commit()
-    await advise_similarity(request, db, bid.id)
+    # Advisory only, after the response: it never fails or delays the confirm (INT-1).
+    background.add_task(advise_similarity, request, bid.id)
     return schemas.BidConfirmResponse(
         bid_id=bid.id, revision=int(bid.current_revision), status=str(bid.status)
     )

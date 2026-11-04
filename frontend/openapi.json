@@ -2395,6 +2395,7 @@
       },
       "MockToggleRequest": {
         "additionalProperties": false,
+        "description": "delay_webhooks is recorded and labelled only: it does not delay delivery.",
         "properties": {
           "kind": {
             "enum": [
@@ -2407,6 +2408,7 @@
           },
           "ttl_s": {
             "default": 300,
+            "maximum": 3600.0,
             "minimum": 1.0,
             "title": "Ttl S",
             "type": "integer"

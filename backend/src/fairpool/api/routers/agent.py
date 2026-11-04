@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_agent, require_session
-from fairpool.api.routers.entries import _join_service, _settings, _vault_service
+from fairpool.api.routers.entries import _join_service, _settings
 from fairpool.api.routers.pools import _search_service
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
@@ -254,10 +254,10 @@ async def _withdraw(
     principal: AgentPrincipal,
     entry_id: UUID,
 ) -> JSONResponse:
-    """Withdraw in two phases exactly like ``DELETE .../entries/me``.
+    """Withdraw the entry, exactly like ``DELETE .../entries/me`` minus the vault leg.
 
-    Phase 1 commits the entry transition before the vault provider call: no
-    provider I/O may run while the pool lock is held (domain-ports.md 4.4, I9).
+    Rule 22: no AI-callable route performs a PayPal write, so the saved permission
+    is left to the buyer's settings page and this route never calls the provider.
     A repeated call answers the same body, so the tool form is idempotent.
     """
     service = _agent_service(request)
@@ -266,9 +266,6 @@ async def _withdraw(
         db, pool_id=entry.pool_id, user_id=principal.user_id
     )
     await db.commit()
-    if _settings(request).vault_token_key is not None:
-        await _vault_service(request).withdraw(db, entry_id=entry.id)
-        await db.commit()
     return JSONResponse(
         status_code=200,
         content={

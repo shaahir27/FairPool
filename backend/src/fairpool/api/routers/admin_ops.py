@@ -9,9 +9,9 @@ lot in a state the state machine does not name (CR-4). It refuses with
 
 The lot view, abort, alerts, mock toggles and audit export delegate to
 ``modules.checkout.ops``; this module only fixes their HTTP shapes. The view
-returns the declared ``AdminLotView`` (the money facts stay on the function for
-the console's own read), the silent routes return the minimal objects the ops
-tests assert, and the audit export returns the declared checkpoint list.
+returns the declared ``AdminLotView`` and nothing else, the silent routes return
+the minimal objects the ops tests assert, and the audit export returns the
+declared checkpoint list.
 """
 
 from __future__ import annotations
@@ -62,7 +62,6 @@ async def admin_lot_get(
     lot_id: UUID,
     db: AsyncSession = Depends(database_session),
 ):
-    # The declared lot view; the money facts stay in ``ops.lot_view`` for the console.
     return await ops.lot_view(db, lot_id)
 
 
@@ -352,7 +351,12 @@ async def admin_mock(payload: schemas.MockToggleRequest, request: Request) -> JS
     # Arm one demo toggle; FEATURE_DISABLED unless MOCK_TOGGLES_ENABLED.
     settings = request.app.state.settings
     enabled = bool(settings is not None and settings.mock_toggles_enabled)
-    result = ops.mock_toggle(payload.kind, payload.value, payload.ttl_s, enabled=enabled)
+    if not enabled:
+        raise ApplicationError("FEATURE_DISABLED")
+    if payload.kind == "paypal_mock_response" and payload.value is None:
+        # The header needs a mock code; a null value would arm nothing.
+        raise ApplicationError("VALIDATION_ERROR")
+    result = ops.mock_toggle(payload.kind, payload.value, payload.ttl_s, enabled=True)
     return JSONResponse(status_code=200, content=result)
 
 

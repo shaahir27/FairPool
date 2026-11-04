@@ -8,8 +8,8 @@ refuses the header unless ``MOCK_TOGGLES_ENABLED`` is set.
 The wrapper never invents a money signal: ``force_capture_failure`` returns a
 capture resource that reads ``DECLINED``, which the existing BO-11 transition
 already handles, and no PayPal call is made, so the real authorization stays
-voidable. ``delay_webhooks`` is recorded and labelled only; webhook business
-rules do not change (P4).
+voidable. ``delay_webhooks`` is recorded and labelled only: it does not delay
+delivery, and webhook business rules do not change (P4).
 """
 
 from __future__ import annotations

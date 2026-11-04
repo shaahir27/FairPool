@@ -1,5 +1,9 @@
 {
-  "status": "pending",
+  "status": "passed",
   "date": "2026-11-04",
-  "note": "The closure commit records the real make verify output and the make gate-check GATE=ig-7 transcript here; a check that has not run is not written as passed."
+  "backend": "1106 offline tests passed (37 deselected: sandbox, sandbox_interactive, faults, ai_eval), 1 warning; ruff check and format clean over 314 files; mypy --strict clean over 82 sources; tools/check_imports.py 0 violations; tools/validate_docs.py 0 errors (2 known illustrative-path warnings); Merchant OpenAPI exactly ten operations; frontend generated types match the committed OpenAPI.",
+  "faults": "18 passed, 4 deselected (make test-faults equivalent).",
+  "frontend": "163 tests across 19 files passed; eslint clean; tsc --noEmit and vite build passed.",
+  "migrations": "Upgrade from 0001, fresh head and both Alembic drift checks passed; no new upgrade operations.",
+  "note": "These are the automated checks. `make gate-check GATE=ig-7` additionally requires it7_sandbox.json and sandbox_contracts.json, which need three real PayPal Sandbox approvals and the C-17 popup; they stay pending until the owner runs `tools/it7_live.py --live`."
 }

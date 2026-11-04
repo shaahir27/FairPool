@@ -2412,7 +2412,10 @@ export interface components {
             /** Onboarding Status */
             onboarding_status: string;
         };
-        /** MockToggleRequest */
+        /**
+         * MockToggleRequest
+         * @description delay_webhooks is recorded and labelled only: it does not delay delivery.
+         */
         MockToggleRequest: {
             /**
              * Kind

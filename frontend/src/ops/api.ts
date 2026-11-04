@@ -53,7 +53,8 @@ export const MOCK_KINDS: readonly { kind: MockKind; label: string; hint: string 
   {
     kind: "delay_webhooks",
     label: "Delay webhooks",
-    hint: "Holds webhook delivery for the demo window. A GET still confirms every money state.",
+    // Verbatim from the API's own docstring (api/schemas.py): it records and labels only.
+    hint: "delay_webhooks is recorded and labelled only: it does not delay delivery.",
   },
 ];
 

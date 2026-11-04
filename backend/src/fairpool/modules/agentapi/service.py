@@ -23,8 +23,9 @@ import re
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, false, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
 from fairpool.db.models.catalog import Pool, PoolEntry
 from fairpool.db.models.enums import PoolStatus
@@ -67,6 +68,30 @@ def cap_cents(max_total_cents: int | None, max_total_usd: str | None) -> int:
         return usd_to_cents(max_total_usd)
     assert max_total_cents is not None  # the XOR above proved it
     return max_total_cents
+
+
+def _scope_conditions(principal: AgentPrincipal) -> list[ColumnElement[bool]]:
+    """Every pool a delegation may see must satisfy its ``pool_ids`` and ``category``.
+
+    The create path and the read path share these conditions, so a delegation
+    cannot read or withdraw an entry its scope would refuse to create (I11).
+    """
+    conditions: list[ColumnElement[bool]] = []
+    allowed = [str(value) for value in principal.scope.get("pool_ids") or []]
+    if allowed:
+        try:
+            conditions.append(Pool.id.in_([UUID(value) for value in allowed]))
+        except ValueError:
+            # A malformed stored id allows nothing, exactly like a revoked scope.
+            conditions.append(false())
+    category = principal.scope.get("category")
+    if category is not None:
+        conditions.append(Pool.template["category"].astext == str(category))
+    return conditions
+
+
+def _scoped_pool_ids(principal: AgentPrincipal) -> Select[UUID]:
+    return select(Pool.id).where(*_scope_conditions(principal))
 
 
 class AgentService:
@@ -178,7 +203,7 @@ class AgentService:
             idempotency_key=idempotency_key,
             delegation_id=principal.delegation_id,
         )
-        body = await self._view(session, UUID(str(outcome.body["entry_id"])))
+        body = await self._view(session, UUID(str(outcome.body["entry_id"])), principal=principal)
         body["already_entered"] = bool(outcome.body.get("already_entered", False))
         await self.idempotency.complete(
             session, key=key, response={"status_code": outcome.status_code, "body": body}
@@ -188,7 +213,7 @@ class AgentService:
     async def get_entry(
         self, session: AsyncSession, *, principal: AgentPrincipal, entry_id: UUID
     ) -> dict[str, Any]:
-        return await self._view(session, entry_id, user_id=principal.user_id)
+        return await self._view(session, entry_id, principal=principal)
 
     async def list_entries(
         self,
@@ -198,7 +223,10 @@ class AgentService:
         pool_id: UUID | None,
         entry_id: UUID | None,
     ) -> list[dict[str, Any]]:
-        query = select(PoolEntry).where(PoolEntry.user_id == principal.user_id)
+        query = select(PoolEntry).where(
+            PoolEntry.user_id == principal.user_id,
+            PoolEntry.pool_id.in_(_scoped_pool_ids(principal)),
+        )
         if pool_id is not None:
             query = query.where(PoolEntry.pool_id == pool_id)
         if entry_id is not None:
@@ -211,10 +239,12 @@ class AgentService:
     async def owned_entry(
         self, session: AsyncSession, *, principal: AgentPrincipal, entry_id: UUID
     ) -> PoolEntry:
-        """Owner-scoped lookup; another buyer's entry answers like an unknown one."""
+        """Owner and scope scoped lookup; anything else answers like an unknown entry."""
         entry = await session.scalar(
             select(PoolEntry).where(
-                PoolEntry.id == entry_id, PoolEntry.user_id == principal.user_id
+                PoolEntry.id == entry_id,
+                PoolEntry.user_id == principal.user_id,
+                PoolEntry.pool_id.in_(_scoped_pool_ids(principal)),
             )
         )
         if entry is None:
@@ -224,12 +254,15 @@ class AgentService:
     # ----------------------------------------------------------------- helpers
 
     async def _view(
-        self, session: AsyncSession, entry_id: UUID, *, user_id: UUID | None = None
+        self, session: AsyncSession, entry_id: UUID, *, principal: AgentPrincipal
     ) -> dict[str, Any]:
-        query = select(PoolEntry).where(PoolEntry.id == entry_id)
-        if user_id is not None:
-            query = query.where(PoolEntry.user_id == user_id)
-        entry = await session.scalar(query)
+        entry = await session.scalar(
+            select(PoolEntry).where(
+                PoolEntry.id == entry_id,
+                PoolEntry.user_id == principal.user_id,
+                PoolEntry.pool_id.in_(_scoped_pool_ids(principal)),
+            )
+        )
         if entry is None:
             raise ApplicationError("NOT_FOUND")
         return await entry_view(session, entry, frontend_base_url=self.frontend_base_url)
@@ -237,16 +270,16 @@ class AgentService:
     async def _check_scope(
         self, session: AsyncSession, principal: AgentPrincipal, pool_id: UUID
     ) -> Pool:
-        pool = await session.get(Pool, pool_id)
-        if pool is None or pool.status != PoolStatus.OPEN:
-            raise ApplicationError("NOT_FOUND")
-        allowed = [str(value) for value in principal.scope.get("pool_ids") or []]
-        if allowed and str(pool_id) not in allowed:
+        pool = await session.scalar(
+            select(Pool).where(
+                Pool.id == pool_id,
+                Pool.status == PoolStatus.OPEN,
+                *_scope_conditions(principal),
+            )
+        )
+        if pool is None:
             # api.md §4.4 fixes the response for a scope violation nowhere; the
             # same answer as an unknown pool leaks no pool existence (I11).
-            raise ApplicationError("NOT_FOUND")
-        category = principal.scope.get("category")
-        if category is not None and category != pool.template.get("category"):
             raise ApplicationError("NOT_FOUND")
         return pool
 

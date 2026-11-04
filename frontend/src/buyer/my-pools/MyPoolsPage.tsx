@@ -29,18 +29,25 @@ const GROUPS: readonly {
   {
     id: "action",
     title: "Action required",
-    note: "Offers attached to your entries.",
+    note: "Offers waiting for your approval.",
     empty: "No offers are waiting for you.",
   },
 ];
 
 /**
- * FR-UI-02: an entry with a live offer is Action required, whatever its
- * allocation is. PRICED_OUT has no offer and falls into Pending, where its
- * status is stated as the API reports it.
+ * FR-UI-02: only an offer still waiting on the buyer is Action required.
+ * `/me/entries` also returns offers that have moved past approval (CAPTURED,
+ * REFUNDING, ...); those entries have nothing to approve and belong in Pending,
+ * where a short line links to their order. PRICED_OUT has no offer at all.
  */
+const LIVE_OFFER = new Set(["OFFERED", "ORDER_CREATED"]);
+
+function hasLiveOffer(entry: MeEntry): boolean {
+  return Boolean(entry.offer && LIVE_OFFER.has(entry.offer.status));
+}
+
 function groupOf(entry: MeEntry): GroupId {
-  if (entry.offer) return "action";
+  if (hasLiveOffer(entry)) return "action";
   if (entry.allocation?.status === "WAITLISTED") return "waitlist";
   return "pending";
 }
@@ -156,9 +163,12 @@ export function MyPoolsPage() {
                 ) : (
                   <ul className={group.id === "action" ? "mt-4 grid gap-4" : "mt-4 grid gap-4 md:grid-cols-2"}>
                     {grouped.map((entry) =>
-                      entry.offer ? (
+                      hasLiveOffer(entry) && entry.offer ? (
                         <li key={entry.entry_id} className="min-w-0">
-                          <OfferCheckout buyerOrderId={entry.offer.buyer_order_id} />
+                          <OfferCheckout
+                            buyerOrderId={entry.offer.buyer_order_id}
+                            onChanged={() => setAttempt((value) => value + 1)}
+                          />
                         </li>
                       ) : (
                         <EntryCard key={entry.entry_id} entry={entry} />
@@ -196,11 +206,15 @@ function EntryCard({ entry }: { entry: MeEntry }) {
           </StatusPill>
         </div>
         <p className="shop-copy mt-3">{entryLine(entry)}</p>
+        {entry.offer ? <OfferMovedOn offer={entry.offer} /> : null}
         <p className="mt-2 text-xs text-muted">
           Entry status <code className="font-mono">{entry.entry_status}</code>
         </p>
-        <Link className="signup-back mt-4 inline-flex min-h-[44px] items-center gap-2" to={`/pools/${entry.pool_id}`}>
-          Open pool lobby
+        <Link
+          className="signup-back mt-4 inline-flex min-h-[44px] items-center gap-2"
+          to={`/pools/${entry.pool_id}`}
+        >
+          Open pool lobby for {entry.pool_id}
           <Icon name="arrow" />
         </Link>
       </article>
@@ -208,7 +222,31 @@ function EntryCard({ entry }: { entry: MeEntry }) {
   );
 }
 
+/**
+ * An offer past approval is not an action: one line states the API status and
+ * links to the order that owns the rest of the story.
+ */
+function OfferMovedOn({ offer }: { offer: NonNullable<MeEntry["offer"]> }) {
+  const style = statusStyle(offer.status);
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <StatusPill status={offer.status} tone={style.tone}>
+        {style.label}
+      </StatusPill>
+      <Link
+        className="signup-back inline-flex min-h-[44px] items-center gap-2"
+        to={`/orders/${offer.buyer_order_id}`}
+      >
+        Open order for {offer.buyer_order_id}
+        <Icon name="arrow" />
+      </Link>
+    </p>
+  );
+}
+
 function entryLine(entry: MeEntry): string {
+  // EntryCard only renders for offers past approval; a live offer gets the checkout card.
+  if (entry.offer) return "This entry's offer has moved past approval.";
   const allocation = entry.allocation;
   if (allocation?.status === "WAITLISTED") {
     return `Waitlisted, position #${allocation.waitlist_position ?? allocation.rank}`;

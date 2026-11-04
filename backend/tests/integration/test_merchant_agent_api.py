@@ -22,7 +22,7 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
@@ -197,6 +197,52 @@ async def test_the_same_idempotency_header_belongs_to_one_merchant(
     beta_mine = await client.get(f"{API}/bids", headers=bearer(beta))
     assert [item["bid_id"] for item in alpha_mine.json()["items"]] == [first.json()["bid_id"]]
     assert [item["bid_id"] for item in beta_mine.json()["items"]] == [second.json()["bid_id"]]
+
+
+async def test_list_bids_reads_a_page_in_three_queries(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """Two bids cost the same three SELECTs as one: no per-bid revision or flag reads."""
+    world = await bidding_world(db_session)
+    first_lot = await lot_with_deadline(db_session, world, offset_s=600)
+    second_lot = uuid4()
+    await db_session.execute(
+        text(
+            "INSERT INTO lots (id, pool_id, zone_id, lot_index, lot_order, seats, min_seats, "
+            "status, bid_open_at, bid_close_at) VALUES (:id, :pool, 'US-EAST', 1, 2, 2, 2, "
+            "'BIDDING', now(), now() + interval '1 hour')"
+        ),
+        {"id": second_lot, "pool": world.pool_id},
+    )
+    key = await key_for(client, db_session, "listbids@example.test", ["bids:write", "bids:read"])
+    bids: set[str] = set()
+    for index, lot_id in enumerate((first_lot, second_lot)):
+        submitted = await submit(client, key, lot_id, idem=f"list-{index}")
+        assert submitted.status_code == 200, submitted.text
+        bids.add(str(submitted.json()["bid_id"]))
+
+    bind = db_session.get_bind()
+    target = getattr(bind, "sync_engine", getattr(bind, "engine", bind))
+    statements: list[str] = []
+
+    def record(conn: Any, cursor: Any, statement: str, *args: Any) -> None:
+        statements.append(statement)
+
+    event.listen(target, "before_cursor_execute", record)
+    try:
+        listed = await client.get(f"{API}/bids", headers=bearer(key))
+    finally:
+        event.remove(target, "before_cursor_execute", record)
+
+    assert listed.status_code == 200, listed.text
+    assert {item["bid_id"] for item in listed.json()["items"]} == bids
+    page = [
+        statement
+        for statement in statements
+        if re.match(r"^\s*SELECT", statement)
+        and re.search(r"\b(bids|bid_revisions|bid_flags)\b", statement)
+    ]
+    assert len(page) == 3, page
 
 
 async def test_a_key_never_sees_another_merchants_bids(

@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transport = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
@@ -68,18 +69,22 @@ async function show(overrides: { config?: CheckoutConfig; ensureShipping?: () =>
   const config = overrides.config ?? CONFIG;
   const ensureShipping = overrides.ensureShipping ?? vi.fn(() => true);
   const onRefresh = vi.fn();
+  const onApproved = vi.fn();
   const onFallback = vi.fn();
   const view = render(
-    <PayPalButton
-      config={config}
-      buyerOrderId="order-one"
-      shipping={SHIPPING}
-      ensureShipping={ensureShipping}
-      onRefresh={onRefresh}
-      onFallback={onFallback}
-    />,
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <PayPalButton
+        config={config}
+        buyerOrderId="order-one"
+        shipping={SHIPPING}
+        ensureShipping={ensureShipping}
+        onRefresh={onRefresh}
+        onApproved={onApproved}
+        onFallback={onFallback}
+      />
+    </MemoryRouter>,
   );
-  return { ...view, onRefresh, onFallback, ensureShipping };
+  return { ...view, onRefresh, onApproved, onFallback, ensureShipping };
 }
 
 async function paypalElement() {
@@ -166,9 +171,44 @@ describe("the PayPal SDK v6 button", () => {
     });
     expect(JSON.stringify(approved?.[1])).not.toMatch(/amount|cents|total|currency/i);
     expect(view.onRefresh).toHaveBeenCalledTimes(1);
+    expect(view.onApproved).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Approval received/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open order for order-one" })).toHaveAttribute(
+      "href",
+      "/orders/order-one",
+    );
   });
 
-  it("reports a cancellation to the server and reloads the offer", async () => {
+  it("shows a rejection reason and links to the order without refreshing", async () => {
+    transport.post.mockImplementation((path: string) => {
+      if (path === "/api/v1/offers/{buyer_order_id}/approved") {
+        return Promise.resolve({
+          data: { buyer_order_id: "order-one", status: "REJECTED", reason: "PAYEE_MISMATCH" },
+        });
+      }
+      if (path === "/api/v1/offers/{buyer_order_id}/continue") {
+        return Promise.resolve({ data: { paypal_order_id: "PAYPAL-ORDER-1" } });
+      }
+      return Promise.resolve({ data: null });
+    });
+    const view = await show();
+    fireEvent.click(await paypalElement());
+    await waitFor(() => expect(handlers).not.toBeNull());
+
+    await act(async () => {
+      await handlers?.onApprove({ orderId: "PAYPAL-ORDER-1" });
+    });
+
+    expect((await screen.findAllByText(/PAYEE_MISMATCH/)).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Open order for order-one" })).toHaveAttribute(
+      "href",
+      "/orders/order-one",
+    );
+    expect(view.onRefresh).not.toHaveBeenCalled();
+    expect(view.onApproved).not.toHaveBeenCalled();
+  });
+
+  it("asks before a PayPal cancel declines the offer", async () => {
     const view = await show();
     fireEvent.click(await paypalElement());
     await waitFor(() => expect(handlers).not.toBeNull());
@@ -177,6 +217,31 @@ describe("the PayPal SDK v6 button", () => {
       await handlers?.onCancel();
     });
 
+    const dialog = await screen.findByRole("alertdialog", { name: "Cancel this PayPal approval?" });
+    expect(within(dialog).getByText("Cancel now declines this offer. Keep the offer?")).toBeInTheDocument();
+    expect(transport.post.mock.calls.some(([path]) => path === "/api/v1/offers/{buyer_order_id}/cancelled")).toBe(
+      false,
+    );
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep the offer" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(transport.post.mock.calls.some(([path]) => path === "/api/v1/offers/{buyer_order_id}/cancelled")).toBe(
+      false,
+    );
+    expect(view.onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("declines the offer only after the confirm is accepted", async () => {
+    const view = await show();
+    fireEvent.click(await paypalElement());
+    await waitFor(() => expect(handlers).not.toBeNull());
+
+    await act(async () => {
+      await handlers?.onCancel();
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Decline the offer" }));
+
+    await waitFor(() => expect(view.onRefresh).toHaveBeenCalledTimes(1));
     const cancelled = transport.post.mock.calls.find(
       ([path]) => path === "/api/v1/offers/{buyer_order_id}/cancelled",
     );
@@ -184,7 +249,6 @@ describe("the PayPal SDK v6 button", () => {
       params: { path: { buyer_order_id: "order-one" } },
       body: {},
     });
-    expect(view.onRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the redirect flow when PayPal is not eligible", async () => {
@@ -228,12 +292,25 @@ describe("the PayPal SDK v6 button", () => {
     });
   });
 
+  it("falls back when the SDK never finishes initialising", async () => {
+    delete (window as unknown as { paypal?: unknown }).paypal;
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const view = await show();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(view.onFallback).toHaveBeenCalledTimes(1);
+    expect(view.onFallback.mock.calls[0]?.[0]).toMatch(/standard PayPal page/);
+    expect(document.querySelector("paypal-button")).toBeNull();
+    vi.useRealTimers();
+  });
+
   it("does not create an order until the shipping address is complete", async () => {
     const view = await show({ ensureShipping: vi.fn(() => false) });
     fireEvent.click(await paypalElement());
 
     expect(view.ensureShipping).toHaveBeenCalled();
     expect(transport.post).not.toHaveBeenCalled();
-    expect(screen.queryByText("Preparing the PayPal button…")).not.toBeInTheDocument();
   });
 });

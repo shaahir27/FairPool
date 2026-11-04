@@ -20,8 +20,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
+from fairpool.fakes.vault import FakePaymentVaultProvider
+from fairpool.infra.audit import PostgresAuditLog
+from fairpool.infra.clock import DbClock
+from fairpool.infra.crypto import AesGcmCipher
+from fairpool.modules.pools.vault import VaultService
 from tests.integration.test_agent_delegations import create_delegation
 from tests.integration.test_join_receipts import login, open_pool, settings_for
+from tests.unit.test_settings import vault_key
 
 pytestmark = pytest.mark.integration
 
@@ -308,6 +314,102 @@ async def test_agent_withdraw_is_idempotent_and_owner_scoped(
     )
     assert deleted.status_code == 200
     assert deleted.json()["entry_status"] == "WITHDRAWN"
+
+
+async def test_a_narrowed_delegation_reads_and_withdraws_nothing_outside_its_scope(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """The scope that gates a join gates every read and the withdrawal (I11)."""
+    csrf = await login(client, "agent-scope-read@example.test")
+    open_token = (await create_delegation(client, csrf))["token"]
+    pool_id = await open_pool(db_session)
+    created = await client.post(
+        "/agent/v1/entries",
+        headers={**agent(open_token), "Idempotency-Key": "scope-read-1"},
+        json=request_body(pool_id),
+    )
+    assert created.status_code == 201, created.text
+    entry_id = created.json()["entry_id"]
+
+    other_pool = await open_pool(db_session)
+    narrowed = (await create_delegation(client, csrf, scope={"pool_ids": [str(other_pool)]}))[
+        "token"
+    ]
+    category = (await create_delegation(client, csrf, scope={"category": "monitors"}))["token"]
+
+    listed = await client.get("/agent/v1/entries", headers=agent(narrowed))
+    assert listed.status_code == 200
+    assert listed.json()["items"] == []
+
+    for token in (narrowed, category):
+        read = await client.get(f"/agent/v1/entries/{entry_id}", headers=agent(token))
+        assert read.status_code == 404
+        assert read.json()["error"]["code"] == "NOT_FOUND"
+        withdraw = await client.post(
+            "/agent/v1/entries/withdraw", headers=agent(token), json={"entry_id": entry_id}
+        )
+        assert withdraw.status_code == 404
+        assert withdraw.json()["error"]["code"] == "NOT_FOUND"
+
+    # Neither refusal changed anything: the wider delegation still reads the entry.
+    still = await client.get(f"/agent/v1/entries/{entry_id}", headers=agent(open_token))
+    assert still.status_code == 200, still.text
+    assert still.json()["entry_status"] == "SUBMITTED"
+
+
+async def test_agent_withdraw_never_deletes_the_saved_permission(
+    db_session: AsyncSession,
+) -> None:
+    """Rule 22: the agent lane withdraws the entry and never performs a PayPal write."""
+    settings = settings_for(vault_token_key=vault_key(), vault_real_save_enabled=True)
+    provider = FakePaymentVaultProvider()
+    app = create_app(settings)
+    app.state.vault_provider = provider
+
+    async def session() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[database_session] = session
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://api.test"
+    ) as http:
+        token, _, _ = await buyer(http, "agent-vault@example.test")
+        pool_id = await open_pool(db_session)
+        created = await http.post(
+            "/agent/v1/entries",
+            headers={**agent(token), "Idempotency-Key": "vault-withdraw"},
+            json=request_body(pool_id),
+        )
+        assert created.status_code == 201, created.text
+        entry_id = UUID(str(created.json()["entry_id"]))
+
+        # A live saved permission exists, so the old vault leg would have deleted it.
+        vault = VaultService(
+            DbClock(),
+            PostgresAuditLog(),
+            AesGcmCipher.from_config_value(vault_key()),
+            provider,
+            consent_version="v1",
+            setup_ttl_s=900,
+            real_save_enabled=True,
+        )
+        redirect = await vault.start(db_session, entry_id=entry_id)
+        await vault.complete(db_session, entry_id=entry_id, setup_token_id=redirect.setup_token_id)
+
+        withdrawn = await http.post(
+            "/agent/v1/entries/withdraw", headers=agent(token), json={"entry_id": str(entry_id)}
+        )
+        assert withdrawn.status_code == 200, withdrawn.text
+        assert withdrawn.json() == {
+            "entry_id": str(entry_id),
+            "entry_status": "WITHDRAWN",
+        }
+
+    assert [call for call in provider.calls if call.startswith("delete:")] == []
+    status = await db_session.scalar(
+        text("SELECT status::text FROM vault_tokens WHERE entry_id = :id"), {"id": entry_id}
+    )
+    assert status == "ACTIVE", "the saved permission waits for the buyer's settings page"
 
 
 async def test_agent_views_allocation_and_offer_for_the_human_hand_off(

@@ -6,8 +6,9 @@ different product is a ``LOW_SIMILARITY`` WARNING written. It is advice for the
 merchant and ops: it never edits a field, never changes a status and never gates
 the award. A search that is down, empty text or a disabled switch means no flag.
 
-The check runs after the confirm's commit, in a fresh unit of work and behind a
-try/except: a retrieval outage must not fail a merchant's confirm (rule 23).
+The check runs as a background task after the confirm's response, on its own
+session and behind a try/except: a retrieval outage must not fail or delay a
+merchant's confirm (rule 23).
 """
 
 from __future__ import annotations
@@ -81,33 +82,31 @@ async def advise_confirmed_bid(
     search: SearchService,
     bid_id: UUID,
 ) -> None:
-    """The post-commit hook both confirm edges call; it never raises (INT-1)."""
+    """The post-commit hook both confirm edges call; it never raises (INT-1).
+
+    The caller hands it a fresh session (a background task), so the advisory rows
+    commit on their own unit of work after the confirm is durable.
+    """
     if settings is None or not settings.similarity_check_enabled:
         return
     try:
-        bind = session.bind
-        if bind is None:
+        bid = await session.get(Bid, bid_id)
+        if bid is None:
             return
-        # A fresh unit of work: the confirm is already durable, and a failure here
-        # rolls back only the advisory rows.
-        async with AsyncSession(bind=bind, expire_on_commit=False) as fresh:
-            bid = await fresh.get(Bid, bid_id)
-            if bid is None:
-                return
-            revision = await fresh.scalar(
-                select(BidRevision).where(
-                    BidRevision.bid_id == bid.id,
-                    BidRevision.revision == int(bid.current_revision),
-                )
+        revision = await session.scalar(
+            select(BidRevision).where(
+                BidRevision.bid_id == bid.id,
+                BidRevision.revision == int(bid.current_revision),
             )
-            lot = await fresh.get(Lot, bid.lot_id)
-            if revision is None or lot is None:
-                return
-            advisor = LowSimilarityAdvisor(
-                search=search, run_logger=PostgresAiRunLogger(), model=settings.ai_model_sim
-            )
-            await advisor.check(fresh, bid=bid, revision=revision, lot=lot)
-            await fresh.commit()
+        )
+        lot = await session.get(Lot, bid.lot_id)
+        if revision is None or lot is None:
+            return
+        advisor = LowSimilarityAdvisor(
+            search=search, run_logger=PostgresAiRunLogger(), model=settings.ai_model_sim
+        )
+        await advisor.check(session, bid=bid, revision=revision, lot=lot)
+        await session.commit()
     except Exception as exc:  # noqa: BLE001 - search never fails a merchant action
         logger.warning(
             "auction.similarity_check_skipped bid_id=%s reason=%s",
