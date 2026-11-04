@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
@@ -409,3 +409,41 @@ async def test_agent_pools_lists_open_pools_and_searches(
     empty = await client.get("/agent/v1/pools?q=nothing-matches-this", headers=agent(token))
     assert empty.status_code == 200
     assert empty.json() == []
+
+
+async def test_me_entries_reads_the_page_in_a_constant_number_of_queries(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """The buyer list must not get slower per entry: the page reads in one pass.
+
+    The first draft asked twice per entry (allocation, offer), which is invisible
+    with one row and a round-trip storm with a real history. Four entries fit in
+    five SELECTs including the session lookup; per-entry reads needed nine.
+    """
+    token, _, _ = await buyer(client, "me-entries-page@example.test")
+    for _ in range(4):
+        pool_id = await open_pool(db_session)
+        joined = await client.post(
+            "/agent/v1/entries",
+            headers={**agent(token), "Idempotency-Key": str(uuid4())},
+            json=request_body(pool_id),
+        )
+        assert joined.status_code in {200, 201}, joined.text
+
+    bind = db_session.get_bind()
+    target = getattr(bind, "sync_engine", getattr(bind, "engine", bind))
+    statements: list[str] = []
+
+    def record(conn: Any, cursor: Any, statement: str, *args: Any) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    event.listen(target, "before_cursor_execute", record)
+    try:
+        listed = await client.get("/api/v1/me/entries")
+    finally:
+        event.remove(target, "before_cursor_execute", record)
+
+    assert listed.status_code == 200, listed.text
+    assert len(listed.json()["items"]) >= 4
+    assert len(statements) <= 5, f"{len(statements)} SELECTs for one page of entries"

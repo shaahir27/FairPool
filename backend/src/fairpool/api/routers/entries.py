@@ -13,27 +13,26 @@ from __future__ import annotations
 import logging
 import time
 from collections import OrderedDict, deque
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Security
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_session
 from fairpool.config import Settings
 from fairpool.db.models.catalog import PoolEntry
-from fairpool.db.models.checkout import BuyerOrder
-from fairpool.db.models.enums import AllocationStatus, BuyerOrderStatus
-from fairpool.db.models.pools import Allocation, Lot
+from fairpool.db.models.enums import BuyerOrderStatus
 from fairpool.domain.errors import ApplicationError
 from fairpool.fakes.vault import FakePaymentVaultProvider
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.crypto import AesGcmCipher, DecryptionError
 from fairpool.infra.idempotency import PostgresIdempotencyStore
+from fairpool.modules.agentapi.views import entry_view, entry_views
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.pools.join import JoinService
 from fairpool.modules.pools.receipts import receipt_for_entry, signing_seed
@@ -393,6 +392,7 @@ async def vault_delete(
     dependencies=[Security(require_session)],
 )
 async def me_entries(
+    request: Request,
     principal: Annotated[Principal, Security(require_session)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.MeEntryList:
@@ -403,7 +403,8 @@ async def me_entries(
             .order_by(PoolEntry.created_at, PoolEntry.id)
         )
     )
-    return schemas.MeEntryList(items=[await _entry_view(db, entry) for entry in entries])
+    views = await entry_views(db, entries, frontend_base_url=_settings(request).frontend_base_url)
+    return schemas.MeEntryList(items=[_me_entry(view) for view in views])
 
 
 @router.get(
@@ -419,7 +420,7 @@ async def entry_status(
     db: Annotated[AsyncSession, Depends(database_session)],
 ):
     entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
-    view = await _entry_view(db, entry)
+    view = await _entry_view(db, entry, frontend_base_url=_settings(request).frontend_base_url)
     vault_status: str | None = None
     vault_label: str | None = None
     if _settings(request).vault_token_key is not None:
@@ -434,53 +435,19 @@ async def entry_status(
     return JSONResponse(status_code=200, content=body)
 
 
-async def _entry_view(db: AsyncSession, entry: PoolEntry) -> schemas.MeEntry:
-    """The allocation and the live offer behind one entry (api.md "Entry")."""
-    allocation = await db.scalar(
-        select(Allocation).where(
-            Allocation.pool_id == entry.pool_id, Allocation.entry_id == entry.id
-        )
-    )
-    allocation_view: schemas.AllocationView | None = None
-    if allocation is not None:
-        waitlist_position: int | None = None
-        if allocation.status == AllocationStatus.WAITLISTED:
-            # rank is 1-based within the zone and the seats ahead are the zone's lot
-            # seats, so the position is measured against what is actually seated.
-            seats = await db.scalar(
-                select(func.coalesce(func.sum(Lot.seats), 0)).where(
-                    Lot.pool_id == entry.pool_id, Lot.zone_id == allocation.zone_id
-                )
-            )
-            waitlist_position = max(1, allocation.rank - int(seats or 0))
-        allocation_view = schemas.AllocationView(
-            status=str(allocation.status),
-            zone_id=allocation.zone_id,
-            rank=allocation.rank,
-            lot_id=allocation.lot_id,
-            waitlist_position=waitlist_position,
-        )
-    order = await db.scalar(
-        select(BuyerOrder)
-        .where(
-            BuyerOrder.entry_id == entry.id,
-            BuyerOrder.status.in_(ACTIVE_ORDER_STATUSES),
-        )
-        .order_by(BuyerOrder.created_at.desc(), BuyerOrder.id)
-        .limit(1)
-    )
+async def _entry_view(
+    db: AsyncSession, entry: PoolEntry, *, frontend_base_url: str
+) -> schemas.MeEntry:
+    return _me_entry(await entry_view(db, entry, frontend_base_url=frontend_base_url))
+
+
+def _me_entry(view: dict[str, Any]) -> schemas.MeEntry:
+    allocation = view["allocation"]
+    offer = view["offer"]
     return schemas.MeEntry(
-        entry_id=entry.id,
-        pool_id=entry.pool_id,
-        entry_status=str(entry.status),
-        allocation=allocation_view,
-        offer=(
-            schemas.OfferRef(
-                buyer_order_id=order.id,
-                status=str(order.status),
-                offer_expires_at=order.offer_expires_at,
-            )
-            if order is not None
-            else None
-        ),
+        entry_id=view["entry_id"],
+        pool_id=view["pool_id"],
+        entry_status=view["entry_status"],
+        allocation=None if allocation is None else schemas.AllocationView(**allocation),
+        offer=None if offer is None else schemas.OfferRef(**offer),
     )

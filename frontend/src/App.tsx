@@ -16,8 +16,8 @@ const SignupDetailsPage = lazy(() => import("./buyer/signup").then((m) => ({ def
 const AddressesPage = lazy(() => import("./buyer/AddressesPage").then((m) => ({ default: m.AddressesPage })));
 const AgentSettingsPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.AgentSettingsPage })));
 const BuyerOrderPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.BuyerOrderPage })));
-const MyPoolsPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.MyPoolsPage })));
-const OrdersPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.OrdersPage })));
+const MyPoolsPage = lazy(() => import("./buyer/my-pools/MyPoolsPage").then((m) => ({ default: m.MyPoolsPage })));
+const OrdersPage = lazy(() => import("./buyer/orders/OrdersPage").then((m) => ({ default: m.OrdersPage })));
 const PayPalSettingsPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.PayPalSettingsPage })));
 const OfferCheckoutPage = lazy(() => import("./checkout").then((m) => ({ default: m.OfferCheckoutPage })));
 const MerchantLayout = lazy(() => import("./merchant").then((m) => ({ default: m.MerchantLayout })));
@@ -51,10 +51,17 @@ export function AppRoutes() {
   useEffect(() => {
     // Download the requested buyer screen while /me validates the session.
     // This warms code only; private data still waits for RequireAuth.
+    // The landing's one action is sign-in: warm that chunk while the page is read.
+    if (pathname === "/") {
+      void import("./buyer/pages").catch(() => {});
+      return;
+    }
     if (pathname === "/discover" || pathname.startsWith("/pools/") || pathname.startsWith("/orders") || pathname === "/my-pools") {
       void import("./buyer/BuyerLayout").catch(() => {});
       const page = pathname === "/discover" ? import("./buyer/discover/DiscoverPage")
         : pathname.startsWith("/pools/") ? import("./buyer/lobby/PoolPage")
+        : pathname === "/my-pools" ? import("./buyer/my-pools/MyPoolsPage")
+        : pathname === "/orders" ? import("./buyer/orders/OrdersPage")
         : import("./buyer/pages");
       void page.catch(() => {});
     }

@@ -1,4 +1,5 @@
 import { AreaLayout, type AreaTab, type AreaUtilityLink } from "../shared";
+import { prefetchBuyer } from "./prefetch";
 
 /** Buyer tabs fixed by FR-UI-01 to FR-UI-03 (scaffold section 12). */
 const BUYER_TABS: readonly AreaTab[] = [
@@ -19,6 +20,7 @@ export function BuyerLayout() {
       workspace="Buyer workspace"
       tabs={BUYER_TABS}
       utilityLinks={BUYER_UTILITY_LINKS}
+      onPrefetch={prefetchBuyer}
     />
   );
 }

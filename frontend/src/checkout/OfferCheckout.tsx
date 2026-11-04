@@ -2,6 +2,8 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type ApiComponents, formatCents, Icon, Notice, ProductArt, StatusPill, startRouteTransition, useCountdown } from "../shared";
 
+import { PayPalButton } from "./PayPalButton";
+
 type Offer = ApiComponents["schemas"]["OfferResponse"];
 const ADDRESS_FIELDS = [
   { name: "name", label: "Name", autoComplete: "name", required: true },
@@ -18,24 +20,30 @@ const EMPTY_ADDRESS: Record<AddressField, string> = { name: "", line1: "", line2
 export function OfferCheckout({ buyerOrderId }: { buyerOrderId: string }) {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  // Approval reloads the offer instead of guessing the new state in the browser.
+  const [reload, setReload] = useState(0);
+  const shownFor = useRef<string | null>(null);
   useEffect(() => {
     let live = true;
-    setOffer(null);
+    if (shownFor.current !== buyerOrderId) setOffer(null);
     setError(null);
     void api.GET("/api/v1/offers/{buyer_order_id}", { params: { path: { buyer_order_id: buyerOrderId } } })
       .then(({ data, error: failure }) => {
         if (!live) return;
         if (failure || !data) setError(codeOf(failure));
-        else setOffer(data);
+        else {
+          setOffer(data);
+          shownFor.current = buyerOrderId;
+        }
       }).catch(() => { if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and reload this offer." }); });
     return () => { live = false; };
-  }, [buyerOrderId]);
+  }, [buyerOrderId, reload]);
   if (error) return <Notice kind="error" code={error.code}>{error.message}</Notice>;
   if (!offer) return <section className="panel" role="status" aria-label="Loading offer" aria-busy="true"><p className="meta-label">Loading offer</p><div className="skeleton mt-5 h-10 w-2/3" /><div className="skeleton mt-4 h-40" /><div className="skeleton mt-4 h-12" /></section>;
-  return <OfferDetails key={buyerOrderId} offer={offer} />;
+  return <OfferDetails key={buyerOrderId} offer={offer} onRefresh={() => setReload((count) => count + 1)} />;
 }
 
-function OfferDetails({ offer }: { offer: Offer }) {
+function OfferDetails({ offer, onRefresh }: { offer: Offer; onRefresh: () => void }) {
   const navigate = useNavigate();
   const [address, setAddress] = useState(EMPTY_ADDRESS);
   const [savedAddresses, setSavedAddresses] = useState<ApiComponents["schemas"]["SavedAddressResponse"][]>([]);
@@ -55,6 +63,17 @@ function OfferDetails({ offer }: { offer: Offer }) {
     }).catch(() => { if (live) setAddressLoadFailed(true); });
     return () => { live = false; };
   }, []);
+  // Public SDK values only; a failed load keeps the verified redirect path.
+  const [checkoutConfig, setCheckoutConfig] = useState<ApiComponents["schemas"]["CheckoutConfigResponse"] | null>(null);
+  const [sdkFallback, setSdkFallback] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void api.GET("/api/v1/checkout/config").then(({ data }) => {
+      if (live && data) setCheckoutConfig(data);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const sdkPopup = checkoutConfig?.approval_ui === "sdk_popup" && sdkFallback === null;
   const [busy, setBusy] = useState<"continue" | "decline" | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   // Older responses lack server_now. Capture a stable display-only sample once.
@@ -72,20 +91,21 @@ function OfferDetails({ offer }: { offer: Offer }) {
     } catch { setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); }
     finally { setBusy(null); }
   };
+  const ensureShipping = () => {
+    // The browser's `required` only helps when the inputs are inside the form;
+    // both payment paths check here so an incomplete address never reaches the API.
+    const missingFields = ADDRESS_FIELDS.filter(
+      (field) => field.required && !address[field.name].trim(),
+    ).map((field) => field.label);
+    if (missingFields.length === 0) return true;
+    setError({ code: "VALIDATION_ERROR", message: `Add ${missingFields.join(", ")}.` });
+    return false;
+  };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy || countdown.expired) return;
     setBusy("continue"); setError(null);
-    // The browser's `required` only helps when the inputs are inside the form;
-    // check here so an incomplete address never reaches the API.
-    const missingFields = ADDRESS_FIELDS.filter(
-      (field) => field.required && !address[field.name].trim(),
-    ).map((field) => field.label);
-    if (missingFields.length > 0) {
-      setBusy(null);
-      setError({ code: "VALIDATION_ERROR", message: `Add ${missingFields.join(", ")}.` });
-      return;
-    }
+    if (!ensureShipping()) { setBusy(null); return; }
     try {
       const { data, error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/continue", {
         params: { path: { buyer_order_id: offer.buyer_order_id } }, body: { shipping: address },
@@ -146,7 +166,22 @@ function OfferDetails({ offer }: { offer: Offer }) {
           <div className="shop-section-heading"><Icon name="wallet" /><h2 id="payment-heading">Payment</h2></div>
           <div className="payment-choice"><span className="paypal-word">PayPal</span><p className="shop-copy">Continue on PayPal to review your payment.</p><Icon name="lock" /></div>
           <p className="payment-description">{offer.notices.hold}</p>
-          <div className="checkout-actions"><button type="submit" disabled={busy !== null || countdown.expired} className="button-primary w-full">{busy === "continue" ? "Opening PayPal…" : <>Continue to PayPal <Icon name="arrow" /></>}</button></div>
+          {sdkFallback ? <div className="mb-4"><Notice kind="info">{sdkFallback}</Notice></div> : null}
+          <div className="checkout-actions">
+            {sdkPopup && checkoutConfig ? (
+              <PayPalButton
+                config={checkoutConfig}
+                buyerOrderId={offer.buyer_order_id}
+                shipping={address}
+                disabled={busy !== null || countdown.expired}
+                ensureShipping={ensureShipping}
+                onRefresh={onRefresh}
+                onFallback={setSdkFallback}
+              />
+            ) : (
+              <button type="submit" disabled={busy !== null || countdown.expired} className="button-primary w-full">{busy === "continue" ? "Opening PayPal…" : <>Continue to PayPal <Icon name="arrow" /></>}</button>
+            )}
+          </div>
           <p className="checkout-fineprint"><Icon name="lock" />Your address is stored encrypted.</p>
           <button type="button" disabled={busy !== null} onClick={() => void decline()} className="decline-link">{busy === "decline" ? "Declining…" : "Decline this offer"}</button>
         </section>

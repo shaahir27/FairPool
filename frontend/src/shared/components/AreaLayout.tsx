@@ -12,7 +12,7 @@ import "../commerce.css";
 
 export type AreaTab = { to: string; label: string; end: boolean };
 export type AreaUtilityLink = { to: string; label: string };
-type AreaLayoutProps = { workspace: string; tabs: readonly AreaTab[]; utilityLinks?: readonly AreaUtilityLink[]; children?: ReactNode };
+type AreaLayoutProps = { workspace: string; tabs: readonly AreaTab[]; utilityLinks?: readonly AreaUtilityLink[]; onPrefetch?: (to: string) => void; children?: ReactNode };
 
 function WorkspaceContent({ children }: { children?: ReactNode }) {
   return <Suspense fallback={<LoadingScreen label="Loading workspace page" compact />}>
@@ -69,12 +69,25 @@ function SignOut({ className = "account-nav-link" }: { className?: string }) {
   );
 }
 
-export function AreaLayout({ workspace, tabs, utilityLinks = [], children }: AreaLayoutProps) {
+export function AreaLayout({
+  workspace,
+  tabs,
+  utilityLinks = [],
+  onPrefetch,
+  children,
+}: AreaLayoutProps) {
   if (workspace === "Buyer workspace") {
     const account = accountState();
     const firstName = account ? account.display_name.split(" ")[0] : null;
     const links = tabs.map((tab, index) => (
-      <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `account-nav-link ${isActive ? "is-active" : ""}`}>
+      <NavLink
+        key={tab.to}
+        to={tab.to}
+        end={tab.end}
+        onMouseEnter={() => onPrefetch?.(tab.to)}
+        onFocus={() => onPrefetch?.(tab.to)}
+        className={({ isActive }) => `account-nav-link ${isActive ? "is-active" : ""}`}
+      >
         <Icon name={index === 0 ? "search" : index === 1 ? "layers" : "bag"} />
         <span>{tab.label}</span><Icon name="chevron" className="nav-chevron" />
       </NavLink>

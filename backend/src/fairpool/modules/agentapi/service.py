@@ -30,7 +30,7 @@ from fairpool.db.models.catalog import Pool, PoolEntry
 from fairpool.db.models.enums import PoolStatus
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.hashing import sha256_hex
-from fairpool.modules.agentapi.views import entry_view
+from fairpool.modules.agentapi.views import entry_view, entry_views
 from fairpool.modules.identity.delegations import AgentPrincipal
 from fairpool.modules.intake.manual import ManualIntakeService
 from fairpool.modules.pools.join import JoinOutcome, JoinService
@@ -206,10 +206,7 @@ class AgentService:
         entries = list(
             (await session.scalars(query.order_by(PoolEntry.received_at, PoolEntry.id))).all()
         )
-        return [
-            await entry_view(session, entry, frontend_base_url=self.frontend_base_url)
-            for entry in entries
-        ]
+        return await entry_views(session, entries, frontend_base_url=self.frontend_base_url)
 
     async def owned_entry(
         self, session: AsyncSession, *, principal: AgentPrincipal, entry_id: UUID
