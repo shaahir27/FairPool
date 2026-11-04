@@ -15,7 +15,7 @@ beforeAll(() => {
       meCalls += 1;
       if (behavior === "boom") throw new TypeError("Failed to fetch");
       const status = behavior === "in" ? 200 : behavior === "error" ? 503 : 401;
-      return new Response("{}", { status, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ display_name: "Test Buyer", role: "buyer", paypal_linked: false }), { status, headers: { "content-type": "application/json" } });
     }),
   );
 });

@@ -4,7 +4,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Notice } from "./Notice";
 import { LoadingScreen } from "./LoadingScreen";
 import { api } from "../api/client";
-import { resetSessionCache, setAccount, sessionState } from "../lib/session";
+import { accountState, resetSessionCache, setAccount, sessionState, workspaceHome } from "../lib/session";
 
 type GuardState = "checking" | "in" | "out" | "unreachable";
 
@@ -16,14 +16,14 @@ type GuardState = "checking" | "in" | "out" | "unreachable";
  * decides: 200 renders the route, 401 sends the visitor to sign in with the path
  * they came from, and the login form returns them there.
  */
-export function RequireAuth({ children }: { children: ReactNode }) {
+export function RequireAuth({ children, role }: { children: ReactNode; role: "buyer" | "merchant" | "admin" }) {
   const location = useLocation();
-  const [state, setState] = useState<GuardState>(() => sessionState() ?? "checking");
+  const [state, setState] = useState<GuardState>(() => sessionState() === "in" && !accountState() ? "checking" : sessionState() ?? "checking");
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const known = sessionState();
-    if (known !== null) {
+    if (known !== null && (known !== "in" || accountState())) {
       setState(known);
       return;
     }
@@ -42,19 +42,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         if (response.ok) {
           resetSessionCache("in");
           // The shell shows who is signed in from this one answer rather than asking
-          // /me a second time for the same row. The payload is a boundary: a response
-          // without a name is recorded as "no account info" rather than passed on as
-          // something the shell can call string methods on.
+          // /me a second time for the same row. A missing role must fail closed.
           const name = typeof data?.display_name === "string" ? data.display_name.trim() : "";
-          setAccount(
-            name
-              ? {
-                  display_name: name,
-                  role: typeof data?.role === "string" ? data.role : "",
-                  paypal_linked: data?.paypal_linked === true,
-                }
-              : null,
-          );
+          setAccount({
+            display_name: name,
+            role: typeof data?.role === "string" ? data.role : "",
+            paypal_linked: data?.paypal_linked === true,
+          });
           setState("in");
           return;
         }
@@ -104,5 +98,10 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       />
     );
   }
+  const account = accountState();
+  const home = workspaceHome(account?.role ?? "");
+  if (!home) return <main className="mx-auto max-w-md px-6 py-16"><Notice kind="error" code="FORBIDDEN">Account access unavailable. Contact the FairPool operator.</Notice></main>;
+  // FR-ID-05: do not mount another role's screens or start their data requests.
+  if (account?.role !== role) return <Navigate to={home} replace />;
   return <>{children}</>;
 }

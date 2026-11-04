@@ -15,6 +15,17 @@ export interface Account {
   paypal_linked: boolean;
 }
 
+export function workspaceHome(role: string): string | null {
+  return role === "admin" ? "/ops" : role === "merchant" ? "/merchant/demand" : role === "buyer" ? "/discover" : null;
+}
+
+export function workspaceRole(path: string): string | null {
+  const section = path.split(/[/?#]/)[1] ?? "";
+  if (section === "ops") return "admin";
+  if (section === "merchant") return "merchant";
+  return ["discover", "my-pools", "orders", "pools", "settings", "offers"].includes(section) ? "buyer" : null;
+}
+
 /**
  * Announced on the window when a session ends, so per-session caches held by
  * another area (the buyer entry prefetch) can forget whose data they hold.

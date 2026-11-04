@@ -79,7 +79,7 @@ export function AppRoutes() {
 
       <Route
         element={
-          <RequireAuth>
+          <RequireAuth role="buyer">
             <BuyerLayout />
           </RequireAuth>
         }
@@ -97,7 +97,7 @@ export function AppRoutes() {
       <Route
         path="/offers/:buyerOrderId"
         element={
-          <RequireAuth>
+          <RequireAuth role="buyer">
             <OfferCheckoutPage />
           </RequireAuth>
         }
@@ -105,7 +105,7 @@ export function AppRoutes() {
 
       <Route
         element={
-          <RequireAuth>
+          <RequireAuth role="merchant">
             <MerchantLayout />
           </RequireAuth>
         }
@@ -120,7 +120,7 @@ export function AppRoutes() {
       <Route
         path="/ops/*"
         element={
-          <RequireAuth>
+          <RequireAuth role="admin">
             <OpsPage />
           </RequireAuth>
         }

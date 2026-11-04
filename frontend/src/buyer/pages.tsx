@@ -8,6 +8,9 @@ import {
   PlaceholderPage,
   resetSessionCache,
   setCsrfToken,
+  setAccount,
+  workspaceHome,
+  workspaceRole,
 } from "../shared";
 const OrderStatusCard = lazy(() => import("../checkout").then((module) => ({ default: module.OrderStatusCard })));
 
@@ -29,7 +32,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const merchant = new URLSearchParams(location.search).get("role") === "merchant";
-  const from = (location.state as { from?: string } | null)?.from ?? (merchant ? "/merchant/demand" : "/discover");
+  const from = (location.state as { from?: string } | null)?.from;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -51,7 +54,13 @@ export function LoginPage() {
       resetSessionCache();
       // A new sign-in may be a different person on the same browser.
       resetBuyerPrefetch();
-      navigate(from, { replace: true });
+      const { data: me, error: accountFailure } = await api.GET("/api/v1/me");
+      if (accountFailure || !me) { setError(envelope(accountFailure)); return; }
+      const home = workspaceHome(me.role);
+      if (!home) { setError({ code: "FORBIDDEN", message: "Account access unavailable. Contact the FairPool operator." }); return; }
+      setAccount({ display_name: typeof me.display_name === "string" ? me.display_name.trim() : "", role: me.role, paypal_linked: me.paypal_linked === true });
+      resetSessionCache("in");
+      navigate(typeof from === "string" && workspaceRole(from) === me.role ? from : home, { replace: true });
     } catch {
       setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
     } finally { setBusy(false); }

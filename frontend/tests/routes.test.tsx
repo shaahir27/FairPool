@@ -9,7 +9,7 @@ vi.mock("../src/shared/api/client", () => ({
   API_BASE_URL: "http://localhost:8000",
 }));
 
-import { resetSessionCache } from "../src/shared";
+import { resetSessionCache, setAccount } from "../src/shared";
 
 import { AppRoutes, RouteLoadBoundary } from "../src/App";
 
@@ -30,6 +30,8 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  resetSessionCache("in");
+  setAccount({ display_name: "Test Buyer", role: "buyer", paypal_linked: false });
   sessionStorage.clear();
   transport.get.mockReset().mockResolvedValue({
     data: [
@@ -119,6 +121,7 @@ describe("route smoke", () => {
   });
 
   it("renders the merchant Demand Board placeholder", async () => {
+    setAccount({ display_name: "Test Merchant", role: "merchant", paypal_linked: false });
     renderAt("/merchant/demand");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Demand Board" })).toBeInTheDocument();

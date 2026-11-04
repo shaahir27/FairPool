@@ -9,6 +9,8 @@ vi.mock("../src/shared/api/client", () => ({
 import { AppRoutes } from "../src/App";
 import { resetSessionCache } from "../src/shared";
 
+let role = "buyer";
+
 beforeEach(() => {
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: query.includes("prefers-reduced-motion"), media: query })));
   vi.stubGlobal("IntersectionObserver", class {
@@ -16,8 +18,9 @@ beforeEach(() => {
     disconnect() {}
   });
   resetSessionCache();
+  role = "buyer";
   transport.get.mockReset().mockImplementation((path: string) => Promise.resolve(
-    path === "/api/v1/me" ? { data: {}, response: { ok: true, status: 200 } } : { data: [] },
+    path === "/api/v1/me" ? { data: { display_name: "Test account", role, paypal_linked: false }, response: { ok: true, status: 200 } } : { data: [] },
   ));
   transport.post.mockReset().mockResolvedValue({ data: { csrf_token: "test-csrf" } });
 });
@@ -36,6 +39,7 @@ it.each([
   ["Join a pool", "Open pools"],
   ["Open merchant area", "Demand Board"],
 ])("takes %s through login to %s", async (action, destination) => {
+  role = action === "Open merchant area" ? "merchant" : "buyer";
   visit();
   const hero = await screen.findByRole("region", { name: /Buy together/ });
   fireEvent.click(within(hero).getByRole("link", { name: action }));
@@ -56,6 +60,7 @@ it.each(["/login", "/login?role=merchant"])("returns from %s to landing", async 
 });
 
 it("sends a signed-out merchant deep link back to the same workspace after login", async () => {
+  role = "merchant";
   transport.get.mockResolvedValueOnce({ response: { status: 401 } });
   visit("/merchant/bids");
   expect(await screen.findByText("Sign in to your merchant workspace.")).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, Notice, StatusPill, statusStyle } from "../shared";
 
@@ -9,8 +9,8 @@ type AbortResult = { lot_id: string; status: string; transition_id: string | nul
 /** The states the abort route acts on (ops.abort: LS-13, LS-08 and LS-09). */
 const ABORTABLE = new Set(["AWARDED", "CHECKOUT_OPEN", "FUNDING"]);
 
-export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
-  const [input, setInput] = useState("");
+export function LotPanel({ alertLots, initialLotId }: { alertLots: readonly string[]; initialLotId?: string | undefined }) {
+  const [input, setInput] = useState(initialLotId ?? "");
   const [lot, setLot] = useState<AdminLot | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
     setConfirming(false);
   };
 
-  const lookup = (raw: string) => {
+  const lookup = useCallback((raw: string) => {
     const lotId = raw.trim();
     setConfirming(false);
     setAbortResult(null);
@@ -69,7 +69,11 @@ export function LotPanel({ alertLots }: { alertLots: readonly string[] }) {
       .finally(() => {
         if (ticket === request.current) setLoading(false);
       });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialLotId) lookup(initialLotId);
+  }, [initialLotId, lookup]);
 
   const abort = () => {
     if (!lot || aborting) return;

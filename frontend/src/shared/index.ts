@@ -15,7 +15,7 @@ export type { DeliveryAddress } from "./lib/address";
 export { HonestyLabels } from "./components/HonestyLabels";
 export { PlaceholderPage } from "./components/PlaceholderPage";
 export { RequireAuth } from "./components/RequireAuth";
-export { accountState, resetSessionCache, sessionState, setAccount } from "./lib/session";
+export { accountState, resetSessionCache, sessionState, setAccount, workspaceHome, workspaceRole } from "./lib/session";
 export type { Account } from "./lib/session";
 export { PublicLayout } from "./components/PublicLayout";
 export { AuthAside } from "./components/AuthAside";

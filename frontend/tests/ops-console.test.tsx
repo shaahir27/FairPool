@@ -78,9 +78,9 @@ function defaultGet(path: string) {
   return Promise.resolve({ data: null });
 }
 
-function show() {
+function show(path = "/ops/lots") {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <OpsPage />
     </MemoryRouter>,
   );
@@ -105,18 +105,30 @@ afterEach(() => {
 });
 
 describe("the ops console", () => {
-  it("renders the lot facts, alerts and dead letters from their own responses", async () => {
-    show();
+  it("summarizes actual alert counts and links to the working sections", async () => {
+    show("/ops");
+    const summary = await screen.findByRole("region", { name: "Open alert summary" });
+    await waitFor(() => expect(within(summary).getByText("Requires action").nextElementSibling).toHaveTextContent("2"));
+    expect(within(summary).getByText("Under watch").nextElementSibling).toHaveTextContent("1");
+    expect(within(summary).getByText("Lots with alerts").nextElementSibling).toHaveTextContent("1");
+    const nav = screen.getByRole("navigation", { name: "Ops console tabs" });
+    expect(within(nav).getByRole("link", { name: "Lots" })).toHaveAttribute("href", "/ops/lots");
+    expect(within(nav).getByRole("link", { name: "Recovery" })).toHaveAttribute("href", "/ops/recovery");
+    expect(within(nav).getByRole("link", { name: "Audit trail" })).toHaveAttribute("href", "/ops/audit");
+    expect(screen.queryByRole("button", { name: "Run reconciler now" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Demo mock toggles" })).toBeNull();
+    expect(transport.get).not.toHaveBeenCalledWith("/api/v1/admin/webhooks/dead-letter");
+  });
+  it("opens an alerting lot from overview without showing unrelated tools", async () => {
+    show("/ops");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Ops console" })).toBeInTheDocument();
     expect(await screen.findByText("Webhook dead letter")).toBeInTheDocument();
     expect(screen.getAllByText("Act now").length).toBeGreaterThan(0);
     expect(screen.getByText("Watch")).toBeInTheDocument();
-    expect(await screen.findByText("PAYMENT.CAPTURE.COMPLETED")).toBeInTheDocument();
-    expect(screen.getByText("Order not found yet")).toBeInTheDocument();
-    expect(screen.getByText("Look up lot")).toBeInTheDocument();
-
-    await lookupLot();
+    fireEvent.click(screen.getByRole("link", { name: `Inspect lot ${LOT_ID}` }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Lot operations" })).toBeInTheDocument();
+    await screen.findByText(POOL_ID);
     expect(screen.getByText(LOT.award_id)).toBeInTheDocument();
     expect(screen.getByText("3 seats, minimum 2")).toBeInTheDocument();
     expect(screen.getByText("CHECKOUT_OPEN")).toBeInTheDocument();
@@ -148,7 +160,7 @@ describe("the ops console", () => {
     transport.post.mockResolvedValue({
       data: { kind: "paypal_mock_response", value: null, ttl_s: 300, labels: ["MOCK"] },
     });
-    show();
+    show("/ops/sandbox");
     await screen.findByRole("heading", { name: "Demo mock toggles" });
     expect(screen.queryAllByText("MOCK")).toHaveLength(0);
 
@@ -184,7 +196,7 @@ describe("the ops console", () => {
         },
       ]),
     );
-    const first = show();
+    const first = show("/ops/sandbox");
     await screen.findByRole("heading", { name: "Demo mock toggles" });
     expect((await screen.findAllByText("MOCK")).length).toBeGreaterThan(0);
     await waitFor(() => {
@@ -195,12 +207,12 @@ describe("the ops console", () => {
 
     // A reload is a fresh mount: the armed toggle and its MOCK label come back.
     first.unmount();
-    show();
+    show("/ops/sandbox");
     expect((await screen.findAllByText("MOCK")).length).toBeGreaterThan(0);
   });
 
   it("states the delay_webhooks behaviour exactly as the API does", async () => {
-    show();
+    show("/ops/sandbox");
     await screen.findByRole("heading", { name: "Demo mock toggles" });
 
     expect(
@@ -214,7 +226,7 @@ describe("the ops console", () => {
     transport.post.mockResolvedValue({
       error: { error: { code: "FEATURE_DISABLED", message: "Mock toggles are disabled." } },
     });
-    show();
+    show("/ops/sandbox");
     await screen.findByRole("heading", { name: "Demo mock toggles" });
 
     fireEvent.click(screen.getByRole("button", { name: "Arm Delay webhooks" }));
@@ -235,7 +247,7 @@ describe("the ops console", () => {
       clicked.anchor = this;
     });
 
-    show();
+    show("/ops/audit");
     await screen.findByRole("heading", { name: "Audit export" });
     fireEvent.click(screen.getByRole("button", { name: "Export audit chain" }));
 
@@ -258,7 +270,7 @@ describe("the ops console", () => {
 
   it("reports the reconciler's enqueued count", async () => {
     transport.post.mockResolvedValue({ data: { enqueued: 2 } });
-    show();
+    show("/ops/recovery");
     await screen.findByRole("heading", { name: "Reconciler" });
 
     fireEvent.click(screen.getByRole("button", { name: "Run reconciler now" }));
@@ -273,11 +285,12 @@ describe("the ops console", () => {
       }
       return defaultGet(path);
     });
-    show();
+    show("/ops");
 
     expect(await screen.findByText("Alerts are unavailable.")).toBeInTheDocument();
-    expect(await screen.findByText("PAYMENT.CAPTURE.COMPLETED")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Look up lot" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Ops console tabs" })).getByRole("link", { name: "Recovery" }));
+    expect(await screen.findByText("Order not found yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run reconciler now" })).toBeInTheDocument();
   });
 
   it("refuses a malformed lot ID without sending a request", async () => {
@@ -351,7 +364,7 @@ describe("the ops console", () => {
   });
 
   it("names each dead-letter action with the event it retries", async () => {
-    show();
+    show("/ops/recovery");
     expect(
       await screen.findByRole("button", { name: "Retry PAYMENT.CAPTURE.COMPLETED WH-DEAD-1" }),
     ).toBeInTheDocument();
