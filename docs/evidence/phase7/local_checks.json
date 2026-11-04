@@ -5,5 +5,7 @@
   "faults": "18 passed, 4 deselected (make test-faults equivalent).",
   "frontend": "163 tests across 19 files passed; eslint clean; tsc --noEmit and vite build passed.",
   "migrations": "Upgrade from 0001, fresh head and both Alembic drift checks passed; no new upgrade operations.",
-  "note": "These are the automated checks. `make gate-check GATE=ig-7` additionally requires it7_sandbox.json and sandbox_contracts.json, which need three real PayPal Sandbox approvals and the C-17 popup; they stay pending until the owner runs `tools/it7_live.py --live`."
+  "note": "These are the automated checks. `make gate-check GATE=ig-7` additionally requires it7_sandbox.json and sandbox_contracts.json, which need three real PayPal Sandbox approvals and the C-17 popup; they stay pending until the owner runs `tools/it7_live.py --live`.",
+  "live": "IT-7 passed with the owner's recorded refund waiver, and C-17 passed live (popup approval, server-side authorize, approval_channel=sdk_popup).",
+  "gate": "make gate-check GATE=ig-7 exits 0 on the closure commit."
 }
