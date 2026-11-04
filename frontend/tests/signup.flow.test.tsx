@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -18,6 +18,14 @@ beforeEach(() => {
 
 function show() {
   render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><RegisterPage /></MemoryRouter>);
+}
+
+async function hydrated() {
+  // SignupDetailsPage renders its heading as soon as the status answer says "ready", but
+  // it seeds email, name and address in a passive effect that lands a tick later. Typing
+  // into or reading those fields before that flush races the effect: the seed can arrive
+  // after the keystrokes and erase them. Flushing first is what makes the flow deterministic.
+  await act(async () => { await Promise.resolve(); });
 }
 
 it("starts signup with PayPal before asking for account details", async () => {
@@ -61,6 +69,7 @@ it("keeps mismatched passwords out of the account-creation request", async () =>
   transport.get.mockResolvedValue({ data: { enabled: true, status: "ready" } });
   render(<MemoryRouter><SignupDetailsPage /></MemoryRouter>);
   await screen.findByRole("heading", { name: "Make it yours." });
+  await hydrated();
   fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Buyer" } });
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "buyer@example.test" } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: "a long test password" } });
@@ -88,6 +97,7 @@ it("creates the account and continues with the server-issued session", async () 
     <Route path="/discover" element={<p>Your FairPool</p>} />
   </Routes></MemoryRouter>);
   await screen.findByRole("heading", { name: "Make it yours." });
+  await hydrated();
   fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Buyer" } });
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "buyer@example.test" } });
   for (const label of ["Password", "Repeat password"]) fireEvent.change(screen.getByLabelText(label), { target: { value: "a long test password" } });
@@ -147,7 +157,7 @@ it("restores non-password draft across reconnections without saving passwords", 
 
   render(<MemoryRouter><SignupDetailsPage /></MemoryRouter>);
   await screen.findByRole("heading", { name: "Make it yours." });
-  expect(screen.getByLabelText("Email")).toHaveValue("drafted@example.test");
+  await waitFor(() => expect(screen.getByLabelText("Email")).toHaveValue("drafted@example.test"));
   expect(screen.getByLabelText("Display name")).toHaveValue("Draft User");
   expect(screen.getByLabelText("Password")).toHaveValue("");
 });
@@ -168,6 +178,7 @@ it("clears the draft on successful registration", async () => {
   </Routes></MemoryRouter>);
 
   await screen.findByRole("heading", { name: "Make it yours." });
+  await hydrated();
   for (const label of ["Password", "Repeat password"]) fireEvent.change(screen.getByLabelText(label), { target: { value: "a long test password" } });
   fireEvent.click(screen.getByRole("button", { name: "Continue to delivery" }));
   expect(await screen.findByRole("heading", { name: "Where should it arrive?" })).toBeInTheDocument();
