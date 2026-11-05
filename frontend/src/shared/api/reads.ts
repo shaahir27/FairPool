@@ -5,7 +5,7 @@ const FRESH_MS = 15_000;
 
 // Private data stays in memory and is discarded whenever the session changes.
 export const readClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: FRESH_MS, gcTime: 300_000, retry: false, refetchOnWindowFocus: true } },
+  defaultOptions: { queries: { staleTime: FRESH_MS, gcTime: 300_000, retry: false, networkMode: "offlineFirst", refetchOnWindowFocus: true } },
 });
 
 function options<T>(key: string, read: Read<T>, staleTime = FRESH_MS) {

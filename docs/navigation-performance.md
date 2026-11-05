@@ -46,6 +46,9 @@ promise cache. No API contract or database change is needed.
 - Different resource IDs use different keys. Previous pool/lot data is not used as
   placeholder data for another resource. API failures throw and retain retry controls;
   automatic retries are disabled to avoid introducing exponential waiting.
+  offlineFirst attempts the read once even when connectivity is reported offline;
+  with retries disabled, a failure reaches the existing retry UI instead of leaving
+  an initial loader silently paused. Reconnect revalidation remains enabled.
 - Mouse, keyboard focus and touch intent warm the destination's data. Buyer pool
   links also warm its lazy code. Do not preload every page or payment SDK eagerly.
 - Public catalogue/detail reads can start beside the session check. Private reads
@@ -111,7 +114,9 @@ hosting decision; this change does not alter billing, move data or fake readines
 ## Verification record
 
 `make verify` exited 0: 1,207 backend tests, 269 frontend tests and 94.59% domain
-coverage. Two further real-portal return tests were added afterward and the final full
-frontend suite passes 271 tests; lint/type checking and the production build also
+coverage. Two further real-portal return tests and an offline failure test were added afterward and the final full
+frontend suite passes 272 tests; lint/type checking and the production build also
 pass for that state. Independent read-only review found no remaining blocker after the late-save
 and profile-initialization fixes. No browser timing or pixel-level approval is claimed.
+
+Network-mode reference: https://tanstack.com/query/latest/docs/framework/react/guides/network-mode

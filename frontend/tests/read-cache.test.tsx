@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { onlineManager } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { api, readClient, prefetchRead, resetSessionCache, useApiRead } from "../src/shared";
 
@@ -10,7 +11,7 @@ function View({ resource, load }: { resource: string; load: Load }) {
     <output>{result.isFetching && result.data ? "Updating" : ""}</output>
     <button onClick={() => void result.refetch()}>Refresh</button></>;
 }
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); onlineManager.setOnline(true); });
 
 it.each(["buyer", "merchant", "admin"])("retains %s records on return without another fresh read", async (role) => {
   const load = vi.fn<Load>().mockResolvedValue({data: {title: `${role} records`}});
@@ -81,4 +82,13 @@ it("refreshes mounted reads after an API write", async () => {
   await screen.findByText("Before write");
   await act(async () => {await api.POST("/api/v1/auth/logout", {fetch: async () => Response.json({})});});
   await waitFor(() => expect(screen.getByText("After write")).toBeInTheDocument());
+});
+
+
+it("reports an offline read failure instead of leaving the first loader paused", async () => {
+  onlineManager.setOnline(false);
+  const load = vi.fn<Load>().mockRejectedValue(new TypeError("offline"));
+  render(<View resource="offline-catalogue" load={load} />);
+  expect(await screen.findByText("Read failed")).toBeInTheDocument();
+  expect(load).toHaveBeenCalledTimes(1);
 });
