@@ -577,6 +577,9 @@ class ContinueResponse(ResponseModel):
 class OrderPayPalState(ResponseModel):
     authorization_status: str | None = None
     capture_status: str | None = None
+    # The newest capture's provider id: the resource the buyer can point at on PayPal.
+    # Additive, so a response written before this field stays valid.
+    capture_id: str | None = None
     refund_status: str | None = None
 
 
@@ -684,7 +687,8 @@ class MockToggleRequest(StrictModel):
 
 
 class SimRunRequest(StrictModel):
-    entries: int = Field(ge=1)
+    # 50,000 is the largest simulation the harness and the worker were sized for.
+    entries: int = Field(ge=1, le=50_000)
     merchants: int = Field(ge=1)
     seed: int
 
@@ -800,8 +804,8 @@ class FulfillmentRow(ResponseModel):
 
 class ShipmentInput(StrictModel):
     buyer_order_id: UUID
-    carrier: str
-    tracking_number: str
+    carrier: str = Field(max_length=64)
+    tracking_number: str = Field(max_length=128)
 
 
 class ShipmentsRequest(StrictModel):

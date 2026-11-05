@@ -43,6 +43,10 @@ it.each([
   await signIn();
   expect(await screen.findByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
   expect(transport.get).toHaveBeenCalledWith("/api/v1/me");
+  if (accountRole === "merchant") {
+    // The real console pages, not the T08 placeholder screens.
+    expect(screen.queryByText(/^T0\d/)).not.toBeInTheDocument();
+  }
 });
 
 it.each([
@@ -64,7 +68,7 @@ it("keeps a merchant's intended destination within its workspace", async () => {
   role = "merchant";
   visit("/login", "/merchant/bids");
   await signIn();
-  expect(await screen.findByRole("heading", { name: "Active Bids" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 1, name: "Active Bids" })).toBeInTheDocument();
 });
 
 it("discards a previous user's buyer destination when an admin signs in", async () => {

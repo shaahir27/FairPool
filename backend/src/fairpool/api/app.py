@@ -8,7 +8,6 @@ environment-free and `/health` usable before configuration exists.
 from __future__ import annotations
 
 import re
-import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Final
@@ -48,6 +47,8 @@ from fairpool.config import (
     assert_sandbox_host,
 )
 from fairpool.infra.clock import DbClock
+from fairpool.infra.metrics import metrics_route
+from fairpool.infra.security_headers import SecurityHeadersMiddleware, sanitize_request_id
 from fairpool.logging import request_id
 from fairpool.modules.mcp.transport import build_mcp_app
 
@@ -112,7 +113,7 @@ async def add_request_id(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
     """Attach a correlation ID to the contextvar and the response."""
-    value = request.headers.get(REQUEST_ID_HEADER) or uuid.uuid4().hex
+    value = sanitize_request_id(request.headers.get(REQUEST_ID_HEADER))
     token = request_id.set(value)
     try:
         response = await call_next(request)
@@ -150,6 +151,7 @@ def create_app(
             allow_headers=["*"],
         )
 
+    app.add_middleware(SecurityHeadersMiddleware)
     app.middleware("http")(add_request_id)
     register_exception_handlers(app)
     # The merchant sub-app answers with the same error envelope as the parent and
@@ -169,5 +171,8 @@ def create_app(
         app.router.routes.append(
             Route("/mcp", endpoint=build_mcp_app(app, settings, clock=DbClock()))
         )
+    # A scrape endpoint, not a documented operation: the frozen route-table test
+    # must not grow an entry for it (T08A05).
+    app.router.routes.append(metrics_route())
     _serve_web(app)
     return app

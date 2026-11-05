@@ -17,7 +17,7 @@ reachable (I1).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
@@ -374,9 +374,44 @@ async def test_the_order_page_lists_the_history_and_the_fallback_label(
     assert body["paypal"] == {
         "authorization_status": None,
         "capture_status": None,
+        "capture_id": None,
         "refund_status": None,
     }
     assert body["labels"] == ["SANDBOX", "FALLBACK: single stand-in seller"]
+
+
+async def test_the_order_page_reports_the_newest_capture_and_its_id(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """CR-10: the block used to order by the provider id string.
+
+    Two captures of one order are sorted by when they were recorded, so the page shows
+    the one that actually happened last rather than whichever id sorts highest, and it
+    names that resource so a buyer can point at it on PayPal.
+    """
+    world = await seated_world(db_session)
+    await sign_in(client, db_session, world, index=0, email="capture-order@example.test")
+    buyer_order_id = await order_for(db_session, world, index=0)
+    for capture_id, status, age in (("ZZZ-OLD", "PENDING", 120), ("AAA-NEW", "COMPLETED", 0)):
+        await db_session.execute(
+            text(
+                "INSERT INTO paypal_captures (id, buyer_order_id, paypal_capture_id, status, "
+                "amount_cents, final_capture, raw, created_at) VALUES (:id, :order, :capture, "
+                ":status, 50000, true, '{}'::jsonb, now() - make_interval(secs => :age))"
+            ),
+            {
+                "id": uuid4(),
+                "order": buyer_order_id,
+                "capture": capture_id,
+                "status": status,
+                "age": age,
+            },
+        )
+
+    body = (await client.get(f"/api/v1/orders/{buyer_order_id}")).json()
+
+    assert body["paypal"]["capture_status"] == "COMPLETED"
+    assert body["paypal"]["capture_id"] == "AAA-NEW"
 
 
 async def test_my_orders_lists_only_mine(

@@ -21,11 +21,12 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
+from fairpool.api.merchant_api.app import app as merchant_api_app
 from fairpool.domain.errors import ApplicationError
 from fairpool.infra.clock import DbClock
 from fairpool.modules.merchants.api_keys import hash_key
@@ -250,6 +251,63 @@ async def test_an_unattested_merchant_gets_no_key_and_a_bad_scope_is_refused(
         assert bad.json()["error"]["code"] == "VALIDATION_ERROR"
     listed = await client.get("/api/v1/merchant/api-keys", headers={"X-CSRF-Token": attested_csrf})
     assert listed.json()["items"] == []
+
+
+async def test_the_121st_request_in_a_minute_is_rate_limited(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """config-and-errors.md section 3: 120 a minute per key, and nothing is exempt."""
+    from fairpool.api.deps import MERCHANT_KEY_LIMIT
+
+    csrf, _ = await merchant(client, db_session, "limit@example.test")
+    body = await create_key(client, csrf, ["lots:read"])
+    limited_app = create_app(SETTINGS.model_copy(update={"rate_limit_enabled": True}))
+
+    async def session() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    limited_app.dependency_overrides[database_session] = session
+    # The mounted sub-app solves its own dependencies, so its override is separate.
+    merchant_api_app.dependency_overrides[database_session] = session
+    headers = {"Authorization": f"Bearer {body['key']}"}
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=limited_app), base_url="https://api.test"
+        ) as http:
+            for _ in range(MERCHANT_KEY_LIMIT):
+                allowed = await http.get("/merchant-api/v1/lots", headers=headers)
+                assert allowed.status_code == 200, allowed.text
+            refused = await http.get("/merchant-api/v1/lots", headers=headers)
+    finally:
+        merchant_api_app.dependency_overrides.clear()
+
+    assert refused.status_code == 429, refused.text
+    assert refused.json()["error"]["code"] == "RATE_LIMITED"
+    assert int(refused.headers["Retry-After"]) >= 1
+
+
+async def test_key_auth_reads_the_key_without_a_row_lock(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """A ``FOR UPDATE`` here queues every concurrent request that shares one key."""
+    csrf, _ = await merchant(client, db_session, "nolock@example.test")
+    body = await create_key(client, csrf, ["lots:read"])
+    statements: list[str] = []
+    connection = db_session.bind
+    assert connection is not None
+    sync_connection = connection.sync_connection  # type: ignore[union-attr]
+
+    def capture(*args: Any, **kwargs: Any) -> None:
+        statements.append(str(args[2]))
+
+    event.listen(sync_connection, "before_cursor_execute", capture)
+    try:
+        await key_auth().from_api_key(db_session, body["key"])
+    finally:
+        event.remove(sync_connection, "before_cursor_execute", capture)
+    reads = [statement for statement in statements if "merchant_api_keys" in statement]
+    assert reads, statements
+    assert not any("FOR UPDATE" in statement.upper() for statement in reads)
 
 
 async def test_pt15_a_key_never_reads_another_merchants_bid(

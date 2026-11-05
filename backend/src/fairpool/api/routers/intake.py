@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.adapters.ai.client import AIUnavailable
 from fairpool.api import schemas
-from fairpool.api.deps import database_session, require_session
+from fairpool.api.deps import database_session, require_buyer
 from fairpool.api.routers.entries import UserRateLimiter
 from fairpool.api.routers.pools import _search_service
 from fairpool.config import Settings
@@ -85,7 +85,7 @@ def intake_service(request: Request) -> IntakeService:
 
 async def rate_limit_intake(
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
 ) -> Principal:
     settings = request.app.state.settings
     if settings is not None and settings.rate_limit_enabled:
@@ -126,7 +126,7 @@ async def intake_messages(
 async def intake_confirm(
     payload: schemas.IntakeConfirmRequest,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """Confirm a proposal into the canonical request the join endpoint consumes."""
@@ -151,7 +151,7 @@ async def intake_confirm(
 )
 async def intake_manual(
     payload: schemas.ManualIntakeRequest,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """The deterministic half of intake (CR-3 pull-forward from T04B01).

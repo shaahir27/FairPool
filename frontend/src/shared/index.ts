@@ -25,6 +25,7 @@ export { Icon } from "./components/Icon";
 export { FieldError, Notice } from "./components/Notice";
 export { StatusPill } from "./components/StatusPill";
 export { getCsrfToken, setCsrfToken } from "./lib/csrf";
+export { envelope, honestyKinds, productName, shortId } from "./lib/display";
 export { formatCents, formatDateTime } from "./lib/format";
 export { startRouteTransition, useCountdown } from "./lib/motion";
 export {

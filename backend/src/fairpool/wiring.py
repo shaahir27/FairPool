@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from fairpool.modules.checkout.funding import FundingService
     from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
     from fairpool.modules.checkout.refill import RefillService
+    from fairpool.modules.checkout.shipping import ShippingCipher
     from fairpool.modules.checkout.vault_charge import VaultChargeHandler
     from fairpool.modules.merchants.directory import PostgresMerchantDirectory
 
@@ -71,6 +72,8 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
         "order.resolve",
         "reconciler.sweep",
         "webhook.process",
+        "shipments.submit",
+        "sim.run",
     }
 )
 
@@ -129,7 +132,7 @@ class _VaultKeyMissing:
         raise ApplicationError("INTERNAL_ERROR")
 
 
-def _shipping_cipher(settings: Settings):
+def shipping_cipher(settings: Settings) -> ShippingCipher:
     """The Fernet address cipher (BD-11), or one that fails only when it is used."""
     from fairpool.modules.checkout.shipping import ShippingCipher
 
@@ -204,7 +207,7 @@ def checkout_services(settings: Settings) -> CheckoutServices:
             allowed_payer_countries=settings.allowed_payer_countries,
             dedupe_mode=settings.dedupe_mode,
             public_base_url=settings.public_base_url,
-            shipping_cipher=_shipping_cipher(settings),
+            shipping_cipher=shipping_cipher(settings),
             payload_level=settings.paypal_payload_level,
         ),
         open_checkout=OpenCheckoutHandler(
@@ -306,6 +309,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     from fairpool.modules.allocation.service import AllocationService
     from fairpool.modules.auction.handlers import LotAuctionHandlers
     from fairpool.modules.checkout.expiry import OfferExpiry
+    from fairpool.modules.fulfillment.tracking import ShipmentTracking
     from fairpool.modules.notify.service import PostgresNotifier
     from fairpool.modules.pools.close import PoolCloseService
     from fairpool.modules.pools.seed import PoolSeedService
@@ -313,6 +317,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     from fairpool.modules.reconciler.resolve import Reconciler
     from fairpool.modules.search.handlers import search_index_handler
     from fairpool.modules.search.indexer import build_search_indexer
+    from fairpool.modules.sim.handlers import SimRunHandler
     from fairpool.modules.webhooks.handlers import WebhookProcessor
 
     clock, audit, jobs = DbClock(), PostgresAuditLog(), PostgresJobQueue()
@@ -337,6 +342,9 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     )
     surface = checkout if checkout is not None else checkout_services(settings)
     expiry = OfferExpiry(engine=surface.engine, jobs=jobs)
+    tracking = ShipmentTracking(
+        gateway=surface.router.gateway, enabled=settings.shipment_tracking_enabled
+    )
 
     async def resolve_charge(session: Any, buyer_order_id: UUID) -> None:
         """Settle a CAPTURING order by evidence; each handler ignores the other mode.
@@ -363,6 +371,10 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         await surface.authorize.approved(session, buyer_order_id=buyer_order_id)
 
     webhooks = WebhookProcessor(clock=clock, jobs=jobs, settle=settle_order, approve=approve_order)
+    try:
+        sim = SimRunHandler(ai=ai_client(settings))
+    except Exception:  # noqa: BLE001 - AI off is the normal demo configuration
+        sim = SimRunHandler()
 
     return {
         "pool.open": pools.open,
@@ -388,6 +400,8 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "order.resolve": reconciler.resolve,
         "reconciler.sweep": sweep,
         "webhook.process": webhooks.process,
+        "shipments.submit": tracking.submit,
+        "sim.run": sim.run,
     }
 
 

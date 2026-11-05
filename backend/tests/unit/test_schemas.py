@@ -168,3 +168,17 @@ def test_mock_toggle_kind_and_uuid_validation():
         schemas.MockToggleRequest(kind="not-a-toggle")
     with pytest.raises(ValidationError):
         schemas.EntryCreateRequest(confirmed_request_id="not-a-uuid")
+
+
+def test_the_simulation_and_shipment_fields_are_bounded():
+    """An unbounded simulation or a megabyte tracking number is a request body cap."""
+    assert schemas.SimRunRequest(entries=50_000, merchants=2, seed=1).entries == 50_000
+    with pytest.raises(ValidationError):
+        schemas.SimRunRequest(entries=50_001, merchants=2, seed=1)
+
+    order = uuid4()
+    assert schemas.ShipmentInput(buyer_order_id=order, carrier="C" * 64, tracking_number="T" * 128)
+    with pytest.raises(ValidationError):
+        schemas.ShipmentInput(buyer_order_id=order, carrier="C" * 65, tracking_number="T")
+    with pytest.raises(ValidationError):
+        schemas.ShipmentInput(buyer_order_id=order, carrier="UPS", tracking_number="T" * 129)

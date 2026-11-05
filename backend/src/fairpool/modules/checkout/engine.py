@@ -59,6 +59,7 @@ from fairpool.domain.checkout_guards import BuyerOrderFacts, Observation
 from fairpool.domain.errors import ApplicationError, IllegalTransition
 from fairpool.domain.hashing import canonical_json, sha256_hex
 from fairpool.domain.states import TRANSITIONS_BY_ID, Transition, assert_transition
+from fairpool.infra.metrics import get_counters
 from fairpool.ports import (
     AuditLog,
     Clock,
@@ -317,6 +318,10 @@ def alert_illegal_transition(
         if value is not None:
             tokens.append((variable, variable.set(str(value))))
     try:
+        # FR-OP-02: one alert counter series per machine and trigger.
+        get_counters().incr(
+            "fairpool_transitions_rejected_total", entity=machine, trigger=trigger or "none"
+        )
         logger.error(
             "checkout.illegal_transition machine=%s from_state=%s to_state=%s trigger=%s reason=%s",
             machine,

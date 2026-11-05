@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { type ApiComponents, formatCents, Icon, Notice, StatusPill, statusStyle } from "../../shared";
+import {
+  api,
+  type ApiComponents,
+  envelope,
+  formatCents,
+  Icon,
+  Notice,
+  StatusPill,
+  statusStyle,
+} from "../../shared";
 import { loadOrders } from "../prefetch";
 
 type MeOrder = ApiComponents["schemas"]["MeOrder"];
@@ -25,18 +34,13 @@ function outcomeOf(status: string): Outcome {
   return "in-progress";
 }
 
-function envelope(failure: unknown): { code: string; message: string } {
-  const value = failure as { error?: { code?: string; message?: string } } | undefined;
-  return {
-    code: value?.error?.code ?? "REQUEST_FAILED",
-    message: value?.error?.message ?? "The request could not be completed.",
-  };
-}
-
 export function OrdersPage() {
   const [orders, setOrders] = useState<MeOrder[] | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [captures, setCaptures] = useState<Record<string, string | null>>({});
+  const [captureProblems, setCaptureProblems] = useState<Record<string, string>>({});
+  const [copyMessage, setCopyMessage] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -45,7 +49,7 @@ export function OrdersPage() {
       .then(({ data, error: failure }) => {
         if (!live) return;
         if (failure || !data) setError(envelope(failure));
-        else setOrders(data.items);
+        else setOrders(Array.isArray(data.items) ? data.items : []);
       })
       .catch(() => {
         if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
@@ -54,6 +58,54 @@ export function OrdersPage() {
       live = false;
     };
   }, [attempt]);
+
+  // The list carries no provider reference, so each order's own read supplies the
+  // capture id. A failed read is reported as a failed read, never as "no capture".
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+    let live = true;
+    setCaptures({});
+    setCaptureProblems({});
+    const load = async (buyerOrderId: string) => {
+      try {
+        const { data, error: failure } = await api.GET("/api/v1/orders/{buyer_order_id}", {
+          params: { path: { buyer_order_id: buyerOrderId } },
+        });
+        if (!live) return;
+        if (failure || !data) {
+          setCaptureProblems((current) => ({
+            ...current,
+            [buyerOrderId]: "The PayPal capture reference could not be loaded.",
+          }));
+          return;
+        }
+        setCaptures((current) => ({
+          ...current,
+          [buyerOrderId]: data.paypal?.capture_id ?? null,
+        }));
+      } catch {
+        if (!live) return;
+        setCaptureProblems((current) => ({
+          ...current,
+          [buyerOrderId]: "The PayPal capture reference could not be loaded.",
+        }));
+      }
+    };
+    void Promise.all(orders.map((order) => load(order.buyer_order_id)));
+    return () => {
+      live = false;
+    };
+  }, [orders]);
+
+  async function copyCapture(buyerOrderId: string, value: string): Promise<void> {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(value);
+      setCopyMessage(`PayPal capture reference copied for ${buyerOrderId}.`);
+    } catch {
+      setCopyMessage("The reference could not be copied. Select it and copy it manually.");
+    }
+  }
 
   return (
     <section aria-labelledby="orders-title" className="mx-auto w-full max-w-[1100px]">
@@ -68,6 +120,11 @@ export function OrdersPage() {
               : "Loading your orders."
             : `${orders.length} ${orders.length === 1 ? "order" : "orders"} recorded for you.`}
         </p>
+        {copyMessage ? (
+          <p className="secondary-copy mt-1" role="status" aria-live="polite">
+            {copyMessage}
+          </p>
+        ) : null}
       </div>
 
       {error ? (
@@ -124,7 +181,15 @@ export function OrdersPage() {
                 <p className="shop-copy mt-1">{group.note}</p>
                 <ul className="panel mt-3 divide-y divide-line/60">
                   {grouped.map((order) => (
-                    <OrderRow key={order.buyer_order_id} order={order} />
+                    <OrderRow
+                      key={order.buyer_order_id}
+                      order={order}
+                      capture={captures[order.buyer_order_id]}
+                      captureProblem={captureProblems[order.buyer_order_id]}
+                      onCopyCapture={(value) =>
+                        void copyCapture(order.buyer_order_id, value)
+                      }
+                    />
                   ))}
                 </ul>
               </section>
@@ -136,7 +201,17 @@ export function OrdersPage() {
   );
 }
 
-function OrderRow({ order }: { order: MeOrder }) {
+function OrderRow({
+  order,
+  capture,
+  captureProblem,
+  onCopyCapture,
+}: {
+  order: MeOrder;
+  capture: string | null | undefined;
+  captureProblem: string | undefined;
+  onCopyCapture: (value: string) => void;
+}) {
   const style = statusStyle(order.status);
   const hasReceipt = Boolean(order.receipt);
   return (
@@ -154,6 +229,31 @@ function OrderRow({ order }: { order: MeOrder }) {
             <Icon name={hasReceipt ? "receipt" : "info"} />
             {hasReceipt ? "Receipt available" : "No receipt for this order"}
           </p>
+          {capture ? (
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+              <Icon name="wallet" />
+              <span className="text-muted">PayPal capture</span>
+              <code className="break-all font-mono text-[0.6875rem]">{capture}</code>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Copy PayPal capture reference for ${order.buyer_order_id}`}
+                onClick={() => onCopyCapture(capture)}
+              >
+                <Icon name="copy" />
+              </button>
+            </p>
+          ) : captureProblem ? (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+              <Icon name="info" />
+              {captureProblem}
+            </p>
+          ) : capture === null ? (
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
+              <Icon name="info" />
+              No PayPal capture yet.
+            </p>
+          ) : null}
         </div>
         <div className="text-left sm:text-right">
           <p className="text-xl font-semibold tracking-tight tabular-nums">

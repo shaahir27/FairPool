@@ -47,7 +47,20 @@ CONDITIONAL_SAFE: dict[str, Any] = {
     "ai_enabled": False,
     "search_backend": "postgres",
     "beacon_mode": "demo",
+    # Settings default to the hosted profile (``render``) so an unset APP_ENV cannot
+    # enable the local-only helpers; the suite asks for the local profile explicitly.
+    "app_env": "local",
 }
+
+#: Fields that intentionally depart from ``config-and-errors.md`` section 1 and await a
+#: contract change request. Listed rather than silently excluded so the drift is visible.
+CONTRACT_DEPARTURES: dict[str, str] = {
+    # The image is the default deployment shape; ``.env.example`` sets APP_ENV=local.
+    "app_env": "render",
+}
+
+#: Fields the code has and the contract table does not yet list (same change request).
+CONTRACT_ADDITIONS: dict[str, Any] = {"metrics_token": ""}
 
 
 def make_settings(**overrides: Any) -> Settings:
@@ -102,7 +115,7 @@ def plain(value: Any) -> Any:
 
 def test_contract_has_variable_count() -> None:
     assert len(contract_defaults()) == 64
-    assert len(Settings.model_fields) == 64
+    assert len(Settings.model_fields) == 64 + len(CONTRACT_ADDITIONS)
 
 
 def test_csv_env_values_are_parsed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,7 +138,7 @@ def test_csv_env_values_are_parsed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_field_names_match_contract_exactly() -> None:
     contract = {name.lower() for name in contract_defaults()}
-    assert set(Settings.model_fields) == contract
+    assert set(Settings.model_fields) == contract | set(CONTRACT_ADDITIONS)
 
 
 def test_defaults_match_contract() -> None:
@@ -135,8 +148,20 @@ def test_defaults_match_contract() -> None:
         if expected is REQUIRED:
             assert field.is_required(), f"{name} must be required"
             continue
+        if name.lower() in CONTRACT_DEPARTURES:
+            # A listed departure is asserted in its own test below, not skipped.
+            continue
         actual = plain(field.get_default(call_default_factory=True))
         assert actual == expected, f"{name}: default {actual!r} != {expected!r}"
+
+
+def test_listed_departures_and_additions_hold() -> None:
+    for name, value in CONTRACT_DEPARTURES.items():
+        field = Settings.model_fields[name]
+        assert plain(field.get_default(call_default_factory=True)) == value, name
+    for name, value in CONTRACT_ADDITIONS.items():
+        field = Settings.model_fields[name]
+        assert plain(field.get_default(call_default_factory=True)) == value, name
 
 
 def test_effective_defaults_and_redirect_derivation() -> None:
@@ -326,6 +351,29 @@ def test_country_list_is_uppercase_iso2_tuple() -> None:
 def test_cors_origins_parse_as_a_tuple() -> None:
     settings = make_settings(cors_origins="https://a.test, https://b.test")
     assert settings.cors_origins == ("https://a.test", "https://b.test")
+
+
+def test_a_wildcard_cors_origin_is_refused_with_credentials() -> None:
+    """create_app always allows credentials, so '*' would let any site read a session."""
+    with pytest.raises(ValidationError, match="CORS_ORIGINS"):
+        make_settings(cors_origins="*")
+    with pytest.raises(ValidationError, match="CORS_ORIGINS"):
+        make_settings(cors_origins="https://a.test,*")
+    assert make_settings(cors_origins="https://a.test").cors_origins == ("https://a.test",)
+
+
+def test_the_hosted_profile_is_the_default_and_keeps_the_helpers_closed() -> None:
+    # APP_ENV decides whether force-award and the mock toggles run; unset is the
+    # hosted answer, so an unconfigured process cannot award a lot by hand.
+    assert Settings.model_fields["app_env"].get_default(call_default_factory=True) == "render"
+    assert make_settings(app_env="render").mock_toggles_enabled is False
+
+
+def test_the_metrics_scrape_is_open_until_a_token_is_configured() -> None:
+    assert make_settings().metrics_token.get_secret_value() == ""
+    token = make_settings(metrics_token="scrape-token")
+    assert isinstance(token.metrics_token, SecretStr)
+    assert "scrape-token" not in token.model_dump_json()
 
 
 def env_example_names() -> dict[str, str]:

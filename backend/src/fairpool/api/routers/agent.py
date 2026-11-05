@@ -145,7 +145,7 @@ async def agent_pools(
     limit: int | None = Query(None, ge=1, le=20),
 ) -> list[dict[str, object]]:
     return await _agent_service(request).list_pools(
-        db, q=q, limit=limit or 20, search=_search_service(request)
+        db, principal=principal, q=q, limit=limit or 20, search=_search_service(request)
     )
 
 

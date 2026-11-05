@@ -212,6 +212,27 @@ describe("Discover and Join", () => {
     expect(screen.queryByText("Confirm your request")).not.toBeInTheDocument();
   });
 
+  it("renders the server's manual-form instruction instead of its own no-match line", async () => {
+    const instruction =
+      "I could not turn that into a request for an open pool. You can still enter with the manual form.";
+    transport.post.mockResolvedValue({
+      data: {
+        session_id: "session-one",
+        status: "NO_MATCH",
+        clarifying_question: instruction,
+        confirmation_card: null,
+      },
+    });
+    show();
+    await screen.findByText("27-inch 4K monitor");
+    ask("a submarine");
+    expect(await screen.findByText(instruction)).toBeInTheDocument();
+    expect(screen.queryByText(/No open pool matches that yet/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Browse the open pools to use the manual form/ }),
+    ).toHaveAttribute("href", "#open-pools");
+  });
+
   it("shows the API's own error when intake refuses", async () => {
     transport.post.mockResolvedValue({
       error: { error: { code: "RATE_LIMITED", message: "Over the limit." } },

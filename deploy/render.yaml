@@ -1,9 +1,11 @@
 services:
-  # Render deployment reference: free API web service and free static site.
-  # The live database is Supabase, supplied through DATABASE_URL; this file
-  # provisions no Render Postgres. Free web services sleep after 15 minutes and
-  # there is no free background worker. Restore the worker and paid instances
-  # before 2026-11-20 (BD-05).
+  # Render deployment reference: one free API web service serving the built SPA from
+  # the same origin. The live database is Supabase, supplied through DATABASE_URL;
+  # this file provisions no Render Postgres. A separate static site would put the page
+  # on another site than the API, and a *.onrender.com cross-site cookie is dropped
+  # (DEP: the page and the API share one origin). Free web services sleep after 15
+  # minutes and there is no free background worker. Restore the worker and paid
+  # instances before 2026-11-20 (BD-05).
   - type: web
     name: fairpool-api
     runtime: docker
@@ -17,6 +19,11 @@ services:
       - fromGroup: paypal
       - fromGroup: ai
       - fromGroup: search
+      # Render terminates TLS at its edge, so the only trusted X-Forwarded-* source is
+      # Render's own proxy: trust every peer on the private network, and nothing else
+      # can reach the container's socket.
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
       # Supabase session-pooler URL (external database); no Render Postgres.
       - key: DATABASE_URL
         sync: false
@@ -52,19 +59,6 @@ services:
         sync: false
       - key: ELASTICSEARCH_API_KEY
         sync: false
-
-  - type: web
-    name: fairpool-frontend
-    runtime: static
-    buildCommand: "cd frontend && npm ci && npm run build"
-    staticPublishPath: ./frontend/dist
-    envVars:
-      - key: VITE_API_BASE_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
 
 envVarGroups:
   - name: common

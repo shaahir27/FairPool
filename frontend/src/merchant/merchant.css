@@ -1,0 +1,725 @@
+/*
+ * Merchant console (T08B01/T08B02), Operate mode.
+ * The shared palette, type and shell are unchanged; this file only adds the
+ * dense layouts the console needs. No gradients, no glows, no shadows at rest.
+ */
+.merchant-page {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+
+.merchant-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgb(var(--color-line) / 0.6);
+}
+
+.merchant-heading > div {
+  min-width: 0;
+  max-width: 68ch;
+}
+
+.merchant-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--color-ink));
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.merchant-lot-list,
+.merchant-bid-list,
+.merchant-key-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.merchant-lot {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 18px 20px;
+  border: 1px solid rgb(var(--color-line) / 0.7);
+  border-radius: 12px;
+  background: rgb(var(--color-card));
+}
+
+.merchant-lot-art {
+  min-width: 0;
+}
+
+.merchant-lot-art .product-art {
+  width: 92px;
+  height: 88px;
+  border-radius: 9px;
+}
+
+.merchant-lot-body {
+  min-width: 0;
+}
+
+.merchant-lot-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.merchant-lot-title h2 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.merchant-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgb(var(--color-line) / 0.28);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.merchant-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 18px;
+  margin: 14px 0 0;
+  font-size: 12px;
+}
+
+.merchant-facts > div {
+  min-width: 0;
+}
+
+.merchant-facts dt {
+  color: rgb(var(--color-muted));
+}
+
+.merchant-facts dd {
+  margin: 3px 0 0;
+  font-weight: 500;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.merchant-countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.merchant-lot-actions {
+  align-self: center;
+}
+
+.merchant-composer {
+  scroll-margin-top: 24px;
+}
+
+.merchant-composer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 26px;
+  align-items: start;
+}
+
+.merchant-field {
+  display: block;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.merchant-field.mt-4 {
+  margin-top: 16px;
+}
+
+.merchant-textarea {
+  height: auto;
+  min-height: 96px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  line-height: 1.55;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.merchant-json {
+  min-height: 300px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.merchant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.merchant-page .shop-quiet-button {
+  min-height: 44px;
+}
+
+.merchant-help {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgb(var(--color-muted));
+}
+
+.merchant-subheading {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.merchant-ambiguities {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.merchant-ambiguities li {
+  padding: 9px 12px;
+  border: 1px solid rgb(var(--color-line) / 0.7);
+  border-radius: 8px;
+  background: rgb(var(--color-canvas) / 0.4);
+}
+
+.merchant-ambiguities p {
+  margin-top: 4px;
+  line-height: 1.55;
+}
+
+.merchant-review-rows {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  font-size: 13px;
+}
+
+.merchant-review-rows > div {
+  display: grid;
+  grid-template-columns: minmax(96px, 132px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+
+.merchant-review-rows dt {
+  color: rgb(var(--color-muted));
+}
+
+.merchant-review-rows dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.merchant-tier-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-result {
+  padding: 18px;
+  border: 1px solid rgb(var(--color-line) / 0.8);
+  border-radius: 10px;
+  background: rgb(var(--color-canvas) / 0.5);
+}
+
+.merchant-result h3 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.merchant-result-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.merchant-label {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--color-muted));
+}
+
+.merchant-hash {
+  display: block;
+  margin-top: 4px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.merchant-bid-sections {
+  display: grid;
+  gap: 26px;
+}
+
+.merchant-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgb(var(--color-line) / 0.6);
+}
+
+.merchant-section-heading h2 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.merchant-empty {
+  padding: 16px;
+  border: 1px dashed rgb(var(--color-line) / 0.8);
+  border-radius: 10px;
+  font-size: 13px;
+  color: rgb(var(--color-muted));
+}
+
+.merchant-bid {
+  padding: 18px 20px;
+  border: 1px solid rgb(var(--color-line) / 0.7);
+  border-radius: 12px;
+  background: rgb(var(--color-card));
+  min-width: 0;
+}
+
+.merchant-bid-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.merchant-bid-identity {
+  min-width: 0;
+}
+
+.merchant-bid-identity h3 {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.merchant-flags {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  list-style: none;
+  border-radius: 8px;
+  background: rgb(var(--color-warn-soft));
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgb(var(--color-warn));
+}
+
+.merchant-flag-severity {
+  font-weight: 600;
+}
+
+.merchant-reject {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(var(--color-danger-soft));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.merchant-reject .merchant-label {
+  margin: 0;
+}
+
+.merchant-tracker {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(var(--color-line) / 0.6);
+}
+
+.merchant-tracker-primary {
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.merchant-meter {
+  height: 6px;
+  margin: 8px 0 2px;
+  border-radius: 3px;
+  background: rgb(var(--color-line) / 0.45);
+  overflow: hidden;
+}
+
+.merchant-meter span {
+  display: block;
+  height: 100%;
+  background: rgb(var(--color-ink));
+}
+
+.merchant-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.merchant-counts li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgb(var(--color-line) / 0.7);
+  border-radius: 6px;
+}
+
+.merchant-counts strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-developer-grid,
+.merchant-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.merchant-developer-grid > .shop-panel,
+.merchant-profile-grid > .shop-panel {
+  min-width: 0;
+}
+
+.merchant-scopes,
+.merchant-attestations {
+  display: grid;
+  gap: 2px;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.merchant-scopes legend,
+.merchant-attestations legend {
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.merchant-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 44px;
+  padding: 4px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.merchant-check input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: rgb(var(--color-action));
+}
+
+.merchant-check > span {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.merchant-check .merchant-code {
+  margin-left: auto;
+}
+
+.merchant-secret {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid rgb(var(--color-ink) / 0.28);
+  border-radius: 10px;
+  background: rgb(var(--color-accent-soft) / 0.45);
+}
+
+.merchant-secret h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.merchant-warning {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 600;
+  color: rgb(var(--color-warn));
+  overflow-wrap: anywhere;
+}
+
+.merchant-secret-value {
+  display: block;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid rgb(var(--color-line) / 0.8);
+  border-radius: 8px;
+  background: rgb(var(--color-surface));
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.merchant-developer-grid .catalogue-empty {
+  padding: 28px 12px;
+}
+
+.merchant-key {
+  padding: 16px 18px;
+  border: 1px solid rgb(var(--color-line) / 0.7);
+  border-radius: 10px;
+  background: rgb(var(--color-card));
+}
+
+.merchant-key-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.merchant-key-head h3 {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.merchant-key-head .merchant-code {
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.merchant-revoke-confirm {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgb(var(--color-danger) / 0.4);
+  border-radius: 8px;
+  background: rgb(var(--color-danger-soft));
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.merchant-sdk {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgb(var(--color-line) / 0.6);
+}
+
+.merchant-quickstart {
+  margin-top: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-canvas));
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.merchant-demo {
+  padding: 12px;
+  border: 1px solid rgb(var(--color-line) / 0.8);
+  border-radius: 8px;
+  background: rgb(var(--color-surface));
+}
+
+.merchant-demo p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.merchant-demo .honesty-labels {
+  margin-top: 8px;
+}
+
+.merchant-attestation-list {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.merchant-attestation-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--color-line) / 0.6);
+}
+
+.merchant-attestation-list li > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.merchant-attestation-list time {
+  color: rgb(var(--color-muted));
+}
+
+@media (max-width: 1000px) {
+  .merchant-developer-grid,
+  .merchant-profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .merchant-composer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+}
+
+@media (max-width: 640px) {
+  .merchant-lot .merchant-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .merchant-lot .merchant-facts > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 5px 0;
+    border-top: 1px solid rgb(var(--color-line) / 0.4);
+  }
+
+  .merchant-lot .merchant-facts > div:first-child {
+    border-top: 0;
+  }
+
+  .merchant-lot .merchant-facts dd {
+    margin: 0;
+    text-align: right;
+  }
+
+  .merchant-lot {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px 14px;
+    padding: 16px;
+  }
+
+  .merchant-lot-art .product-art {
+    width: 64px;
+    height: 64px;
+  }
+
+  .merchant-lot-actions {
+    grid-column: 1 / -1;
+    align-self: stretch;
+  }
+
+  .merchant-lot-actions .button-secondary {
+    width: 100%;
+  }
+
+  .merchant-review-rows > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .merchant-bid,
+  .merchant-key {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .merchant-heading {
+    align-items: stretch;
+  }
+
+  .merchant-heading .catalogue-search {
+    width: 100%;
+  }
+
+  .merchant-actions > .button-primary,
+  .merchant-actions > .button-secondary {
+    width: 100%;
+  }
+
+  .merchant-json {
+    min-height: 240px;
+  }
+}
+
+/* The merchant area is the only tabbed workspace on the shared app shell; at
+   phone width its four tabs must wrap inside the header instead of widening the
+   page. Scoped here so the shared shell stays untouched. */
+@media (max-width: 640px) {
+  .app-header .workspace-tabs {
+    flex-wrap: wrap;
+  }
+
+  .app-header .workspace-tab {
+    flex: 1 1 40%;
+    min-width: 0;
+    white-space: normal;
+  }
+}

@@ -338,6 +338,74 @@ async def test_the_entry_read_returns_the_receipt_the_pool_signed(
     assert stranger.status_code == 404 and error_code(stranger) == "NOT_FOUND"
 
 
+async def test_the_entry_read_reports_the_allocation_and_the_live_offer(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """CR-10: the read used to answer two hardcoded nulls.
+
+    The seat and the offer are written here the way the allocation and open-checkout
+    handlers write them; the route must show them through the same view helper the
+    agent lane and ``entry_status`` use, or a buyer's own page would deny its own offer.
+    """
+    csrf = await login(client, "receipt-view@example.test")
+    user_id = uuid.UUID((await client.get("/api/v1/me")).json()["user_id"])
+    pool_id = await open_pool(db_session)
+    cr_id = await manual_confirm(db_session, user_id, pool_id)
+    joined = await client.post(
+        f"/api/v1/pools/{pool_id}/entries",
+        json={"confirmed_request_id": str(cr_id)},
+        headers={"Idempotency-Key": "read-view", "X-CSRF-Token": csrf},
+    )
+    entry_id = uuid.UUID(joined.json()["entry_id"])
+
+    lot_id, order_id = uuid.uuid4(), uuid.uuid4()
+    await db_session.execute(
+        text(
+            "INSERT INTO lots (id, pool_id, zone_id, lot_index, lot_order, seats, min_seats, "
+            "status, payment_router, payment_mode, bid_open_at, bid_close_at) "
+            "VALUES (:id, :pool, 'US-EAST', 0, 1, 2, 2, 'AWARDED'::lot_status, "
+            "'fake'::payment_router, 'authorize_capture'::payment_mode, now(), now())"
+        ),
+        {"id": lot_id, "pool": pool_id},
+    )
+    await db_session.execute(
+        text(
+            "INSERT INTO allocations (id, pool_id, entry_id, zone_id, rank, rank_hash, lot_id, "
+            "status) VALUES (:id, :pool, :entry, 'US-EAST', 1, :rank_hash, :lot, "
+            "'SEATED'::allocation_status)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "pool": pool_id,
+            "entry": entry_id,
+            "rank_hash": "b" * 64,
+            "lot": lot_id,
+        },
+    )
+    await db_session.execute(
+        text(
+            "INSERT INTO buyer_orders (id, lot_id, entry_id, status, offer_expires_at, "
+            "total_cents, breakdown) VALUES (:id, :lot, :entry, 'OFFERED'::buyer_order_status, "
+            "now() + interval '3 minutes', 50000, '{}'::jsonb)"
+        ),
+        {"id": order_id, "lot": lot_id, "entry": entry_id},
+    )
+
+    body = (await client.get(f"/api/v1/pools/{pool_id}/entries/me")).json()
+
+    assert body["allocation"] == {
+        "status": "SEATED",
+        "zone_id": "US-EAST",
+        "rank": 1,
+        "lot_id": str(lot_id),
+        "waitlist_position": None,
+    }
+    assert body["offer"]["buyer_order_id"] == str(order_id)
+    assert body["offer"]["status"] == "OFFERED"
+    assert body["offer"]["offer_expires_at"]
+    assert body["receipt"] is not None
+
+
 async def test_a_missing_receipt_row_reports_absent_rather_than_failing_the_read(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:

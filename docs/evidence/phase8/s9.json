@@ -1,0 +1,9 @@
+{
+  "status": "pending",
+  "date": "2026-11-05",
+  "blocks": [
+    "The Zapier MCP managed-mode trial has not been started; starting one is an owner action with a clock attached (INT-2)."
+  ],
+  "what_is_ready": "api.md section 4.6 fixes the four locked tools and their fields; ZAPIER_BRIDGE defaults to off and the Agent API they proxy is live and tested. docs/spike-results.md records the setup steps the owner follows and what to capture.",
+  "fallback_in_force": "With the bridge off, the README states the bridge is not demonstrated; the FairPool Agent API and the /mcp endpoint are the documented agent paths."
+}

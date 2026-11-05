@@ -473,12 +473,15 @@ class RestPayPalGateway:
                     for u in data.get("purchase_units", [])
                     for t in u.get("shipping", {}).get("trackers", [])
                 ]
+                # PayPal's read-back tracker carries only an id built as
+                # ``<capture_id>-<tracking_number>`` (no tracking_number, carrier or
+                # capture_ids fields), so the id prefix is the confirmation (S12, C-18).
+                prefix = f"{item.capture_id}-"
                 matches = [
                     t
                     for t in trackers
-                    if t.get("tracking_number") == item.tracking_number
-                    and t.get("carrier") == item.carrier
-                    and item.capture_id in t.get("capture_ids", [])
+                    if str(t.get("id", "")).startswith(prefix)
+                    and str(t.get("id")) == f"{prefix}{item.tracking_number}"
                 ]
                 results.append(
                     TrackerResult(

@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.adapters.paypal import routers as paypal_routers
 from fairpool.api import schemas
-from fairpool.api.deps import database_session, require_session
+from fairpool.api.deps import database_session, require_buyer, require_session
 from fairpool.config import Settings
 from fairpool.db.models.auction import Award
 from fairpool.db.models.catalog import EntryReceipt, Pool, PoolEntry
@@ -251,7 +251,7 @@ async def offers_continue(
     buyer_order_id: UUID,
     payload: schemas.ContinueRequest,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """BO-01: create the provider order once and hand the browser its approval URL.
@@ -283,7 +283,7 @@ async def offers_continue(
 async def offers_decline(
     buyer_order_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """BO-21 from OFFERED, BO-22 from ORDER_CREATED; the engine decides which."""
@@ -389,7 +389,7 @@ async def checkout_cancel(
 async def orders_get(
     buyer_order_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """The order status page: state, its history and the provider resource states."""
@@ -443,28 +443,41 @@ async def orders_get(
         "receipt": receipt,
         "history": history,
         "paypal": {
-            "authorization_status": await _latest_status(
-                db, PayPalAuthorization, order.id, PayPalAuthorization.paypal_auth_id
-            ),
-            "capture_status": await _latest_status(
-                db, PayPalCapture, order.id, PayPalCapture.paypal_capture_id
-            ),
-            "refund_status": await _latest_status(
-                db, PayPalRefund, order.id, PayPalRefund.paypal_refund_id
-            ),
+            "authorization_status": await _latest_status(db, PayPalAuthorization, order.id),
+            "capture_status": await _latest_status(db, PayPalCapture, order.id),
+            "capture_id": await _latest_capture_id(db, order.id),
+            "refund_status": await _latest_status(db, PayPalRefund, order.id),
         },
         "labels": _labels(lot),
     }
 
 
-async def _latest_status(
-    db: AsyncSession, model: Any, buyer_order_id: UUID, order_by: Any
-) -> str | None:
-    """The newest provider resource's status for one order; never a payment signal."""
+async def _latest_status(db: AsyncSession, model: Any, buyer_order_id: UUID) -> str | None:
+    """The newest provider resource's status for one order; never a payment signal.
+
+    Ordered by the database clock and then the row id, not by the provider resource
+    name: two captures of one order sort by creation, and ``id`` breaks a tie that
+    ``created_at`` leaves (the same instant is possible on a fast retry).
+    """
     value = await db.scalar(
         select(model.status)
         .where(model.buyer_order_id == buyer_order_id)
-        .order_by(order_by.desc())
+        .order_by(model.created_at.desc(), model.id.desc())
+        .limit(1)
+    )
+    return None if value is None else str(value)
+
+
+async def _latest_capture_id(db: AsyncSession, buyer_order_id: UUID) -> str | None:
+    """The newest capture's provider id, read the same way the statuses are.
+
+    The page needs it to link a buyer to the resource PayPal recorded; it is an id
+    the browser may read, never a credential (rule 2).
+    """
+    value = await db.scalar(
+        select(PayPalCapture.paypal_capture_id)
+        .where(PayPalCapture.buyer_order_id == buyer_order_id)
+        .order_by(PayPalCapture.created_at.desc(), PayPalCapture.id.desc())
         .limit(1)
     )
     return None if value is None else str(value)
@@ -515,7 +528,7 @@ async def offers_approved(
     buyer_order_id: UUID,
     payload: schemas.ApprovedRequest,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """The SDK ``onApprove`` hint: verify it names our order, then run the checks."""
@@ -558,7 +571,7 @@ async def offers_cancelled(
     buyer_order_id: UUID,
     payload: schemas.CancelledRequest,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """The SDK ``onCancel`` hint: ORDER_CREATED moves to DECLINED (BO-22), idempotently."""
@@ -595,7 +608,7 @@ async def offers_cancelled(
     operation_id="me_orders",
 )
 async def me_orders(
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     """Every order of this buyer with the receipt that goes with it."""

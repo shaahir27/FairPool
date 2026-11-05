@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "date": "2026-11-05",
+  "c18": "Passed live against PayPal Sandbox. The adapter submitted a tracker for the IT-7 captured payment (order 9U454021HB812520S, capture 67454261HL110735P, carrier OTHER, tracking FP-DEMO-TRACK-01); PayPal accepted it and the read-back shows tracker id 67454261HL110735P-FP-DEMO-TRACK-01 with status SHIPPED. The live run exposed a real adapter defect: PayPal's read-back tracker carries only an id built as <capture>-<tracking> with no tracking_number, carrier or capture_ids fields, so the old parser reported every accepted tracker as unconfirmed. The parser now confirms by that id and the unit fixture uses the real shape.",
+  "c01_to_c17": "Unchanged from the Phase 2 to Phase 7 records.",
+  "note": "C-18's formal test belongs to T09A02 (Phase 9); this gate records the live provider call and the read-back that proves the adapter."
+}

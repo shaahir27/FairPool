@@ -95,6 +95,47 @@ describe("Orders grouping", () => {
   });
 });
 
+describe("PayPal capture reference", () => {
+  it("shows the capture reference, copies it, and says plainly when there is none", async () => {
+    const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+    Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+    transport.get.mockImplementation(
+      (path: string, init?: { params?: { path?: { buyer_order_id?: string } } }) => {
+        if (path === "/api/v1/me/orders") {
+          return Promise.resolve({
+            data: {
+              items: [
+                { buyer_order_id: "order-paid", lot_id: "lot-a", status: "CAPTURED", total_cents: 49900, receipt },
+                { buyer_order_id: "order-progress", lot_id: "lot-b", status: "AUTHORIZING", total_cents: 12345, receipt: null },
+              ],
+            },
+          });
+        }
+        const id = init?.params?.path?.buyer_order_id;
+        return Promise.resolve({
+          data: { paypal: { capture_id: id === "order-paid" ? "CAP-9F2A1" : null } },
+        });
+      },
+    );
+    show();
+
+    const paid = await screen.findByRole("region", { name: "Paid" });
+    expect(await within(paid).findByText("CAP-9F2A1")).toBeInTheDocument();
+    expect(within(paid).getByText("PayPal capture")).toBeInTheDocument();
+    fireEvent.click(
+      within(paid).getByRole("button", { name: "Copy PayPal capture reference for order-paid" }),
+    );
+    expect(
+      await screen.findByText("PayPal capture reference copied for order-paid."),
+    ).toBeInTheDocument();
+    expect(clipboard.writeText).toHaveBeenCalledWith("CAP-9F2A1");
+
+    const progress = screen.getByRole("region", { name: "In progress" });
+    expect(await within(progress).findByText("No PayPal capture yet.")).toBeInTheDocument();
+    expect(within(progress).queryByText("PayPal capture")).not.toBeInTheDocument();
+  });
+});
+
 describe("Orders states", () => {
   it("shows an empty state when there are no orders", async () => {
     transport.get.mockResolvedValue({ data: { items: [] } });

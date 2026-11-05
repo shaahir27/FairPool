@@ -18,14 +18,20 @@ Three states, and they are the states S5 actually recorded:
 
 A duplicate ``paypal_event_id`` is answered 200 and stops there: S5 proved duplicate
 delivery is real, and the unique insert is the dedupe, not an option (I9).
+
+The protection for the payer's identity is the mask applied at ingest, below, and it is
+the only one: ``trg_webhook_raw_immutable`` freezes ``raw_body`` for the life of the row,
+so no later job can scrub it, and the sweep never tries. A body is refused over 256 KiB
+before a single byte is stored, and the identity fields are replaced before the insert.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
@@ -37,10 +43,21 @@ from fairpool.config import Settings
 from fairpool.db.session import get_session
 from fairpool.domain.payments import PaymentError
 from fairpool.infra.jobs import PostgresJobQueue
+from fairpool.infra.limits import SlidingWindowLimiter
 from fairpool.modules.webhooks.handlers import json_object
 
 router = APIRouter()
 logger = logging.getLogger("fairpool.webhooks")
+
+#: The largest delivery this route stores. PayPal's own event bodies are kilobytes;
+#: an unbounded body is a free write into Postgres with our name on it.
+MAX_BODY_BYTES: Final[int] = 256 * 1024
+
+#: config-and-errors.md section 3: POST /webhooks/paypal is 300/min per address.
+WEBHOOK_RATE_LIMIT: Final[int] = 300
+
+#: What stands in for a field we must not keep (I14).
+REDACTED: Final[str] = "[redacted]"
 
 #: The verification fields plus the content type. The signature header belongs here:
 #: without it ``verify_webhook`` cannot be called at all, and it is PayPal's own
@@ -55,8 +72,124 @@ _ALLOWED_HEADERS = (
 )
 
 
+def _rate_limit(request: Request) -> None:
+    settings = _settings(request)
+    if settings is None or not settings.rate_limit_enabled:
+        return
+    limiter: SlidingWindowLimiter | None = getattr(request.app.state, "webhook_limiter", None)
+    if limiter is None:
+        limiter = SlidingWindowLimiter(limit=WEBHOOK_RATE_LIMIT)
+        request.app.state.webhook_limiter = limiter
+    limiter.check(request.client.host if request.client else "unknown", time.monotonic())
+
+
+def _mask(value: Any) -> Any:
+    """A copy of a PII block with every leaf replaced, whatever shape PayPal sent."""
+    if isinstance(value, dict):
+        return {key: _mask(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_mask(item) for item in value]
+    return REDACTED
+
+
+#: The payer identity fields a stored delivery never keeps, at any depth (I14).
+_IDENTITY_KEYS: Final[frozenset[str]] = frozenset(
+    {"email_address", "payer_id", "payer_name", "given_name", "surname"}
+)
+
+#: An address object's fields. PayPal's wire names are ``address_line_1``/``2``; the
+#: short forms appear in other events, so both spellings are replaced (I14).
+_ADDRESS_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "line1",
+        "line2",
+        "address_line_1",
+        "address_line_2",
+        "admin_area_1",
+        "admin_area_2",
+        "postal_code",
+        "country_code",
+    }
+)
+
+#: The subtrees whose ``address`` is a person's address rather than a party's.
+_PERSON_KEYS: Final[frozenset[str]] = frozenset({"payer", "shipping"})
+
+
+def _mask_address(address: dict[str, Any], *, changed: list[bool]) -> dict[str, Any]:
+    masked: dict[str, Any] = {}
+    for key, item in address.items():
+        if isinstance(key, str) and key.lower() in _ADDRESS_KEYS:
+            masked[key] = REDACTED
+            changed[0] = True
+        else:
+            masked[key] = _masked(item, person=True, changed=changed)
+    return masked
+
+
+def _masked(value: Any, *, person: bool, changed: list[bool]) -> Any:
+    """Recursively replace identity leaves; ``person`` tracks a payer or shipping subtree.
+
+    ``resource`` and ``supplementary_data`` carry the same payer block as the top level
+    in different events, so the identity keys are replaced wherever they appear, and an
+    ``address`` is replaced only under a person, never under a merchant or payee.
+    """
+    if isinstance(value, list):
+        return [_masked(item, person=person, changed=changed) for item in value]
+    if not isinstance(value, dict):
+        return value
+    masked: dict[str, Any] = {}
+    for key, item in value.items():
+        name = key.lower() if isinstance(key, str) else ""
+        if name in _IDENTITY_KEYS:
+            masked[key] = REDACTED
+            changed[0] = True
+        elif (name == "name" and person) or (name == "address" and person):
+            masked[key] = _mask(item)
+            changed[0] = True
+        else:
+            masked[key] = _masked(item, person=person or name in _PERSON_KEYS, changed=changed)
+    return masked
+
+
+def mask_payer_details(payload: dict[str, Any]) -> bool:
+    """Replace the payer's identity in the stored copy; ids, amounts and status stay.
+
+    The row keeps what an operator needs to reconcile an event (``resource.id``,
+    ``amount``, ``status``) and none of what makes it personal data. Returns whether
+    anything was replaced, so a body with no payer block is still stored byte for byte.
+    """
+    changed = [False]
+    masked = _masked(payload, person=False, changed=changed)
+    if changed[0]:
+        payload.clear()
+        payload.update(masked)
+    return changed[0]
+
+
 def _sanitized_headers(request: Request) -> dict[str, str]:
     return {name: request.headers[name] for name in _ALLOWED_HEADERS if name in request.headers}
+
+
+async def _read_body(request: Request) -> bytes:
+    """Read the delivery with a running total, so an oversized one is never buffered.
+
+    A declared ``Content-Length`` over the cap is refused before the first read, and the
+    stream is abandoned as soon as the chunks exceed it: a body this large is not one of
+    the three events S5 verified, and buffering it is exactly the free write the cap
+    exists to prevent.
+    """
+    declared = request.headers.get("content-length")
+    if declared is not None and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        raise HTTPException(422, "VALIDATION_ERROR")
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > MAX_BODY_BYTES:
+            raise HTTPException(422, "VALIDATION_ERROR")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _settings(request: Request) -> Settings | None:
@@ -116,9 +249,15 @@ async def webhooks_paypal(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> schemas.WebhookAck:
-    raw = await request.body()
+    _rate_limit(request)
+    raw = await _read_body(request)
     headers = _sanitized_headers(request)
-    payload = json_object(raw.decode("utf-8", errors="replace"))
+    body = raw.decode("utf-8", errors="replace")
+    payload = json_object(body)
+    if mask_payer_details(payload):
+        # The stored copy loses the buyer's identity; the bytes the signature covers
+        # are the ones read above and are what the verifier gets (P4, I14).
+        body = json.dumps(payload, separators=(",", ":"))
     settings = _settings(request)
     event_id = str(payload.get("id") or headers.get("paypal-transmission-id") or uuid.uuid4())
     event_type = str(payload.get("event_type") or "UNKNOWN")
@@ -133,7 +272,7 @@ async def webhooks_paypal(
             "id": uuid.uuid4(),
             "event_id": event_id,
             "event_type": event_type,
-            "raw_body": raw.decode("utf-8", errors="replace"),
+            "raw_body": body,
             "detail": "received_headers=" + json.dumps(headers, sort_keys=True),
         },
     )

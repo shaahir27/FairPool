@@ -53,6 +53,7 @@ from fairpool.domain.payments import (
     PayPalOrder as GatewayOrder,
 )
 from fairpool.domain.states import MACHINES
+from fairpool.infra.metrics import get_counters
 from fairpool.modules.checkout.engine import CheckoutEngine, TransitionRequest
 from fairpool.modules.checkout.shipping import ShippingCipher
 from fairpool.ports import (
@@ -366,9 +367,11 @@ class CheckoutAuthorizeHandlers:
         if result.currency != "USD":
             return "CURRENCY_MISMATCH"
         if int(result.amount_cents) != int(order.total_cents):
+            get_counters().incr("fairpool_amount_mismatch_total", stage="approval")
             return "AMOUNT_MISMATCH"
         payee_reason = _payee_reason(result, payee)
         if payee_reason is not None:
+            get_counters().incr("fairpool_amount_mismatch_total", stage="payee")
             return "PAYEE_MISMATCH"
         if result.payer_country is None or result.payer_country.upper() not in (
             self.allowed_payer_countries
@@ -449,6 +452,7 @@ class CheckoutAuthorizeHandlers:
             await self._authorize_error(session, buyer_order_id, record, exc)
             return
         if authorization is None:
+            get_counters().incr("fairpool_outcome_unknown_total", stage="authorize")
             return
         await self._record_authorization(session, buyer_order_id, record, authorization)
         observation = Observation(
@@ -460,6 +464,7 @@ class CheckoutAuthorizeHandlers:
         if authorization.status == "CREATED":
             if int(authorization.amount_cents) != expected:
                 # N5: an authorization for another amount is voided at once.
+                get_counters().incr("fairpool_amount_mismatch_total", stage="authorization")
                 await self.router.gateway.void_authorization(authorization.id)
                 await self.engine.apply(
                     session,
@@ -658,6 +663,7 @@ class CheckoutAuthorizeHandlers:
             return
         if exc.category not in {"TERMINAL", "CONFIG", "BUG"}:
             # RETRYABLE, TOKEN, UNKNOWN: stay AUTHORIZING, never a new key (I9).
+            get_counters().incr("fairpool_outcome_unknown_total", stage="authorize_error")
             logger.error(
                 "checkout.authorize.unknown buyer_order_id=%s category=%s code=%s",
                 buyer_order_id,

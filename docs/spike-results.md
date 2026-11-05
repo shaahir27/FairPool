@@ -142,9 +142,14 @@ number, one randomness value and what was actually verified with which library.
 
 **Result.** The live cluster reports version 9.5.5 and an enterprise license expiring 2028-02-29. The local `.multilingual-e5-small-elasticsearch` endpoint failed with 429 because no ML node had capacity, so the managed `.jina-embeddings-v5-text-small` endpoint was used. A temporary 20-document index mapped `search_text` into `semantic_text`; the hybrid RRF query combined a BM25 `match` on the text field with a `semantic` query on the embedding field. Top-five recall was 10/10 on ten labelled queries, equal to the PostgreSQL baseline (10/10), at 205-387 ms per query. The temporary index was deleted. `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small` are set; similarity remains advisory and never changes a bid's status.
 
-## S9: Zapier MCP managed mode (G13). PENDING
+## S9: Zapier MCP managed mode (G13). PENDING (steps prepared 2026-11-05)
 
-Record: tool list shown to the client, locked fields confirmed, idempotency key handling, task usage per call, trial expiry date. Then set `ZAPIER_BRIDGE`.
+The trial has not been started; that is an owner action with a clock. When it is:
+
+1. Create the managed-mode MCP server with four Webhooks-by-Zapier actions, one per tool, and lock the URL and `Authorization` fields: `fairpool_list_pools` (GET `/agent/v1/pools`, query `q`, `limit`), `fairpool_join_pool` (POST `/agent/v1/entries`, body `pool_id`, `request.*`, `idempotency_key`), `fairpool_list_entries` (GET `/agent/v1/entries`, query `pool_id`), `fairpool_withdraw_entry` (POST `/agent/v1/entries/withdraw`, body `entry_id`).
+2. Use a buyer delegation token with a short expiry and a low cap; never paste it into the AI client's prompt, only into the locked Authorization field.
+3. Record: the tool list the client sees, the locked fields, one join and one withdraw with their idempotency keys, task usage per call, and the trial expiry date. Then set `ZAPIER_BRIDGE=managed`.
+4. No other Zapier app may be enabled. The bridge exposes no payment action.
 
 ## S10: PayPal MCP read-only verification (G14). RECORDED Oct 28, 2026
 

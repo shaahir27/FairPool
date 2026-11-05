@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
+from fairpool.api.routers.auth import SESSION_COOKIE
 from fairpool.config import Settings
 from fairpool.db.models.identity import PayPalLink
 from fairpool.fakes.audit import FakeAuditLog
@@ -296,7 +297,7 @@ async def test_start_writes_one_state_row_bound_to_the_initiating_session(
     row = await state_row(db, state)
     assert row is not None
     assert row.user_id == user_id
-    assert row.session_id == session_id_of(str(client.cookies.get("session")))
+    assert row.session_id == session_id_of(str(client.cookies.get(SESSION_COOKIE)))
     assert row.consumed_at is None
     ttl_s = await db.scalar(
         text("SELECT EXTRACT(EPOCH FROM (:expires - now()))::int"), {"expires": row.expires_at}

@@ -513,6 +513,29 @@ async def test_agent_pools_lists_open_pools_and_searches(
     assert empty.json() == []
 
 
+async def test_agent_pools_only_lists_pools_the_delegation_may_enter(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """The scope that gates a join gates the pool search too (I11)."""
+    csrf = await login(client, "agent-pools-scope@example.test")
+    mine = await open_pool(db_session)
+    other = await open_pool(db_session)
+    other_title = f"Agent API pool outside the scope {other}"
+    await db_session.execute(
+        text("UPDATE pools SET title = :title, search_text = :title WHERE id = :id"),
+        {"title": other_title, "id": other},
+    )
+    token = (await create_delegation(client, csrf, scope={"pool_ids": [str(mine)]}))["token"]
+
+    listed = await client.get("/agent/v1/pools", headers=agent(token))
+    assert listed.status_code == 200, listed.text
+    assert [item["pool_id"] for item in listed.json()] == [str(mine)]
+
+    searched = await client.get("/agent/v1/pools", headers=agent(token), params={"q": other_title})
+    assert searched.status_code == 200, searched.text
+    assert searched.json() == []
+
+
 async def test_me_entries_reads_the_page_in_a_constant_number_of_queries(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:

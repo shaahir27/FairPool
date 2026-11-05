@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.api.app import create_app
 from fairpool.db.session import get_session
 from tests.integration.test_join_receipts import settings_for
+from tests.unit.test_settings import make_settings
 
 pytestmark = pytest.mark.integration
 
@@ -54,6 +55,8 @@ async def deliver(
     event_id: str | None = None,
     event_type: str = "PAYMENT.CAPTURE.COMPLETED",
     resource_id: str = "CAP-1",
+    extra: dict[str, Any] | None = None,
+    body: bytes | None = None,
 ) -> httpx.Response:
     """POST one delivery through the app, with the headers PayPal actually sends."""
     app = create_app(settings)
@@ -64,13 +67,18 @@ async def deliver(
         yield db_session
 
     app.dependency_overrides[get_session] = override_session
-    body = json.dumps(
-        {
-            "id": event_id or f"WH-{uuid.uuid4()}",
-            "event_type": event_type,
-            "resource": {"id": resource_id},
-        },
-        separators=(",", ":"),
+    content = (
+        body
+        if body is not None
+        else json.dumps(
+            {
+                "id": event_id or f"WH-{uuid.uuid4()}",
+                "event_type": event_type,
+                "resource": {"id": resource_id},
+                **(extra or {}),
+            },
+            separators=(",", ":"),
+        ).encode()
     )
     headers = {
         "PayPal-Transmission-Id": f"tx-{event_id or 'x'}",
@@ -82,7 +90,7 @@ async def deliver(
     }
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        return await client.post("/webhooks/paypal", content=body, headers=headers)
+        return await client.post("/webhooks/paypal", content=content, headers=headers)
 
 
 async def row(session: AsyncSession, event_id: str) -> Any:
@@ -274,3 +282,255 @@ async def test_the_raw_body_is_stored_verbatim(db_session: AsyncSession) -> None
     assert payload["id"] == event_id
     assert payload["resource"]["id"] == "AUTH-9"
     assert str(stored.event_type) == "PAYMENT.AUTHORIZATION.CREATED"
+
+
+# --------------------------------------------------------------- CR-10 hardening
+
+PAYER = {
+    "payer": {
+        "email_address": "payer@example.test",
+        "payer_id": "PAYER-1",
+        "name": {"given_name": "Ada", "surname": "Lovelace"},
+    },
+    "shipping": {"address": {"address_line_1": "1 Market Street", "admin_area_2": "New York"}},
+    # The same block arrives nested on the capture events, so the mask has to reach it.
+    "resource": {
+        "id": "CAP-1",
+        "status": "COMPLETED",
+        "amount": {"value": "500.00", "currency_code": "USD"},
+        "payer": {
+            "email_address": "deep.payer@example.test",
+            "payer_id": "PAYER-DEEP",
+            "name": {"given_name": "Grace", "surname": "Hopper"},
+            "address": {
+                "address_line_1": "2 Deep Street",
+                "admin_area_2": "Boston",
+                "postal_code": "02108",
+                "country_code": "US",
+            },
+        },
+    },
+    "supplementary_data": {
+        "related_ids": {"order_id": "ORDER-1"},
+        "merchant": {"email_address": "merchant@example.test"},
+    },
+}
+
+
+async def test_a_body_over_the_cap_is_refused_before_it_is_stored(
+    db_session: AsyncSession,
+) -> None:
+    """256 KiB is the ceiling; a 300 KiB delivery is a free write we do not take."""
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    oversized = json.dumps(
+        {"id": event_id, "event_type": "PAYMENT.CAPTURE.COMPLETED", "pad": "x" * MAX_BODY_BYTES}
+    ).encode()
+    assert len(oversized) > MAX_BODY_BYTES
+
+    response = await deliver(
+        db_session, settings=settings_for(webhooks_enabled=False), body=oversized
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 0
+
+
+async def test_a_delivery_at_the_cap_is_stored(db_session: AsyncSession) -> None:
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    prefix = json.dumps({"id": event_id, "event_type": "PAYMENT.CAPTURE.COMPLETED"})[:-1]
+    padding = MAX_BODY_BYTES - len(prefix) - len(',"pad":""}')
+    at_cap = (prefix + ',"pad":"' + "x" * padding + '"}').encode()
+    assert len(at_cap) == MAX_BODY_BYTES
+
+    response = await deliver(db_session, settings=settings_for(webhooks_enabled=False), body=at_cap)
+
+    assert response.status_code == 200, response.text
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 1
+
+
+async def test_the_payers_identity_is_masked_before_the_insert(
+    db_session: AsyncSession,
+) -> None:
+    """I14: the row keeps the ids, amounts and status; the person is redacted at any depth."""
+    event_id = f"WH-{uuid.uuid4()}"
+    await deliver(
+        db_session,
+        settings=settings_for(webhooks_enabled=False),
+        event_id=event_id,
+        extra=PAYER,
+    )
+
+    raw = str(
+        await db_session.scalar(
+            text("SELECT raw_body FROM webhook_events WHERE paypal_event_id = :id"),
+            {"id": event_id},
+        )
+    )
+    stored = json.loads(raw)
+    for secret in (
+        "payer@example.test",
+        "PAYER-1",
+        "Ada",
+        "Lovelace",
+        "1 Market Street",
+        "deep.payer@example.test",
+        "PAYER-DEEP",
+        "Grace",
+        "Hopper",
+        "2 Deep Street",
+        "02108",
+        "merchant@example.test",
+    ):
+        assert secret not in raw, secret
+    assert stored["id"] == event_id
+    assert stored["resource"]["id"] == "CAP-1"
+    assert stored["resource"]["amount"] == {"value": "500.00", "currency_code": "USD"}
+    assert stored["supplementary_data"]["related_ids"] == {"order_id": "ORDER-1"}
+    assert stored["payer"]["email_address"] == "[redacted]"
+    assert stored["payer"]["payer_id"] == "[redacted]"
+    assert stored["payer"]["name"] == {"given_name": "[redacted]", "surname": "[redacted]"}
+    assert stored["shipping"]["address"]["address_line_1"] == "[redacted]"
+    deep = stored["resource"]["payer"]
+    assert deep["email_address"] == "[redacted]"
+    assert deep["address"]["address_line_1"] == "[redacted]"
+    assert deep["address"]["admin_area_2"] == "[redacted]"
+    assert deep["address"]["postal_code"] == "[redacted]"
+    assert deep["address"]["country_code"] == "[redacted]"
+
+
+async def test_the_route_is_rate_limited(db_session: AsyncSession) -> None:
+    """300/min per address (section 3); the bucket is proved with a limit of one."""
+    from fairpool.api.routers.webhooks import WEBHOOK_RATE_LIMIT
+    from fairpool.infra.limits import SlidingWindowLimiter
+
+    assert WEBHOOK_RATE_LIMIT == 300
+    # The limiter is the subject here, so the switch it depends on is on.
+    settings = make_settings(rate_limit_enabled=True)
+    app = create_app(settings)
+
+    async def override_session() -> Any:
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_session
+    app.state.webhook_limiter = SlidingWindowLimiter(limit=1)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        first = await client.post("/webhooks/paypal", json={"id": f"WH-{uuid.uuid4()}"})
+        second = await client.post("/webhooks/paypal", json={"id": f"WH-{uuid.uuid4()}"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["error"]["code"] == "RATE_LIMITED"
+    assert int(second.headers["Retry-After"]) >= 1
+
+
+async def _drive_raw_delivery(
+    db_session: AsyncSession,
+    *,
+    settings: Any,
+    headers: list[tuple[bytes, bytes]],
+    first_chunk: bytes,
+    chunks_left: int = 1,
+) -> tuple[int, str]:
+    """One raw ASGI POST whose body arrives in pieces; reading past the cap raises.
+
+    ``httpx`` always sends a body it knows the length of, so only a hand-built scope can
+    show that the route refuses an over-cap delivery without buffering it.
+    """
+    app = create_app(settings)
+
+    async def override_session() -> Any:
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_session
+    sent: list[dict[str, Any]] = []
+    read = {"count": 0}
+
+    async def receive() -> dict[str, Any]:
+        if read["count"] == 0:
+            read["count"] = 1
+            return {"type": "http.request", "body": first_chunk, "more_body": chunks_left > 0}
+        raise AssertionError("the delivery was read past the cap")
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "headers": headers,
+        "scheme": "http",
+        "path": "/webhooks/paypal",
+        "raw_path": b"/webhooks/paypal",
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("127.0.0.1", 50000),
+        "root_path": "",
+    }
+    await app(scope, receive, send)
+    start = sent[0]
+    assert start["type"] == "http.response.start"
+    body = b"".join(message.get("body", b"") for message in sent[1:])
+    return int(start["status"]), body.decode()
+
+
+async def test_a_declared_length_over_the_cap_is_refused_without_a_read(
+    db_session: AsyncSession,
+) -> None:
+    """The header is enough to refuse: the bytes are never pulled into memory."""
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    status, body = await _drive_raw_delivery(
+        db_session,
+        settings=settings_for(webhooks_enabled=False),
+        headers=[
+            (b"content-type", b"application/json"),
+            (b"content-length", str(MAX_BODY_BYTES + 1).encode()),
+        ],
+        first_chunk=b"{}",
+        chunks_left=0,
+    )
+
+    assert status == 422, body
+    assert json.loads(body)["error"]["code"] == "VALIDATION_ERROR"
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 0
+
+
+async def test_a_streamed_body_is_abandoned_as_soon_as_it_exceeds_the_cap(
+    db_session: AsyncSession,
+) -> None:
+    """A chunked upload with no honest length still stops at the cap, mid-stream."""
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    status, body = await _drive_raw_delivery(
+        db_session,
+        settings=settings_for(webhooks_enabled=False),
+        headers=[(b"content-type", b"application/json")],
+        first_chunk=b'{"id":"' + event_id.encode() + b'","pad":"' + b"x" * MAX_BODY_BYTES + b'"}',
+        chunks_left=1,
+    )
+
+    assert status == 422, body
+    assert json.loads(body)["error"]["code"] == "VALIDATION_ERROR"
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 0

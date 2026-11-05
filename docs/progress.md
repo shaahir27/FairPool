@@ -37,7 +37,7 @@ Verification: 933 offline backend tests passed (94.50% domain coverage), 45 fron
 | IG-5 | DONE | owner | Closed 2026-11-02 on evidence. `make gate-check GATE=ig-5` exits 0 across all nine required files. Code and tests on `main` at `f01c783`, CI green (run 41425822470: 913 backend, 10 fault, 39 frontend, ruff, `mypy --strict`, eslint, tsc, build, imports, docs, merchant OpenAPI, gitleaks, compose); the tag sits on the following evidence commit, as with IG-4. IT-5 ran live on the Sandbox (C-08 authorize-then-void and C-09 capture-then-refund, both ending at a zero ledger). Five independent read-only review passes: four FAIL with findings (all fixed and named by tests), the fifth PASS with no blocker and no major and three follow-ups carried to T08B01 and IG-6. Tagged `ig-5` and `contracts-v1.5` |
 | IG-6 | TODO | not yet | |
 | IG-7 | DONE | `phase-7` / PR #5 | Closed 2026-11-04 on evidence. CI run 41861568532 is green across all nine jobs on 6d18525; `docs/evidence/phase7/` carries migrations, local checks, IT-7, C-17, three independent review passes and CI, all passed. IT-7 ran live: the agent/MCP/merchant-key lanes, both lots awarded from real bids, lot 1 FUNDED on capture 67454261HL110735P, lot 2 FAILED_CLOSED with authorization 98034989X7549701W VOIDED at a zero ledger, and one refill wave. C-17 passed live (popup approval, server authorize 01H970211Y409711B). One owner waiver is recorded: the in-run refund of a lot-2 capture, because the refill approval missed its offer window and IT-6 already proved capture-to-refund-at-zero live on this code. Tagged `ig-7` |
-| IG-8 | TODO | not yet | |
+| IG-8 | IN PROGRESS | branch `phase-8` | Code and automated tests are on the branch. Evidence: migrations, IT-8 and the 10k simulation pass; S9, C-18 and the live MCP client run are owner-dependent and recorded as pending with the exact step. |
 | IG-9 | TODO | not yet | |
 | IG-10 | TODO | not yet | |
 | IG-11 | TODO | not yet | |
@@ -160,6 +160,8 @@ IG-6 is **not** claimed by these rows. The items that need a human, a PayPal das
 
 **IT-7 and C-17 ran live (2026-11-04).** The Phase 7 scenario ran on loopback against PayPal Sandbox: four buyers joined through the browser routes with signed receipts; the agent API and the MCP endpoint joined, listed and withdrew; a console merchant and a key merchant bid through the two documented lanes; the off-product bid produced a LOW_SIMILARITY warning without changing its status; both lots awarded. The owner approved two real orders; lot 1 reached FUNDED on capture 67454261HL110735P (47000 cents, COMPLETED on a direct GET), and lot 2 failed at its fund deadline with authorization 98034989X7549701W VOIDED and a zero money ledger. One lot-2 offer expired and `lot.refill` offered the seat to the waitlist; that refill approval arrived after its offer window and was refused, so lot 2 failed with a void and no capture to refund. The owner recorded a waiver for that one leg on 2026-11-04: IT-6 already proved the live capture-to-refund-at-zero path on this code. C-17 was then proven on a separate offer: the SDK popup approved, the browser sent only the order id, the server re-checked and authorized (01H970211Y409711B, `approval_channel=sdk_popup`). The pool staying RUNNING after both lots are terminal is the existing `Q-2026-11-03-26`, measured rather than introduced.
 
+**Phase 8 (2026-11-05).** The merchant journey is real: Demand Board, Active Bids with the holds-then-captures tracker, Developer keys and the fulfilment tab all talk to the backend; fulfilment ships the CAPTURED list, CSV, shipments, a no-PII manifest and a live read-only verification; metrics and the four alert rules are exposed; and the seeded simulation allocates 10,000 entries in 5.4 seconds without touching a public list. Two independent backend reviews and one frontend review found real defects — the webhook cap was applied after the body was buffered, masking was shallow, tracking was terminal on a transient failure, the key rate limit did not exist, agent pool search ignored scope, the profile save wiped payee data and the merchant API key read serialized requests — all fixed with tests. `tools/demo_seed.py` now seeds a coherent five-pool demo (BIDDING demand, an awarded checkout, a funded lot with shipments, a failed lot at zero ledger, and a 10k simulation) with merchant accounts that carry the merchant role and the three attestations.
+
 **Owner work parked (2026-11-04).** Uncommitted landing-page edits (copy rewrite, a `Count`
 component and mobile work) arrived in the working tree. They did not compile (`entry` possibly
 undefined, an unused `Count`) and broke two landing tests, so `make verify` could not run. The two
@@ -171,17 +173,17 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T08A01 | A | L | TODO | | Fulfillment backend: progress, fulfillment, shipments, manifest, verification |
-| T08A02 | A | M | TODO | | Fulfillment tab UI |
-| T08A03 | A | M | TODO | | Merchant Agent API: fulfillment, shipments, manifest and verification routes |
-| T08A04 | A | M | TODO | | PayPal MCP verification copilot |
-| T08A05 | A | M | TODO | | Observability |
-| T08A06 | A | M | TODO | | Security pass |
-| T08B01 | B | L | TODO | | Merchant console UI I: Demand Board and bid submission |
-| T08B02 | B | L | TODO | | Merchant console UI II: Active Bids and Developer API |
-| T08B03 | B | S | TODO | | Spike S9 Zapier MCP managed mode |
-| T08B04 | B | L | TODO | | Simulation engine |
-| T08B05 | B | S | TODO | | Zapier bridge setup and documentation |
+| T08A01 | A | L | DONE | phase-8 | `modules/fulfillment/**` and both route tables: progress, the CAPTURED shipping list in JSON and CSV, shipments with the tracker call behind a job, the no-PII manifest and the read-only verification. The DB trigger and the service both refuse an unfunded lot (`LOT_NOT_FUNDED`). |
+| T08A02 | A | M | DONE | phase-8 | The fulfilment tab downloads the funded CSV, records shipments with a two-step confirmation, downloads the manifest and runs the live verification, and says when the tracker was not submitted. |
+| T08A03 | A | M | DONE | phase-8 | The five fulfilment operations are live on `/merchant-api/v1` with `fulfillment:read`, `shipments:write` and `manifest:read`; the sub-app still declares exactly ten operations and the frozen document did not move. |
+| T08A04 | A | M | DONE | phase-8 | The verification endpoint is the primary documented path and it reads each capture back from PayPal; the read-only MCP route (S10) is documented in the README. A real AI client run is the owner's live check. |
+| T08A05 | A | M | DONE | phase-8 | `/metrics` exposes refused transitions, amount mismatches, unknown outcomes, dead letters and funnel gauges as a raw route; `deploy/alerts.yml` has the four rules and a test checks every metric name and threshold. |
+| T08A06 | A | M | DONE | phase-8 | Buyer/merchant/operator roles are enforced server-side, a merchant cannot bid on its own pool, cookies are Secure and `__Host-`prefixed, the proxy is trusted explicitly, login has origin + per-account limits, the webhook body is capped and masked, security headers are on, and `APP_ENV` fails closed. Two reviews' findings are fixed. |
+| T08B01 | B | L | DONE | phase-8 | Demand Board: search, lot terms, SSE refresh, quote paste with the manual fallback, an editable bid and a confirmation card before anything is saved. |
+| T08B02 | B | L | DONE | phase-8 | Active Bids groups Pending / In Checkout / Lost or Failed with the MOQ tracker, refills and fund countdown; Developer creates scoped keys shown once; Profile writes only edited fields. |
+| T08B03 | B | S | IN PROGRESS | phase-8 | The S9 steps and the four locked tools are written down in `docs/spike-results.md`; the Zapier trial is not started (owner action with a clock). |
+| T08B04 | B | L | DONE | phase-8 | `modules/sim/**` seeds a SIMULATION pool, writes 10,000 entries in bulk, ranks in process and seats them in 5.4 s locally; the pool never appears in public lists and is labelled. |
+| T08B05 | B | S | IN PROGRESS | phase-8 | The managed-mode setup notes (locked URL/Authorization, four tools, trial dates) are in `docs/spike-results.md`; they become a claim only when S9 runs. |
 
 ### PH9: Hardening, evaluation and feature freeze
 

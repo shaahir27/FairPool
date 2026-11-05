@@ -248,7 +248,9 @@ async def test_tracker_requires_exact_single_match():
                     {
                         "shipping": {
                             "trackers": [
-                                {"capture_ids": ["C"], "tracking_number": "T", "carrier": "UPS"}
+                                # The real read-back shape (C-18): an id built from the
+                                # capture and the tracking number, and no other fields.
+                                {"id": "C-T", "status": "SHIPPED", "notify_payer": False}
                             ]
                         }
                     }

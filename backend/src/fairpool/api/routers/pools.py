@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from fairpool.api import schemas
 from fairpool.api.deps import database_session
 from fairpool.db.models.catalog import Pool, PoolEntry
-from fairpool.db.models.enums import EntryStatus, PoolStatus
+from fairpool.db.models.enums import EntryStatus, PoolMode, PoolStatus
 from fairpool.db.session import create_engine
 from fairpool.modules.pools.events import stream_pool_events
 from fairpool.modules.pools.service import rules_document, summary
@@ -63,7 +63,8 @@ async def pools_list(
     limit: int | None = Query(None, ge=1, le=100),
     db: AsyncSession = Depends(database_session),
 ):
-    query = select(Pool).where(Pool.status != PoolStatus.DRAFT)
+    # FR-SM-01: a SIMULATION pool is isolated by mode and never a public pool.
+    query = select(Pool).where(Pool.status != PoolStatus.DRAFT, Pool.mode == PoolMode.LIVE_SANDBOX)
     if status:
         if status not in PoolStatus.__members__ or status == "DRAFT":
             raise HTTPException(422, "VALIDATION_ERROR")
@@ -153,7 +154,8 @@ async def pools_events(pool_id: UUID, request: Request):
     factory = request.app.state.session_factory
     async with factory() as probe:
         exists = await probe.scalar(
-            text("SELECT status FROM pools WHERE id = :id"), {"id": pool_id}
+            text("SELECT status FROM pools WHERE id = :id AND mode = 'LIVE_SANDBOX'"),
+            {"id": pool_id},
         )
     if exists is None or str(exists) == PoolStatus.DRAFT.value:
         raise HTTPException(404, "NOT_FOUND")
@@ -166,6 +168,7 @@ async def pools_events(pool_id: UUID, request: Request):
 
 async def public_pool(db: AsyncSession, pool_id: UUID) -> Pool:
     pool = await db.get(Pool, pool_id)
-    if pool is None or pool.status == PoolStatus.DRAFT:
+    if pool is None or pool.status == PoolStatus.DRAFT or pool.mode != PoolMode.LIVE_SANDBOX:
+        # FR-SM-01: a simulation answers exactly like an unknown id.
         raise HTTPException(404, "NOT_FOUND")
     return pool

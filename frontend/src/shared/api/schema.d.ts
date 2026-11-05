@@ -2516,6 +2516,8 @@ export interface components {
         OrderPayPalState: {
             /** Authorization Status */
             authorization_status?: string | null;
+            /** Capture Id */
+            capture_id?: string | null;
             /** Capture Status */
             capture_status?: string | null;
             /** Refund Status */

@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "date": "2026-11-05",
+  "executed": "tools/it8_live.py ran in-process against a loopback database with PAYMENT_ROUTER=fake and PAYMENT_MODE=authorize_capture; all 15 steps passed.",
+  "steps": ["fixtures", "pool_created", "pool_open", "buyers_joined", "lots_open_for_bidding", "merchants_bid", "merchant_agent_api_bidding", "awarded_checkout_open", "offers_continued_approved", "orders_authorized", "lot_funded", "fulfillment", "merchant_agent_api", "merchant_sse", "simulation"],
+  "fulfilment": "Two CAPTURED orders: progress, JSON and fully quoted CSV rows, two shipments RECORDED with tracker SUBMITTED, a manifest with no buyer fields, and verification matched 2/2 (94,000 = 94,000). No address reached a log.",
+  "merchant_api": "All ten operationIds exercised with a scoped key; 401 without a key and 403 without a scope; the sub-app document still declares exactly ten operations.",
+  "sse": "The merchant feed delivered a tick frame.",
+  "live_verification": "With the real single_seller gateway and PayPal Sandbox credentials, the verification service read the IT-7 funded lot 6354b29d (capture 67454261HL110735P) back from PayPal: matched 1/1, all_match true, expected and provider totals both 47,000 cents, capture status COMPLETED.",
+  "what_this_run_does_not_prove": "It uses the fake payment router for the funded lot, so it proves the fulfilment and console code paths end to end but not new live money movement; the live leg is covered by IT-7 and the live verification above. C-18 (live shipment tracking to PayPal) remains owner-dependent and is recorded in sandbox_contracts.json.",
+  "how_to_reproduce": "IT8_LOCAL_PASSWORD=<fixture password> .venv/Scripts/python.exe tools/it8_live.py --out .tmp/it8_report.json; then .venv/Scripts/python.exe tools/it8_live.py --live-verify --out .tmp/it8_live_verify.json with the sandbox credentials in .env."
+}
