@@ -818,9 +818,13 @@ async def summary(session: Any, pools: dict[str, Any]) -> list[dict[str, Any]]:
 
 async def main() -> int:
     load_env()
-    os.environ["DATABASE_URL"] = loopback_database_url()
-    # The demo is offline and local: no PayPal host, no hosted database, no AI.
+    # Local by default; DEMO_SEED_HOSTED=1 is the explicit opt-in for the hosted demo
+    # database, and it still refuses to touch anything but the configured URL.
+    # The seeding process always runs in local mode (the admin demo helper is gated on
+    # it); only the database target changes with the explicit hosted opt-in.
     os.environ["APP_ENV"] = "local"
+    if os.environ.get("DEMO_SEED_HOSTED") != "1":
+        os.environ["DATABASE_URL"] = loopback_database_url()
     os.environ["PAYMENT_ROUTER"] = "fake"
     os.environ["PAYMENT_MODE"] = "authorize_capture"
     os.environ["DEDUPE_MODE"] = "two_keys"

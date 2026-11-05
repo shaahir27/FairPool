@@ -1,9 +1,8 @@
 {
   "status": "pending",
   "date": "2026-11-05",
-  "blocks": [
-    "The Zapier MCP managed-mode trial has not been started; starting one is an owner action with a clock attached (INT-2)."
-  ],
-  "what_is_ready": "api.md section 4.6 fixes the four locked tools and their fields; ZAPIER_BRIDGE defaults to off and the Agent API they proxy is live and tested. docs/spike-results.md records the setup steps the owner follows and what to capture.",
-  "fallback_in_force": "With the bridge off, the README states the bridge is not demonstrated; the FairPool Agent API and the /mcp endpoint are the documented agent paths."
+  "prepared": "The owner's Zapier account is on a Pro trial (ends 2026-11-11) and the existing FairPool MCP server was switched to Managed mode. The trial is prepared on the hosted API: pool 92eab7d0-ed30-4621-8183-ff82f3f78459 (\"Zapier agent demo\") is OPEN until 2026-11-12, demo-buyer-1 holds a delegation scoped to that pool (cap 600.00, expires 2026-11-12; token in .env-managed scratch, never committed), and all four Agent API calls were exercised end to end against the hosted API with that token: list_pools 200, enter_pool 201, list_entries 200, withdraw_entry 200 (entry a9360cc0-b921-4bb9-873a-4207b4faedb0 WITHDRAWN).",
+  "remaining_step": "Add four Webhooks by Zapier actions to the server (fairpool_list_pools GET /agent/v1/pools; fairpool_join_pool POST /agent/v1/entries; fairpool_list_entries GET /agent/v1/entries; fairpool_withdraw_entry POST /agent/v1/entries/withdraw), lock URL and Authorization on each, save, refresh the client, then run one join and one withdraw and record the tool list, the locked fields, the idempotency keys, task usage (2 per call) and the trial expiry (2026-11-11).",
+  "blocked_on": "The owner's Zapier UI actions (account-scoped); the API side is proven.",
+  "fallback_in_force": "With the bridge off, the FairPool Agent API and the /mcp endpoint are the documented agent paths and the README says the Zapier bridge is not demonstrated."
 }
