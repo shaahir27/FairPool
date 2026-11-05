@@ -43,4 +43,8 @@ EXPOSE 10000
 # included, so an OAuth callback's code/state or a vault return's token would reach the
 # container log. Our own structured logs carry the request and stay redacted (M3);
 # fairpool.logging also puts the redaction filter on uvicorn.error regardless.
-CMD ["sh", "-c", "uvicorn fairpool.main:app --host 0.0.0.0 --port ${PORT:-10000} --no-access-log"]
+# --forwarded-allow-ips: only the reverse proxy may set X-Forwarded-*, and only it can
+# reach the socket. A loopback default means a direct connection cannot spoof its own
+# scheme or address; Render overrides it with FORWARDED_ALLOW_IPS=* because its proxy
+# arrives from an address that is not ours to pin.
+CMD ["sh", "-c", "uvicorn fairpool.main:app --host 0.0.0.0 --port ${PORT:-10000} --no-access-log --forwarded-allow-ips ${FORWARDED_ALLOW_IPS:-127.0.0.1}"]

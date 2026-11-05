@@ -24,8 +24,9 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
@@ -37,10 +38,21 @@ from fairpool.config import Settings
 from fairpool.db.session import get_session
 from fairpool.domain.payments import PaymentError
 from fairpool.infra.jobs import PostgresJobQueue
+from fairpool.infra.limits import SlidingWindowLimiter
 from fairpool.modules.webhooks.handlers import json_object
 
 router = APIRouter()
 logger = logging.getLogger("fairpool.webhooks")
+
+#: The largest delivery this route stores. PayPal's own event bodies are kilobytes;
+#: an unbounded body is a free write into Postgres with our name on it.
+MAX_BODY_BYTES: Final[int] = 256 * 1024
+
+#: config-and-errors.md section 3: POST /webhooks/paypal is 300/min per address.
+WEBHOOK_RATE_LIMIT: Final[int] = 300
+
+#: What stands in for a field we must not keep (I14).
+REDACTED: Final[str] = "[redacted]"
 
 #: The verification fields plus the content type. The signature header belongs here:
 #: without it ``verify_webhook`` cannot be called at all, and it is PayPal's own
@@ -53,6 +65,47 @@ _ALLOWED_HEADERS = (
     "paypal-transmission-sig",
     "content-type",
 )
+
+
+def _rate_limit(request: Request) -> None:
+    settings = _settings(request)
+    if settings is None or not settings.rate_limit_enabled:
+        return
+    limiter: SlidingWindowLimiter | None = getattr(request.app.state, "webhook_limiter", None)
+    if limiter is None:
+        limiter = SlidingWindowLimiter(limit=WEBHOOK_RATE_LIMIT)
+        request.app.state.webhook_limiter = limiter
+    limiter.check(request.client.host if request.client else "unknown", time.monotonic())
+
+
+def _mask(value: Any) -> Any:
+    """A copy of a PII block with every leaf replaced, whatever shape PayPal sent."""
+    if isinstance(value, dict):
+        return {key: _mask(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_mask(item) for item in value]
+    return REDACTED
+
+
+def mask_payer_details(payload: dict[str, Any]) -> bool:
+    """Replace the payer's identity in the stored copy; ids, amounts and status stay.
+
+    The row keeps what an operator needs to reconcile an event (``resource.id``,
+    ``amount``, ``status``) and none of what makes it personal data. Returns whether
+    anything was replaced, so a body with no payer block is still stored byte for byte.
+    """
+    masked = False
+    payer = payload.get("payer")
+    if isinstance(payer, dict):
+        for key in ("email_address", "name"):
+            if key in payer:
+                payer[key] = _mask(payer[key])
+                masked = True
+    shipping = payload.get("shipping")
+    if isinstance(shipping, dict) and "address" in shipping:
+        shipping["address"] = _mask(shipping["address"])
+        masked = True
+    return masked
 
 
 def _sanitized_headers(request: Request) -> dict[str, str]:
@@ -116,9 +169,19 @@ async def webhooks_paypal(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> schemas.WebhookAck:
+    _rate_limit(request)
     raw = await request.body()
+    if len(raw) > MAX_BODY_BYTES:
+        # Refused before the insert: a body this large is not one of the three events
+        # S5 verified, and storing it is exactly the write this cap exists to prevent.
+        raise HTTPException(422, "VALIDATION_ERROR")
     headers = _sanitized_headers(request)
-    payload = json_object(raw.decode("utf-8", errors="replace"))
+    body = raw.decode("utf-8", errors="replace")
+    payload = json_object(body)
+    if mask_payer_details(payload):
+        # The stored copy loses the buyer's identity; the bytes the signature covers
+        # are the ones read above and are what the verifier gets (P4, I14).
+        body = json.dumps(payload, separators=(",", ":"))
     settings = _settings(request)
     event_id = str(payload.get("id") or headers.get("paypal-transmission-id") or uuid.uuid4())
     event_type = str(payload.get("event_type") or "UNKNOWN")
@@ -133,7 +196,7 @@ async def webhooks_paypal(
             "id": uuid.uuid4(),
             "event_id": event_id,
             "event_type": event_type,
-            "raw_body": raw.decode("utf-8", errors="replace"),
+            "raw_body": body,
             "detail": "received_headers=" + json.dumps(headers, sort_keys=True),
         },
     )

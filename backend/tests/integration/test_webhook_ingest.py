@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.api.app import create_app
 from fairpool.db.session import get_session
 from tests.integration.test_join_receipts import settings_for
+from tests.unit.test_settings import make_settings
 
 pytestmark = pytest.mark.integration
 
@@ -54,6 +55,8 @@ async def deliver(
     event_id: str | None = None,
     event_type: str = "PAYMENT.CAPTURE.COMPLETED",
     resource_id: str = "CAP-1",
+    extra: dict[str, Any] | None = None,
+    body: bytes | None = None,
 ) -> httpx.Response:
     """POST one delivery through the app, with the headers PayPal actually sends."""
     app = create_app(settings)
@@ -64,13 +67,18 @@ async def deliver(
         yield db_session
 
     app.dependency_overrides[get_session] = override_session
-    body = json.dumps(
-        {
-            "id": event_id or f"WH-{uuid.uuid4()}",
-            "event_type": event_type,
-            "resource": {"id": resource_id},
-        },
-        separators=(",", ":"),
+    content = (
+        body
+        if body is not None
+        else json.dumps(
+            {
+                "id": event_id or f"WH-{uuid.uuid4()}",
+                "event_type": event_type,
+                "resource": {"id": resource_id},
+                **(extra or {}),
+            },
+            separators=(",", ":"),
+        ).encode()
     )
     headers = {
         "PayPal-Transmission-Id": f"tx-{event_id or 'x'}",
@@ -82,7 +90,7 @@ async def deliver(
     }
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        return await client.post("/webhooks/paypal", content=body, headers=headers)
+        return await client.post("/webhooks/paypal", content=content, headers=headers)
 
 
 async def row(session: AsyncSession, event_id: str) -> Any:
@@ -274,3 +282,185 @@ async def test_the_raw_body_is_stored_verbatim(db_session: AsyncSession) -> None
     assert payload["id"] == event_id
     assert payload["resource"]["id"] == "AUTH-9"
     assert str(stored.event_type) == "PAYMENT.AUTHORIZATION.CREATED"
+
+
+# --------------------------------------------------------------- CR-10 hardening
+
+PAYER = {
+    "payer": {
+        "email_address": "payer@example.test",
+        "payer_id": "PAYER-1",
+        "name": {"given_name": "Ada", "surname": "Lovelace"},
+    },
+    "shipping": {"address": {"address_line_1": "1 Market Street", "admin_area_2": "New York"}},
+}
+
+
+async def test_a_body_over_the_cap_is_refused_before_it_is_stored(
+    db_session: AsyncSession,
+) -> None:
+    """256 KiB is the ceiling; a 300 KiB delivery is a free write we do not take."""
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    oversized = json.dumps(
+        {"id": event_id, "event_type": "PAYMENT.CAPTURE.COMPLETED", "pad": "x" * MAX_BODY_BYTES}
+    ).encode()
+    assert len(oversized) > MAX_BODY_BYTES
+
+    response = await deliver(
+        db_session, settings=settings_for(webhooks_enabled=False), body=oversized
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 0
+
+
+async def test_a_delivery_at_the_cap_is_stored(db_session: AsyncSession) -> None:
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    prefix = json.dumps({"id": event_id, "event_type": "PAYMENT.CAPTURE.COMPLETED"})[:-1]
+    padding = MAX_BODY_BYTES - len(prefix) - len(',"pad":""}')
+    at_cap = (prefix + ',"pad":"' + "x" * padding + '"}').encode()
+    assert len(at_cap) == MAX_BODY_BYTES
+
+    response = await deliver(db_session, settings=settings_for(webhooks_enabled=False), body=at_cap)
+
+    assert response.status_code == 200, response.text
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 1
+
+
+async def test_the_payers_identity_is_masked_before_the_insert(
+    db_session: AsyncSession,
+) -> None:
+    """I14: the row keeps the ids, amounts and status; the person is redacted."""
+    event_id = f"WH-{uuid.uuid4()}"
+    await deliver(
+        db_session,
+        settings=settings_for(webhooks_enabled=False),
+        event_id=event_id,
+        extra=PAYER,
+    )
+
+    raw = await db_session.scalar(
+        text("SELECT raw_body FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    stored = json.loads(str(raw))
+    for secret in ("payer@example.test", "PAYER-1", "Ada", "Lovelace", "1 Market Street"):
+        if secret == "PAYER-1":
+            # The payer id is not an identity field: it is kept, exactly like resource.id.
+            assert stored["payer"]["payer_id"] == secret
+            continue
+        assert secret not in str(raw), secret
+    assert stored["resource"]["id"] == "CAP-1"
+    assert stored["id"] == event_id
+    assert stored["payer"]["email_address"] == "[redacted]"
+    assert stored["payer"]["name"] == {"given_name": "[redacted]", "surname": "[redacted]"}
+    assert stored["shipping"]["address"]["address_line_1"] == "[redacted]"
+
+
+async def test_the_route_is_rate_limited(db_session: AsyncSession) -> None:
+    """300/min per address (section 3); the bucket is proved with a limit of one."""
+    from fairpool.api.routers.webhooks import WEBHOOK_RATE_LIMIT
+    from fairpool.infra.limits import SlidingWindowLimiter
+
+    assert WEBHOOK_RATE_LIMIT == 300
+    # The limiter is the subject here, so the switch it depends on is on.
+    settings = make_settings(rate_limit_enabled=True)
+    app = create_app(settings)
+
+    async def override_session() -> Any:
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_session
+    app.state.webhook_limiter = SlidingWindowLimiter(limit=1)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        first = await client.post("/webhooks/paypal", json={"id": f"WH-{uuid.uuid4()}"})
+        second = await client.post("/webhooks/paypal", json={"id": f"WH-{uuid.uuid4()}"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["error"]["code"] == "RATE_LIMITED"
+    assert int(second.headers["Retry-After"]) >= 1
+
+
+async def seed_delivery(db_session: AsyncSession, *, event_id: str, age_s: int) -> None:
+    await db_session.execute(
+        text(
+            "INSERT INTO webhook_events (id, paypal_event_id, event_type, raw_body, received_at) "
+            "VALUES (:id, :event_id, 'PAYMENT.CAPTURE.COMPLETED', :body, "
+            "now() - make_interval(secs => :age))"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "event_id": event_id,
+            "age": age_s,
+            "body": json.dumps(
+                {
+                    "payer": {"email_address": "payer@example.test"},
+                    "resource": {"id": "CAP-1"},
+                }
+            ),
+        },
+    )
+
+
+async def raw_body_of(db_session: AsyncSession, event_id: str) -> str:
+    value = await db_session.scalar(
+        text("SELECT raw_body FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    return str(value)
+
+
+def reconciler(retention_s: int):  # type: ignore[no-untyped-def]
+    from fairpool.fakes.jobs import FakeJobQueue
+    from fairpool.infra.clock import DbClock
+    from fairpool.modules.reconciler.resolve import Reconciler
+
+    return Reconciler(clock=DbClock(), jobs=FakeJobQueue(), webhook_raw_retention_s=retention_s)
+
+
+async def test_the_sweep_replaces_a_raw_body_past_its_retention(
+    db_session: AsyncSession,
+) -> None:
+    """The retention statement itself: one week later, the person is gone, the id stays.
+
+    ``trg_webhook_raw_immutable`` (migration 0001) refuses this update in a real
+    database, so the trigger is disabled inside this rolled-back transaction to prove
+    the statement does what the setting says.
+    """
+    from fairpool.modules.reconciler.resolve import EXPIRED_BODY
+
+    old_id, fresh_id = f"WH-{uuid.uuid4()}", f"WH-{uuid.uuid4()}"
+    await seed_delivery(db_session, event_id=old_id, age_s=7200)
+    await seed_delivery(db_session, event_id=fresh_id, age_s=0)
+    await db_session.execute(
+        text("ALTER TABLE webhook_events DISABLE TRIGGER trg_webhook_raw_immutable")
+    )
+
+    assert await reconciler(retention_s=3600).sweep(db_session, {}) == 0
+
+    assert await raw_body_of(db_session, old_id) == EXPIRED_BODY
+    fresh = await raw_body_of(db_session, fresh_id)
+    assert "payer@example.test" in fresh, "a fresh delivery keeps its body"
+
+
+async def test_a_schema_that_forbids_the_update_does_not_stop_the_sweep(
+    db_session: AsyncSession,
+) -> None:
+    """Today's database: the update is refused, the sweep still does its real work."""
+    old_id = f"WH-{uuid.uuid4()}"
+    await seed_delivery(db_session, event_id=old_id, age_s=7200)
+
+    assert await reconciler(retention_s=3600).sweep(db_session, {}) == 0
+
+    assert "payer@example.test" in await raw_body_of(db_session, old_id)

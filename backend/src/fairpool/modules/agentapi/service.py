@@ -76,6 +76,12 @@ def _scope_conditions(principal: AgentPrincipal) -> list[ColumnElement[bool]]:
     The create path and the read path share these conditions, so a delegation
     cannot read or withdraw an entry its scope would refuse to create (I11).
     """
+    if not principal.scope:
+        # A scope with neither a pool list nor a category selected every pool, which is
+        # the opposite of what a delegation is for (I11). The token is refused rather
+        # than widened; a row this shape can only come from a write that bypassed
+        # ``DelegationService.create``.
+        raise ApplicationError("VALIDATION_ERROR")
     conditions: list[ColumnElement[bool]] = []
     allowed = [str(value) for value in principal.scope.get("pool_ids") or []]
     if allowed:

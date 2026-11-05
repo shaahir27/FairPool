@@ -24,7 +24,7 @@ from fairpool.modules.identity.service import IdentityService, Principal
 from fairpool.modules.merchants.auth import PostgresMerchantAuth
 from fairpool.ports import MerchantPrincipal
 
-session_cookie = APIKeyCookie(name="session", auto_error=False)
+session_cookie = APIKeyCookie(name="__Host-session", auto_error=False)
 bearer = HTTPBearer(auto_error=False)
 
 
@@ -93,6 +93,20 @@ async def require_merchant(
     )
     if merchant_id is None:
         raise HTTPException(403, "FORBIDDEN")
+    return principal
+
+
+async def require_buyer(
+    principal: Annotated[Principal, Security(require_session)],
+) -> Principal:
+    """A buyer-only route: the session is still required, the role decides access.
+
+    Buyer routes used to accept any signed-in role, so a merchant or an admin
+    session could read the buyer surface. The refusal is the contract's ``FORBIDDEN``
+    at 403, never a 401: the caller is authenticated and simply has no entry lane.
+    """
+    if principal.role != "buyer":
+        raise ApplicationError("FORBIDDEN")
     return principal
 
 

@@ -63,7 +63,10 @@ class Settings(BaseSettings):
         enable_decoding=False,
     )
 
-    app_env: Literal["local", "test", "render"] = "local"
+    # The hosted profile is the safe default: an unset APP_ENV must not silently
+    # enable the local-only helpers (force-award, mock toggles). A developer sets
+    # APP_ENV=local in .env, which every local entry point already ships.
+    app_env: Literal["local", "test", "render"] = "render"
     database_url: SecretStr
     secret_key: SecretStr
     hmac_key: SecretStr
@@ -133,6 +136,9 @@ class Settings(BaseSettings):
     reconciler_interval_s: int = 60
     worker_concurrency: int = 4
     rate_limit_enabled: bool = True
+    # How long a webhook's raw body is kept before the reconciler replaces it with
+    # "[expired]": the ids and amounts stay, the payer's identity does not (I14).
+    webhook_raw_retention_s: int = Field(default=604800, ge=3600)
 
     @field_validator("cors_origins", "allowed_payer_countries", mode="before")
     @classmethod
@@ -140,6 +146,16 @@ class Settings(BaseSettings):
         """Accept the comma-separated form used in environment files."""
         if isinstance(value, str):
             return tuple(part.strip() for part in value.split(",") if part.strip())
+        return value
+
+    @field_validator("cors_origins")
+    @classmethod
+    def _no_wildcard_with_credentials(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        # create_app always sends ``allow_credentials=True`` (the session cookie), and
+        # a wildcard origin with credentials lets any site read an authenticated
+        # response. The combination is refused at load rather than shipped.
+        if "*" in value:
+            raise ValueError("CORS_ORIGINS must name origins; '*' is not allowed")
         return value
 
     @field_validator(

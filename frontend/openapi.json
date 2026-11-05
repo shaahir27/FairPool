@@ -2660,6 +2660,17 @@
             ],
             "title": "Authorization Status"
           },
+          "capture_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Id"
+          },
           "capture_status": {
             "anyOf": [
               {
@@ -4278,7 +4289,7 @@
     "securitySchemes": {
       "APIKeyCookie": {
         "in": "cookie",
-        "name": "session",
+        "name": "__Host-session",
         "type": "apiKey"
       },
       "HTTPBearer": {

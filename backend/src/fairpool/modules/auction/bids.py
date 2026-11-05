@@ -25,7 +25,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fairpool.db.models.auction import Bid, BidFlag, BidRevision
+from fairpool.db.models.auction import Bid, BidFlag, BidRevision, Merchant
+from fairpool.db.models.catalog import PoolEntry
 from fairpool.db.models.enums import BidStatus
 from fairpool.db.models.pools import Lot
 from fairpool.domain import hashing
@@ -216,6 +217,11 @@ class BidService:
             raise ApplicationError("NOT_FOUND")
         if str(lot.status) != "BIDDING":
             raise ApplicationError("LOT_NOT_BIDDING")
+        if await self._is_self_dealing(session, merchant_id=merchant_id, pool_id=lot.pool_id):
+            # A merchant who is also a buyer in this pool would bid against the seat it
+            # is awarded: it can see the pool's demand while it prices, and winning is
+            # buying from itself. Refused at the write boundary, before any revision.
+            raise ApplicationError("FORBIDDEN")
         now = await self.clock.db_now(session)
         # BS-12's own guard: past the deadline no revision is accepted, so a late
         # write can never replace a confirmed bid. Rejection of an unconfirmed bid
@@ -307,6 +313,18 @@ class BidService:
         row.confirmed_at = now
         await session.flush()
         return bid
+
+    async def _is_self_dealing(
+        self, session: AsyncSession, *, merchant_id: UUID, pool_id: UUID
+    ) -> bool:
+        """Whether this merchant's user is also a buyer in the pool, in one query."""
+        found = await session.scalar(
+            select(PoolEntry.id)
+            .join(Merchant, Merchant.user_id == PoolEntry.user_id)
+            .where(Merchant.id == merchant_id, PoolEntry.pool_id == pool_id)
+            .limit(1)
+        )
+        return found is not None
 
     async def _move(
         self,

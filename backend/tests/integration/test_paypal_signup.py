@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
+from fairpool.api.routers.auth import SESSION_COOKIE
 from fairpool.fakes.paypal_identity import FakePayPalIdentity
 from tests.unit.test_settings import make_settings
 
@@ -327,11 +328,11 @@ async def test_a_signed_in_browser_can_still_begin_a_new_signup(db_session):
             "/api/v1/auth/register", json=DETAILS, headers={"Origin": ORIGIN}
         )
         assert registered.status_code == 200
-        assert "session" in client.cookies
+        assert SESSION_COOKIE in client.cookies
 
         second_start = await client.post("/api/v1/auth/paypal/start", headers={"Origin": ORIGIN})
         assert second_start.status_code == 200
-        assert "session" in client.cookies
+        assert SESSION_COOKIE in client.cookies
 
 
 async def test_setup_window_expires_after_bounded_ttl(db_session):
@@ -376,7 +377,7 @@ async def test_expired_session_allows_ordinary_login(db_session):
             headers={"Origin": ORIGIN},
         )
         assert login.status_code == 200
-        assert "session" in client.cookies
+        assert SESSION_COOKIE in client.cookies
 
 
 async def test_repeated_starts_keep_one_pending_attempt_per_browser(db_session):

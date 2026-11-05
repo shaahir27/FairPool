@@ -577,6 +577,9 @@ class ContinueResponse(ResponseModel):
 class OrderPayPalState(ResponseModel):
     authorization_status: str | None = None
     capture_status: str | None = None
+    # The newest capture's provider id: the resource the buyer can point at on PayPal.
+    # Additive, so a response written before this field stays valid.
+    capture_id: str | None = None
     refund_status: str | None = None
 
 

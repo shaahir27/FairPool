@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import time
-from collections import OrderedDict, deque
 from typing import Annotated
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Security
+from fastapi import APIRouter, Depends, Request, Response, Security
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, identity_service, require_session
 from fairpool.domain.errors import ApplicationError
+from fairpool.domain.hashing import sha256_hex
 from fairpool.domain.paypal_identity import PayPalIdentityDeclined, PayPalIdentityUnavailable
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
+from fairpool.infra.limits import SlidingWindowLimiter
 from fairpool.modules.identity.addresses import AddressBook
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.identity.signup import SIGNUP_SETUP_TTL_S, PayPalSignupService
@@ -23,6 +25,13 @@ from fairpool.wiring import paypal_identity
 
 router = APIRouter()
 SIGNUP_COOKIE = "fairpool_signup"
+#: The session cookie. The ``__Host-`` prefix makes the browser itself enforce
+#: Secure, Path=/ and no Domain, so a subdomain cannot set or read it (I14).
+SESSION_COOKIE = "__Host-session"
+
+#: config-and-errors.md section 3: login and register are 10/min per address.
+AUTH_RATE_LIMIT = 10
+AUTH_RATE_WINDOW_S = 60.0
 
 
 def _signup(request: Request) -> PayPalSignupService:
@@ -38,17 +47,37 @@ def _signup(request: Request) -> PayPalSignupService:
 
 
 def _signup_origin(request: Request) -> None:
+    """Refuse a browser form post from a page that is not ours.
+
+    The page is either the configured frontend origin or the API's own origin (the
+    hosted build serves both from one host). Local development serves the page on a
+    loopback port that is not fixed, so loopback origins are accepted only when
+    ``APP_ENV`` is local or test; production compares exact origins.
+    """
     settings = request.app.state.settings
-    if settings is None or request.headers.get("origin") != settings.frontend_base_url.rstrip("/"):
+    if settings is None:
         raise ApplicationError("FORBIDDEN")
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    if not origin:
+        raise ApplicationError("FORBIDDEN")
+    if origin in {settings.frontend_base_url.rstrip("/"), str(request.base_url).rstrip("/")}:
+        return
+    if settings.app_env in {"local", "test"}:
+        host = urlsplit(origin).hostname
+        if host in {"localhost", "127.0.0.1", "::1"}:
+            return
+    raise ApplicationError("FORBIDDEN")
 
 
 def _session_cookie(request: Request, response: Response, value: str) -> None:
     response.set_cookie(
-        "session",
+        SESSION_COOKIE,
         value,
         httponly=True,
-        secure=request.url.scheme == "https",
+        # Unconditional: the hosted origin is https and a cookie that is only Secure
+        # when the request happened to arrive over https is one downgrade away from
+        # being sent in clear text. The __Host- prefix requires it anyway.
+        secure=True,
         samesite="lax",
         max_age=86400,
         path="/",
@@ -147,25 +176,11 @@ async def paypal_signup_callback(
     return response
 
 
-class AuthRateLimiter:
-    def __init__(self) -> None:
-        self.clients: OrderedDict[str, deque[float]] = OrderedDict()
+class AuthRateLimiter(SlidingWindowLimiter):
+    """The per-address auth window (``config-and-errors.md`` section 3)."""
 
-    def check(self, ip: str, now: float) -> None:
-        # shortcut: per-process limits; require shared enforcement before multi-process deployment.
-        hits = self.clients.setdefault(ip, deque())
-        self.clients.move_to_end(ip)
-        while hits and now - hits[0] >= 60:
-            hits.popleft()
-        if len(hits) >= 10:
-            raise HTTPException(
-                429,
-                "RATE_LIMITED",
-                headers={"Retry-After": str(max(1, int(60 - (now - hits[0])) + 1))},
-            )
-        hits.append(now)
-        if len(self.clients) > 4096:
-            self.clients.popitem(last=False)
+    def __init__(self) -> None:
+        super().__init__(limit=AUTH_RATE_LIMIT, window_s=AUTH_RATE_WINDOW_S)
 
 
 def rate_limit(request: Request) -> None:
@@ -176,6 +191,24 @@ def rate_limit(request: Request) -> None:
         request.app.state.auth_limiter.check(
             request.client.host if request.client else "unknown", time.monotonic()
         )
+
+
+def rate_limit_account(request: Request, email: str) -> None:
+    """A second bucket per account, keyed by the SHA-256 of the address.
+
+    The address bucket stops one client trying every account; this one stops every
+    client trying one account, which is what a distributed guessing run looks like.
+    The key is a hash so the map holds no addresses (I14), and it is normalised the
+    way ``IdentityService.login`` normalises the lookup.
+    """
+    settings = request.app.state.settings
+    if settings is None or not settings.rate_limit_enabled:
+        return
+    limiter: SlidingWindowLimiter | None = getattr(request.app.state, "login_account_limiter", None)
+    if limiter is None:
+        limiter = SlidingWindowLimiter(limit=AUTH_RATE_LIMIT, window_s=AUTH_RATE_WINDOW_S)
+        request.app.state.login_account_limiter = limiter
+    limiter.check(sha256_hex(email.strip().lower()), time.monotonic())
 
 
 @router.post(
@@ -211,7 +244,16 @@ async def auth_login(
     response: Response,
     db: AsyncSession = Depends(database_session),
 ):
-    rate_limit(request)
+    # The address bucket is the dependency above; this is the account bucket. Both are
+    # needed: one address trying many accounts and many addresses trying one account
+    # are different attacks (config-and-errors.md section 3).
+    rate_limit_account(request, payload.email)
+    # The register route's Origin gate means "this is our own page posting". A login
+    # from a non-browser client has no Origin to check, so the rule applies only when
+    # one arrives: refusing every header-less client would break the CLI and the tests
+    # without adding a check.
+    if request.headers.get("origin") is not None:
+        _signup_origin(request)
     login = await identity_service(request).login(
         db, email=payload.email, password=payload.password
     )
@@ -227,7 +269,7 @@ async def auth_logout(
     db: AsyncSession = Depends(database_session),
 ):
     await identity_service(request).logout(db, principal)
-    response.delete_cookie("session", path="/", httponly=True, samesite="lax")
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="lax", secure=True)
 
 
 @router.get("/api/v1/me", response_model=schemas.MeResponse, operation_id="me_get")

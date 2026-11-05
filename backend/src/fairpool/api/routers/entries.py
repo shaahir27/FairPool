@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import OrderedDict, deque
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -22,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
-from fairpool.api.deps import database_session, require_session
+from fairpool.api.deps import database_session, require_buyer
 from fairpool.config import Settings
 from fairpool.db.models.catalog import PoolEntry
 from fairpool.db.models.enums import BuyerOrderStatus
@@ -32,6 +31,7 @@ from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.crypto import AesGcmCipher, DecryptionError
 from fairpool.infra.idempotency import PostgresIdempotencyStore
+from fairpool.infra.limits import SlidingWindowLimiter
 from fairpool.modules.agentapi.views import entry_view, entry_views
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.pools.join import JoinService
@@ -61,39 +61,21 @@ JOIN_RATE_LIMIT = 10
 JOIN_RATE_WINDOW_S = 60.0
 
 
-class UserRateLimiter:
+class UserRateLimiter(SlidingWindowLimiter):
     """One sliding window per session user; ``config-and-errors.md`` section 3 limits.
 
-    Same shape as ``AuthRateLimiter`` (auth.py) but keyed by the authenticated user
-    rather than the client address. The intake route reuses this class with its own
-    limit instead of carrying a third copy of the window.
+    Keyed by the authenticated user rather than the client address, because two
+    buyers behind one address must not share a budget. The intake route reuses this
+    class with its own limit instead of carrying a second copy of the window.
     """
 
     def __init__(self, *, limit: int = JOIN_RATE_LIMIT, window_s: float = JOIN_RATE_WINDOW_S):
-        self.limit = limit
-        self.window_s = window_s
-        self.clients: OrderedDict[str, deque[float]] = OrderedDict()
-
-    def check(self, user_id: str, now: float) -> None:
-        # shortcut: per-process limits; require shared enforcement before multi-process deployment.
-        hits = self.clients.setdefault(user_id, deque())
-        self.clients.move_to_end(user_id)
-        while hits and now - hits[0] >= self.window_s:
-            hits.popleft()
-        if len(hits) >= self.limit:
-            raise HTTPException(
-                429,
-                "RATE_LIMITED",
-                headers={"Retry-After": str(max(1, int(self.window_s - (now - hits[0])) + 1))},
-            )
-        hits.append(now)
-        if len(self.clients) > 4096:
-            self.clients.popitem(last=False)
+        super().__init__(limit=limit, window_s=window_s)
 
 
 async def rate_limit_join(
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
 ) -> Principal:
     settings = request.app.state.settings
     if settings is not None and settings.rate_limit_enabled:
@@ -220,7 +202,7 @@ async def entries_join(
 async def entries_me_get(
     pool_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     entry = await db.scalar(
@@ -230,33 +212,28 @@ async def entries_me_get(
     )
     if entry is None:
         raise HTTPException(404, "NOT_FOUND")
-    # Allocation and offer views arrive with Phase 4 (T04A05). The vault fields come
-    # from the vault service itself: a status and a four-character label, never a
-    # token, and never a value invented here (vault-charge.md section 5). With no
-    # VAULT_TOKEN_KEY configured no permission can exist at all, so the read reports
-    # that instead of failing: a buyer's own entry page must not break over an
-    # operator setting.
+    # The allocation and the live offer come from the one view helper the agent lane
+    # and ``entry_status`` already share, so this read cannot drift from them. The
+    # vault fields come from the vault service itself: a status and a four-character
+    # label, never a token, and never a value invented here (vault-charge.md
+    # section 5). With no VAULT_TOKEN_KEY configured no permission can exist at all,
+    # so the read reports that instead of failing: a buyer's own entry page must not
+    # break over an operator setting.
     vault_status: str | None = None
     vault_label: str | None = None
     if _settings(request).vault_token_key is not None:
         permission = await _vault_service(request).status(db, entry_id=entry.id)
         vault_status, vault_label = permission.status, permission.label
-    return JSONResponse(
-        status_code=200,
-        content={
-            "entry_id": str(entry.id),
-            "entry_status": str(entry.status),
-            "allocation": None,
-            "offer": None,
-            "vault_status": vault_status,
-            "vault_label": vault_label,
-            # CR-9: the same helper the join replay uses, so the read-back is the receipt
-            # the pool signed. Returned as the exact JSON bytes for the same reason the
-            # join is: FastAPI must not re-serialise the timestamp (fairness §1), or the
-            # payload a buyer downloads would no longer be the text the signature covers.
-            "receipt": await _stored_receipt(db, entry),
-        },
-    )
+    view = await _entry_view(db, entry, frontend_base_url=_settings(request).frontend_base_url)
+    body = view.model_dump(mode="json")
+    body["vault_status"] = vault_status
+    body["vault_label"] = vault_label
+    # CR-9: the same helper the join replay uses, so the read-back is the receipt
+    # the pool signed. Returned as the exact JSON bytes for the same reason the
+    # join is: FastAPI must not re-serialise the timestamp (fairness §1), or the
+    # payload a buyer downloads would no longer be the text the signature covers.
+    body["receipt"] = await _stored_receipt(db, entry)
+    return JSONResponse(status_code=200, content=body)
 
 
 async def _stored_receipt(db: AsyncSession, entry: PoolEntry) -> dict[str, object] | None:
@@ -285,7 +262,7 @@ async def _stored_receipt(db: AsyncSession, entry: PoolEntry) -> dict[str, objec
 async def entries_me_delete(
     pool_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     # Phase 1 is the entry withdrawal alone. ``join.withdraw`` takes the ``users``
@@ -325,7 +302,7 @@ async def vault_start(
     entry_id: UUID,
     payload: schemas.VaultStartRequest,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
@@ -352,7 +329,7 @@ async def vault_start(
 async def vault_return(
     entry_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
     token: str | None = Query(None),
     payer_id: str | None = Query(None, alias="PayerID"),
@@ -370,7 +347,7 @@ async def vault_return(
 async def vault_delete(
     entry_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
     entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)
@@ -389,11 +366,11 @@ async def vault_delete(
     "/api/v1/me/entries",
     response_model=schemas.MeEntryList,
     operation_id="me_entries",
-    dependencies=[Security(require_session)],
+    dependencies=[Security(require_buyer)],
 )
 async def me_entries(
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.MeEntryList:
     entries = list(
@@ -411,12 +388,12 @@ async def me_entries(
     "/api/v1/entries/{entry_id}/status",
     response_model=schemas.EntryStatusResponse,
     operation_id="entry_status",
-    dependencies=[Security(require_session)],
+    dependencies=[Security(require_buyer)],
 )
 async def entry_status(
     entry_id: UUID,
     request: Request,
-    principal: Annotated[Principal, Security(require_session)],
+    principal: Annotated[Principal, Security(require_buyer)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ):
     entry = await _owned_entry(db, entry_id=entry_id, user_id=principal.user_id)

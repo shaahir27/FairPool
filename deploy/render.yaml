@@ -17,6 +17,11 @@ services:
       - fromGroup: paypal
       - fromGroup: ai
       - fromGroup: search
+      # Render terminates TLS at its edge, so the only trusted X-Forwarded-* source is
+      # Render's own proxy: trust every peer on the private network, and nothing else
+      # can reach the container's socket.
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
       # Supabase session-pooler URL (external database); no Render Postgres.
       - key: DATABASE_URL
         sync: false
