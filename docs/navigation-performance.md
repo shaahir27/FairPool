@@ -109,59 +109,60 @@ hosting decision; this change does not alter billing, move data or fake readines
 
 Added 5 November 2026, after this document first told the owner not to hide the cold
 start behind a keep-alive job. The owner decided to run one anyway, so the mechanism,
-its cadence and its limits are recorded here instead of being left implicit.
+its cadence and its limits are recorded here instead of being left implicit. The scope
+settled with the owner is deliberately narrow: the app only has to be warm from the
+submission flip onward, because the judges see the link once the repository is public.
 
-Render's free-tier rule ([docs page](https://render.com/docs/free)): a free web service
-spins down after **15 minutes** without inbound traffic, waking takes **about a minute**,
-and only inbound requests count as activity. The interval therefore has to be shorter
-than 15 minutes; it is **10 minutes**, which leaves a 5-minute margin for a late or
-failed run. A 20-minute cadence would sleep the service between pings.
+Render's free-tier rules ([docs page](https://render.com/docs/free)):
 
-Two runners, both requesting `/health` and then `/ready`:
+- a free web service spins down after **15 minutes** without inbound traffic and needs
+  **about a minute** to wake; only inbound requests count as activity;
+- hours are consumed **while the service runs** and the workspace pool is **750 hours a
+  month**; at exhaustion Render suspends every free service until the next month;
+- a free web service is **not** deleted for inactivity, so the URL itself keeps working
+  indefinitely — the difference between awake and asleep is one slow first request.
 
-- `.github/workflows/keep-warm.yml` — cron `*/10 * * * *`, plus a manual
-  `workflow_dispatch` button used to wake the app just before a demo or a screen share.
-- `tools/keep_warm.ps1` — the same two requests, run by a Windows scheduled task on the
-  owner's machine while the repository is private.
+The cadence therefore has to be under 15 minutes: **every 10 minutes**, which leaves a
+5-minute margin for a late or failed run. The window is **20 hours a day, not 24**, and
+that is the arithmetic, not a preference: 24/7 is 720-744 hours of a 750-hour pool, which
+leaves as little as 6 hours of margin before a suspension that would black out the demo
+for days. `*/10 3-22 * * *` UTC is about 600 hours a month and keeps 150 hours in reserve.
+During the four unwarmed hours a visitor waits about a minute on the first request.
+
+One runner requests `/health` and then `/ready`:
+
+- `.github/workflows/keep-warm.yml` — the windowed cron above, plus a manual
+  `workflow_dispatch` button that pre-warms the app before a screen share at any hour.
 
 `/ready` is included because it runs the database and migration checks, so the free
-Supabase project also sees queries and does not reach the pause-after-about-7-days rule.
+Supabase project also sees queries. Supabase pauses a free project after **7 days**
+without database activity, keeps a paused project restorable for a year, and resumes it
+on activity ([pausing docs](https://supabase.com/docs/guides/platform/free-project-pausing)),
+so the daily pings remove the only data-side way this demo could go quiet in January or
+February.
 
 The workflow stays **disabled while the repository is private**. A scheduled job on a
 private repository bills at least one minute per run, so a 10-minute cadence is about
-4,320 minutes a month against the 2,000 free GitHub Actions minutes and would exhaust
-the quota and block CI. The repository flips public at T10A02/T11X01 (before 12 November
-2026); scheduled runs are free on a public repository, so it is enabled then:
+4,320 minutes a month against the 2,000 free GitHub Actions minutes and would exhaust the
+quota and block CI. Enabling it is part of the flip, recorded as a request in
+[progress.md](progress.md):
 
 ```powershell
-gh workflow enable keep-warm.yml      # after the repository becomes public
+gh workflow enable keep-warm.yml      # the same change that makes the repository public
 ```
 
-Register the local task once (it needs no elevation and no secrets):
+After enabling, the success line is a scheduled run whose log shows `/health -> HTTP 200`
+and `/ready -> HTTP 200`, and a `/health` request that returns in well under a second.
+The free instance hours meter in the Render dashboard is read at the same time as the
+submission QA checks; if it approaches 750, the window narrows rather than the demo going
+dark.
 
-```powershell
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File D:\Desktop\project\FairPool\tools\keep_warm.ps1'
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 3)
-Register-ScheduledTask -TaskName 'FairPool Keep Warm' -Action $action -Trigger $trigger -Settings $settings -Description 'Requests /health and /ready every 10 minutes so the free Render service does not spin down.'
-```
-
-Check and remove:
-
-```powershell
-Get-ScheduledTaskInfo -TaskName 'FairPool Keep Warm' | Select-Object LastRunTime, LastTaskResult, NextRunTime
-Get-Content "$env:TEMP\fairpool-keep-warm.log" -Tail 4
-Unregister-ScheduledTask -TaskName 'FairPool Keep Warm' -Confirm:$false
-```
-
-Success line: `LastTaskResult` is `0`, the next run time is about ten minutes ahead, and
-the log shows `/health HTTP 200` and `/ready HTTP 200`.
-
-Limits stated honestly: the local task runs only while the owner's machine is awake, so
-a closed laptop or a paused machine brings the cold start back. A ping cannot make a
-warm read faster than the 0.5-1 second measurements above, and it does not change the
-Render plan, the region or the BD-05 decision that paid instances must return before
-20 November 2026.
+Limits stated honestly: GitHub's scheduler can delay or skip a scheduled run under load,
+which only costs warmth, not availability. A ping cannot make a warm read faster than the
+0.5-1 second measurements above, and it does not change the Render plan, the region or the
+BD-05 decision that paid instances must return before 20 November 2026. If the owner later
+wants zero cold starts around the clock through February, that is the paid web service at
+about $7 a month, not a better cron.
 
 ## Primary references
 
