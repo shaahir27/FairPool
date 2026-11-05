@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fairpool.api import schemas
 from fairpool.api.deps import database_session
 from fairpool.db.models.catalog import EntryReceipt, Pool, PoolEntry
-from fairpool.db.models.enums import EntryStatus, PoolStatus
+from fairpool.db.models.enums import EntryStatus, PoolMode, PoolStatus
 from fairpool.modules.pools.receipts import public_key_b64url, signing_seed
 from fairpool.modules.pools.service import rules_document
 
@@ -145,7 +145,11 @@ async def _lots(db: AsyncSession, pool_id: UUID) -> list[dict[str, Any]]:
     operation_id="public_audit",
 )
 async def public_audit(pool_id: UUID, db: AsyncSession = Depends(database_session)):
-    pool = await db.scalar(select(Pool).where(Pool.id == pool_id))
+    # FR-SM-01: a SIMULATION pool has an audit trail only inside the simulation; its
+    # id answers exactly like an unknown one on every public surface.
+    pool = await db.scalar(
+        select(Pool).where(Pool.id == pool_id, Pool.mode == PoolMode.LIVE_SANDBOX)
+    )
     if pool is None or pool.rules_hash is None:
         # A DRAFT pool has no frozen rules document and is not public at all: the
         # answer is the same as for an unknown id, so nothing about it leaks.

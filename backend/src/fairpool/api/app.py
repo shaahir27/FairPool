@@ -47,6 +47,7 @@ from fairpool.config import (
     assert_sandbox_host,
 )
 from fairpool.infra.clock import DbClock
+from fairpool.infra.metrics import metrics_route
 from fairpool.infra.security_headers import SecurityHeadersMiddleware, sanitize_request_id
 from fairpool.logging import request_id
 from fairpool.modules.mcp.transport import build_mcp_app
@@ -170,5 +171,8 @@ def create_app(
         app.router.routes.append(
             Route("/mcp", endpoint=build_mcp_app(app, settings, clock=DbClock()))
         )
+    # A scrape endpoint, not a documented operation: the frozen route-table test
+    # must not grow an entry for it (T08A05).
+    app.router.routes.append(metrics_route())
     _serve_web(app)
     return app

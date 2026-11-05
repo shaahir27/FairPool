@@ -52,6 +52,7 @@ from fairpool.domain import checkout_guards
 from fairpool.domain.checkout_guards import Observation
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.payments import ChargeResult, Payee, PaymentError
+from fairpool.infra.metrics import get_counters
 from fairpool.modules.checkout.engine import CheckoutEngine, TransitionRequest
 from fairpool.modules.checkout.funding import retry_in, try_slot
 from fairpool.ports import (
@@ -276,6 +277,7 @@ class VaultChargeHandler:
     def _contradiction(self, result: ChargeResult, *, payee: Payee, total_cents: int) -> str | None:
         """BO-24's amount and payee checks as a reason code, from the provider's values."""
         if result.amount_cents is not None and int(result.amount_cents) != total_cents:
+            get_counters().incr("fairpool_amount_mismatch_total", stage="vault_capture")
             return "AMOUNT_MISMATCH"
         if result.payee_email is None:
             return "UNVERIFIABLE"
@@ -335,6 +337,7 @@ class VaultChargeHandler:
                 await self._to_capture_failed(session, order.id, observation)
             else:
                 # Conditional or unknown error: CAPTURING, reconciled by GET.
+                get_counters().incr("fairpool_outcome_unknown_total", stage="vault_error")
                 logger.error(
                     "checkout.vault_charge.error buyer_order_id=%s code=%s",
                     order.id,
@@ -368,6 +371,7 @@ class VaultChargeHandler:
             )
             await self._to_capture_failed(session, order.id, observation)
             return
+        get_counters().incr("fairpool_outcome_unknown_total", stage="vault_status")
         logger.error(
             "checkout.vault_charge.unknown_status buyer_order_id=%s status=%s",
             order.id,
@@ -390,6 +394,7 @@ class VaultChargeHandler:
             await self._to_capture_failed(session, buyer_order_id, observation)
             return
         # Unknown: stay CAPTURING and reconcile by GET with the same identity.
+        get_counters().incr("fairpool_outcome_unknown_total", stage="vault_charge_error")
         logger.error(
             "checkout.vault_charge.unknown buyer_order_id=%s category=%s code=%s",
             buyer_order_id,

@@ -1,0 +1,58 @@
+groups:
+  - name: fairpool-checkout
+    rules:
+      # I10: a rejected transition is a bug or a race that must be looked at, never a
+      # normal retry path. One event is enough; the five-minute window absorbs a
+      # single crash-loop after a deploy.
+      - alert: FairpoolTransitionsRejected
+        expr: sum(increase(fairpool_transitions_rejected_total[5m])) >= 1
+        for: 5m
+        labels:
+          severity: warning
+          service: fairpool
+        annotations:
+          summary: Checkout transitions were rejected by the whitelist or a guard
+          description: >-
+            One or more buyer-order transitions were refused in the last five minutes.
+            Check the structured checkout.illegal_transition log line for the machine,
+            the pair and the correlation ids.
+
+      # I3/I4: an amount or payee that contradicts the stored award means a request or
+      # a provider answer did not match what FairPool recorded. No tolerance.
+      - alert: FairpoolAmountMismatch
+        expr: sum(increase(fairpool_amount_mismatch_total[5m])) >= 1
+        labels:
+          severity: critical
+          service: fairpool
+        annotations:
+          summary: A provider amount or payee contradicted the stored award
+          description: >-
+            The checkout lane saw an amount or payee mismatch at the
+            {{ $labels.stage }} stage. Investigate before the lot settles.
+
+      # I9: an unknown outcome keeps the row locked until a GET settles it. More than
+      # five in a quarter hour means the provider is failing in a way retries hide.
+      - alert: FairpoolUnknownOutcomes
+        expr: sum(increase(fairpool_outcome_unknown_total[15m])) > 5
+        labels:
+          severity: warning
+          service: fairpool
+        annotations:
+          summary: More than five provider outcomes were unknown in fifteen minutes
+          description: >-
+            The {{ $labels.stage }} stage left buyer orders waiting on evidence. Check
+            the PayPal debug ids in the structured logs and whether the reconciler is
+            draining.
+
+      # A dead letter is work that no retry will finish. Ops must see it, not only
+      # find it in the console.
+      - alert: FairpoolDeadLetters
+        expr: max(fairpool_dead_letters) >= 1
+        labels:
+          severity: critical
+          service: fairpool
+        annotations:
+          summary: Failed jobs or dead-lettered webhook events exist
+          description: >-
+            The dead-letter gauge is above zero. Inspect webhook_events and jobs for
+            the failed rows; a webhook alone never changes money state (P4).

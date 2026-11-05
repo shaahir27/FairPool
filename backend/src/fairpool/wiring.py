@@ -73,6 +73,7 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
         "reconciler.sweep",
         "webhook.process",
         "shipments.submit",
+        "sim.run",
     }
 )
 
@@ -316,6 +317,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     from fairpool.modules.reconciler.resolve import Reconciler
     from fairpool.modules.search.handlers import search_index_handler
     from fairpool.modules.search.indexer import build_search_indexer
+    from fairpool.modules.sim.handlers import SimRunHandler
     from fairpool.modules.webhooks.handlers import WebhookProcessor
 
     clock, audit, jobs = DbClock(), PostgresAuditLog(), PostgresJobQueue()
@@ -369,6 +371,10 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         await surface.authorize.approved(session, buyer_order_id=buyer_order_id)
 
     webhooks = WebhookProcessor(clock=clock, jobs=jobs, settle=settle_order, approve=approve_order)
+    try:
+        sim = SimRunHandler(ai=ai_client(settings))
+    except Exception:  # noqa: BLE001 - AI off is the normal demo configuration
+        sim = SimRunHandler()
 
     return {
         "pool.open": pools.open,
@@ -395,6 +401,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "reconciler.sweep": sweep,
         "webhook.process": webhooks.process,
         "shipments.submit": tracking.submit,
+        "sim.run": sim.run,
     }
 
 

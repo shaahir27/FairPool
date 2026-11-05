@@ -24,6 +24,7 @@ from fairpool.modules.checkout.open_checkout import OpenCheckoutHandler
 from fairpool.modules.checkout.refill import RefillService
 from fairpool.modules.checkout.vault_charge import VaultChargeHandler
 from fairpool.modules.fulfillment.tracking import ShipmentTracking
+from fairpool.modules.sim.handlers import SimRunHandler
 from fairpool.wiring import IMPLEMENTED_JOB_KINDS, worker_handlers
 from tests.unit.test_settings import make_settings
 
@@ -31,9 +32,7 @@ ROOT = Path(__file__).resolve().parents[3]
 PORTS_DOC = ROOT / "docs/contracts/domain-ports.md"
 
 #: The kinds a later phase owns. None of them may be registered yet.
-LATER_PHASES = {
-    "sim.run",
-}
+LATER_PHASES: set[str] = set()
 
 #: kind -> the real owner whose bound method must be registered.
 OWNERS = {
@@ -52,6 +51,7 @@ OWNERS = {
     "void.run": FailureService,
     "refund.run": FailureService,
     "shipments.submit": ShipmentTracking,
+    "sim.run": SimRunHandler,
 }
 
 
