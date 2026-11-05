@@ -75,7 +75,7 @@ it("keeps all five walkthrough descriptions readable without playback controls",
   const how = await screen.findByRole("region", { name: "How a pool works" });
   const steps = within(how).getByRole("list");
   expect(within(steps).getAllByRole("listitem")).toHaveLength(5);
-  expect(within(steps).getByRole("heading", { name: /Payment follows your consent/ })).toBeVisible();
+  expect(within(steps).getByRole("heading", { name: /You approve your own payment/ })).toBeVisible();
   expect(within(steps).getByRole("heading", { name: /The order goes ahead only when enough people pay/ })).toBeVisible();
   expect(within(how).queryByRole("button")).not.toBeInTheDocument();
 });

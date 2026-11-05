@@ -9,7 +9,7 @@
 :where(.landing) button {font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
 :where(.landing) :focus-visible {outline:2px solid var(--ink);outline-offset:3px;border-radius:8px}
 :where(.landing) .dk :focus-visible {outline-color:var(--onf)}
-.landing ::selection {background:var(--soft);color:var(--ink)}
+.landing ::selection {background:var(--soft)}
 :where(.landing) .wrap {max-width:1216px;margin:0 auto;padding:0 32px}
 :where(.landing) .icon {width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 :where(.landing) h1,:where(.landing) h2,:where(.landing) h3 {letter-spacing:-.045em;text-wrap:balance}
@@ -35,7 +35,7 @@
 :where(.landing) .btn:hover .icon {transform:translateX(3px)}
 :where(.landing) .btn.s:hover {background:rgb(var(--color-ink)/.07)}
 :where(.landing) .dk .btn.s:hover {background:rgb(var(--color-canvas)/.14)}}
-:where(.landing) .hero {position:relative;padding:148px 0 104px;color:var(--onf);overflow:hidden;background:var(--fld)}
+:where(.landing) .hero {position:relative;padding:148px 0 104px;color:var(--onf);overflow:hidden;background:radial-gradient(55% 65% at 74% 48%,rgb(255 195 79/.17),transparent 70%),radial-gradient(40% 50% at 8% 90%,rgb(245 105 82/.14),transparent 70%),linear-gradient(165deg,var(--fld),var(--bnd))}
 :where(.landing) .hg {display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);gap:clamp(24px,4vw,64px);align-items:center}
 :where(.landing) h1 {font-size:clamp(42px,6.2vw,78px);line-height:1.02;font-weight:700;letter-spacing:-.045em;text-wrap:balance}
 :where(.landing) .hero .lead {max-width:47ch;color:var(--fm);animation:landing-fade .8s .5s both}
@@ -44,7 +44,7 @@
 :where(.landing) .pill {display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;border:1px solid rgb(var(--color-canvas)/.35);font-size:13px;color:var(--fm)}
 :where(.landing) .pill .icon {width:14px;height:14px}
 :where(.landing) .pool {position:relative;width:min(100%,560px);aspect-ratio:1;margin:0 auto;perspective:1100px}
-:where(.landing) .pool::before {opacity:.65;content:"";position:absolute;inset:6%;border-radius:50%;background:radial-gradient(closest-side,rgb(var(--color-mark)/.3),transparent);filter:blur(26px)}
+:where(.landing) .pool::before {opacity:.65;content:"";position:absolute;inset:6%;border-radius:50%;background:radial-gradient(closest-side,rgb(255 195 79/.3),transparent);filter:blur(26px)}
 :where(.landing) .scene {position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(calc(54deg + var(--rx,0deg)))}
 :where(.landing) .rr {position:absolute;inset:0;transform-style:preserve-3d;transform:rotateZ(var(--rz,0deg)) scale(var(--sc,1));}
 :where(.landing) .seat-ring {position:absolute;inset:0;transform:translateZ(calc(var(--i)*4.64cqw));animation:landing-build 1s var(--ease-out) both;animation-delay:calc(.3s + var(--i)*.14s)}
@@ -68,7 +68,7 @@
 @media(hover:hover){
 :where(.landing) .step:not(.on):hover {background:var(--paper-deep)}
 }
-:where(.landing) .stage {min-width:0;display:grid;gap:14px;padding:24px 28px;border:1px solid var(--line);border-radius:28px;color:var(--onf);background:var(--bnd);box-shadow:0 24px 60px rgb(var(--color-ink)/.22);overflow:hidden}
+:where(.landing) .stage {min-width:0;display:grid;gap:14px;padding:24px 28px;border:1px solid var(--line);border-radius:28px;color:var(--onf);background:linear-gradient(160deg,var(--fld),var(--bnd));box-shadow:0 24px 60px rgb(var(--color-ink)/.22);overflow:hidden}
 :where(.landing) .sth {display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--mut)}
 :where(.landing) .sth .pill {padding:4px 10px;border:1px solid var(--line);color:var(--mut);font-size:12px}
 :where(.landing) .pn {min-width:0;animation:landing-step 200ms var(--ease-out) both}
@@ -143,7 +143,7 @@
 :where(.landing) .cols .on .icon {color:var(--act)}
 :where(.landing) .cols .soon {color:var(--mut)}
 :where(.landing) .know {margin-top:36px;padding:22px 24px;border-radius:18px;background:var(--soft);display:grid;gap:8px;font-size:14px}
-:where(.landing) .end {position:relative;overflow:hidden;padding:120px 0;text-align:center;color:var(--onf);background:var(--fld)}
+:where(.landing) .end {position:relative;overflow:hidden;padding:120px 0;text-align:center;color:var(--onf);background:radial-gradient(50% 80% at 50% 110%,rgb(255 195 79/.2),transparent 70%),linear-gradient(160deg,var(--bnd),var(--fld))}
 :where(.landing) .end .wrap {position:relative;z-index:1}
 :where(.landing) .end h2 {max-width:18ch;margin:0 auto}
 :where(.landing) .end .lead {margin:18px auto 0;color:var(--fm)}
@@ -333,7 +333,7 @@ animation-delay:calc(.1s + var(--k)*.12s)}
 :where(.landing) .stage .seats i.s {background:var(--mk);opacity:calc(.2 + .8*var(--f));scale:calc(.55 + .45*var(--f))}
 :where(.landing) .stage .seats i.me {--m:clamp(0,calc((var(--s,0) - .8)*8),1);background:color-mix(in srgb,var(--act) calc(var(--m)*100%),var(--mk));box-shadow:0 0 0 calc(var(--m)*3px) var(--onf);scale:calc(.55 + .45*var(--f) + .2*var(--m))}
 :where(.landing) .stage .bid i::after {animation:none;transform:scaleX(clamp(0,calc(var(--s,0)*1.7 - var(--k)*.12),1))}
-:where(.landing) .stage .bid:not(.w) i {opacity:calc(1 - .4*clamp(0,calc((var(--s,0) - .65)*5),1))}
+:where(.landing) .stage .bid:not(.w) {opacity:calc(1 - .4*clamp(0,calc((var(--s,0) - .65)*5),1))}
 :where(.landing) .fund circle {transform:rotate(-90deg);transform-origin:62px 62px}
 :where(.landing) .fund .rg {stroke-dasharray:327px;stroke-dashoffset:calc(327px*(1 - clamp(0,calc(var(--s,0)*1.4),1)))}
 :where(.landing) .fund-check {stroke-dasharray:60px;stroke-dashoffset:calc(60px*(1 - clamp(0,calc((var(--s,0) - .7)*4),1)))}
@@ -429,3 +429,132 @@ animation-delay:calc(.1s + var(--k)*.12s)}
 :where(.landing) .fund {margin:4px 0 10px}
 :where(.landing) .fund svg {width:56px;height:56px}
 :where(.landing) .fund b {font-size:30px}}
+
+/* ================= The sheet: one ruled surface under everything below the hero ================= */
+:where(.landing) .sheet {position:relative;z-index:2;isolation:isolate;margin-top:-44px;border-radius:44px 44px 0 0;overflow:clip;box-shadow:0 -24px 60px rgb(var(--color-ink)/.2);
+  background:radial-gradient(60% 26% at 92% 6%,rgb(255 195 79/.22),transparent 70%),radial-gradient(55% 24% at 2% 58%,rgb(8 111 165/.12),transparent 70%),color-mix(in srgb,rgb(var(--color-card)) 52%,white)}
+/* Fine grid every 32px, stronger rule every 160px, and a small mark where the strong rules cross. */
+:where(.landing) .sheet::before {content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(rgb(8 111 165/.08) 1px,transparent 1px),linear-gradient(90deg,rgb(8 111 165/.08) 1px,transparent 1px),linear-gradient(rgb(8 111 165/.15) 1px,transparent 1px),linear-gradient(90deg,rgb(8 111 165/.15) 1px,transparent 1px),radial-gradient(circle at 0 0,rgb(8 111 165/.55) 2.5px,transparent 3px);
+  background-size:32px 32px,32px 32px,160px 160px,160px 160px,160px 160px;
+  -webkit-mask-image:linear-gradient(transparent,#000 260px,#000 calc(100% - 140px),transparent);mask-image:linear-gradient(transparent,#000 260px,#000 calc(100% - 140px),transparent)}
+/* The same grid, brighter, revealed only around the pointer (--mx, --my). */
+:where(.landing) .sheet::after {content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:linear-gradient(rgb(8 111 165/.34) 1px,transparent 1px),linear-gradient(90deg,rgb(8 111 165/.34) 1px,transparent 1px);background-size:32px 32px;
+  -webkit-mask-image:radial-gradient(230px circle at var(--mx,-400px) var(--my,-400px),#000,transparent);mask-image:radial-gradient(230px circle at var(--mx,-400px) var(--my,-400px),#000,transparent)}
+:where(.landing) .sheet .sec {padding:96px 0;background:none}
+:where(.landing) .sheet .status {border:0;background:none}
+
+/* ===== What you can count on: four equal tiles, then one receipt band ===== */
+:where(.landing) .trust {display:block}
+:where(.landing) .prom {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:40px}
+:where(.landing) .pr,:where(.landing) .cols {background:color-mix(in srgb,white 64%,rgb(var(--color-card)));border:1px solid rgb(8 111 165/.2);border-radius:24px;box-shadow:inset 0 1px 0 #fff,0 14px 34px rgb(var(--color-ink)/.07)}
+:where(.landing) .pr {display:flex;flex-direction:column;justify-content:flex-start;gap:0;min-height:0;padding:20px 20px 24px}
+:where(.landing) .pr::before {display:none}
+:where(.landing) .pr h3 {margin-top:22px;font-size:19px;line-height:1.25}
+:where(.landing) .pr h3,:where(.landing) .pr p {opacity:1;translate:none}
+:where(.landing) .pr p {margin-top:8px;font-size:14.5px;line-height:1.6;color:var(--mut)}
+/* Every tile opens with the same framed visual, so titles and text line up across the row. */
+:where(.landing) .viz {display:flex;flex-direction:column;justify-content:center;height:112px;padding:16px;border-radius:16px;background:rgb(8 111 165/.07);border:1px solid rgb(8 111 165/.1)}
+:where(.landing) .viz.big {flex-direction:row;align-items:center;font-size:60px;line-height:1;font-weight:700;letter-spacing:-.06em;scale:calc(.85 + .15*var(--c,1));transform-origin:left center}
+:where(.landing) .meter .tr {position:relative;height:12px;border-radius:6px;background:rgb(var(--color-ink)/.12)}
+:where(.landing) .meter .tr i {display:block;height:100%;width:88.75%;border-radius:6px;background:var(--act);transform-origin:left;transform:scaleX(var(--c,1))}
+:where(.landing) .meter.m2 .tr i {width:60%}
+:where(.landing) .meter.m2 .tr::after {content:"";position:absolute;left:80%;top:-5px;bottom:-5px;width:2px;border-radius:2px;background:var(--ink)}
+:where(.landing) .meter .lab {display:flex;justify-content:space-between;gap:12px;margin-top:12px;font-size:13px;color:var(--mut)}
+:where(.landing) .ask {align-items:flex-start;gap:10px}
+:where(.landing) .ask span {padding:8px 12px;border-radius:10px;background:var(--surf);font-size:13px;clip-path:inset(0 calc((1 - min(1,var(--c,1)*1.6))*100%) 0 0)}
+:where(.landing) .ask em {padding:5px 12px;border-radius:999px;background:var(--mk);font:normal 600 12px Inter,sans-serif;opacity:clamp(0,calc((var(--c,1) - .7)*5),1)}
+/* The receipt is one band: a header, four facts side by side, then the stamp and note. */
+:where(.landing) .rc {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px 24px;margin-top:16px;padding:28px 32px;transform:none;background:color-mix(in srgb,white 64%,rgb(var(--color-card)));border:1px solid rgb(8 111 165/.2);border-radius:24px;box-shadow:inset 0 1px 0 #fff,0 14px 34px rgb(var(--color-ink)/.07)}
+:where(.landing) .rch {grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px dashed rgb(8 111 165/.3)}
+:where(.landing) .rc dl {display:contents}
+:where(.landing) .rc .rw {display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px;padding:0;border:0}
+:where(.landing) .rc .rw dt {font-size:12.5px;color:var(--mut)}
+:where(.landing) .rc .rw dd {font-size:15px;font-weight:500;overflow-wrap:anywhere}
+:where(.landing) .rc .stamp {grid-column:1/3;justify-self:start;align-self:center}
+:where(.landing) .rc .note {grid-column:3/-1;align-self:center;margin:0}
+:where(.landing) .cols {padding:36px}
+
+/* ===== Both sides: one panel with a shared seam; ticks fill in as it arrives, nothing slides ===== */
+:where(.landing) .duo {position:relative;display:grid;grid-template-columns:1fr 1fr;margin-top:40px;border-radius:32px;overflow:hidden;border:1px solid rgb(8 111 165/.25);box-shadow:0 24px 60px rgb(var(--color-ink)/.14)}
+:where(.landing) .duo .side {border:0;border-radius:0;box-shadow:none;padding:48px;translate:none;opacity:1}
+:where(.landing) .duo .side::before {display:none}
+:where(.landing) .duo .side.b {background:color-mix(in srgb,white 64%,rgb(var(--color-card)))}
+:where(.landing) .duo .side.m {background:var(--band)}
+:where(.landing) .duo .side h3 {font-size:32px}
+:where(.landing) .duo li {--j:0}
+:where(.landing) .duo li:nth-child(2) {--j:1}
+:where(.landing) .duo li:nth-child(3) {--j:2}
+:where(.landing) .duo li:nth-child(4) {--j:3}
+:where(.landing) .duo li .icon {stroke-dasharray:30px;stroke-dashoffset:calc(30px*(1 - clamp(0,calc(var(--c,1)*3 - var(--j)*.45),1)))}
+:where(.landing) .seam {position:absolute;z-index:2;left:50%;top:50%;width:64px;height:64px;translate:-50% -50%;color:var(--ink);scale:calc(.6 + .4*var(--c,1));filter:drop-shadow(0 8px 16px rgb(var(--color-ink)/.25))}
+:where(.landing) .seam .sb {fill:rgb(var(--color-card))}
+:where(.landing) .seam .sr {fill:none;stroke:var(--act);stroke-width:2.5;stroke-dasharray:189px;stroke-dashoffset:calc(189px*(1 - var(--c,1)));transform:rotate(-90deg);transform-origin:32px 32px}
+
+@media(max-width:1099px){:where(.landing) .prom {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:980px){
+:where(.landing) .sheet {margin-top:-28px;border-radius:28px 28px 0 0}
+:where(.landing) .sheet .sec {padding:72px 0}
+:where(.landing) .cols {padding:24px}
+:where(.landing) .rc {grid-template-columns:repeat(2,minmax(0,1fr));padding:24px}
+:where(.landing) .rc .stamp,:where(.landing) .rc .note {grid-column:1/-1}}
+@media(max-width:860px){
+:where(.landing) .duo {grid-template-columns:minmax(0,1fr)}
+:where(.landing) .duo .side {padding:32px 24px}
+:where(.landing) .seam {display:none}}
+@media(max-width:699px){:where(.landing) .prom {grid-template-columns:minmax(0,1fr)}}
+
+/* ===== Fixes: tokens this file was missing (they made the merchant text invisible and dropped animations) ===== */
+.landing {--band:var(--bnd);--surf:rgb(var(--color-surface));--ease-out:cubic-bezier(.23,1,.32,1)}
+:where(.landing) .duo .side.m {background:var(--bnd);color:var(--onf)}
+:where(.landing) .duo .side.m h3,:where(.landing) .duo .side.m li {color:var(--onf)}
+:where(.landing) .duo .side.m>p {color:var(--fm)}
+@media(max-width:560px){:where(.landing) .step,:where(.landing) .step.on {min-height:clamp(250px,36svh,300px)}}
+
+/* ===== Footer ===== */
+:where(.landing) .foot {position:relative;overflow:hidden;padding:72px 0 0;background:var(--ink);color:var(--fm);font-size:14px}
+:where(.landing) .foot::before {content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgb(239 247 252/.05) 1px,transparent 1px),linear-gradient(90deg,rgb(239 247 252/.05) 1px,transparent 1px);background-size:32px 32px;-webkit-mask-image:linear-gradient(#000,transparent 85%);mask-image:linear-gradient(#000,transparent 85%)}
+:where(.landing) .foot .wrap {position:relative;display:block}
+:where(.landing) .foot-top {display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px}
+:where(.landing) .foot-line {max-width:20ch;margin-top:24px;color:var(--onf);font-size:clamp(24px,3vw,32px);font-weight:700;line-height:1.12;letter-spacing:-.04em;text-wrap:balance}
+:where(.landing) .foot-status {display:inline-flex;align-items:center;gap:10px;max-width:46ch;margin-top:24px;padding:10px 16px;border:1px solid rgb(var(--color-canvas)/.28);border-radius:14px;font-size:13px;line-height:1.5;background:rgb(var(--color-canvas)/.07)}
+:where(.landing) .foot-status .dot {position:relative;flex:none;width:8px;height:8px;border-radius:50%;background:var(--mk)}
+:where(.landing) .foot-status .dot::after {content:"";position:absolute;inset:0;border-radius:50%;background:var(--mk);animation:landing-ping 2.4s var(--ease-out) infinite}
+@keyframes landing-ping {to {transform:scale(3.2);opacity:0}}
+:where(.landing) .foot-cols {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px;justify-items:start}
+:where(.landing) .foot-cols>div {display:grid;align-content:start;gap:2px}
+:where(.landing) .fh {margin-bottom:10px;padding-bottom:12px;border-bottom:1px solid rgb(var(--color-canvas)/.22);color:var(--fm);font-size:12.5px;opacity:.8}
+:where(.landing) .foot-cols a {display:inline-flex;align-items:center;justify-self:start;min-height:44px;color:var(--onf);font-size:15px;text-decoration:none;background:linear-gradient(currentColor,currentColor) 0 calc(100% - 10px)/0 1px no-repeat;transition:background-size .3s var(--ease-out)}
+:where(.landing) .foot-bar {display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 24px;margin-top:56px;padding-top:12px;border-top:1px solid rgb(var(--color-canvas)/.22)}
+:where(.landing) .foot-bar .up {display:inline-flex;align-items:center;gap:8px;min-height:44px;color:var(--onf);text-decoration:none}
+:where(.landing) .foot-bar .up .icon {rotate:-90deg;transition:translate .25s var(--ease-out)}
+@media(hover:hover){:where(.landing) .foot-cols a:hover {background-size:100% 1px}:where(.landing) .foot-bar .up:hover .icon {translate:0 -3px}}
+/* A ghost wordmark rises from the bottom edge as the footer arrives (--c). */
+:where(.landing) .foot-mark {position:relative;margin-top:24px;margin-bottom:-.2em;font:400 clamp(76px,20vw,260px)/.82 Georgia,serif;letter-spacing:-.05em;text-align:center;white-space:nowrap;color:transparent;-webkit-text-stroke:1px rgb(var(--color-canvas)/.3);translate:0 calc((1 - var(--c,1))*38%);user-select:none}
+@media(max-width:860px){:where(.landing) .foot {padding-top:56px}:where(.landing) .foot-top {grid-template-columns:minmax(0,1fr);gap:36px}:where(.landing) .foot-bar {margin-top:40px}}
+
+/* The seam holds the real FairPool mark; the footer mark gets a light edge so it stays visible on dark. */
+:where(.landing) .seam svg:first-child {position:absolute;inset:0;width:100%;height:100%}
+:where(.landing) .seam .seam-mark {position:absolute;left:50%;top:50%;width:34px;height:34px;translate:-50% -50%}
+:where(.landing) .foot .landing-brand svg {border-radius:10px;box-shadow:0 0 0 1px rgb(var(--color-canvas)/.5)}
+
+:where(.landing) .foot-cols {justify-items:stretch}
+@media(max-width:560px){:where(.landing) .foot-cols {grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px}}
+
+:where(.landing) .foot-mark {margin-bottom:-.1em;line-height:.9}
+
+/* ===== How it works on phones and tablets: no pinned card. Each step is its own block with its own illustration. ===== */
+:where(.landing) .stage.mcard {display:none}
+@media(max-width:980px){
+:where(.landing) .dstage {display:none}
+:where(.landing) .story {display:block}
+:where(.landing) .steps::before,:where(.landing) .steps::after {display:none}
+:where(.landing) .step,:where(.landing) .step.on {display:block;min-height:0;padding:0 0 36px;border:0;background:none}
+:where(.landing) .step,:where(.landing) .step.on {border-radius:0}
+:where(.landing) .step+.step {padding-top:36px;border-top:1px solid rgb(8 111 165/.18)}
+:where(.landing) .step:last-child {padding-bottom:0}
+:where(.landing) .step .sh em,:where(.landing) .step.on .sh em,:where(.landing) .step.done .sh em {background:var(--mk);color:var(--ink);border-color:transparent;transform:none}
+:where(.landing) .sd p,:where(.landing) .step.on .sd p {padding-left:0}
+:where(.landing) .stage.mcard {display:grid;position:relative;top:auto;z-index:auto;align-self:auto;grid-template-rows:auto auto;gap:10px;min-height:0;margin-top:20px;padding:16px 14px 14px;box-shadow:0 10px 24px rgb(var(--color-ink)/.16)}
+:where(.landing) .mcard .pn {min-height:0}}
