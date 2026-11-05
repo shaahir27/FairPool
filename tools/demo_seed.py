@@ -398,7 +398,7 @@ def bid_structured(spec: dict[str, Any], *, price_cents: int, capacity: int) -> 
     }
 
 
-async def insert_lost_bid(
+async def _insert_decided_bid(
     session: Any,
     *,
     lot_id: UUID,
@@ -406,10 +406,12 @@ async def insert_lost_bid(
     spec: dict[str, Any],
     signing_seed_bytes: bytes,
     now: datetime,
+    status: Any,
+    price_cents: int,
+    capacity: int,
 ) -> UUID:
-    """One decided LOST bid with a signed receipt, deliberately demo-shaped."""
+    """A decided bid with a signed receipt, deliberately demo-shaped."""
     from fairpool.db.models.auction import Bid, BidRevision
-    from fairpool.db.models.enums import BidStatus
     from fairpool.domain import hashing
     from fairpool.modules.pools.receipts import format_received_at
 
@@ -421,7 +423,7 @@ async def insert_lost_bid(
         return UUID(str(existing))
 
     bid_id = demo_id(f"bid:{lot_id}:{merchant_id}")
-    structured = bid_structured(spec, price_cents=49_000, capacity=2)
+    structured = bid_structured(spec, price_cents=price_cents, capacity=capacity)
     received = format_received_at(now)
     receipt_hash = hashing.bid_receipt_hash(str(bid_id), 1, structured, received)
     signature = hashing.sign_ed25519(
@@ -432,7 +434,7 @@ async def insert_lost_bid(
             id=bid_id,
             lot_id=lot_id,
             merchant_id=merchant_id,
-            status=BidStatus.LOST,
+            status=status,
             current_revision=1,
         )
     )
@@ -451,6 +453,55 @@ async def insert_lost_bid(
     )
     await session.flush()
     return bid_id
+
+
+async def insert_lost_bid(
+    session: Any,
+    *,
+    lot_id: UUID,
+    merchant_id: UUID,
+    spec: dict[str, Any],
+    signing_seed_bytes: bytes,
+    now: datetime,
+) -> UUID:
+    from fairpool.db.models.enums import BidStatus
+
+    return await _insert_decided_bid(
+        session,
+        lot_id=lot_id,
+        merchant_id=merchant_id,
+        spec=spec,
+        signing_seed_bytes=signing_seed_bytes,
+        now=now,
+        status=BidStatus.LOST,
+        price_cents=49_000,
+        capacity=2,
+    )
+
+
+async def insert_awarded_bid(
+    session: Any,
+    *,
+    lot_id: UUID,
+    merchant_id: UUID,
+    spec: dict[str, Any],
+    signing_seed_bytes: bytes,
+    now: datetime,
+) -> UUID:
+    """The bid the merchant console reads for a forced award (which writes none)."""
+    from fairpool.db.models.enums import BidStatus
+
+    return await _insert_decided_bid(
+        session,
+        lot_id=lot_id,
+        merchant_id=merchant_id,
+        spec=spec,
+        signing_seed_bytes=signing_seed_bytes,
+        now=now,
+        status=BidStatus.AWARDED,
+        price_cents=ITEM_CENTS,
+        capacity=2,
+    )
 
 
 async def lot_ids(session: Any, pool_id: UUID) -> list[Any]:
@@ -727,6 +778,23 @@ async def scenario(
         )
         await surface.failure.run_refund(session, {"buyer_order_id": str(refunded.id)})
         await surface.failure.finalize_fail(session, {"lot_id": str(chair_lot.id)})
+
+    # A forced award writes no bid row, but the merchant console lists awarded
+    # bids; give each awarded merchant the bid it reads, on reused pools too.
+    for pool, merchant_key, spec_index in (
+        (headphones, "alpha", 1),
+        (desk, "alpha", 2),
+        (chair, "beta", 3),
+    ):
+        awarded_lot = (await lot_ids(session, pool))[0]
+        await insert_awarded_bid(
+            session,
+            lot_id=awarded_lot.id,
+            merchant_id=merchants[merchant_key],
+            spec=POOL_SPECS[spec_index],
+            signing_seed_bytes=signing,
+            now=now,
+        )
 
     # ---------------------------------------------------- simulation pool (10k)
     sim_pool_id = demo_id("pool:simulation-4k-monitor")
