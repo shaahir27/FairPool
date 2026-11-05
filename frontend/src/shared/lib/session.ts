@@ -1,3 +1,5 @@
+import { resetReadCache } from "../api/reads";
+
 /**
  * Cached result of the one session check, so navigation does not re-ask /me.
  * `null` means "unknown, ask the server"; the login form resets it.
@@ -58,7 +60,7 @@ export function setAccount(next: Account | null): void {
 export function resetSessionCache(next: SessionState = null): void {
   sessionKnown = next;
   // A session that is no longer known is no longer evidence about who it belongs to.
-  if (next !== "in") setAccount(null);
+  if (next !== "in") { setAccount(null); resetReadCache(); }
   if (next === "out" && typeof window !== "undefined") {
     // Sign-out, or a 401 from any call: whatever was cached belonged to that session.
     window.dispatchEvent(new Event(SESSION_ENDED_EVENT));

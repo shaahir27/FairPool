@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -97,4 +97,14 @@ describe("session guard", () => {
 
     expect(sessionState()).toBe("out");
   });
+});
+
+
+it("removes a mounted workspace immediately when the session ends", async () => {
+  await renderAt("/orders", "in");
+  await screen.findByRole("heading", {name: "Orders"});
+  const {resetSessionCache} = await import("../src/shared");
+  act(() => resetSessionCache("out"));
+  expect(await screen.findByRole("heading", {name: "Sign in"})).toBeInTheDocument();
+  expect(screen.queryByRole("heading", {name: "Orders"})).toBeNull();
 });

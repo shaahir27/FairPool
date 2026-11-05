@@ -40,3 +40,6 @@ export { HONESTY_LABELS } from "./lib/labels";
 export type { HonestyLabelKind } from "./lib/labels";
 export { ProductArt } from "./components/ProductArt";
 export { RecordFilters } from "./components/RecordFilters";
+
+export { useApiRead, prefetchRead, readClient, resetReadCache, refreshReads } from "./api/reads";
+export { prefetchWorkspace } from "./api/prefetch";

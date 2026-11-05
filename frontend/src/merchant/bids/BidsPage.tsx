@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
   api,
+  useApiRead,
   type ApiComponents,
   Icon,
   Notice,
@@ -29,48 +30,16 @@ const SECTIONS: ReadonlyArray<{ id: BidSection; title: string }> = [
  */
 export function BidsPage() {
   const [filter, setFilter] = useState<BidSection | "all">("all");
-  const [bids, setBids] = useState<BidView[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const records = useApiRead("/api/v1/merchant/bids", (signal) => api.GET("/api/v1/merchant/bids", {signal}));
+  const bids: BidView[] | null = records.data?.items ?? null;
+  const loading = records.isPending;
+  const error = records.error ? failureEnvelope(records.error) : null;
   const [serverNow, setServerNow] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    setLoading(true);
-    void api
-      .GET("/api/v1/merchant/bids")
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure || !data) {
-          setError(failureEnvelope(failure));
-          setBids([]);
-          return;
-        }
-        setBids(Array.isArray(data.items) ? data.items : []);
-        setError(null);
-      })
-      .catch(() => {
-        if (live) {
-          setError({
-            code: "REQUEST_FAILED",
-            message: "Check your connection, then reload your bids.",
-          });
-          setBids([]);
-        }
-      })
-      .finally(() => {
-        if (live) setLoading(false);
-      });
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
 
   useMerchantEvents((event) => {
     if (event.server_time) setServerNow(event.server_time);
     if (event.type === "bid_status" || event.type === "checkout_progress" || event.type === "lot_open") {
-      setAttempt((value) => value + 1);
+      void records.refetch();
     }
   });
 
@@ -91,7 +60,7 @@ export function BidsPage() {
         <button
           type="button"
           className="shop-quiet-button"
-          onClick={() => setAttempt((value) => value + 1)}
+          onClick={() => void records.refetch()}
         >
           <Icon name="returns" />
           Refresh bids
@@ -105,7 +74,7 @@ export function BidsPage() {
       {error ? (
         <Notice kind="error" code={error.code}>
           {error.message}{" "}
-          <button type="button" className="merchant-link" onClick={() => setAttempt((value) => value + 1)}>
+          <button type="button" className="merchant-link" onClick={() => void records.refetch()}>
             Reload bids
           </button>
         </Notice>
@@ -191,7 +160,7 @@ function BidCard({
           <h3>{productName(key ?? `Bid ${shortId(bid.bid_id)}`)}</h3>
           <p className="shop-copy">
             {key ? <code className="merchant-code">{key}</code> : null}
-            {" · "}Lot {shortId(bid.lot_id)} · revision {bid.current_revision}
+            {" Â· "}Lot {shortId(bid.lot_id)} Â· revision {bid.current_revision}
           </p>
         </div>
         <StatusPill status={bid.status} tone={tone}>

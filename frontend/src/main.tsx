@@ -1,6 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { QueryClientProvider } from "@tanstack/react-query";
+import { readClient } from "./shared";
+
 import App from "./App";
 import "./index.css";
 
@@ -12,6 +15,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <QueryClientProvider client={readClient}><App /></QueryClientProvider>
   </StrictMode>,
 );

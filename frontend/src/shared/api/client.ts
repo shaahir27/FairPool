@@ -3,6 +3,8 @@ import createClient from "openapi-fetch";
 import { getCsrfToken } from "../lib/csrf";
 import { resetSessionCache } from "../lib/session";
 
+import { refreshReads } from "./reads";
+
 import type { components, paths } from "./schema";
 
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -46,3 +48,13 @@ api.use({
 
 export type ApiPaths = paths;
 export type ApiComponents = components;
+
+// Every write invalidates read views, including an uncertain network outcome.
+api.use({
+  async onResponse({ request }) {
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) await refreshReads();
+  },
+  async onError({ request }) {
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) await refreshReads();
+  },
+});

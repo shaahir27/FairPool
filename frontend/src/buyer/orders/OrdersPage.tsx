@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import {
   api,
+  useApiRead,
   type ApiComponents,
   envelope,
   formatCents,
@@ -15,7 +16,6 @@ import {
   StatusPill,
   statusStyle,
 } from "../../shared";
-import { loadOrders } from "../prefetch";
 import "../settings.css";
 
 type MeOrder = ApiComponents["schemas"]["MeOrder"];
@@ -42,29 +42,12 @@ function outcomeOf(status: string): Outcome {
 export function OrdersPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Outcome | "all">("all");
-  const [orders, setOrders] = useState<MeOrder[] | null>(null);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const history = useApiRead("/api/v1/me/orders", (signal) => api.GET("/api/v1/me/orders", {signal}));
+  const orders: MeOrder[] | null = history.data?.items ?? null;
+  const error = history.error ? envelope(history.error) : null;
   const [captures, setCaptures] = useState<Record<string, string | null>>({});
   const [captureProblems, setCaptureProblems] = useState<Record<string, string>>({});
   const [copyMessage, setCopyMessage] = useState("");
-
-  useEffect(() => {
-    let live = true;
-    setError(null);
-    void loadOrders(attempt > 0)
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure || !data) setError(envelope(failure));
-        else setOrders(Array.isArray(data.items) ? data.items : []);
-      })
-      .catch(() => {
-        if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
-      });
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
 
   // CR-10 supplies capture references in the list. Older API versions still use
   // the existing detail read; a failed read never means "no capture".
@@ -118,7 +101,7 @@ export function OrdersPage() {
   const visible = (orders ?? []).filter((order) => (filter === "all" || outcomeOf(order.status) === filter) && (!search || [order.product?.title, order.pool_title, order.merchant?.display_name].some((part) => part?.toLowerCase().includes(search))));
   return <section aria-labelledby="orders-title" className="orders-page">
     <header className="settings-heading"><h1 id="orders-title" className="shop-title">Orders</h1><p className="shop-copy">Your purchases, payment updates and order details.</p></header>
-    {error ? <Notice kind="warn" code={error.code}>We could not load your orders. {error.message} <button type="button" className="signup-back" onClick={() => setAttempt((value) => value + 1)}>Try again</button></Notice> : null}
+    {error ? <Notice kind="warn" code={error.code}>We could not load your orders. {error.message} <button type="button" className="signup-back" onClick={() => void history.refetch()}>Try again</button></Notice> : null}
     {copyMessage ? <p role="status" className="shop-copy">{copyMessage}</p> : null}
     {orders === null ? error ? null : <div role="status" aria-busy="true" aria-label="Loading your orders" className="purchase-feed">{[0,1,2].map((index) => <div key={index} className="shop-panel shop-panel-pad"><div className="skeleton h-5 w-1/2" /><div className="skeleton mt-4 h-4 w-2/3" /></div>)}</div>
       : orders.length === 0 ? <div className="pool-list-empty"><Icon name="bag" /><h2>No orders yet</h2><p>Your order will appear here when a pool sends you an offer.</p><Link className="button-secondary" to="/discover">Find a pool to join<Icon name="arrow" /></Link></div>

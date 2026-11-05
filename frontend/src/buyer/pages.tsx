@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   accountState,
   api,
+  useApiRead,
   type ApiComponents,
   envelope,
   formatCents,
@@ -284,40 +285,22 @@ export function AgentSettingsPage() {
   const [revoking, setRevoking] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState(false);
   const [tokenMessage, setTokenMessage] = useState("");
-  const [items, setItems] = useState<Delegation[] | null>(null);
-  const [pools, setPools] = useState<{ pool_id: string; title: string }[]>([]);
-  const [poolsProblem, setPoolsProblem] = useState<{ code: string; message: string } | null>(null);
+  const accessRead = useApiRead("/api/v1/me/delegations", (signal) => api.GET("/api/v1/me/delegations", {signal}));
+  const poolsRead = useApiRead("/api/v1/pools?status=OPEN", (signal) => api.GET("/api/v1/pools", {signal, params: {query: {status: "OPEN"}}}), {staleTime: 60_000});
+  const items: Delegation[] | null = accessRead.data?.items ?? null;
+  const pools = Array.isArray(poolsRead.data) ? poolsRead.data : [];
+  const poolsProblem = poolsRead.error ? envelope(poolsRead.error) : null;
   const [selected, setSelected] = useState<string[]>([]);
   const [cap, setCap] = useState("600");
   const [expires, setExpires] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16));
   const [token, setToken] = useState<string | null>(null);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [actionError, setError] = useState<{code: string; message: string} | null>(null);
+  const error = actionError ?? (accessRead.error ? envelope(accessRead.error) : null);
   const [busy, setBusy] = useState(false);
-
-  const [poolsLoading, setPoolsLoading] = useState(true);
-
+  const poolsLoading = poolsRead.isPending;
   async function load() {
-    setPoolsLoading(true);
-    const [listedResult, poolsResult] = await Promise.allSettled([
-      api.GET("/api/v1/me/delegations"),
-      api.GET("/api/v1/pools", { params: { query: { status: "OPEN" } } }),
-    ]);
-    setPoolsLoading(false);
-    const listed = listedResult.status === "fulfilled" ? listedResult.value : null;
-    const open = poolsResult.status === "fulfilled" ? poolsResult.value : null;
-    if (!listed || listed.error || !listed.data) setError(envelope(listed?.error));
-    else { setItems(listed.data.items); setError(null); }
-    if (!open || open.error || !Array.isArray(open.data)) {
-      setPoolsProblem(envelope(open?.error));
-    } else {
-      setPools(open.data.map((pool) => ({ pool_id: pool.pool_id, title: pool.title })));
-      setPoolsProblem(null);
-    }
+    await Promise.all([accessRead.refetch({cancelRefetch: false}), poolsRead.refetch({cancelRefetch: false})]);
   }
-
-  useEffect(() => {
-    void load().catch(() => setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }));
-  }, []);
 
   async function create(event: FormEvent) {
     event.preventDefault();
@@ -418,7 +401,7 @@ export function AgentSettingsPage() {
                 <button
                   type="button"
                   className="signup-back inline-flex min-h-[44px] items-center"
-                  onClick={() => void load().catch(() => setPoolsProblem({ code: "REQUEST_FAILED", message: "Check your connection and try again." }))}
+                  onClick={() => void load().catch(() => setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }))}
                 >
                   Reload pools
                 </button>

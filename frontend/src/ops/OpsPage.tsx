@@ -1,7 +1,6 @@
-﻿import { useCallback, useEffect, useState } from "react";
 import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 
-import { api, AreaLayout, Icon, type AreaTab } from "../shared";
+import { api, useApiRead, AreaLayout, Icon, type AreaTab } from "../shared";
 
 import { AlertsPanel } from "./AlertsPanel";
 import { DeadLettersPanel } from "./DeadLettersPanel";
@@ -30,29 +29,12 @@ export function OpsPage() {
   const [params] = useSearchParams();
   const path = pathname.replace(/\/$/, "");
   const view = VIEWS[path];
-  const [alerts, setAlerts] = useState<AlertRow[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
-
-  const loadAlerts = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    void api.GET("/api/v1/admin/alerts")
-      .then(({ data, error: failure }) => {
-        if (failure || !data) {
-          setError(failureOf(failure, "Alerts could not be loaded. Try refreshing."));
-          return;
-        }
-        const body = data as { alerts?: AlertRow[] };
-        setAlerts(Array.isArray(body.alerts) ? body.alerts : []);
-      })
-      .catch(() => setError({ code: "REQUEST_FAILED", message: "Alerts could not be loaded. Check your connection and refresh." }))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (path === "/ops" || path === "/ops/lots") loadAlerts();
-  }, [loadAlerts, path]);
+  const records = useApiRead("/api/v1/admin/alerts", (signal) => api.GET("/api/v1/admin/alerts", {signal}), {enabled: path === "/ops" || path === "/ops/lots"});
+  const body = records.data as {alerts?: AlertRow[]} | undefined;
+  const alerts = body ? (Array.isArray(body.alerts) ? body.alerts : []) : null;
+  const loading = records.isPending || records.isFetching;
+  const error = records.error ? failureOf(records.error, "Alerts could not be loaded. Try refreshing.") : null;
+  const loadAlerts = () => { void records.refetch(); };
 
   if (!view) return <Navigate to="/ops" replace />;
   const alertLots = [...new Set((alerts ?? []).flatMap((alert) => alert.lot_id ? [alert.lot_id] : []))];

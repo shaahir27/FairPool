@@ -1,8 +1,9 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
   api,
+  useApiRead,
   type ApiComponents,
   envelope,
   formatCents,
@@ -14,6 +15,7 @@ import {
   StatusPill,
   statusStyle,
 } from "../../shared";
+import { prefetchBuyer } from "../prefetch";
 import { rememberPendingRequest } from "../drafts";
 
 type PoolSummary = ApiComponents["schemas"]["PoolSummary"];
@@ -50,36 +52,12 @@ export function DiscoverPage() {
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState<{ code: string; message: string } | null>(null);
 
-  const [pools, setPools] = useState<PoolSummary[]>([]);
-  const [poolsLoading, setPoolsLoading] = useState(true);
-  const [poolsError, setPoolsError] = useState("");
-  const [attempt, setAttempt] = useState(0);
+  const catalogue = useApiRead("/api/v1/pools?status=OPEN&sort=trending",
+    (signal) => api.GET("/api/v1/pools", {signal, params: { query: { status: "OPEN", sort: "trending" } }}), {staleTime: 60_000});
+  const pools = catalogue.data ?? [];
+  const poolsLoading = catalogue.isPending;
+  const poolsError = catalogue.error ? "We couldn’t load the open pools. Try again." : "";
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    let live = true;
-    setPoolsLoading(true);
-    void api
-      // FR-UI-01: the grid is open pools, ordered by the public entry count.
-      .GET("/api/v1/pools", { params: { query: { status: "OPEN", sort: "trending" } } })
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure || !data) setPoolsError("We couldn’t load the open pools. Try again.");
-        else {
-          setPools(data);
-          setPoolsError("");
-        }
-      })
-      .catch(() => {
-        if (live) setPoolsError("Check your connection and try again.");
-      })
-      .finally(() => {
-        if (live) setPoolsLoading(false);
-      });
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
 
   async function ask(event: FormEvent) {
     event.preventDefault();
@@ -160,7 +138,7 @@ export function DiscoverPage() {
               <button
                 type="button"
                 className="signup-back"
-                onClick={() => setAttempt((value) => value + 1)}
+                onClick={() => void catalogue.refetch()}
               >
                 Reload pools
               </button>
@@ -377,7 +355,7 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
   const style = statusStyle(pool.status);
   return (
     <article className="catalogue-card">
-      <Link className="catalogue-art" to={`/pools/${pool.pool_id}`} aria-label={`View ${pool.title}`}>
+      <Link className="catalogue-art" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)} aria-label={`View ${pool.title}`}>
         <ProductArt title={pool.title} />
         <span className="catalogue-art-caption">Category illustration</span>
       </Link>
@@ -415,7 +393,7 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
         </p>
       </div>
       <div className="catalogue-card-footer">
-        <Link className="catalogue-link" to={`/pools/${pool.pool_id}`}>
+        <Link className="catalogue-link" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)}>
           Open the pool
           <Icon name="arrow" />
         </Link>

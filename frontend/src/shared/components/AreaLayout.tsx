@@ -8,6 +8,8 @@ import { LoadingScreen } from "./LoadingScreen";
 import { api } from "../api/client";
 import { setCsrfToken } from "../lib/csrf";
 import { accountState, resetSessionCache, subscribeAccount } from "../lib/session";
+import { prefetchWorkspace } from "../api/prefetch";
+import { useRefreshingReads } from "../api/reads";
 import "../commerce.css";
 
 export type AreaTab = { to: string; label: string; end: boolean };
@@ -83,7 +85,7 @@ function AccountMenu({ links, title, label }: { links: readonly AreaUtilityLink[
     onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
     <summary aria-label="Open account navigation"><Icon name="user" /><span>Account</span><Icon name="down" /></summary>
     <nav aria-label={label}><p className="mobile-menu-title">{title}</p>
-      {links.map((link) => <NavLink key={link.to} className={({isActive}) => `account-nav-link${isActive ? " is-active" : ""}`} to={link.to}><Icon name={link.to.includes("paypal") ? "wallet" : link.to.includes("addresses") ? "truck" : "shield"} /><span>{link.label}</span></NavLink>)}
+      {links.map((link) => <NavLink onMouseEnter={() => prefetchWorkspace(link.to)} onFocus={() => prefetchWorkspace(link.to)} onPointerDown={() => prefetchWorkspace(link.to)} key={link.to} className={({isActive}) => `account-nav-link${isActive ? " is-active" : ""}`} to={link.to}><Icon name={link.to.includes("paypal") ? "wallet" : link.to.includes("addresses") ? "truck" : "shield"} /><span>{link.label}</span></NavLink>)}
       <SignOut />
     </nav>
   </details>;
@@ -97,6 +99,8 @@ export function AreaLayout({
   children,
 }: AreaLayoutProps) {
   const account = useSyncExternalStore(subscribeAccount, accountState);
+  const refreshing = useRefreshingReads();
+  const warm = onPrefetch ?? prefetchWorkspace;
   if (workspace === "Buyer workspace" || workspace === "Ops console" || workspace === "Merchant workspace") {
     const admin = workspace === "Ops console";
     const merchant = workspace === "Merchant workspace";
@@ -107,8 +111,9 @@ export function AreaLayout({
         key={tab.to}
         to={tab.to}
         end={tab.end}
-        onMouseEnter={() => onPrefetch?.(tab.to)}
-        onFocus={() => onPrefetch?.(tab.to)}
+        onMouseEnter={() => warm(tab.to)}
+        onFocus={() => warm(tab.to)}
+        onPointerDown={() => warm(tab.to)}
         className={({ isActive }) => `account-nav-link ${isActive ? "is-active" : ""}`}
       >
         <Icon name={merchant ? (index === 0 ? "search" : index === 1 ? "layers" : index === 2 ? "bag" : "settings") : admin ? (index === 0 ? "shield" : index === 1 ? "layers" : index === 2 ? "returns" : "receipt") : index === 0 ? "search" : index === 1 ? "layers" : "bag"} />
@@ -136,7 +141,7 @@ export function AreaLayout({
           <div className="sidebar-nav-scroll">
             <nav aria-label={`${workspace} tabs`} className="account-navigation">{links}</nav>
             <nav aria-label={`${workspace} settings`} className="account-navigation secondary-navigation">
-              {utilityLinks.map((link) => <NavLink key={link.to} to={link.to} className={({isActive}) => `account-nav-link${isActive ? " is-active" : ""}`}><Icon name={link.to.includes("paypal") ? "wallet" : link.to.includes("addresses") ? "truck" : "shield"} /><span>{link.label}</span></NavLink>)}
+              {utilityLinks.map((link) => <NavLink onMouseEnter={() => prefetchWorkspace(link.to)} onFocus={() => prefetchWorkspace(link.to)} onPointerDown={() => prefetchWorkspace(link.to)} key={link.to} to={link.to} className={({isActive}) => `account-nav-link${isActive ? " is-active" : ""}`}><Icon name={link.to.includes("paypal") ? "wallet" : link.to.includes("addresses") ? "truck" : "shield"} /><span>{link.label}</span></NavLink>)}
             </nav>
           </div>
           <div className="sidebar-bottom">
@@ -154,7 +159,7 @@ export function AreaLayout({
             </div>
           </header>
           <nav className="mobile-primary-navigation" aria-label={merchant ? "Mobile merchant workspace navigation" : admin ? "Mobile admin workspace navigation" : "Mobile shopping navigation"}>{links}</nav>
-          <main id="main" className="commerce-content"><WorkspaceContent>{children}</WorkspaceContent></main>
+          <main id="main" className="commerce-content"><p role="status" aria-live="polite" className="text-xs text-muted min-h-[1.25rem]">{refreshing ? "Updating information..." : null}</p><WorkspaceContent>{children}</WorkspaceContent></main>
         </div>
       </div>
     </>;
@@ -169,7 +174,7 @@ export function AreaLayout({
     <a href="#main" className="skip-link">Skip to content</a>
     <header className="app-header"><Brand workspace={workspace} />
       {tabs.length > 0 ? <nav aria-label={`${workspace} tabs`} className="workspace-tabs">{tabs.map((tab) => <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => isActive ? "workspace-tab is-active" : "workspace-tab"}>{tab.label}</NavLink>)}</nav> : null}
-      <div className="header-utilities">{utilityLinks.length > 0 ? <nav className="utility-links" aria-label={`${workspace} settings`}>{utilityLinks.map((link) => <NavLink key={link.to} to={link.to}>{link.label}</NavLink>)}</nav> : null}<HonestyLabels kinds={["sandbox"]} /><SignOut className="shop-quiet-button" /></div>
+      <div className="header-utilities">{utilityLinks.length > 0 ? <nav className="utility-links" aria-label={`${workspace} settings`}>{utilityLinks.map((link) => <NavLink onMouseEnter={() => prefetchWorkspace(link.to)} onFocus={() => prefetchWorkspace(link.to)} onPointerDown={() => prefetchWorkspace(link.to)} key={link.to} to={link.to}>{link.label}</NavLink>)}</nav> : null}<HonestyLabels kinds={["sandbox"]} /><SignOut className="shop-quiet-button" /></div>
     </header><main id="main" className="app-main"><WorkspaceContent>{children}</WorkspaceContent></main><footer className="app-footer">PayPal Sandbox demo · no real money moves</footer>
   </div>;
 }

@@ -26,6 +26,7 @@ This folder is everything a human or an AI coding agent needs to build it. Two m
 | `spikes.md` | Spike plans S1 to S13 and the safe-run preamble | both |
 | `spike-results.md` | Recorded spike results (living) | whoever runs the spike |
 | `demo-and-submission.md` | Storyboard, README outline, Devpost fields, final QA | both |
+| `navigation-performance.md` | Measured navigation latency, shared read-cache policy and regression evidence | Member B |
 | `workspace-ui-plan.md` | Screen-by-screen buyer, merchant and admin usability plan (T09B04) | Member B |
 | `progress.md` | Task status, gates, velocity, open questions, blockers (living) | both |
 | `contracts/README.md` | Contract policy, change requests, resolution notes N1 to N14 | both |
