@@ -20,7 +20,7 @@ groups:
       # I3/I4: an amount or payee that contradicts the stored award means a request or
       # a provider answer did not match what FairPool recorded. No tolerance.
       - alert: FairpoolAmountMismatch
-        expr: sum(increase(fairpool_amount_mismatch_total[5m])) >= 1
+        expr: sum by (stage) (increase(fairpool_amount_mismatch_total[5m])) >= 1
         labels:
           severity: critical
           service: fairpool
@@ -33,7 +33,7 @@ groups:
       # I9: an unknown outcome keeps the row locked until a GET settles it. More than
       # five in a quarter hour means the provider is failing in a way retries hide.
       - alert: FairpoolUnknownOutcomes
-        expr: sum(increase(fairpool_outcome_unknown_total[15m])) > 5
+        expr: sum by (stage) (increase(fairpool_outcome_unknown_total[15m])) > 5
         labels:
           severity: warning
           service: fairpool

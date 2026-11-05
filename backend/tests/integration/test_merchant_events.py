@@ -31,6 +31,13 @@ from tests.integration.test_open_checkout import build_world
 pytestmark = pytest.mark.integration
 
 ALLOWED = {"tick", "lot_open", "bid_status", "checkout_progress"}
+#: Every frame's exact key set: a new field on the feed is a contract change, not a detail.
+FRAME_KEYS = {
+    "tick": {"server_time"},
+    "lot_open": {"lot_id", "pool_id", "status", "bid_close_at"},
+    "bid_status": {"bid_id", "lot_id", "status"},
+    "checkout_progress": {"lot_id", "status"},
+}
 
 
 def shared_factory(session: AsyncSession) -> async_sessionmaker[AsyncSession]:
@@ -94,8 +101,7 @@ def frames_are_safe(frame: str) -> None:
         name = lines[0].removeprefix("event: ")
         assert name in ALLOWED, name
         data: dict[str, Any] = json.loads(lines[1].removeprefix("data: "))
-        if name == "tick":
-            assert list(data) == ["server_time"]
+        assert set(data) == FRAME_KEYS[name], (name, sorted(data))
         rendered = json.dumps(data).lower()
         for forbidden in ("email", "name", "address", "line1", "postal"):
             assert forbidden not in rendered, (name, forbidden)

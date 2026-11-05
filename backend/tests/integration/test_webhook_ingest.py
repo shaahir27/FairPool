@@ -293,6 +293,27 @@ PAYER = {
         "name": {"given_name": "Ada", "surname": "Lovelace"},
     },
     "shipping": {"address": {"address_line_1": "1 Market Street", "admin_area_2": "New York"}},
+    # The same block arrives nested on the capture events, so the mask has to reach it.
+    "resource": {
+        "id": "CAP-1",
+        "status": "COMPLETED",
+        "amount": {"value": "500.00", "currency_code": "USD"},
+        "payer": {
+            "email_address": "deep.payer@example.test",
+            "payer_id": "PAYER-DEEP",
+            "name": {"given_name": "Grace", "surname": "Hopper"},
+            "address": {
+                "address_line_1": "2 Deep Street",
+                "admin_area_2": "Boston",
+                "postal_code": "02108",
+                "country_code": "US",
+            },
+        },
+    },
+    "supplementary_data": {
+        "related_ids": {"order_id": "ORDER-1"},
+        "merchant": {"email_address": "merchant@example.test"},
+    },
 }
 
 
@@ -341,7 +362,7 @@ async def test_a_delivery_at_the_cap_is_stored(db_session: AsyncSession) -> None
 async def test_the_payers_identity_is_masked_before_the_insert(
     db_session: AsyncSession,
 ) -> None:
-    """I14: the row keeps the ids, amounts and status; the person is redacted."""
+    """I14: the row keeps the ids, amounts and status; the person is redacted at any depth."""
     event_id = f"WH-{uuid.uuid4()}"
     await deliver(
         db_session,
@@ -350,21 +371,42 @@ async def test_the_payers_identity_is_masked_before_the_insert(
         extra=PAYER,
     )
 
-    raw = await db_session.scalar(
-        text("SELECT raw_body FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    raw = str(
+        await db_session.scalar(
+            text("SELECT raw_body FROM webhook_events WHERE paypal_event_id = :id"),
+            {"id": event_id},
+        )
     )
-    stored = json.loads(str(raw))
-    for secret in ("payer@example.test", "PAYER-1", "Ada", "Lovelace", "1 Market Street"):
-        if secret == "PAYER-1":
-            # The payer id is not an identity field: it is kept, exactly like resource.id.
-            assert stored["payer"]["payer_id"] == secret
-            continue
-        assert secret not in str(raw), secret
-    assert stored["resource"]["id"] == "CAP-1"
+    stored = json.loads(raw)
+    for secret in (
+        "payer@example.test",
+        "PAYER-1",
+        "Ada",
+        "Lovelace",
+        "1 Market Street",
+        "deep.payer@example.test",
+        "PAYER-DEEP",
+        "Grace",
+        "Hopper",
+        "2 Deep Street",
+        "02108",
+        "merchant@example.test",
+    ):
+        assert secret not in raw, secret
     assert stored["id"] == event_id
+    assert stored["resource"]["id"] == "CAP-1"
+    assert stored["resource"]["amount"] == {"value": "500.00", "currency_code": "USD"}
+    assert stored["supplementary_data"]["related_ids"] == {"order_id": "ORDER-1"}
     assert stored["payer"]["email_address"] == "[redacted]"
+    assert stored["payer"]["payer_id"] == "[redacted]"
     assert stored["payer"]["name"] == {"given_name": "[redacted]", "surname": "[redacted]"}
     assert stored["shipping"]["address"]["address_line_1"] == "[redacted]"
+    deep = stored["resource"]["payer"]
+    assert deep["email_address"] == "[redacted]"
+    assert deep["address"]["address_line_1"] == "[redacted]"
+    assert deep["address"]["admin_area_2"] == "[redacted]"
+    assert deep["address"]["postal_code"] == "[redacted]"
+    assert deep["address"]["country_code"] == "[redacted]"
 
 
 async def test_the_route_is_rate_limited(db_session: AsyncSession) -> None:
@@ -393,74 +435,102 @@ async def test_the_route_is_rate_limited(db_session: AsyncSession) -> None:
     assert int(second.headers["Retry-After"]) >= 1
 
 
-async def seed_delivery(db_session: AsyncSession, *, event_id: str, age_s: int) -> None:
-    await db_session.execute(
-        text(
-            "INSERT INTO webhook_events (id, paypal_event_id, event_type, raw_body, received_at) "
-            "VALUES (:id, :event_id, 'PAYMENT.CAPTURE.COMPLETED', :body, "
-            "now() - make_interval(secs => :age))"
-        ),
-        {
-            "id": uuid.uuid4(),
-            "event_id": event_id,
-            "age": age_s,
-            "body": json.dumps(
-                {
-                    "payer": {"email_address": "payer@example.test"},
-                    "resource": {"id": "CAP-1"},
-                }
-            ),
-        },
-    )
-
-
-async def raw_body_of(db_session: AsyncSession, event_id: str) -> str:
-    value = await db_session.scalar(
-        text("SELECT raw_body FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
-    )
-    return str(value)
-
-
-def reconciler(retention_s: int):  # type: ignore[no-untyped-def]
-    from fairpool.fakes.jobs import FakeJobQueue
-    from fairpool.infra.clock import DbClock
-    from fairpool.modules.reconciler.resolve import Reconciler
-
-    return Reconciler(clock=DbClock(), jobs=FakeJobQueue(), webhook_raw_retention_s=retention_s)
-
-
-async def test_the_sweep_replaces_a_raw_body_past_its_retention(
+async def _drive_raw_delivery(
     db_session: AsyncSession,
-) -> None:
-    """The retention statement itself: one week later, the person is gone, the id stays.
+    *,
+    settings: Any,
+    headers: list[tuple[bytes, bytes]],
+    first_chunk: bytes,
+    chunks_left: int = 1,
+) -> tuple[int, str]:
+    """One raw ASGI POST whose body arrives in pieces; reading past the cap raises.
 
-    ``trg_webhook_raw_immutable`` (migration 0001) refuses this update in a real
-    database, so the trigger is disabled inside this rolled-back transaction to prove
-    the statement does what the setting says.
+    ``httpx`` always sends a body it knows the length of, so only a hand-built scope can
+    show that the route refuses an over-cap delivery without buffering it.
     """
-    from fairpool.modules.reconciler.resolve import EXPIRED_BODY
+    app = create_app(settings)
 
-    old_id, fresh_id = f"WH-{uuid.uuid4()}", f"WH-{uuid.uuid4()}"
-    await seed_delivery(db_session, event_id=old_id, age_s=7200)
-    await seed_delivery(db_session, event_id=fresh_id, age_s=0)
-    await db_session.execute(
-        text("ALTER TABLE webhook_events DISABLE TRIGGER trg_webhook_raw_immutable")
-    )
+    async def override_session() -> Any:
+        yield db_session
 
-    assert await reconciler(retention_s=3600).sweep(db_session, {}) == 0
+    app.dependency_overrides[get_session] = override_session
+    sent: list[dict[str, Any]] = []
+    read = {"count": 0}
 
-    assert await raw_body_of(db_session, old_id) == EXPIRED_BODY
-    fresh = await raw_body_of(db_session, fresh_id)
-    assert "payer@example.test" in fresh, "a fresh delivery keeps its body"
+    async def receive() -> dict[str, Any]:
+        if read["count"] == 0:
+            read["count"] = 1
+            return {"type": "http.request", "body": first_chunk, "more_body": chunks_left > 0}
+        raise AssertionError("the delivery was read past the cap")
+
+    async def send(message: dict[str, Any]) -> None:
+        sent.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "headers": headers,
+        "scheme": "http",
+        "path": "/webhooks/paypal",
+        "raw_path": b"/webhooks/paypal",
+        "query_string": b"",
+        "server": ("test", 80),
+        "client": ("127.0.0.1", 50000),
+        "root_path": "",
+    }
+    await app(scope, receive, send)
+    start = sent[0]
+    assert start["type"] == "http.response.start"
+    body = b"".join(message.get("body", b"") for message in sent[1:])
+    return int(start["status"]), body.decode()
 
 
-async def test_a_schema_that_forbids_the_update_does_not_stop_the_sweep(
+async def test_a_declared_length_over_the_cap_is_refused_without_a_read(
     db_session: AsyncSession,
 ) -> None:
-    """Today's database: the update is refused, the sweep still does its real work."""
-    old_id = f"WH-{uuid.uuid4()}"
-    await seed_delivery(db_session, event_id=old_id, age_s=7200)
+    """The header is enough to refuse: the bytes are never pulled into memory."""
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
 
-    assert await reconciler(retention_s=3600).sweep(db_session, {}) == 0
+    event_id = f"WH-{uuid.uuid4()}"
+    status, body = await _drive_raw_delivery(
+        db_session,
+        settings=settings_for(webhooks_enabled=False),
+        headers=[
+            (b"content-type", b"application/json"),
+            (b"content-length", str(MAX_BODY_BYTES + 1).encode()),
+        ],
+        first_chunk=b"{}",
+        chunks_left=0,
+    )
 
-    assert "payer@example.test" in await raw_body_of(db_session, old_id)
+    assert status == 422, body
+    assert json.loads(body)["error"]["code"] == "VALIDATION_ERROR"
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 0
+
+
+async def test_a_streamed_body_is_abandoned_as_soon_as_it_exceeds_the_cap(
+    db_session: AsyncSession,
+) -> None:
+    """A chunked upload with no honest length still stops at the cap, mid-stream."""
+    from fairpool.api.routers.webhooks import MAX_BODY_BYTES
+
+    event_id = f"WH-{uuid.uuid4()}"
+    status, body = await _drive_raw_delivery(
+        db_session,
+        settings=settings_for(webhooks_enabled=False),
+        headers=[(b"content-type", b"application/json")],
+        first_chunk=b'{"id":"' + event_id.encode() + b'","pad":"' + b"x" * MAX_BODY_BYTES + b'"}',
+        chunks_left=1,
+    )
+
+    assert status == 422, body
+    assert json.loads(body)["error"]["code"] == "VALIDATION_ERROR"
+    stored = await db_session.scalar(
+        text("SELECT count(*) FROM webhook_events WHERE paypal_event_id = :id"), {"id": event_id}
+    )
+    assert int(stored or 0) == 0

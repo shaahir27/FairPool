@@ -1,0 +1,10 @@
+{
+  "status": "pending",
+  "date": "2026-11-05",
+  "blocks": [
+    "C-18 needs one live shipment tracker submission for a captured Sandbox payment (S12 path); it is an owner run with real sandbox money."
+  ],
+  "c01_to_c17": "Unchanged from the Phase 2 to Phase 7 records.",
+  "what_is_proven_locally": "The tracker handler is registered and the fake-router run records SUBMITTED; the adapter call add_trackers is exercised by unit tests; the fulfilment routes never block on it.",
+  "fallback_in_force": "If the live tracker submission is not run, shipment rows stay RECORDED and the UI says the tracker was not submitted; no claim of live tracking is made."
+}

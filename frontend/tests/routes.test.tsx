@@ -29,27 +29,47 @@ beforeAll(() => {
   resetSessionCache("in");
 });
 
+const merchantLot = {
+  lot_id: "lot-one",
+  pool_id: "pool-one",
+  zone_id: "US-EAST",
+  seats: 12,
+  min_seats: 6,
+  status: "BIDDING",
+  bid_close_at: "2026-11-05T18:00:00Z",
+  product_key: "monitor-27-4k",
+  variant: "black",
+  condition: "NEW",
+  delivery_sla_days: 5,
+  min_return_days: 30,
+};
+
 beforeEach(() => {
   resetSessionCache("in");
   setAccount({ display_name: "Test Buyer", role: "buyer", paypal_linked: false });
   sessionStorage.clear();
-  transport.get.mockReset().mockResolvedValue({
-    data: [
-      {
-        pool_id: "pool-one",
-        title: "27-inch 4K monitor",
-        status: "OPEN",
-        mode: "LIVE_SANDBOX",
-        product_key: "monitor-27-4k",
-        condition: "NEW",
-        variant: "black",
-        zone_ids: ["US-EAST"],
-        seats: 12,
-        min_seats: 6,
-        close_at: "2026-11-05T18:00:00Z",
-      },
-    ],
-  });
+  transport.get.mockReset().mockImplementation((path: string) =>
+    Promise.resolve({
+      data:
+        path === "/api/v1/merchant/lots"
+          ? [merchantLot]
+          : [
+              {
+                pool_id: "pool-one",
+                title: "27-inch 4K monitor",
+                status: "OPEN",
+                mode: "LIVE_SANDBOX",
+                product_key: "monitor-27-4k",
+                condition: "NEW",
+                variant: "black",
+                zone_ids: ["US-EAST"],
+                seats: 12,
+                min_seats: 6,
+                close_at: "2026-11-05T18:00:00Z",
+              },
+            ],
+    }),
+  );
   transport.post.mockReset();
 });
 
@@ -120,13 +140,16 @@ describe("route smoke", () => {
     expect(screen.getByRole("button", { name: "Confirm and join" })).toBeEnabled();
   });
 
-  it("renders the merchant Demand Board placeholder", async () => {
+  it("renders the merchant Demand Board from the open-lot feed", async () => {
     setAccount({ display_name: "Test Merchant", role: "merchant", paypal_linked: false });
     renderAt("/merchant/demand");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Demand Board" })).toBeInTheDocument();
-    expect(screen.getByText("T08B01")).toBeInTheDocument();
+    expect(await screen.findByText("monitor-27-4k")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search open lots")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Prepare a bid" })).toBeEnabled();
     expect(screen.getByRole("navigation", { name: "Merchant workspace tabs" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Fulfillment" })).toBeInTheDocument();
+    expect(screen.queryByText("T08B01")).not.toBeInTheDocument();
   });
 });

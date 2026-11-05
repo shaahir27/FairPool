@@ -5,7 +5,9 @@ number; invalid rows are reported per row (``SHIPMENT_INVALID``) instead of fail
 the batch. The insert is ``ON CONFLICT (buyer_order_id) DO NOTHING`` so a merchant
 retrying the same shipment gets the recorded answer rather than a duplicate, and
 the database trigger ``trg_shipments_funded_only`` remains the last word on the
-funded-lot rule (FR-IG-08).
+funded-lot rule (FR-IG-08). A resubmission also re-enqueues ``shipments.submit``
+while any row is still unsubmitted or ``FAILED``: the merchant's second call is the
+documented retry, and the handler treats a ``FAILED`` row as work again.
 """
 
 from __future__ import annotations
@@ -69,7 +71,6 @@ class ShipmentRecorder:
 
         rows: list[dict[str, Any]] = []
         accepted = 0
-        inserted_any = False
         seen: set[UUID] = set()
         for item, order_id in zip(shipments, requested, strict=True):
             carrier = str(item.get("carrier") or "").strip()
@@ -118,7 +119,6 @@ class ShipmentRecorder:
                     )
                 )
             else:
-                inserted_any = True
                 await self.audit.append(
                     session,
                     actor=actor,
@@ -140,7 +140,7 @@ class ShipmentRecorder:
             )
             accepted += 1
 
-        if inserted_any and self.tracking_enabled:
+        if await self._tracker_pending(session, awarded.id):
             await self.jobs.enqueue(
                 session,
                 "shipments.submit",
@@ -150,6 +150,25 @@ class ShipmentRecorder:
                 dedupe_key=f"shipments:{awarded.id}",
             )
         return {"accepted": accepted, "rows": rows}
+
+    @staticmethod
+    async def _tracker_pending(session: AsyncSession, lot_id: UUID) -> bool:
+        """Any row this lot still owes the tracker a submission for.
+
+        A resubmission is the merchant's retry: it must also cover a row that failed
+        and a row whose enqueue was lost (no pending job carries it), not only freshly
+        inserted rows. ``dedupe_key`` collapses it into a job that is already waiting.
+        """
+        pending = await session.scalar(
+            select(Shipment.id)
+            .where(
+                Shipment.lot_id == lot_id,
+                (Shipment.paypal_tracker_status.is_(None))
+                | (Shipment.paypal_tracker_status == "FAILED"),
+            )
+            .limit(1)
+        )
+        return pending is not None
 
 
 __all__ = ["ShipmentRecorder"]

@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "date": "2026-11-05",
+  "command": "APP_ENV=test DATABASE_URL=$TEST_DATABASE_URL .venv/Scripts/python.exe tools/check_migrations.py",
+  "result": "Upgrade from 0001, fresh head and both Alembic drift checks passed; no new upgrade operations detected.",
+  "note": "Phase 8 adds no migration: shipments, sim_runs and the fulfilment response models already exist in migrations 0001-0006."
+}

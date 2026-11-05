@@ -8,7 +8,7 @@ an already-recorded acceptance keeps its original timestamp.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -53,23 +53,31 @@ class MerchantProfileService:
         payee_email: str | None,
         paypal_merchant_id: str | None,
         attestations: Mapping[str, Any],
+        present: Collection[str] | None = None,
     ) -> Merchant:
-        """Create or update the merchant row, stamping each acceptance once."""
+        """Create or update the merchant row, stamping each acceptance once.
+
+        ``present`` is the request's ``model_fields_set``: a field the client did
+        not send keeps its stored value, while an explicitly sent null clears it.
+        ``None`` means every value passed here is an update (direct callers).
+        """
         now = await self.clock.db_now(session)
         stamp = now.isoformat()
         merchant = await session.scalar(select(Merchant).where(Merchant.user_id == user_id))
+        updates_attestations = present is None or "attestations" in present
         merged: dict[str, Any] = dict(merchant.attestations) if merchant is not None else {}
-        for key, value in attestations.items():
-            if key not in ATTESTATION_KEYS:
-                raise ApplicationError("VALIDATION_ERROR")
-            accepted = _accepted(value)
-            previous_at: str | None = None
-            previous = merged.get(key)
-            if isinstance(previous, Mapping) and previous.get("accepted") is True:
-                at_value = previous.get("at")
-                if isinstance(at_value, str):
-                    previous_at = at_value
-            merged[key] = {"at": previous_at or stamp, "accepted": accepted}
+        if updates_attestations:
+            for key, value in attestations.items():
+                if key not in ATTESTATION_KEYS:
+                    raise ApplicationError("VALIDATION_ERROR")
+                accepted = _accepted(value)
+                previous_at: str | None = None
+                previous = merged.get(key)
+                if isinstance(previous, Mapping) and previous.get("accepted") is True:
+                    at_value = previous.get("at")
+                    if isinstance(at_value, str):
+                        previous_at = at_value
+                merged[key] = {"at": previous_at or stamp, "accepted": accepted}
         if merchant is None:
             merchant = Merchant(
                 id=uuid4(),
@@ -85,8 +93,11 @@ class MerchantProfileService:
             session.add(merchant)
         else:
             merchant.display_name = display_name
-            merchant.payee_email = payee_email
-            merchant.paypal_merchant_id = paypal_merchant_id
-            merchant.attestations = merged
+            if present is None or "payee_email" in present:
+                merchant.payee_email = payee_email
+            if present is None or "paypal_merchant_id" in present:
+                merchant.paypal_merchant_id = paypal_merchant_id
+            if updates_attestations:
+                merchant.attestations = merged
         await session.flush()
         return merchant

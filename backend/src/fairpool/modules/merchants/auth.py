@@ -51,12 +51,16 @@ class PostgresMerchantAuth:
         difference would tell an attacker that a prefix exists, and the prefix is already
         on the merchant's own list screen (I11). The stored hash is compared, never read
         back out (I14).
+
+        The read takes no row lock: ``last_used_at`` is written and committed by the
+        dependency, and a ``SELECT ... FOR UPDATE`` here would queue every concurrent
+        request that presents the same key behind one another.
         """
         prefix, secret = _split_key(bearer)
         if prefix is None or secret is None:
             raise ApplicationError("API_KEY_INVALID")
         row = await session.scalar(
-            select(MerchantApiKey).where(MerchantApiKey.key_prefix == prefix).with_for_update()
+            select(MerchantApiKey).where(MerchantApiKey.key_prefix == prefix)
         )
         if row is None or not matches(self.hmac_key, bearer, row.key_hash):
             raise ApplicationError("API_KEY_INVALID")

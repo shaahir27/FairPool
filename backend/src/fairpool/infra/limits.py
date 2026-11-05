@@ -49,7 +49,20 @@ class SlidingWindowLimiter:
                 )
             hits.append(now)
             while len(self._hits) > self.max_keys:
+                # Expired buckets first: dropping a live one would hand a caller a fresh
+                # budget while a bucket nobody can hit again still holds a slot.
+                self._sweep(now)
+                if len(self._hits) <= self.max_keys:
+                    break
                 self._hits.popitem(last=False)
+
+    def _sweep(self, now: float) -> None:
+        """Drop buckets whose newest hit has left the window; they hold no state."""
+        expired = [
+            key for key, hits in self._hits.items() if not hits or now - hits[-1] >= self.window_s
+        ]
+        for key in expired:
+            del self._hits[key]
 
 
 __all__ = ["MAX_KEYS", "SlidingWindowLimiter"]

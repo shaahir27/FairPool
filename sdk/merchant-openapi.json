@@ -462,10 +462,12 @@
             "type": "string"
           },
           "carrier": {
+            "maxLength": 64,
             "title": "Carrier",
             "type": "string"
           },
           "tracking_number": {
+            "maxLength": 128,
             "title": "Tracking Number",
             "type": "string"
           }

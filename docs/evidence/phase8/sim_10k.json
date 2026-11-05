@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "date": "2026-11-05",
+  "run": "tools/it8_live.py (in-process ASGI, loopback Postgres)",
+  "entries": 10000,
+  "allocations": 10000,
+  "measured_ms": 5386,
+  "wall_ms": 5466,
+  "limit_ms": 10000,
+  "pool_mode": "SIMULATION",
+  "pool_status": "ALLOCATED",
+  "public_list_absent": true,
+  "public_audit_status": 404,
+  "method": "Users, entries, receipts, lots and seats are written with four bulk statements (generate_series + jsonb_to_recordset), ranking runs in pure Python from the seeded generator, and one audit row closes the run; the timed path makes no AI or job calls.",
+  "note": "Measured on the local loopback Postgres. The hosted Supabase pooler is slower and its timing is recorded separately if re-run there."
+}

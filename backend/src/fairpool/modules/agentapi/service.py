@@ -126,11 +126,14 @@ class AgentService:
         self,
         session: AsyncSession,
         *,
+        principal: AgentPrincipal,
         q: str | None,
         limit: int,
         search: SearchService,
     ) -> list[dict[str, Any]]:
-        query = select(Pool).where(Pool.status == PoolStatus.OPEN)
+        # The same scope that gates a join gates the search: a delegation cannot even
+        # see a pool it may not enter (I11, api.md section 4.4).
+        query = select(Pool).where(Pool.status == PoolStatus.OPEN, *_scope_conditions(principal))
         hits: list[SearchHit] | None = None
         if q:
             # FR-IG-01/INT-1: retrieval only, through the same search service the

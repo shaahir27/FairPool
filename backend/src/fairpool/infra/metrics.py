@@ -21,6 +21,7 @@ an unbounded series and no buyer data reaches a metrics scraper (I13, I14).
 from __future__ import annotations
 
 import logging
+import secrets
 import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -226,6 +227,20 @@ def _session_factory_for(request: Request) -> async_sessionmaker[AsyncSession] |
 
 async def metrics_endpoint(request: Request) -> Response:
     """The scrape handler: counters always, stored gauges when a session exists."""
+    settings = getattr(request.app.state, "settings", None)
+    token = settings.metrics_token.get_secret_value() if settings is not None else ""
+    if token:
+        # ``METRICS_TOKEN`` is unset in local and test runs; a hosted scrape carries it.
+        # Compared in constant time and never logged (I14).
+        header = request.headers.get("authorization", "")
+        supplied = header[len("Bearer ") :] if header.lower().startswith("bearer ") else ""
+        if not secrets.compare_digest(supplied, token):
+            return Response(
+                "Unauthorized\n",
+                status_code=401,
+                media_type="text/plain",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     gauges = await collect_gauges(_session_factory_for(request))
     return Response(get_counters().render_prometheus(gauges), media_type=CONTENT_TYPE)
 

@@ -56,3 +56,12 @@ def test_every_alert_is_actionable() -> None:
         assert rule.get("alert"), rule
         assert rule.get("labels", {}).get("severity") in {"warning", "critical"}, rule
         assert rule.get("annotations", {}).get("summary"), rule
+
+
+def test_a_stage_label_annotation_is_only_used_with_a_per_stage_aggregation() -> None:
+    """``sum(...)`` drops the labels, so ``{{ $labels.stage }}`` would render empty."""
+    for rule in rules():
+        annotations = rule.get("annotations", {})
+        text = " ".join(str(value) for value in annotations.values())
+        if "$labels.stage" in text:
+            assert "by (stage)" in str(rule["expr"]), rule["alert"]

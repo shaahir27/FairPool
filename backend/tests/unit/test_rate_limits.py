@@ -55,6 +55,15 @@ def test_the_oldest_key_is_evicted_past_the_cap() -> None:
     assert list(limiter._hits) == ["b", "c"]
 
 
+def test_an_expired_bucket_frees_capacity_before_a_live_one_is_dropped() -> None:
+    """The cap is memory pressure, not a reason to forget a live caller's own count."""
+    limiter = SlidingWindowLimiter(limit=1, window_s=60.0, max_keys=2)
+    limiter.check("live", 61.0)
+    limiter.check("stale", 0.0)
+    limiter.check("new", 61.5)
+    assert list(limiter._hits) == ["live", "new"]
+
+
 def test_concurrent_callers_get_exactly_the_limit() -> None:
     limiter = SlidingWindowLimiter(limit=5, window_s=60.0)
     allowed: list[int] = []

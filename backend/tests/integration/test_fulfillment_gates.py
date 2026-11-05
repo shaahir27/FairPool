@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, replace
+from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
@@ -28,9 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
-from fairpool.domain.payments import PayPalCapture, PayPalOrder
+from fairpool.domain.payments import PaymentError, PayPalCapture, PayPalOrder
 from fairpool.fakes.payments import FakePayPalGateway
 from fairpool.modules.checkout.shipping import ShippingCipher
+from fairpool.modules.fulfillment import csv as fulfillment_csv
 from fairpool.wiring import worker_handlers
 from tests.integration.test_bid_sealing import bidding_world, lot_with_deadline, structured
 from tests.integration.test_join_receipts import settings_for
@@ -368,9 +370,13 @@ async def test_csv_quotes_every_field_and_defuses_formulas(
     assert '"\'+1 Main Street"' in response.text
     assert '"\'-City"' in response.text
     assert '"\'@Region"' in response.text
-    # The address normaliser strips surrounding whitespace, so the stored postal
-    # code is plain digits; tab and CR still get the prefix inside the writer.
+    # The address normaliser strips surrounding whitespace, so a stored field can never
+    # begin with a tab: the writer's tab and CR prefixes are proved directly, because
+    # those are the values that actually need one and no stored row can carry them.
     assert '"12345"' in response.text
+    written = fulfillment_csv.render([{"name": "\t=SUM(A1)", "city": "\r=1+1"}])
+    assert '"\'\t=SUM(A1)"' in written
+    assert '"\'\r=1+1"' in written
     assert "\n" not in response.text.replace("\r\n", "")
 
 
@@ -475,6 +481,135 @@ async def test_shipment_rows_are_per_row_and_recorded_once(
     assert str(status) == "SUBMITTED"
 
 
+class FailingTracker:
+    """The provider refusing the batch, as the adapter reports it."""
+
+    async def add_trackers(self, items: list[Any]) -> list[Any]:
+        raise PaymentError("RETRYABLE", "TRACKERS", debug_id="DBG-TRACKERS")
+
+
+async def test_a_failed_tracker_row_is_retried_by_the_next_resubmission(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """A FAILED row is not terminal: the merchant's resubmission is the retry."""
+    from fairpool.modules.fulfillment.tracking import ShipmentTracking
+
+    csrf, merchant_id = await console_merchant(client, db_session, "retry@example.test")
+    awarded = await build_awarded_world(db_session, merchant_id)
+    lot_id = awarded.world.lot_id
+    payload = {
+        "shipments": [
+            {
+                "buyer_order_id": str(awarded.order_ids[0]),
+                "carrier": "UPS",
+                "tracking_number": "1Z777",
+            }
+        ]
+    }
+
+    async def queued() -> int:
+        return int(
+            await db_session.scalar(
+                text(
+                    "SELECT count(*) FROM jobs WHERE kind = 'shipments.submit' "
+                    "AND payload->>'lot_id' = :lot"
+                ),
+                {"lot": str(lot_id)},
+            )
+            or 0
+        )
+
+    assert (
+        await client.post(f"{API}/{lot_id}/shipments", headers={"X-CSRF-Token": csrf}, json=payload)
+    ).status_code == 202
+    assert await queued() == 1
+
+    # The worker runs, the provider refuses, the row records FAILED and the job is done.
+    await ShipmentTracking(gateway=FailingTracker(), enabled=True).submit(
+        db_session, {"lot_id": str(lot_id)}
+    )
+    status = await db_session.scalar(
+        text("SELECT paypal_tracker_status FROM shipments WHERE lot_id = :lot"), {"lot": lot_id}
+    )
+    assert str(status) == "FAILED"
+    await db_session.execute(
+        text(
+            "UPDATE jobs SET status = 'DONE' WHERE kind = 'shipments.submit' "
+            "AND payload->>'lot_id' = :lot"
+        ),
+        {"lot": str(lot_id)},
+    )
+
+    replay = await client.post(
+        f"{API}/{lot_id}/shipments", headers={"X-CSRF-Token": csrf}, json=payload
+    )
+    assert replay.status_code == 202, replay.text
+    assert replay.json()["rows"][0]["paypal_tracker_status"] == "FAILED"
+    assert await queued() == 2, "a resubmission re-enqueues the failed row"
+
+    # An enqueue that never landed is the same problem: the next call restores it.
+    await db_session.execute(
+        text("DELETE FROM jobs WHERE kind = 'shipments.submit' AND payload->>'lot_id' = :lot"),
+        {"lot": str(lot_id)},
+    )
+    await client.post(f"{API}/{lot_id}/shipments", headers={"X-CSRF-Token": csrf}, json=payload)
+    assert await queued() == 1, "a lost enqueue is restored by the next submission"
+
+    handler = worker_handlers(SETTINGS)["shipments.submit"]
+    await handler(db_session, {"lot_id": str(lot_id)})
+    retried = await db_session.scalar(
+        text("SELECT paypal_tracker_status FROM shipments WHERE lot_id = :lot"), {"lot": lot_id}
+    )
+    assert str(retried) == "SUBMITTED"
+
+
+async def test_a_shipment_for_an_uncaptured_order_is_invalid(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """Only a CAPTURED order of this lot may ship; the trigger remains the last word."""
+    csrf, merchant_id = await console_merchant(client, db_session, "uncaptured@example.test")
+    awarded = await build_awarded_world(db_session, merchant_id, captured=1)
+    lot_id = awarded.world.lot_id
+    offered_order = uuid4()
+    await db_session.execute(
+        text(
+            "INSERT INTO buyer_orders (id, lot_id, entry_id, status, offer_expires_at, "
+            "total_cents, breakdown) VALUES (:id, :lot, :entry, 'OFFERED', :expires, 47000, "
+            "CAST('{}' AS jsonb))"
+        ),
+        {
+            "id": offered_order,
+            "lot": lot_id,
+            "entry": awarded.world.entry_ids[1],
+            "expires": awarded.world.now,
+        },
+    )
+
+    response = await client.post(
+        f"{API}/{lot_id}/shipments",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "shipments": [
+                {"buyer_order_id": str(offered_order), "carrier": "UPS", "tracking_number": "1Z1"}
+            ]
+        },
+    )
+
+    assert response.status_code == 202, response.text
+    assert response.json()["rows"] == [
+        {"buyer_order_id": str(offered_order), "status": "INVALID", "paypal_tracker_status": None}
+    ]
+    assert (
+        int(
+            await db_session.scalar(
+                text("SELECT count(*) FROM shipments WHERE lot_id = :lot"), {"lot": lot_id}
+            )
+            or 0
+        )
+        == 0
+    )
+
+
 # --------------------------------------------------------------- manifest
 
 
@@ -515,9 +650,11 @@ async def test_the_manifest_lists_captures_only_and_never_the_buyer(
 # ----------------------------------------------------------- verification
 
 
-async def test_verification_uses_read_only_gets_and_limits_to_ten_a_minute(
+async def test_verification_uses_read_only_gets_and_charges_the_provider_budget(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
+    from fairpool.modules.fulfillment.verification import VERIFY_PROVIDER_BUDGET
+
     _csrf, merchant_id = await console_merchant(client, db_session, "verify@example.test")
     awarded = await build_awarded_world(db_session, merchant_id)
     gateway = CountingGateway()
@@ -525,7 +662,9 @@ async def test_verification_uses_read_only_gets_and_limits_to_ten_a_minute(
     app = client._transport.app  # type: ignore[attr-defined]
     app.state.fulfillment_gateway = gateway
 
-    for _ in range(10):
+    # Each request reads two captures, and the window is charged once per item.
+    allowed = VERIFY_PROVIDER_BUDGET // 2
+    for _ in range(allowed):
         response = await client.get(f"{API}/{awarded.world.lot_id}/verification")
         assert response.status_code == 200, response.text
         body = response.json()
@@ -535,13 +674,13 @@ async def test_verification_uses_read_only_gets_and_limits_to_ten_a_minute(
         assert body["paypal_captured_total_cents"] == 100_000
         assert all(item["match"] for item in body["items"])
         assert body["items"][0]["paypal_capture_status"] == "COMPLETED"
-    assert gateway.get_order_calls == 20
+    assert gateway.get_order_calls == VERIFY_PROVIDER_BUDGET
 
     limited = await client.get(f"{API}/{awarded.world.lot_id}/verification")
     assert limited.status_code == 429, limited.text
     assert limited.json()["error"]["code"] == "RATE_LIMITED"
     assert limited.headers["retry-after"].isdigit()
-    assert gateway.get_order_calls == 20, "a refused call makes no PayPal GET"
+    assert gateway.get_order_calls == VERIFY_PROVIDER_BUDGET, "a refused call makes no PayPal GET"
 
 
 async def test_verification_reports_a_mismatched_capture(

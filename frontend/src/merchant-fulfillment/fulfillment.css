@@ -1,0 +1,282 @@
+/*
+ * Fulfillment tab (T08A02), Operate mode.
+ * The shared palette, type and shell stay unchanged; this file adds the dense
+ * table and the phone stacking the shipping rows need. No page-level overflow.
+ */
+.ff-select {
+  max-width: 440px;
+}
+
+.ff-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.ff-table-wrap {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.ff-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ff-table th,
+.ff-table td {
+  padding: 12px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid rgb(var(--color-line) / 0.45);
+}
+
+.ff-table thead th {
+  border-top: 0;
+  padding-top: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--color-muted));
+}
+
+.ff-table tbody tr:first-child td {
+  border-top: 1px solid rgb(var(--color-line) / 0.7);
+}
+
+.ff-table code {
+  overflow-wrap: anywhere;
+}
+
+.ff-check {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -12px 0;
+  cursor: pointer;
+}
+
+.ff-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: rgb(var(--color-action));
+}
+
+.ff-address,
+.ff-money {
+  display: grid;
+  gap: 1px;
+}
+
+.ff-address strong {
+  font-weight: 600;
+}
+
+.ff-total {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ff-ship-result {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgb(var(--color-muted));
+}
+
+.ff-ship-result strong {
+  color: rgb(var(--color-ink));
+}
+
+.ff-ship {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid rgb(var(--color-tint-line) / 0.7);
+  border-radius: 10px;
+  background: rgb(var(--color-tint) / 0.5);
+}
+
+.ff-ship h3 {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.ff-ship-list {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ff-ship-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  align-items: end;
+}
+
+.ff-ship-row p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+}
+
+.ff-ship-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ff-ship-row .form-input {
+  height: 44px;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.ff-verify-result {
+  margin-top: 18px;
+}
+
+.ff-verify-result h3 {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.ff-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px 22px;
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+
+.ff-totals dt {
+  font-size: 12px;
+  color: rgb(var(--color-muted));
+}
+
+.ff-totals dd {
+  margin: 3px 0 0;
+  font-size: 18px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ff-items {
+  display: grid;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.ff-items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 0;
+  border-top: 1px solid rgb(var(--color-line) / 0.5);
+}
+
+.ff-items code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.ff-flag {
+  font-weight: 650;
+}
+
+.ff-flag-good {
+  color: rgb(var(--color-ink));
+}
+
+.ff-flag-bad {
+  color: rgb(var(--color-danger));
+}
+
+.ff-mismatch {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(var(--color-danger-soft));
+  color: rgb(var(--color-danger));
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .ff-ship-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  /* The header row leaves the flow but keeps its header semantics. */
+  .ff-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ff-table,
+  .ff-table tbody,
+  .ff-table tr,
+  .ff-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .ff-table tr {
+    padding: 12px 0 14px;
+    border-top: 1px solid rgb(var(--color-line) / 0.7);
+  }
+
+  .ff-table tbody tr:first-child {
+    border-top: 0;
+  }
+
+  .ff-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 5px 0;
+    border-top: 0;
+  }
+
+  .ff-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: rgb(var(--color-muted));
+  }
+
+  .ff-table tbody tr:first-child td {
+    border-top: 0;
+  }
+
+  .ff-address,
+  .ff-money {
+    text-align: right;
+  }
+
+  .ff-check {
+    margin: 0;
+  }
+}

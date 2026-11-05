@@ -1,10 +1,11 @@
 """``shipments.submit``: one tracker per recorded shipment, through the adapter.
 
-The handler is idempotent: it reads only rows whose ``paypal_tracker_status`` is
-still NULL, so a retry after a partial failure re-submits the remainder. A provider
-failure is written to the row (``FAILED`` plus the debug ID) and never raised; the
-worker must not fail a job over a shipment, and the merchant can correct the row.
-Tracking numbers are never logged (they are shipping data).
+The handler is idempotent: it reads the rows this lot has not submitted yet, so a
+retry after a partial failure re-submits the remainder. A provider failure is written
+to the row (``FAILED`` plus the debug ID) and never raised; the worker must not fail a
+job over a shipment, and the merchant can correct the row and resubmit, which is why a
+``FAILED`` row is read again rather than treated as terminal. Tracking numbers are
+never logged (they are shipping data).
 """
 
 from __future__ import annotations
@@ -39,7 +40,8 @@ _SHIPMENTS = text(
         WHERE buyer_order_id = s.buyer_order_id
         ORDER BY attempt DESC LIMIT 1
     ) po ON true
-    WHERE s.lot_id = :lot AND s.paypal_tracker_status IS NULL
+    WHERE s.lot_id = :lot
+      AND (s.paypal_tracker_status IS NULL OR s.paypal_tracker_status = 'FAILED')
     ORDER BY s.id, c.created_at DESC NULLS LAST, c.paypal_capture_id DESC
     """
 )

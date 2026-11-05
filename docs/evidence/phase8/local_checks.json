@@ -1,0 +1,5 @@
+{
+  "status": "pending",
+  "date": "2026-11-05",
+  "note": "The closure commit records the real make verify output and the make gate-check GATE=ig-8 transcript here."
+}

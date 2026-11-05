@@ -136,9 +136,10 @@ class Settings(BaseSettings):
     reconciler_interval_s: int = 60
     worker_concurrency: int = 4
     rate_limit_enabled: bool = True
-    # How long a webhook's raw body is kept before the reconciler replaces it with
-    # "[expired]": the ids and amounts stay, the payer's identity does not (I14).
-    webhook_raw_retention_s: int = Field(default=604800, ge=3600)
+    # When set, ``/metrics`` needs ``Authorization: Bearer <token>``; unset leaves the
+    # scrape open for local and test runs. A webhook's raw body is protected by the mask
+    # applied at ingest, not by a later scrub: ``trg_webhook_raw_immutable`` freezes it.
+    metrics_token: SecretStr = SecretStr("")
 
     @field_validator("cors_origins", "allowed_payer_countries", mode="before")
     @classmethod

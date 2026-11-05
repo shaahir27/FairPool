@@ -687,7 +687,8 @@ class MockToggleRequest(StrictModel):
 
 
 class SimRunRequest(StrictModel):
-    entries: int = Field(ge=1)
+    # 50,000 is the largest simulation the harness and the worker were sized for.
+    entries: int = Field(ge=1, le=50_000)
     merchants: int = Field(ge=1)
     seed: int
 
@@ -803,8 +804,8 @@ class FulfillmentRow(ResponseModel):
 
 class ShipmentInput(StrictModel):
     buyer_order_id: UUID
-    carrier: str
-    tracking_number: str
+    carrier: str = Field(max_length=64)
+    tracking_number: str = Field(max_length=128)
 
 
 class ShipmentsRequest(StrictModel):

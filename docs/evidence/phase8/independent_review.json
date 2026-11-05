@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "date": "2026-11-05",
+  "passes": 3,
+  "scope": [
+    "backend security and money: roles, cookie/proxy, webhook ingest, fulfilment/verification/tracking, simulation, metrics",
+    "agent/merchant/ops: delegation scope, Merchant API scopes and limits, bids list/SSE, gate wiring, demo seeder, IT-8 harness honesty",
+    "frontend: merchant console, fulfilment tab, PayPal and agent settings, buyer Orders/Discover copy"
+  ],
+  "must_fix_found_and_resolved": [
+    "Webhook body cap was applied after the whole body was buffered; the route now rejects over-cap Content-Length and streams with a running total.",
+    "Webhook payer masking was shallow; identity keys and address objects are masked at any depth under payer/shipping, and the fixture proves the deep case.",
+    "The retention scrub could never run (immutable trigger, setting never wired). Removed; masking at ingest is the protection and the dead code is gone.",
+    "Verification could issue unbounded provider reads from one request; it now caps at 200 items, uses a bounded semaphore and charges the per-item budget.",
+    "Tracking marked failed rows terminal; a repeat submission re-enqueues and retries.",
+    "Merchant API keys had no 120 rpm limit; a per-key window now answers 429 RATE_LIMITED with Retry-After, in the sub-app envelope.",
+    "Agent pool search ignored delegation scope; a scoped token now sees only its pools.",
+    "Merchant key auth row-locked the key on every request; it reads without a lock and keeps only the last_used write.",
+    "Limiter eviction dropped the oldest live bucket; it sweeps expired buckets first.",
+    "Alert rules dropped the stage label their annotations interpolate; they aggregate by stage.",
+    "/metrics is token-guarded when METRICS_TOKEN is set; simulation entries and shipment strings are bounded.",
+    "render.yaml no longer ships the cross-site static frontend.",
+    "Profile save wiped payee fields and attestations; the update is merge-only and the UI sends only edited fields.",
+    "PayPal link polling leaked after navigation; it is cleaned up, closes the popup and stops on timeout.",
+    "Fulfilment copy claimed refused rows explain themselves, claimed a CSV row count it did not know, and recorded shipments without confirmation; all corrected.",
+    "Agent settings hid pools after the eighth and swallowed the pools error; fixed. PayPal settings no longer hangs on a failed /me.",
+    "Tests that could not fail were replaced (CSV injection case, events key set, confirmation required, foreign authorize_url refused)."
+  ],
+  "recorded_limits": [
+    "Q-2026-11-04-34: the contract disagrees with itself on the idempotency-conflict status (400 in 4.4, 409 in 1); the code answers 409 and the tests assert it.",
+    "Q-2026-11-04-37: mock toggles remain per-process; unchanged.",
+    "The demo seeder's provider references are DEMO-shaped and the verification endpoint reports them as unverifiable; no PayPal call is made while seeding.",
+    "PayPal login linking needs the app's `PAYPAL_LOGIN_REDIRECT_URI` registered as an exact Sandbox return URL; that dashboard step is the owner's, and the settings page now names the cause."
+  ],
+  "verdict": "No unresolved blocker or major. Every must-fix is closed with a test; remaining limits are recorded, not hidden."
+}

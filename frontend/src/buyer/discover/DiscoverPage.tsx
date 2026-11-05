@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   api,
   type ApiComponents,
+  envelope,
   formatCents,
   formatDateTime,
   Icon,
@@ -28,19 +29,17 @@ export const JOIN_BADGE =
 
 const PROMPT_LABEL = "What are you looking for and what is your max price?";
 
+/**
+ * The server names the manual form in its own instruction; the link follows that
+ * wording and is never shown on a question that does not name it (I13).
+ */
+const NAMES_MANUAL_FORM = /manual form/i;
+
 /** Starting points, not suggestions of a deal: the asks are the buyer's own. */
 const EXAMPLE_ASKS = [
   "A 27-inch 4K monitor, matte screen, under $600, delivered to New York",
   "A ceramic kettle for the office, under $80, needed by end of next month",
 ];
-
-function envelope(failure: unknown): { code: string; message: string } {
-  const value = failure as { error?: { code?: string; message?: string } } | undefined;
-  return {
-    code: value?.error?.code ?? "REQUEST_FAILED",
-    message: value?.error?.message ?? "The request could not be completed.",
-  };
-}
 
 export function DiscoverPage() {
   const navigate = useNavigate();
@@ -137,7 +136,7 @@ export function DiscoverPage() {
 
   return (
     <section aria-labelledby="discover-title" className="discover-page">
-      <div className="catalogue">
+      <div className="catalogue" id="open-pools">
         <div className="shop-heading catalogue-heading">
           <div>
             <h1 id="discover-title" className="shop-title">Open pools</h1>
@@ -252,8 +251,23 @@ export function DiscoverPage() {
 
         {turn && !card ? (
           <div className="mt-5">
-            {turn.status === "NEEDS_CLARIFICATION" && turn.clarifying_question ? (
-              <Notice kind="info">{turn.clarifying_question}</Notice>
+            {turn.clarifying_question ? (
+              <>
+                {/* The server's sentence, word for word: it may be a question or the
+                    manual-form instruction when AI is off or nothing matched (FR-IN-08). */}
+                <Notice kind={turn.status === "NO_MATCH" ? "warn" : "info"}>
+                  {turn.clarifying_question}
+                </Notice>
+                {NAMES_MANUAL_FORM.test(turn.clarifying_question) ? (
+                  <a
+                    className="signup-back mt-2 inline-flex min-h-[44px] items-center gap-2 font-semibold"
+                    href="#open-pools"
+                  >
+                    Browse the open pools to use the manual form
+                    <Icon name="arrow" />
+                  </a>
+                ) : null}
+              </>
             ) : (
               <Notice kind="warn">
                 No open pool matches that yet. Browse the pools above and state your request in the

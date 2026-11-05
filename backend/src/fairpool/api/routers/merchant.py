@@ -91,6 +91,7 @@ async def merchant_profile(
         payee_email=payload.payee_email,
         paypal_merchant_id=payload.paypal_merchant_id,
         attestations=payload.attestations,
+        present=payload.model_fields_set,
     )
     await db.commit()
     return schemas.MerchantProfileResponse(

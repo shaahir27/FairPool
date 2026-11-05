@@ -3588,10 +3588,12 @@
             "type": "string"
           },
           "carrier": {
+            "maxLength": 64,
             "title": "Carrier",
             "type": "string"
           },
           "tracking_number": {
+            "maxLength": 128,
             "title": "Tracking Number",
             "type": "string"
           }
@@ -3790,6 +3792,7 @@
         "additionalProperties": false,
         "properties": {
           "entries": {
+            "maximum": 50000.0,
             "minimum": 1.0,
             "title": "Entries",
             "type": "integer"

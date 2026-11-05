@@ -60,7 +60,7 @@ CONTRACT_DEPARTURES: dict[str, str] = {
 }
 
 #: Fields the code has and the contract table does not yet list (same change request).
-CONTRACT_ADDITIONS: dict[str, Any] = {"webhook_raw_retention_s": 604800}
+CONTRACT_ADDITIONS: dict[str, Any] = {"metrics_token": ""}
 
 
 def make_settings(**overrides: Any) -> Settings:
@@ -369,10 +369,11 @@ def test_the_hosted_profile_is_the_default_and_keeps_the_helpers_closed() -> Non
     assert make_settings(app_env="render").mock_toggles_enabled is False
 
 
-def test_webhook_retention_is_a_week_by_default() -> None:
-    assert make_settings().webhook_raw_retention_s == 604800
-    with pytest.raises(ValidationError):
-        make_settings(webhook_raw_retention_s=0)
+def test_the_metrics_scrape_is_open_until_a_token_is_configured() -> None:
+    assert make_settings().metrics_token.get_secret_value() == ""
+    token = make_settings(metrics_token="scrape-token")
+    assert isinstance(token.metrics_token, SecretStr)
+    assert "scrape-token" not in token.model_dump_json()
 
 
 def env_example_names() -> dict[str, str]:
