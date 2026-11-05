@@ -1,38 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
-import { api, formatDateTime, Notice } from "../shared";
+import { api, useApiRead, formatDateTime, Notice } from "../shared";
 
 import { failureOf, type DeadLetterEvent } from "./api";
 
 const LOAD_FAILED = "Dead-letter webhook events could not be loaded.";
 
 export function DeadLettersPanel() {
-  const [events, setEvents] = useState<DeadLetterEvent[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const records = useApiRead("/api/v1/admin/webhooks/dead-letter", (signal) => api.GET("/api/v1/admin/webhooks/dead-letter", {signal}));
+  const body = records.data as {events?: DeadLetterEvent[]} | undefined;
+  const events = body ? (Array.isArray(body.events) ? body.events : []) : null;
+  const loading = records.isPending || records.isFetching;
+  const [actionError, setError] = useState<{code: string; message: string} | null>(null);
+  const error = actionError ?? (records.error ? failureOf(records.error, LOAD_FAILED) : null);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    void api
-      .GET("/api/v1/admin/webhooks/dead-letter")
-      .then(({ data, error: failure }) => {
-        if (failure || !data) {
-          setError(failureOf(failure, LOAD_FAILED));
-          return;
-        }
-        const body = data as { events?: DeadLetterEvent[] };
-        setEvents(Array.isArray(body.events) ? body.events : []);
-      })
-      .catch(() => setError({ code: "REQUEST_FAILED", message: `${LOAD_FAILED} Check your connection and try again.` }))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const load = () => { setError(null); void records.refetch({cancelRefetch: false}); };
 
   const retry = (event: DeadLetterEvent) => {
     if (retrying) return;

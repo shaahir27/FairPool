@@ -4,7 +4,8 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Notice } from "./Notice";
 import { LoadingScreen } from "./LoadingScreen";
 import { api } from "../api/client";
-import { accountState, resetSessionCache, setAccount, sessionState, workspaceHome } from "../lib/session";
+import { prefetchWorkspace } from "../api/prefetch";
+import { accountState, SESSION_ENDED_EVENT, resetSessionCache, setAccount, sessionState, workspaceHome } from "../lib/session";
 
 type GuardState = "checking" | "in" | "out" | "unreachable";
 
@@ -22,16 +23,23 @@ export function RequireAuth({ children, role }: { children: ReactNode; role: "bu
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    const ended = () => setState("out");
+    window.addEventListener(SESSION_ENDED_EVENT, ended);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, ended);
+  }, []);
+
+  useEffect(() => {
     const known = sessionState();
     if (known !== null && (known !== "in" || accountState())) {
       setState(known);
       return;
     }
     let live = true;
-    api
-      .GET("/api/v1/me")
-      .then(({ data, response }) => {
-        if (!live) return;
+    const checking = api.GET("/api/v1/me");
+    // Only public catalogue/detail reads may start before the role is verified.
+    if (location.pathname === "/discover" || location.pathname.startsWith("/pools/")) prefetchWorkspace(location.pathname);
+    checking.then(({ data, response }) => {
+        if (!live || sessionState() === "out") return;
         // Only a 401 says the cookie is dead. A 500, a proxy error or a refused
         // request says nothing about the session and must not read as signed out.
         if (response.status === 401) {
@@ -49,6 +57,7 @@ export function RequireAuth({ children, role }: { children: ReactNode; role: "bu
             role: typeof data?.role === "string" ? data.role : "",
             paypal_linked: data?.paypal_linked === true,
           });
+          if (data?.role === role) prefetchWorkspace(location.pathname);
           setState("in");
           return;
         }
@@ -62,7 +71,7 @@ export function RequireAuth({ children, role }: { children: ReactNode; role: "bu
     return () => {
       live = false;
     };
-  }, [attempt]);
+  }, [attempt, location.pathname, role]);
 
   if (state === "checking") {
     return <LoadingScreen label="Checking your session" />;

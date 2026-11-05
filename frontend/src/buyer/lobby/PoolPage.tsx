@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   API_BASE_URL,
   api,
+  useApiRead,
   type ApiComponents,
   formatDateTime,
   HonestyLabels,
@@ -104,9 +105,10 @@ function stageIndex(status: string): number {
 
 export function PoolPage() {
   const { poolId } = useParams<{ poolId: string }>();
-  const [detail, setDetail] = useState<PoolDetail | null>(null);
-  const [loadError, setLoadError] = useState<{ code: string; message: string } | null>(null);
-  const [missing, setMissing] = useState(false);
+  const poolRead = useApiRead(`/api/v1/pools/${poolId}`, (signal) => api.GET("/api/v1/pools/{pool_id}", {signal, params: {path: {pool_id: poolId!}}}), {enabled: Boolean(poolId)});
+  const detail: PoolDetail | null = poolRead.data ?? null;
+  const loadError = poolRead.error ? envelope(poolRead.error) : null;
+  const missing = loadError?.code === "NOT_FOUND";
   const [attempt, setAttempt] = useState(0);
 
   const [entry, setEntry] = useState<EntryStatus | null>(null);
@@ -121,34 +123,8 @@ export function PoolPage() {
   const [pending, setPending] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!poolId) return;
-    let live = true;
-    setDetail(null);
-    setLoadError(null);
-    setMissing(false);
-    setLiveStatus(null);
-    setLiveLots({});
-    void api
-      .GET("/api/v1/pools/{pool_id}", { params: { path: { pool_id: poolId } } })
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure || !data) {
-          const value = envelope(failure);
-          if (value.code === "NOT_FOUND") setMissing(true);
-          else setLoadError(value);
-          return;
-        }
-        setDetail(data);
-      })
-      .catch(() => {
-        if (live) {
-          setLoadError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
-        }
-      });
-    return () => {
-      live = false;
-    };
-  }, [poolId, attempt]);
+    setLiveStatus(null); setLiveLots({}); setServerNow(null);
+  }, [poolId]);
 
   useEffect(() => {
     if (!poolId) return;
@@ -251,7 +227,7 @@ export function PoolPage() {
             <button
               type="button"
               className="signup-back"
-              onClick={() => setAttempt((value) => value + 1)}
+              onClick={() => { void poolRead.refetch(); setAttempt((value) => value + 1); }}
             >
               Reload the pool
             </button>

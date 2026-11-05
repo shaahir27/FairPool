@@ -17,6 +17,7 @@
     "gen:api": "openapi-typescript openapi.json -o src/shared/api/schema.d.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.106.1",
     "jspdf": "^4.2.1",
     "openapi-fetch": "^0.13.0",
     "react": "^18.3.1",

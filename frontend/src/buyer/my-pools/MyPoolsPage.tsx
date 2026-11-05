@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { type ApiComponents, envelope, formatDateTime, honestyKinds, HonestyLabels, Icon, Notice, ProductArt, RecordFilters, StatusPill, statusStyle } from "../../shared";
-import { loadEntries } from "../prefetch";
+import { api, useApiRead, type ApiComponents, envelope, formatDateTime, honestyKinds, HonestyLabels, Icon, Notice, ProductArt, RecordFilters, StatusPill, statusStyle } from "../../shared";
 import "../settings.css";
 
 type Entry = ApiComponents["schemas"]["MeEntry"];
@@ -29,20 +28,11 @@ function updateFor(entry: Entry): string {
 }
 
 export function MyPoolsPage() {
-  const [entries, setEntries] = useState<Entry[] | null>(null);
-  const [error, setError] = useState<{code: string; message: string} | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const history = useApiRead("/api/v1/me/entries", (signal) => api.GET("/api/v1/me/entries", {signal}));
+  const entries = history.data?.items ?? null;
+  const error = history.error ? envelope(history.error) : null;
   const [view, setView] = useState<"current" | "past">("current");
   const [query, setQuery] = useState("");
-  useEffect(() => {
-    let live = true;
-    setError(null);
-    void loadEntries(attempt > 0).then(({data, error: failure}) => {
-      if (!live) return;
-      if (failure || !data) setError(envelope(failure)); else setEntries(data.items);
-    }).catch(() => { if (live) setError({code: "REQUEST_FAILED", message: "Check your connection and try again."}); });
-    return () => { live = false; };
-  }, [attempt]);
   const current = (entries ?? []).filter((entry) => !isPast(entry));
   const past = (entries ?? []).filter(isPast);
   const scoped = view === "current" ? current : past;
@@ -51,7 +41,7 @@ export function MyPoolsPage() {
     .sort((left, right) => Number(reviewable(right)) - Number(reviewable(left)));
   return <section className="my-pools-page" aria-labelledby="my-pools-title">
     <header className="settings-heading settings-heading-action"><div><h1 id="my-pools-title" className="shop-title">My Pools</h1><p className="shop-copy">Follow your entries, review offers and open your orders.</p></div><Link to="/discover" className="button-secondary">Browse pools<Icon name="arrow" /></Link></header>
-    {error ? <Notice kind="error" code={error.code}>{error.message} <button className="signup-back" type="button" onClick={() => setAttempt((value) => value + 1)}>Try again</button></Notice> : null}
+    {error ? <Notice kind="error" code={error.code}>{error.message} <button className="signup-back" type="button" onClick={() => void history.refetch()}>Try again</button></Notice> : null}
     {entries === null ? error ? null : <div role="status" aria-busy="true" aria-label="Loading your pools" className="pool-entry-feed">{[0,1,2].map((index) => <div key={index} className="shop-panel shop-panel-pad"><div className="skeleton h-5 w-1/2" /><div className="skeleton mt-4 h-4 w-2/3" /></div>)}</div>
       : entries.length === 0 ? <div className="pool-list-empty"><Icon name="layers" /><h2>No pools joined yet</h2><p>Choose a pool and set your price limit. Joining is free.</p><Link to="/discover" className="button-primary">Find a pool</Link></div>
       : <><div className="pool-list-controls"><RecordFilters label="Pool history" value={view} onChange={setView} options={[{id: "current", label: "Current pools", count: current.length}, {id: "past", label: "Past entries", count: past.length}]} /><label className="catalogue-search"><Icon name="search" /><span className="sr-only">Search your pools</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your pools" /></label></div>

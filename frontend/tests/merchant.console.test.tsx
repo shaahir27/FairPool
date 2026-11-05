@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { setAccount, readClient } from "../src/shared";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -264,6 +265,7 @@ describe("Demand Board", () => {
 });
 
 describe("Merchant profile", () => {
+  beforeEach(() => setAccount({display_name: "Demo Merchant Alpha", role: "merchant", paypal_linked: false}));
   it("loads the stored business, payee and attestations before editing", async () => {
     transport.get.mockResolvedValue({data: {merchant_id: "merchant-one", display_name: "Stored business", payee_email: "seller@example.test", paypal_merchant_id: "PAYEE-1", onboarding_status: "DEMO", attestations: {inventory_reserved: {accepted: true}}}});
     showProfile();
@@ -274,6 +276,7 @@ describe("Merchant profile", () => {
     expect(transport.post).not.toHaveBeenCalled();
   });
   it("prefills the account name, records the three attestations and shows the server's status", async () => {
+    setAccount({display_name: "Demo Merchant Alpha", role: "merchant", paypal_linked: false});
     transport.get.mockResolvedValue({
       data: { display_name: "Demo Merchant Alpha", role: "merchant", paypal_linked: false },
     });
@@ -368,4 +371,32 @@ describe("shared display helpers", () => {
     expect(productName(null)).toBe("Lot");
     expect(shortId("1234567890123")).toBe("12345678…");
   });
+});
+
+
+it("uses the verified account name without a second /me read or a stuck profile form", async () => {
+  setAccount({display_name: "Verified Merchant", role: "merchant", paypal_linked: false});
+  transport.get.mockImplementation((path: string) => path === "/api/v1/merchant/profile"
+    ? Promise.resolve({error: {error: {code: "NOT_FOUND"}}}) : new Promise(() => {}));
+  showProfile();
+  const name = await screen.findByLabelText("Display name");
+  await waitFor(() => expect(name).toHaveValue("Verified Merchant"));
+  expect(name).toBeEnabled();
+  fireEvent.change(name, {target: {value: "My draft"}});
+  await act(async () => {await readClient.invalidateQueries();});
+  expect(name).toHaveValue("My draft");
+  expect(name).toBeEnabled();
+  expect(transport.get.mock.calls.some(([path]) => path === "/api/v1/me")).toBe(false);
+});
+
+
+it("returns to merchant demand without downloading its fresh lot list again", async () => {
+  transport.get.mockResolvedValue({data: [lot()]});
+  const first = showDemand();
+  await screen.findByRole("button", {name: "Prepare a bid"});
+  first.unmount();
+  transport.get.mockReturnValue(new Promise(() => {}));
+  showDemand();
+  expect(screen.getByRole("button", {name: "Prepare a bid"})).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(1);
 });

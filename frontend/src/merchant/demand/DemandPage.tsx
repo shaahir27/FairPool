@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   api,
+  useApiRead,
   type ApiComponents,
   formatDateTime,
   Icon,
@@ -23,49 +24,17 @@ type LotSummary = ApiComponents["schemas"]["MerchantLotSummary"];
  */
 export function DemandPage() {
   const [query, setQuery] = useState("");
-  const [lots, setLots] = useState<LotSummary[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const records = useApiRead("/api/v1/merchant/lots", (signal) => api.GET("/api/v1/merchant/lots", {signal}));
+  const lots: LotSummary[] | null = records.data ?? null;
+  const loading = records.isPending;
+  const error = records.error ? failureEnvelope(records.error) : null;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [serverNow, setServerNow] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    setLoading(true);
-    void api
-      .GET("/api/v1/merchant/lots")
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure || !data) {
-          setError(failureEnvelope(failure));
-          setLots([]);
-          return;
-        }
-        setLots(Array.isArray(data) ? data : []);
-        setError(null);
-      })
-      .catch(() => {
-        if (live) {
-          setError({
-            code: "REQUEST_FAILED",
-            message: "Check your connection, then reload the lots.",
-          });
-          setLots([]);
-        }
-      })
-      .finally(() => {
-        if (live) setLoading(false);
-      });
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
 
   useMerchantEvents((event) => {
     // The feed accelerates the screen; the JSON refetch above is still the truth.
     if (event.server_time) setServerNow(event.server_time);
-    if (event.type !== "tick") setAttempt((value) => value + 1);
+    if (event.type !== "tick") void records.refetch();
   });
 
   const search = query.trim().toLocaleLowerCase();
@@ -115,7 +84,7 @@ export function DemandPage() {
       {error ? (
         <Notice kind="error" code={error.code}>
           {error.message}{" "}
-          <button type="button" className="merchant-link" onClick={() => setAttempt((value) => value + 1)}>
+          <button type="button" className="merchant-link" onClick={() => void records.refetch()}>
             Reload lots
           </button>
         </Notice>

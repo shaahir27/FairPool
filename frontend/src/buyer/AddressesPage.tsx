@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { api, type ApiComponents, DeliveryAddressFields, EMPTY_DELIVERY_ADDRESS, Icon, Notice } from "../shared";
+import { api, useApiRead, readClient, type ApiComponents, DeliveryAddressFields, EMPTY_DELIVERY_ADDRESS, Icon, Notice } from "../shared";
 
 import "./settings.css";
 
@@ -9,35 +9,35 @@ export function AddressesPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const editorTitle = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (editorOpen) editorTitle.current?.focus(); }, [editorOpen]);
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const directory = useApiRead("/api/v1/me/addresses", (signal) => api.GET("/api/v1/me/addresses", {signal}));
+  const addresses = directory.data?.addresses ?? [];
+  const loading = directory.isPending;
+  const [actionError, setError] = useState("");
+  const error = actionError || (directory.error ? "We couldn't load your addresses. Try again." : "");
+  const setAddresses = (update: (previous: SavedAddress[]) => SavedAddress[]) => {
+    readClient.setQueryData<{addresses: SavedAddress[]}>(["/api/v1/me/addresses"], (previous) => ({addresses: update(previous?.addresses ?? [])}));
+  };
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [address, setAddress] = useState(EMPTY_DELIVERY_ADDRESS);
   const [isDefault, setDefault] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let live = true;
-    setLoading(true);
-    void api.GET("/api/v1/me/addresses").then(({ data, error: failure }) => {
-      if (!live) return;
-      if (failure || !data) setError("We couldn’t load your addresses. Try again.");
-      else { setAddresses(data.addresses); setError(""); if (data.addresses.length === 0) setEditorOpen(true); }
-    }).catch(() => { if (live) setError("Check your connection and try again."); }).finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [attempt]);
+    if (directory.data?.addresses.length === 0) setEditorOpen(true);
+  }, [directory.data]);
   function reset() { setEditorOpen(false); setEditing(null); setAddress(EMPTY_DELIVERY_ADDRESS); setDefault(false); }
   async function save(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
+    const directoryQuery = readClient.getQueryCache().find({queryKey: ["/api/v1/me/addresses"], exact: true});
     setBusy(true); setError(""); setSaved(false);
     try {
       const body = { address, is_default: isDefault };
       const result = editing ? await api.PUT("/api/v1/me/addresses/{address_id}", { params: { path: { address_id: editing } }, body }) : await api.POST("/api/v1/me/addresses", { body });
       if (result.error || !result.data) { setError("We couldn’t save this address. Check the fields and try again."); return; }
+      // A late save from a departed session must not populate its successor’s cache.
+      if (!directoryQuery || readClient.getQueryCache().find({queryKey: ["/api/v1/me/addresses"], exact: true}) !== directoryQuery) return;
       const item = result.data;
       setAddresses((previous) => [...previous.filter((row) => row.id !== item.id).map((row) => item.is_default ? { ...row, is_default: false } : row), item]);
       reset(); setSaved(true);
@@ -51,13 +51,13 @@ export function AddressesPage() {
       const result = await api.DELETE("/api/v1/me/addresses/{address_id}", { params: { path: { address_id: id } } });
       if (result.error) { setError("We couldn’t remove this address. Try again."); return; }
       if (editing === id) reset();
-      setRemoving(null); setAttempt((value) => value + 1);
+      setRemoving(null); void directory.refetch({cancelRefetch: false});
     } catch { setError("Check your connection and try again."); }
     finally { setBusy(false); }
   }
   return <section className="address-book buyer-settings">
     <header className="settings-heading settings-heading-action"><div><h1 className="shop-title">Delivery addresses</h1><p className="shop-copy">Keep your usual destinations ready for checkout. Changes here do not change orders already placed.</p></div><button type="button" className="button-primary" disabled={busy || editorOpen || loading} onClick={() => setEditorOpen(true)}><Icon name="truck" />Add address</button></header>
-    {error ? <Notice kind="error">{error} <button type="button" className="signup-back" onClick={() => setAttempt((value) => value + 1)}>Reload addresses</button></Notice> : null}
+    {error ? <Notice kind="error">{error} <button type="button" className="signup-back" onClick={() => void directory.refetch({cancelRefetch: false})}>Reload addresses</button></Notice> : null}
     {saved ? <p className="address-saved" role="status"><Icon name="check" />Address saved.</p> : null}
     <div className={`address-book-layout${editorOpen ? " is-editing" : ""}`}>
       <section className="settings-surface address-list" aria-label="Saved addresses">

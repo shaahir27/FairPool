@@ -283,7 +283,9 @@ it("refuses to create a delegation with no pool selected", async () => {
   });
   render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Create delegation" }));
+  const create = await screen.findByRole("button", {name: "Create delegation"});
+  await waitFor(() => expect(create).toBeEnabled());
+  fireEvent.click(create);
   expect(await screen.findByText(/Pick at least one pool/)).toBeInTheDocument();
   expect(transport.post).not.toHaveBeenCalled();
 });

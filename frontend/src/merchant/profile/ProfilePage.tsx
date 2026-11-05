@@ -1,7 +1,9 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
   api,
+  accountState,
+  useApiRead,
   type ApiComponents,
   formatDateTime,
   HONESTY_LABELS,
@@ -50,6 +52,8 @@ function stamp(value: unknown): string | null {
  * not imply that it can.
  */
 export function ProfilePage() {
+  const profileRead = useApiRead("/api/v1/merchant/profile", (signal) => api.GET("/api/v1/merchant/profile", {signal}));
+  const prefilled = useRef(false);
   const [displayName, setDisplayName] = useState("");
   const [payeeEmail, setPayeeEmail] = useState("");
   const [paypalMerchantId, setPaypalMerchantId] = useState("");
@@ -66,29 +70,25 @@ export function ProfilePage() {
   const [result, setResult] = useState<ProfileResponse | null>(null);
 
   useEffect(() => {
-    let live = true;
-    async function loadProfile() {
-      try {
-        const {data} = await api.GET("/api/v1/merchant/profile");
-        if (!live) return;
-        if (data?.merchant_id) {
-          setDisplayName(data.display_name);
-          setPayeeEmail(data.payee_email ?? "");
-          setPaypalMerchantId(data.paypal_merchant_id ?? "");
-          setAttestations(Object.fromEntries(ATTESTATIONS.map((row) => [row.key, accepted(data.attestations[row.key])])));
-          setResult(data);
-        } else {
-          const me = await api.GET("/api/v1/me");
-          if (!live) return;
-          if (me.data?.display_name) setDisplayName(me.data.display_name);
-          else setPrefillProblem("Your profile could not be loaded. Enter your business details below.");
-        }
-      } catch { if (live) setPrefillProblem("Your profile could not be loaded. Your existing settings stay unchanged unless you edit them."); }
-      finally { if (live) setPrefillLoading(false); }
+    if (prefilled.current || profileRead.isPending) return;
+    prefilled.current = true;
+    const data = profileRead.data;
+    if (data?.merchant_id) {
+      setDisplayName(data.display_name);
+      setPayeeEmail(data.payee_email ?? "");
+      setPaypalMerchantId(data.paypal_merchant_id ?? "");
+      setAttestations(Object.fromEntries(ATTESTATIONS.map((row) => [row.key, accepted(data.attestations[row.key])])));
+      setResult(data);
+    } else {
+      const name = accountState()?.display_name;
+      if (name) setDisplayName(name);
+      else setPrefillProblem("Enter your business details below.");
+      if (profileRead.error && failureEnvelope(profileRead.error).code !== "NOT_FOUND") {
+        setPrefillProblem("Your stored profile could not be checked. Existing settings stay unchanged unless you edit them.");
+      }
     }
-    void loadProfile();
-    return () => { live = false; };
-  }, []);
+    setPrefillLoading(false);
+  }, [profileRead.data, profileRead.error, profileRead.isPending]);
 
   function noteEdited(field: string) {
     setEdited((current) => (current.has(field) ? current : new Set(current).add(field)));

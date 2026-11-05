@@ -1,7 +1,8 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 
 import {
   api,
+  useApiRead,
   type ApiComponents,
   formatDateTime,
   Icon,
@@ -27,10 +28,10 @@ const SCOPES: ReadonlyArray<{ id: string; label: string }> = [
  * The secret is never fetched again; the row keeps only its HMAC server-side.
  */
 export function DeveloperPage() {
-  const [keys, setKeys] = useState<ApiKeyView[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const records = useApiRead("/api/v1/merchant/api-keys", (signal) => api.GET("/api/v1/merchant/api-keys", {signal}));
+  const keys: ApiKeyView[] | null = records.data?.items ?? null;
+  const loading = records.isPending;
+  const error = records.error ? failureEnvelope(records.error) : null;
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<string[]>(["lots:read", "bids:read"]);
   const [creating, setCreating] = useState(false);
@@ -43,37 +44,6 @@ export function DeveloperPage() {
   const [revokedNow, setRevokedNow] = useState<string[]>([]);
   const [revokeProblem, setRevokeProblem] = useState<{ code: string; message: string } | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    setLoading(true);
-    void api
-      .GET("/api/v1/merchant/api-keys")
-      .then(({ data, error: failure }) => {
-        if (!live) return;
-        if (failure || !data) {
-          setError(failureEnvelope(failure));
-          setKeys([]);
-          return;
-        }
-        setKeys(Array.isArray(data.items) ? data.items : []);
-        setError(null);
-      })
-      .catch(() => {
-        if (live) {
-          setError({
-            code: "REQUEST_FAILED",
-            message: "Check your connection, then reload your API keys.",
-          });
-          setKeys([]);
-        }
-      })
-      .finally(() => {
-        if (live) setLoading(false);
-      });
-    return () => {
-      live = false;
-    };
-  }, [attempt]);
 
   async function createKey(event: FormEvent) {
     event.preventDefault();
@@ -93,7 +63,7 @@ export function DeveloperPage() {
       }
       setSecret(data);
       setName("");
-      setAttempt((value) => value + 1);
+      void records.refetch({cancelRefetch: false});
     } catch {
       setCreateProblem({
         code: "REQUEST_FAILED",
@@ -258,7 +228,7 @@ export function DeveloperPage() {
                 <button
                   type="button"
                   className="merchant-link"
-                  onClick={() => setAttempt((value) => value + 1)}
+                  onClick={() => void records.refetch({cancelRefetch: false})}
                 >
                   Reload keys
                 </button>

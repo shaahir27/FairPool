@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import {
   API_BASE_URL,
   api,
+  useApiRead,
   type ApiComponents,
   envelope,
   formatCents,
@@ -77,9 +78,23 @@ async function responseProblem(response: Response): Promise<Problem> {
 }
 
 export function FulfillmentPage() {
-  const [lots, setLots] = useState<AwardedLot[] | null>(null);
-  const [lotsProblem, setLotsProblem] = useState<Problem | null>(null);
-  const [lotsAttempt, setLotsAttempt] = useState(0);
+  const bidsRead = useApiRead("/api/v1/merchant/bids", (signal) => api.GET("/api/v1/merchant/bids", {signal}));
+  const won = (bidsRead.data?.items ?? []).filter((bid) => bid.status === "AWARDED");
+  const wonKey = won.map((bid) => bid.lot_id).sort().join(",");
+  const awardedRead = useApiRead(`/merchant/awarded-lots/${wonKey}`, async (signal) => {
+    const lots = await Promise.all(won.map(async (bid: BidView): Promise<AwardedLot> => {
+      let progress: LotProgress | null = null;
+      try {
+        const read = await api.GET("/api/v1/merchant/lots/{lot_id}/progress", {signal, params: {path: {lot_id: bid.lot_id}}});
+        progress = read.data ?? null;
+      } catch { /* A failed progress read keeps the awarded lot visible with unknown status. */ }
+      return {lotId: bid.lot_id, productKey: typeof bid.structured?.product_key === "string" ? bid.structured.product_key : null, progress};
+    }));
+    return {data: lots};
+  }, {enabled: Boolean(bidsRead.data)});
+  const lots = awardedRead.data ?? null;
+  const lotsProblem = bidsRead.error || awardedRead.error ? envelope(bidsRead.error ?? awardedRead.error) : null;
+  const refreshLots = () => { void bidsRead.refetch({cancelRefetch: false}); void awardedRead.refetch({cancelRefetch: false}); };
   const [selected, setSelected] = useState<string | null>(null);
 
   const [rows, setRows] = useState<FulfillmentRow[] | null>(null);
@@ -96,65 +111,14 @@ export function FulfillmentPage() {
   const [verification, setVerification] = useState<Verification | null>(null);
   const [manifest, setManifest] = useState<Manifest | null>(null);
 
-  // The awarded lots: the bid list decides ownership, progress decides the lot status.
   useEffect(() => {
-    let live = true;
-    setLotsProblem(null);
-    void (async () => {
-      const { data, error: failure } = await api.GET("/api/v1/merchant/bids");
-      if (!live) return;
-      if (failure || !data) {
-        setLotsProblem(envelope(failure));
-        setLots([]);
-        return;
-      }
-      const awarded = (Array.isArray(data.items) ? data.items : []).filter(
-        (bid: BidView) => bid.status === "AWARDED",
-      );
-      const settled = await Promise.all(
-        awarded.map(async (bid: BidView): Promise<AwardedLot> => {
-          let progress: LotProgress | null = null;
-          try {
-            const read = await api.GET("/api/v1/merchant/lots/{lot_id}/progress", {
-              params: { path: { lot_id: bid.lot_id } },
-            });
-            progress = read.data ?? null;
-          } catch {
-            // A lot whose progress failed still appears; its status is simply unknown.
-            progress = null;
-          }
-          return {
-            lotId: bid.lot_id,
-            productKey:
-              typeof bid.structured?.product_key === "string"
-                ? bid.structured.product_key
-                : null,
-            progress,
-          };
-        }),
-      );
-      if (!live) return;
-      setLots(settled);
-      setSelected((current) => {
-        if (current && settled.some((lot) => lot.lotId === current)) return current;
-        const funded = settled.find(
-          (lot) => lot.progress !== null && FUNDED_STATUSES.has(lot.progress.status),
-        );
-        return (funded ?? settled[0])?.lotId ?? null;
-      });
-    })().catch(() => {
-      if (live) {
-        setLotsProblem({
-          code: "REQUEST_FAILED",
-          message: "Check your connection, then reload the awarded lots.",
-        });
-        setLots([]);
-      }
+    if (!lots) return;
+    setSelected((current) => {
+      if (current && lots.some((lot) => lot.lotId === current)) return current;
+      const funded = lots.find((lot) => lot.progress && FUNDED_STATUSES.has(lot.progress.status));
+      return (funded ?? lots[0])?.lotId ?? null;
     });
-    return () => {
-      live = false;
-    };
-  }, [lotsAttempt]);
+  }, [lots]);
 
   // One lot's shipping rows. A LOT_NOT_FUNDED answer keeps the lot and its status visible.
   useEffect(() => {
@@ -203,7 +167,7 @@ export function FulfillmentPage() {
   const overBatch = chosenRows.length > MAX_SHIPMENTS;
 
   function reload(): void {
-    setLotsAttempt((value) => value + 1);
+    refreshLots();
     setRowsAttempt((value) => value + 1);
   }
 
@@ -448,7 +412,7 @@ export function FulfillmentPage() {
               <button
                 type="button"
                 className="merchant-link"
-                onClick={() => setLotsAttempt((value) => value + 1)}
+                onClick={() => refreshLots()}
               >
                 Reload awarded lots
               </button>

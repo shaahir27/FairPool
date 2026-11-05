@@ -387,3 +387,15 @@ it("identifies a looked-up lot by product and merchant before its technical refe
   expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
   expect(screen.getByText("Demo Merchant")).toBeInTheDocument();
 });
+
+
+it("returns to the admin overview without blanking its fresh alert summary", async () => {
+  transport.get.mockResolvedValue({data: {alerts: []}});
+  const first = show("/ops");
+  await screen.findByText("No urgent alerts reported");
+  first.unmount();
+  transport.get.mockReturnValue(new Promise(() => {}));
+  show("/ops");
+  expect(screen.getByText("No urgent alerts reported")).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(1);
+});

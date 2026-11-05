@@ -121,7 +121,7 @@ describe("Discover and Join", () => {
     await screen.findByText("27-inch 4K monitor");
     const [path, init] = transport.get.mock.calls[0] ?? [];
     expect(path).toBe("/api/v1/pools");
-    expect(init).toEqual({ params: { query: { status: "OPEN", sort: "trending" } } });
+    expect(init).toMatchObject({ params: { query: { status: "OPEN", sort: "trending" } } });
   });
 
   it("shows a loading state before the grid arrives", () => {
@@ -242,4 +242,15 @@ describe("Discover and Join", () => {
     ask("anything at all");
     expect(await screen.findByRole("alert")).toHaveTextContent("RATE_LIMITED");
   });
+});
+
+
+it("returns to Discover without waiting for the same catalogue again", async () => {
+  const first = show();
+  await screen.findByRole("heading", {name: "27-inch 4K monitor"});
+  first.unmount();
+  transport.get.mockReturnValue(new Promise(() => {}));
+  show();
+  expect(screen.getByRole("heading", {name: "27-inch 4K monitor"})).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(1);
 });
