@@ -31,7 +31,7 @@ from fairpool.adapters.paypal import routers as paypal_routers
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_buyer, require_session
 from fairpool.config import Settings
-from fairpool.db.models.auction import Award
+from fairpool.db.models.auction import Award, Merchant
 from fairpool.db.models.catalog import EntryReceipt, Pool, PoolEntry
 from fairpool.db.models.checkout import (
     BuyerOrder,
@@ -611,18 +611,30 @@ async def me_orders(
     principal: Annotated[Principal, Security(require_buyer)],
     db: AsyncSession = Depends(database_session),
 ):
-    """Every order of this buyer with the receipt that goes with it."""
+    """CR-10: one owner-scoped read includes the context a purchase history needs."""
+    capture_id = (
+        select(PayPalCapture.paypal_capture_id)
+        .where(PayPalCapture.buyer_order_id == BuyerOrder.id)
+        .order_by(PayPalCapture.created_at.desc(), PayPalCapture.id.desc())
+        .limit(1)
+        .correlate(BuyerOrder)
+        .scalar_subquery()
+    )
     rows = (
         await db.execute(
-            select(BuyerOrder, EntryReceipt)
+            select(BuyerOrder, EntryReceipt, Pool, Merchant, Lot, capture_id)
             .join(PoolEntry, PoolEntry.id == BuyerOrder.entry_id)
+            .join(Lot, Lot.id == BuyerOrder.lot_id)
+            .join(Pool, Pool.id == Lot.pool_id)
+            .outerjoin(Award, Award.lot_id == Lot.id)
+            .outerjoin(Merchant, Merchant.id == Award.merchant_id)
             .outerjoin(EntryReceipt, EntryReceipt.entry_id == BuyerOrder.entry_id)
             .where(PoolEntry.user_id == principal.user_id)
             .order_by(BuyerOrder.created_at.desc(), BuyerOrder.id)
         )
     ).all()
     items: list[dict[str, Any]] = []
-    for order, receipt in rows:
+    for order, receipt, pool, merchant, lot, provider_capture_id in rows:
         items.append(
             {
                 "buyer_order_id": order.id,
@@ -630,6 +642,26 @@ async def me_orders(
                 "status": str(order.status),
                 "total_cents": int(order.total_cents),
                 "receipt": None if receipt is None else _receipt(receipt),
+                "pool_id": pool.id,
+                "pool_title": pool.title,
+                "product": {
+                    "title": str(pool.template.get("title", pool.title)),
+                    "variant": pool.template.get("variant"),
+                    "condition": str(pool.template.get("condition", "")),
+                    "bundle_contents": [
+                        str(item) for item in pool.template.get("bundle_contents", [])
+                    ],
+                },
+                "merchant": {"display_name": merchant.display_name}
+                if merchant is not None
+                else None,
+                "terms": {
+                    "delivery_sla_days": int(pool.template["delivery_sla_days"]),
+                    "returns_days": int(pool.template["min_return_days"]),
+                },
+                "placed_at": order.created_at,
+                "capture_id": provider_capture_id,
+                "labels": _labels(lot),
             }
         )
     return {"items": items}

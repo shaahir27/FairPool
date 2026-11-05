@@ -55,6 +55,7 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | GET | /api/v1/public/pools/{pool_id}/audit | B | public | Public audit payload |
 | GET | /api/v1/public/keys | B | public | Receipt signing public key |
 | POST | /api/v1/merchant/profile | B | merchant | Create or update merchant profile and attestations |
+| GET | /api/v1/merchant/profile | B | merchant | CR-10: read the signed-in merchant's stored profile, payee and attestations; 404 if absent |
 | GET | /api/v1/merchant/lots | B | merchant | Lots open for bidding with requirement summaries (`q` search) |
 | POST | /api/v1/merchant/lots/{lot_id}/quote | B | merchant | Paste a quote, get proposed fields |
 | PUT | /api/v1/merchant/lots/{lot_id}/bid | B | merchant | Save a bid revision (structured fields and notes) |
@@ -182,6 +183,34 @@ The manual form is the deterministic half of intake and ships early (Phase 3, CR
 On success the provider account identifier is stored only as its HMAC with `HMAC_KEY` (`paypal_links.paypal_account_key`); the raw `user_id`/`sub` and the bearer token are never persisted, logged or returned. Under the recorded S1 outcome `DEDUPE_MODE=two_keys`, the login key and the checkout `payer_id` key are two separate identifiers, each deduplicated on its own, with no equality requirement and no prefix stripping; `full` additionally requires them to be equal and stays unavailable because equivalence was never proved, and `checkout_only` keeps the weaker disclosure wording. Relinking cannot evade participation: link, unlink and join serialise on a user-then-pool lock order, and `DELETE /api/v1/paypal/link` is blocked while an entry exists. Login identity and vault permissions are separate resources: unlinking never deletes a saved permission and deleting a permission never unlinks an account.
 
 ### Entry
+
+CR-10 merchant profile amendment: `GET /api/v1/merchant/profile` returns the
+signed-in merchant's own `MerchantProfileResponse`, or `404 NOT_FOUND` when none
+exists; a non-merchant receives `403 FORBIDDEN`. GET and POST profile responses
+add optional nullable `payee_email` and `paypal_merchant_id` to the previously
+documented fields. These are private configuration reads, not public merchant data.
+
+CR-10 admin read amendment: `GET /api/v1/admin/lots/{lot_id}` adds optional nullable
+`pool_title`, `product_title` and `merchant_display_name`. These are the pool title,
+published product title and awarded merchant display name, not buyer details. The
+existing admin guard, states and abort permissions do not change.
+
+CR-10 (owner authorized 2026-11-05): `GET /api/v1/me/entries` additionally returns
+optional nullable `pool_title`, `pool_status` and `product`, plus `labels` (default
+empty array), on each item. Labels use the same lot-derived simulation/fallback
+registry as checkout; a simulated pool without a lot is labeled SIMULATED. `product` uses the same
+`{title, variant, condition, bundle_contents}` shape as the offer disclosure.
+`GET /api/v1/me/orders` additionally returns optional nullable `pool_id`, `pool_title`,
+`product`, `merchant` (`{display_name}`), `terms` (`{delivery_sla_days, returns_days}`),
+`placed_at` and `capture_id`, plus `labels` (default empty array). Product and terms
+come from the published pool template, merchant display from the award's merchant,
+and `capture_id` from the latest stored capture row by `(created_at, id)` descending.
+The capture reference is an identifier, never evidence of a completed payment.
+The core entry list includes its latest buyer order across terminal and active states
+so declined, released and completed entries remain distinguishable in history. This
+does not change agent API live-offer filtering or payment eligibility.
+Both lists remain strictly owner-scoped. These additive fields let the workspace
+render useful commerce records without fetching every order or pool individually.
 
 `POST /api/v1/pools/{pool_id}/entries` body `{"confirmed_request_id": "uuid"}`; `Idempotency-Key` required; returns `201` for a new entry or `200` for an existing one:
 

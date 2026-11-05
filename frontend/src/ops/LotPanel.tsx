@@ -178,6 +178,7 @@ export function LotPanel({ alertLots, initialLotId }: { alertLots: readonly stri
 
         {lot ? (
           <div className="ops-stack">
+            {lot.product_title || lot.pool_title ? <div className="ops-lot-identity"><h3>{lot.product_title ?? lot.pool_title}</h3>{lot.pool_title && lot.pool_title !== lot.product_title ? <p>{lot.pool_title}</p> : null}{lot.merchant_display_name ? <p>{lot.merchant_display_name}</p> : null}</div> : null}
             <dl className="ops-facts">
               <div>
                 <dt>Lot ID</dt>

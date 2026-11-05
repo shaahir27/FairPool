@@ -44,8 +44,12 @@ async def lot_view(session: AsyncSession, lot_id: UUID) -> dict[str, Any]:
     lot = (
         await session.execute(
             text(
-                "SELECT id, pool_id, status::text, seats, min_seats, award_id, "
-                "payment_router::text, payment_mode::text FROM lots WHERE id = :lot"
+                "SELECT l.id, l.pool_id, l.status::text, l.seats, l.min_seats, l.award_id, "
+                "l.payment_router::text, l.payment_mode::text, p.title AS pool_title, "
+                "p.template->>'title' AS product_title, m.display_name AS merchant_display_name "
+                "FROM lots l JOIN pools p ON p.id = l.pool_id "
+                "LEFT JOIN awards a ON a.lot_id = l.id "
+                "LEFT JOIN merchants m ON m.id = a.merchant_id WHERE l.id = :lot"
             ),
             {"lot": lot_id},
         )
@@ -61,6 +65,9 @@ async def lot_view(session: AsyncSession, lot_id: UUID) -> dict[str, Any]:
         "award_id": lot.award_id,
         "payment_router": lot.payment_router,
         "payment_mode": lot.payment_mode,
+        "pool_title": lot.pool_title,
+        "product_title": lot.product_title,
+        "merchant_display_name": lot.merchant_display_name,
     }
 
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -149,7 +149,7 @@ describe("route smoke", () => {
     expect(screen.getByLabelText("Search open lots")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Prepare a bid" })).toBeEnabled();
     expect(screen.getByRole("navigation", { name: "Merchant workspace tabs" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Fulfillment" })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", {name: "Merchant workspace tabs"})).getByRole("link", {name: "Fulfillment"})).toHaveAttribute("href", "/merchant/fulfillment");
     expect(screen.queryByText("T08B01")).not.toBeInTheDocument();
   });
 });

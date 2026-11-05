@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -192,4 +192,13 @@ describe("Active Bids", () => {
     show();
     expect(await screen.findByText("No bids from your merchant account yet.")).toBeInTheDocument();
   });
+});
+
+it("focuses a merchant bid group without refetching the bid list", async () => {
+  transport.get.mockResolvedValue({data: {items: [bid({status: "CONFIRMED"}), bid({bid_id: "lost", status: "LOST"})]}});
+  show();
+  fireEvent.click(await screen.findByRole("button", {name: "Pending 1"}));
+  expect(screen.getByRole("region", {name: "Pending"})).toBeInTheDocument();
+  expect(screen.queryByRole("region", {name: "Lost or Failed"})).toBeNull();
+  expect(transport.get.mock.calls.filter(([path]) => path === "/api/v1/merchant/bids")).toHaveLength(1);
 });

@@ -322,7 +322,7 @@ describe("the pool lobby", () => {
     transport.del.mockResolvedValue({ data: { entry_id: "entry-one", entry_status: "WITHDRAWN" } });
     show();
     expect(await screen.findByText("Recorded with this pool.")).toBeInTheDocument();
-    expect(screen.getByText("SUBMITTED")).toBeInTheDocument();
+    expect(screen.getByText("Entry received")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View entry receipt" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Withdraw my entry" }));
@@ -389,7 +389,8 @@ describe("the pool lobby", () => {
       false,
     );
     fireEvent.click(screen.getByText("Pool rules and their hash"));
-    expect(await screen.findByText(/"allocation": "seeded_lottery_v1"/)).toBeInTheDocument();
+    expect(await screen.findByText("Seeded lottery")).toBeInTheDocument();
+    expect(screen.queryByText(/"allocation":/)).toBeNull();
     expect(screen.getByText("a".repeat(64))).toBeInTheDocument();
   });
 

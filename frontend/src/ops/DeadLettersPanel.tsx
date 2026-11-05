@@ -102,17 +102,17 @@ export function DeadLettersPanel() {
               <tbody>
                 {events.map((event) => (
                   <tr key={event.id}>
-                    <td>
+                    <td data-label="Event">
                       <span className="ops-cell-strong font-mono">{event.event_type}</span>
                       <code className="ops-cell-code" title={event.paypal_event_id}>{event.paypal_event_id}</code>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <span className="ops-cell-strong">{event.status}</span>
                       <span className="ops-cell-muted">{event.verified ? "Signature verified" : "Not verified"}</span>
                     </td>
-                    <td className="ops-cell-muted">{formatDateTime(event.received_at)}</td>
-                    <td className="ops-cell-muted">{event.verification_detail ?? "No detail returned"}</td>
-                    <td>
+                    <td data-label="Received" className="ops-cell-muted">{formatDateTime(event.received_at)}</td>
+                    <td data-label="Details" className="ops-cell-muted">{event.verification_detail ?? "No detail returned"}</td>
+                    <td data-label="Action">
                       <button
                         type="button"
                         className="button-secondary ops-small-action"

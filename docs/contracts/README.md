@@ -27,6 +27,31 @@ No payment, fairness, account-verification or agent permission changes are inclu
 
 ## Rules
 
+### CR-10: Useful buyer workspace read models (owner authorized 2026-11-05)
+
+The owner explicitly authorized API additions needed to complete the buyer,
+merchant and admin interfaces. This amendment adds optional presentation fields to
+the existing owner-scoped buyer list responses: pool/product identity, pool lifecycle status and honesty labels on entries;
+pool/product identity, merchant display, delivery/return terms, order creation time,
+latest capture reference and honesty labels on orders. Existing keys remain intact; the owner-only entry history also retains the latest
+terminal order. Agent live-offer filtering remains unchanged. Reads are batched,
+not one query or HTTP request per card. No new table, migration, permission, payment
+action or transition is introduced. The profile read endpoint is described below.
+The API amendment is recorded here before its implementation, under the owner's
+explicit instruction to add necessary APIs; it is not a silent contract change.
+
+CR-10 also adds `GET /api/v1/merchant/profile` so an existing merchant can edit
+the settings already stored. It returns the existing profile response plus
+optional nullable `payee_email` and `paypal_merchant_id`; the POST response gains
+the same fields. This is merchant-role and owner scoped, returns 404 for no profile,
+and makes no PayPal call or write. The UI may fall back to the account name for a
+merchant who has not created a profile yet.
+
+The existing admin lot read gains optional nullable `pool_title`, `product_title`
+and `merchant_display_name`, joined from the pool and awarded merchant in the same
+read. This gives operators context before intervention without expanding their
+write permissions or exposing buyer information.
+
 1. Contracts win over code. If code and a contract disagree, the code is wrong until a change request says otherwise.
 2. Frozen means frozen. A change needs a **contract change request** (CR): a pull request titled `CR: <summary>` that edits the contract, adds a row to the change log below, names every affected task, and is approved by **both** members. CRs are rare; each one costs both members time.
 3. After a CR merges, tag `contracts-v1.<n>` and the affected owners update their code within 24 hours. Until they do, `main` may be red for that area; the CR author helps.

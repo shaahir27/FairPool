@@ -75,7 +75,6 @@ export function DemandPage() {
       value?.toLocaleLowerCase().includes(search),
     ),
   );
-  const selected = loaded.find((lot) => lot.lot_id === selectedId) ?? null;
 
   return (
     <div className="merchant-page">
@@ -198,20 +197,19 @@ export function DemandPage() {
                     type="button"
                     className="button-secondary"
                     aria-expanded={selectedId === lot.lot_id}
-                    onClick={() => setSelectedId(lot.lot_id)}
+                    onClick={() => setSelectedId(selectedId === lot.lot_id ? null : lot.lot_id)}
                   >
-                    Prepare a bid
+                    {selectedId === lot.lot_id ? "Discard bid form" : "Prepare a bid"}
                   </button>
                 </div>
               </article>
+              {selectedId === lot.lot_id ? <BidComposer key={lot.lot_id} lot={lot} /> : null}
             </li>
           ))}
         </ul>
       )}
 
-      {selected ? (
-        <BidComposer key={selected.lot_id} lot={selected} />
-      ) : null}
+
     </div>
   );
 }

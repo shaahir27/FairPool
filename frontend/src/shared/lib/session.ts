@@ -35,6 +35,12 @@ export const SESSION_ENDED_EVENT = "fairpool:session-ended";
 
 let sessionKnown: SessionState = null;
 let account: Account | null = null;
+const accountListeners = new Set<() => void>();
+
+export function subscribeAccount(listener: () => void): () => void {
+  accountListeners.add(listener);
+  return () => { accountListeners.delete(listener); };
+}
 
 export function sessionState(): SessionState {
   return sessionKnown;
@@ -46,12 +52,13 @@ export function accountState(): Account | null {
 
 export function setAccount(next: Account | null): void {
   account = next;
+  accountListeners.forEach((listener) => listener());
 }
 
 export function resetSessionCache(next: SessionState = null): void {
   sessionKnown = next;
   // A session that is no longer known is no longer evidence about who it belongs to.
-  if (next !== "in") account = null;
+  if (next !== "in") setAccount(null);
   if (next === "out" && typeof window !== "undefined") {
     // Sign-out, or a 401 from any call: whatever was cached belonged to that session.
     window.dispatchEvent(new Event(SESSION_ENDED_EVENT));

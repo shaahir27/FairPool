@@ -333,6 +333,10 @@ class MeEntry(ResponseModel):
     entry_status: str
     allocation: AllocationView | None = None
     offer: OfferRef | None = None
+    pool_status: str | None = None
+    labels: list[str] = Field(default_factory=list)
+    pool_title: str | None = None
+    product: ProductDisplay | None = None
 
 
 class MeEntryList(ResponseModel):
@@ -395,6 +399,8 @@ class MerchantProfileResponse(ResponseModel):
     display_name: str
     onboarding_status: str
     attestations: dict[str, Any]
+    payee_email: str | None = None
+    paypal_merchant_id: str | None = None
 
 
 class MerchantLotSummary(ResponseModel):
@@ -639,6 +645,14 @@ class MeOrder(ResponseModel):
     status: str
     total_cents: int
     receipt: dict[str, Any] | None = None
+    pool_id: UUID | None = None
+    pool_title: str | None = None
+    product: ProductDisplay | None = None
+    merchant: MerchantDisplay | None = None
+    terms: OfferTerms | None = None
+    placed_at: datetime | None = None
+    capture_id: str | None = None
+    labels: list[str] = Field(default_factory=list)
 
 
 class MeOrderList(ResponseModel):
@@ -717,6 +731,9 @@ class AdminLotView(ResponseModel):
     award_id: UUID | None = None
     payment_router: str | None = None
     payment_mode: str | None = None
+    pool_title: str | None = None
+    product_title: str | None = None
+    merchant_display_name: str | None = None
 
 
 class AuditExportResponse(ResponseModel):

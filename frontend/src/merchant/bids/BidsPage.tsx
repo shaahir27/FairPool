@@ -6,6 +6,7 @@ import {
   type ApiComponents,
   Icon,
   Notice,
+  RecordFilters,
   REJECT_REASON_LABELS,
   StatusPill,
 } from "../../shared";
@@ -27,6 +28,7 @@ const SECTIONS: ReadonlyArray<{ id: BidSection; title: string }> = [
  * already filters by merchant; this screen never adds an identity of its own.
  */
 export function BidsPage() {
+  const [filter, setFilter] = useState<BidSection | "all">("all");
   const [bids, setBids] = useState<BidView[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
@@ -96,6 +98,10 @@ export function BidsPage() {
         </button>
       </header>
 
+      {bids && bids.length > 0 ? <RecordFilters label="Filter your bids" value={filter} onChange={setFilter} options={[
+        {id: "all", label: "All bids", count: bids.length},
+        ...SECTIONS.map((section) => ({id: section.id, label: section.title, count: grouped[section.id].length})),
+      ]} /> : null}
       {error ? (
         <Notice kind="error" code={error.code}>
           {error.message}{" "}
@@ -126,7 +132,7 @@ export function BidsPage() {
         </div>
       ) : (
         <div className="merchant-bid-sections">
-          {SECTIONS.map((section) => {
+          {SECTIONS.filter((section) => filter === "all" || filter === section.id).map((section) => {
             const items = grouped[section.id];
             return (
               <section
@@ -197,11 +203,10 @@ function BidCard({
         <ul className="merchant-flags" aria-label="Bid flags">
           {flags.map((flag) => (
             <li key={`${flag.code}-${flag.field}`}>
-              <strong>{flag.code}</strong>{" "}
-              <span className="merchant-flag-severity">{flag.severity}</span>{" "}
-              <span>
-                {flag.field}: {flag.evidence}
-              </span>
+              <strong>{flag.evidence}</strong>{" "}
+              <span>{flag.field.replaceAll("_", " ")}</span>{" "}
+              <code className="merchant-code">{flag.code}</code>{" "}
+              <span className="merchant-flag-severity">{flag.severity}</span>
             </li>
           ))}
         </ul>

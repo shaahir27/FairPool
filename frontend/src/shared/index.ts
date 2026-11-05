@@ -39,3 +39,4 @@ export type { StatusStyle, StatusTone } from "./lib/status";
 export { HONESTY_LABELS } from "./lib/labels";
 export type { HonestyLabelKind } from "./lib/labels";
 export { ProductArt } from "./components/ProductArt";
+export { RecordFilters } from "./components/RecordFilters";

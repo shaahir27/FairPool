@@ -37,6 +37,18 @@ beforeEach(() => {
   transport.post.mockReset();
 });
 
+describe("merchant workspace navigation", () => {
+  it("keeps merchant destinations separate from account settings in the shared rail", () => {
+    render(<MemoryRouter initialEntries={["/merchant/bids"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AreaLayout workspace="Merchant workspace" tabs={[{to: "/merchant/demand", label: "Demand Board", end: false}, {to: "/merchant/bids", label: "Active Bids", end: false}]} utilityLinks={[{to: "/merchant/profile", label: "Profile"}]}><h1>Active Bids</h1></AreaLayout>
+    </MemoryRouter>);
+    expect(screen.getByText("Merchant workspace", {selector: "p.sidebar-hello-name"})).toBeInTheDocument();
+    const mobile = screen.getByRole("navigation", {name: "Mobile merchant workspace navigation"});
+    expect(within(mobile).getByRole("link", {name: "Active Bids"})).toHaveAttribute("aria-current", "page");
+    expect(within(mobile).queryByText("Profile")).toBeNull();
+  });
+});
+
 describe("the buyer workspace shell", () => {
   it("exposes shopping destinations separately from mobile account settings", () => {
     render(<MemoryRouter initialEntries={["/orders"]}>
@@ -162,4 +174,21 @@ describe("the buyer workspace shell", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Orders" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Sign in" })).toBeNull();
   });
+});
+
+it.each(["Buyer workspace", "Merchant workspace", "Ops console"])("keeps sign out reachable in both navigation layouts for %s", (workspace) => {
+  render(<MemoryRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><AreaLayout workspace={workspace} tabs={[]}><h1>Workspace content</h1></AreaLayout></MemoryRouter>);
+  const rail = screen.getByRole("complementary", {name: "Workspace sidebar"});
+  expect(within(rail).getByRole("button", {name: "Sign out"})).toBeInTheDocument();
+  const summary = screen.getByText("Account", {selector: "summary span"});
+  fireEvent.click(summary);
+  const menu = summary.closest("details")!;
+  expect(menu.open).toBe(true);
+  expect(within(menu).getByRole("button", {name: "Sign out"})).toBeInTheDocument();
+  fireEvent.pointerDown(screen.getByRole("heading", {name: "Workspace content"}));
+  expect(menu.open).toBe(false);
+  fireEvent.click(summary);
+  fireEvent.keyDown(menu, {key: "Escape"});
+  expect(menu.open).toBe(false);
+  expect(summary.closest("summary")).toHaveFocus();
 });

@@ -31,3 +31,12 @@ it("retains edits when saving fails", async () => {
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Your changes are still here"));
   expect(screen.getByLabelText("City")).toHaveValue("New City");
 });
+
+it("opens a focused address form from Add address without crowding the saved list", async () => {
+  render(<AddressesPage />);
+  await screen.findByText("Pool Buyer");
+  expect(screen.queryByLabelText("Street address")).toBeNull();
+  fireEvent.click(screen.getByRole("button", {name: "Add address"}));
+  expect(screen.getByLabelText("Street address")).toBeInTheDocument();
+  expect(screen.getByRole("heading", {name: "Add an address"})).toHaveFocus();
+});

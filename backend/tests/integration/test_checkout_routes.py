@@ -98,6 +98,40 @@ async def order_status(db_session: AsyncSession, buyer_order_id: UUID) -> str:
     return str(value)
 
 
+async def test_buyer_lists_include_commerce_context_and_keep_other_buyers_private(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    world = await seated_world(db_session)
+    await sign_in(client, db_session, world, index=0, email="workspace-context@example.test")
+    order_id = await order_for(db_session, world, index=0)
+    other_order = await order_for(db_session, world, index=1)
+    offer = (await client.get(f"/api/v1/offers/{order_id}")).json()
+
+    orders = await client.get("/api/v1/me/orders")
+    entries = await client.get("/api/v1/me/entries")
+
+    assert orders.status_code == entries.status_code == 200
+    rows = orders.json()["items"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["buyer_order_id"] == str(order_id)
+    assert row["product"] == offer["product"]
+    assert row["merchant"] == offer["merchant"]
+    assert row["terms"] == offer["terms"]
+    assert row["pool_id"] == offer["pool_id"]
+    assert row["placed_at"]
+    assert row["capture_id"] is None
+    assert "SANDBOX" in row["labels"]
+    assert str(other_order) not in orders.text
+    own_entries = entries.json()["items"]
+    assert len(own_entries) == 1
+    assert own_entries[0]["labels"] == row["labels"]
+    assert own_entries[0]["pool_status"]
+    assert own_entries[0]["pool_title"]
+    assert own_entries[0]["product"] == offer["product"]
+    assert "shipping" not in row and "cap_cents" not in row
+
+
 async def test_the_offer_disclosure_shows_the_award_terms_and_is_owner_scoped(
     client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
@@ -292,6 +326,12 @@ async def test_decline_and_the_cancel_hint_each_move_the_order_once(
         headers={"X-CSRF-Token": csrf},
     )
     assert repeated.status_code == 200 and repeated.json()["status"] == "DECLINED"
+    history = await client.get("/api/v1/me/entries")
+    row = next(
+        item for item in history.json()["items"] if item["entry_id"] == str(world.entry_ids[1])
+    )
+    assert row["offer"]["buyer_order_id"] == str(second)
+    assert row["offer"]["status"] == "DECLINED"
 
 
 async def test_checkout_return_never_trusts_the_token(
@@ -447,3 +487,29 @@ async def test_checkout_config_is_public_and_carries_no_secret(
         "labels": ["SANDBOX", "SIMULATED"],
     }
     assert "secret" not in response.text.lower()
+
+
+def test_entry_history_labels_simulation_before_a_lot_exists() -> None:
+    from fairpool.api.routers.entries import _me_entry
+    from fairpool.db.models.catalog import Pool
+    from fairpool.db.models.enums import PoolMode, PoolStatus
+
+    pool = Pool(
+        id=uuid4(),
+        mode=PoolMode.SIMULATION,
+        status=PoolStatus.CANCELLED,
+        title="Practice pool",
+        template={"currency": "USD"},
+    )
+    result = _me_entry(
+        {
+            "entry_id": uuid4(),
+            "pool_id": pool.id,
+            "entry_status": "SUBMITTED",
+            "allocation": None,
+            "offer": None,
+        },
+        pool=pool,
+    )
+    assert result.labels == ["SANDBOX", "SIMULATED"]
+    assert result.pool_status == "CANCELLED"

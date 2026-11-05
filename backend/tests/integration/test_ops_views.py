@@ -110,7 +110,12 @@ async def test_lot_view_returns_only_the_declared_fields(
         "award_id",
         "payment_router",
         "payment_mode",
+        "pool_title",
+        "product_title",
+        "merchant_display_name",
     }
+    assert view["product_title"] == "27-inch 4K monitor"
+    assert view["merchant_display_name"] == "Demo Merchant"
     assert view["lot_id"] == world.lot_id
     assert view["pool_id"] == world.pool_id
     assert view["status"] == "CHECKOUT_OPEN"
@@ -135,6 +140,9 @@ async def test_lot_view_returns_only_the_declared_fields(
         "award_id",
         "payment_router",
         "payment_mode",
+        "pool_title",
+        "product_title",
+        "merchant_display_name",
     }
     assert body["status"] == "CHECKOUT_OPEN"
 

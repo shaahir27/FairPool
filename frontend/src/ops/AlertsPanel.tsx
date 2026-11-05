@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { formatDateTime, Notice, StatusPill, type StatusTone } from "../shared";
 
 import { shortId, type AlertRow } from "./api";
@@ -100,6 +101,7 @@ export function AlertsPanel({
                   <th scope="col">Alert</th>
                   <th scope="col">Reference</th>
                   <th scope="col">When</th>
+                  <th scope="col">Next step</th>
                 </tr>
               </thead>
               <tbody>
@@ -107,15 +109,19 @@ export function AlertsPanel({
                   const severity = SEVERITY[alert.kind] ?? { label: "Watch", tone: "neutral" as const };
                   return (
                     <tr key={`${alert.kind}-${alert.event_id ?? alert.lot_id ?? alert.buyer_order_id ?? index}`}>
-                      <td>
+                      <td data-label="Severity">
                         <StatusPill status={severity.label} tone={severity.tone} />
                       </td>
-                      <td>
+                      <td data-label="Alert">
                         <span className="ops-cell-strong">{KIND_LABELS[alert.kind] ?? alert.kind}</span>
                         <code className="ops-cell-code" title={alert.kind}>{alert.kind}</code>
                       </td>
-                      <td className="font-mono ops-cell-muted">{alertReference(alert)}</td>
-                      <td className="ops-cell-muted">{alertWhen(alert)}</td>
+                      <td data-label="Reference" className="font-mono ops-cell-muted">{alertReference(alert)}</td>
+                      <td data-label="When" className="ops-cell-muted">{alertWhen(alert)}</td>
+                      <td data-label="Next step">
+                        {alert.lot_id ? <Link className="ops-text-link" to={`/ops/lots?lot_id=${encodeURIComponent(alert.lot_id)}`} aria-label={`Inspect lot ${alert.lot_id}`}>Inspect lot</Link>
+                          : alert.kind === "webhook_dead_letter" || alert.kind === "authorization_aged" ? <Link className="ops-text-link" to="/ops/recovery">Review recovery</Link> : <span className="ops-note">Inspect reference</span>}
+                      </td>
                     </tr>
                   );
                 })}

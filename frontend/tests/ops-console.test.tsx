@@ -370,3 +370,20 @@ describe("the ops console", () => {
     ).toBeInTheDocument();
   });
 });
+
+it("lets an operator go directly from the failed webhook alert to recovery", async () => {
+  show("/ops");
+  const alerts = await screen.findByRole("region", {name: "Open alerts"});
+  const row = (await within(alerts).findByText("Webhook dead letter")).closest("tr")!;
+  const link = within(row).getByRole("link", {name: "Review recovery"});
+  expect(link).toHaveAttribute("href", "/ops/recovery");
+  fireEvent.click(link);
+  expect(await screen.findByRole("button", {name: "Run reconciler now"})).toBeInTheDocument();
+});
+
+it("identifies a looked-up lot by product and merchant before its technical references", async () => {
+  transport.get.mockImplementation((path: string) => path === "/api/v1/admin/lots/{lot_id}" ? Promise.resolve({data: {...LOT, pool_title: "Workstation pool", product_title: "27-inch monitor", merchant_display_name: "Demo Merchant"}}) : defaultGet(path));
+  show(); await lookupLot();
+  expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+  expect(screen.getByText("Demo Merchant")).toBeInTheDocument();
+});

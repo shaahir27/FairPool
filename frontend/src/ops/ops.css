@@ -97,3 +97,21 @@
  .ops-lookup .button-secondary, .ops-field-row .button-secondary { width: 100%; }
  .ops-context-note { padding: 20px; }
 }
+
+/* Operations use the full task width; duplicate explanation panels add no action. */
+.ops-overview-grid, .ops-lot-layout, .ops-audit-layout { grid-template-columns: minmax(0, 1fr); }
+.ops-audit-layout { max-width: 800px; }
+.ops-table .ops-text-link { margin: 0; white-space: nowrap; }
+@media (max-width: 640px) {
+  .ops-table thead { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .ops-table, .ops-table tbody, .ops-table tr { display: block; width: 100%; }
+  .ops-table tr { padding: 16px 0; border-bottom: 1px solid rgb(var(--color-line) / .6); }
+  .ops-table td { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border: 0; padding: 7px 0; }
+  .ops-table td[data-label]::before { content: attr(data-label); color: rgb(var(--color-muted)); font-family: Inter, sans-serif; flex-shrink: 0; }
+  .ops-table td > * { min-width: 0; }
+  .ops-table td:has(.ops-cell-strong) { flex-wrap: wrap; }
+}
+
+.ops-lot-identity { padding-block: 4px 8px; }
+.ops-lot-identity h3 { font-size: 21px; font-weight: 650; line-height: 1.5; letter-spacing: -.02em; }
+.ops-lot-identity p { margin-top: 8px; font-size: 14px; color: rgb(var(--color-muted)); }

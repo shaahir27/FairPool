@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 
 import { api, AreaLayout, Icon, type AreaTab } from "../shared";
 
@@ -7,7 +7,7 @@ import { AlertsPanel } from "./AlertsPanel";
 import { DeadLettersPanel } from "./DeadLettersPanel";
 import { LotPanel } from "./LotPanel";
 import { AuditExportPanel, MockTogglesPanel, ReconcilerPanel } from "./OpsTools";
-import { failureOf, shortId, type AlertRow } from "./api";
+import { failureOf, type AlertRow } from "./api";
 import "./ops.css";
 
 const OPS_TABS: readonly AreaTab[] = [
@@ -77,20 +77,13 @@ export function OpsPage() {
         </section>
         <div className="ops-overview-grid">
           <AlertsPanel alerts={alerts} loading={loading} error={error} onRefresh={loadAlerts} />
-          <section className="panel ops-section" aria-labelledby="ops-review-heading">
-            <div className="ops-section-head"><div><h2 id="ops-review-heading">Lots to review</h2><p>Open the affected lot before taking action.</p></div></div>
-            <div className="ops-section-body">
-              {known && alertLots.length > 0 ? <ul className="ops-lot-links">{alertLots.map((id) => <li key={id}><Link to={`/ops/lots?lot_id=${encodeURIComponent(id)}`} aria-label={`Inspect lot ${id}`}><div><span>Lot</span><strong className="font-mono">{shortId(id)}</strong></div><Icon name="arrow" /></Link></li>)}</ul>
-                : <p className="ops-empty">{!known ? "Affected lots appear here when alerts are available." : "No lots flagged in the current alert response."}</p>}
-              <Link className="ops-text-link" to="/ops/lots">Look up another lot <Icon name="arrow" /></Link>
-            </div>
-          </section>
+
         </div>
       </>}
 
-      {path === "/ops/lots" && <div className="ops-lot-layout"><LotPanel key={params.get("lot_id")} alertLots={alertLots} initialLotId={params.get("lot_id") ?? undefined} /><aside className="ops-context-note"><Icon name="shield" /><h2>Inspect first. Act deliberately.</h2><p>Use the lot ID from an alert, or enter a known lot ID. The state view shows its seats, award and payment mode.</p><p>Aborting requires confirmation. The server checks the lot state before applying a permitted transition.</p><Link to="/ops">Back to open alerts <Icon name="arrow" /></Link></aside></div>}
+      {path === "/ops/lots" && <div className="ops-lot-layout"><LotPanel key={params.get("lot_id")} alertLots={alertLots} initialLotId={params.get("lot_id") ?? undefined} /></div>}
       {path === "/ops/recovery" && <div className="ops-recovery-grid"><DeadLettersPanel /><ReconcilerPanel /></div>}
-      {path === "/ops/audit" && <div className="ops-audit-layout"><AuditExportPanel /><aside className="ops-context-note"><Icon name="receipt" /><h2>A record of operations</h2><p>Download the audit checkpoints as JSON for inspection. Exporting reads the recorded data and does not change a lot or payment.</p></aside></div>}
+      {path === "/ops/audit" && <div className="ops-audit-layout"><AuditExportPanel /></div>}
       {path === "/ops/sandbox" && <MockTogglesPanel />}
     </div>
   </AreaLayout>;

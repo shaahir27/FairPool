@@ -8,9 +8,11 @@ vi.mock("../src/shared/api/client", () => ({
   API_BASE_URL: "http://localhost:8000",
 }));
 
+import { AreaLayout, setAccount } from "../src/shared";
 import { AgentSettingsPage, PayPalSettingsPage } from "../src/buyer/pages";
 
 beforeEach(() => {
+  setAccount(null);
   transport.get.mockReset();
   transport.post.mockReset();
   transport.delete.mockReset();
@@ -24,11 +26,12 @@ afterEach(() => {
 it("shows the PayPal link state and revokes it after a confirmation", async () => {
   transport.get.mockResolvedValue({ data: { paypal_linked: true } });
   transport.delete.mockResolvedValue({ data: { paypal_linked: false } });
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   render(<MemoryRouter><PayPalSettingsPage /></MemoryRouter>);
 
   expect(await screen.findByText("A PayPal account is linked.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Revoke the link" }));
+  expect(transport.delete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", {name: "Confirm revoke link"}));
 
   await waitFor(() => expect(transport.delete).toHaveBeenCalledWith("/api/v1/paypal/link"));
   expect(await screen.findByText("No PayPal account is linked yet.")).toBeInTheDocument();
@@ -36,13 +39,14 @@ it("shows the PayPal link state and revokes it after a confirmation", async () =
 
 it("revokes nothing when the confirmation is cancelled", async () => {
   transport.get.mockResolvedValue({ data: { paypal_linked: true } });
-  vi.spyOn(window, "confirm").mockReturnValue(false);
   render(<MemoryRouter><PayPalSettingsPage /></MemoryRouter>);
 
   fireEvent.click(await screen.findByRole("button", { name: "Revoke the link" }));
+  fireEvent.click(screen.getByRole("button", {name: "Keep linked"}));
 
   expect(transport.delete).not.toHaveBeenCalled();
   expect(screen.getByText("A PayPal account is linked.")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("button", {name: "Revoke the link"})).toHaveFocus());
 });
 
 it("opens PayPal in a popup when linking", async () => {
@@ -209,6 +213,8 @@ it("creates a scoped delegation, shows the token once and lists it", async () =>
   expect(screen.getByText("fpd_abc_secret")).toBeInTheDocument();
   const list = screen.getByRole("heading", { name: "Your delegations" }).parentElement!;
   expect(within(list).getByText(/1 pool/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Hide token"}));
+  expect(screen.queryByText("fpd_abc_secret")).toBeNull();
 });
 
 it("lists every open pool instead of silently cutting the list", async () => {
@@ -257,10 +263,11 @@ it("revokes a delegation after a confirmation", async () => {
     revoked_at: null,
   }] } });
   transport.delete.mockResolvedValue({ data: { items: [] } });
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
 
   fireEvent.click(await screen.findByRole("button", { name: "Revoke" }));
+  expect(transport.delete).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", {name: "Confirm revoke delegation"}));
   await waitFor(() => expect(transport.delete).toHaveBeenCalledWith(
     "/api/v1/me/delegations/{delegation_id}",
     { params: { path: { delegation_id: "44444444-4444-4444-8444-444444444444" } } },
@@ -279,4 +286,27 @@ it("refuses to create a delegation with no pool selected", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Create delegation" }));
   expect(await screen.findByText(/Pick at least one pool/)).toBeInTheDocument();
   expect(transport.post).not.toHaveBeenCalled();
+});
+
+it("refuses scientific notation for a delegation's USD cap", async () => {
+  transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: "pool-one", title: "Test pool"}] : {items: []}}));
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole("checkbox", {name: "Test pool"}));
+  fireEvent.change(screen.getByLabelText("Maximum total per entry (USD)"), {target: {value: "1e3"}});
+  fireEvent.click(screen.getByRole("button", {name: "Create delegation"}));
+  expect(transport.post).not.toHaveBeenCalled();
+  expect(screen.getByRole("alert")).toHaveTextContent("VALIDATION_ERROR");
+});
+
+it("updates the sidebar's connection state only after the server confirms revocation", async () => {
+  setAccount({display_name: "Buyer", role: "buyer", paypal_linked: true});
+  transport.get.mockResolvedValue({data: {paypal_linked: true}});
+  transport.delete.mockResolvedValue({data: {paypal_linked: false}});
+  render(<MemoryRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><AreaLayout workspace="Buyer workspace" tabs={[]}><PayPalSettingsPage /></AreaLayout></MemoryRouter>);
+  const rail = screen.getByRole("complementary", {name: "Workspace sidebar"});
+  expect(within(rail).getByText("PayPal account linked")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", {name: "Revoke the link"}));
+  expect(within(rail).getByText("PayPal account linked")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Confirm revoke link"}));
+  expect(await within(rail).findByText("No PayPal account linked yet")).toBeInTheDocument();
 });

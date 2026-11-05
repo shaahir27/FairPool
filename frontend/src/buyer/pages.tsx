@@ -1,11 +1,13 @@
-import { type FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
+  accountState,
   api,
   type ApiComponents,
   envelope,
   formatCents,
+  formatDateTime,
   Icon,
   Notice,
   resetSessionCache,
@@ -18,6 +20,9 @@ const OrderStatusCard = lazy(() => import("../checkout").then((module) => ({ def
 
 import { AuthFrame } from "./AuthFrame";
 import { resetBuyerPrefetch } from "./prefetch";
+import { ConfirmAction } from "./ConfirmAction";
+import { usdToCents } from "./lobby/money";
+import "./settings.css";
 export { MyPoolsPage } from "./my-pools/MyPoolsPage";
 export { OrdersPage } from "./orders/OrdersPage";
 export { RegisterPage } from "./signup";
@@ -139,7 +144,13 @@ export function BuyerOrderPage() {
 
 /** Linking finishes on the API callback, so the page opens it in a popup and watches /me. */
 export function PayPalSettingsPage() {
+  const [confirming, setConfirming] = useState(false);
   const [linked, setLinked] = useState<boolean | null>(null);
+  const updateLinked = useCallback((value: boolean) => {
+    setLinked(value);
+    const current = accountState();
+    if (current) setAccount({ ...current, paypal_linked: value });
+  }, []);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [busy, setBusy] = useState<"link" | "unlink" | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -168,10 +179,10 @@ export function PayPalSettingsPage() {
     void api.GET("/api/v1/me").then(({ data, error: failure }) => {
       if (!live) return;
       if (failure || !data) setError(envelope(failure));
-      else setLinked(data.paypal_linked);
+      else updateLinked(data.paypal_linked);
     }).catch(() => { if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); });
     return () => { live = false; };
-  }, [attempt]);
+  }, [attempt, updateLinked]);
 
   async function link() {
     setBusy("link"); setError(null);
@@ -210,7 +221,7 @@ export function PayPalSettingsPage() {
           if (me?.paypal_linked) {
             stopPolling();
             handle.close();
-            setLinked(true);
+            updateLinked(true);
             setBusy(null);
           } else if (Date.now() - started > 120_000) {
             stopPolling();
@@ -230,62 +241,38 @@ export function PayPalSettingsPage() {
   }
 
   async function unlink() {
-    if (!window.confirm("Revoke the PayPal link? Your entries stay; duplicate control falls back to checkout.")) return;
+    if (busy !== null) return;
     setBusy("unlink"); setError(null);
     try {
       const { error: failure } = await api.DELETE("/api/v1/paypal/link");
       if (failure) setError(envelope(failure));
-      else setLinked(false);
+      else { updateLinked(false); setConfirming(false); }
     } catch {
       setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
     } finally { setBusy(null); }
   }
 
   return (
-    <section aria-labelledby="paypal-settings-title" className="mx-auto w-full max-w-[760px]">
-      <h1 id="paypal-settings-title" className="shop-title">PayPal settings</h1>
-      <p className="shop-copy mt-2">
-        Linking lets FairPool limit one entry per PayPal account. It places no charge and no hold,
-        and it grants no payment permission.
-      </p>
-      {error ? <div className="mt-5"><Notice kind="error" code={error.code}>{error.message}</Notice></div> : null}
-      <div className="panel mt-6 flex flex-col gap-4 p-6">
-        {linked === null ? (
-          error ? (
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-sm text-muted">Your PayPal link could not be checked.</p>
-              <button
-                type="button"
-                className="button-secondary min-h-[44px]"
-                onClick={() => setAttempt((value) => value + 1)}
-              >
-                Check again
-              </button>
-            </div>
-          ) : (
-            <p role="status" className="text-sm text-muted">Checking your PayPal link…</p>
-          )
-        ) : (
-          <>
-            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <Icon name={linked ? "check" : "wallet"} />
-              {linked ? "A PayPal account is linked." : "No PayPal account is linked yet."}
-            </p>
-            {linked ? (
-              <button type="button" className="button-secondary w-fit" onClick={() => void unlink()} disabled={busy !== null}>
-                {busy === "unlink" ? "Revoking…" : "Revoke the link"}
-              </button>
-            ) : (
-              <button type="button" className="button-primary w-fit" onClick={() => void link()} disabled={busy !== null}>
-                {busy === "link" ? "Opening PayPal…" : "Link PayPal"}
-              </button>
-            )}
-            <p className="text-xs text-muted">
-              PayPal opens in a popup. Approve there and this page notices the link; nothing is charged.
-            </p>
-          </>
-        )}
-      </div>
+    <section aria-labelledby="paypal-settings-title" className="buyer-settings">
+      <header className="settings-heading"><h1 id="paypal-settings-title" className="shop-title">PayPal settings</h1>
+        <p className="shop-copy">Manage the account connection used for your pool entries. Linking places no charge or hold.</p></header>
+      {error ? <Notice kind="error" code={error.code}>{error.message}</Notice> : null}
+      <section className="settings-surface" aria-labelledby="paypal-connection-title">
+        <div className="settings-connection"><span className="settings-service-icon"><Icon name="wallet" /></span><div><h2 id="paypal-connection-title">Your PayPal connection</h2>
+          {linked === null ? error ? <p className="shop-copy">Your PayPal link could not be checked.</p> : <p role="status" className="shop-copy">Checking your PayPal link...</p>
+            : <p className="settings-state" role="status"><Icon name={linked ? "check" : "info"} />{linked ? "A PayPal account is linked." : "No PayPal account is linked yet."}</p>}
+        </div></div>
+        <dl className="settings-facts"><div><dt>Pool participation</dt><dd>The connection helps FairPool limit one entry per linked PayPal account.</dd></div>
+          <div><dt>Payment control</dt><dd>Linking grants no payment permission. Payments follow their own approval or recorded consent.</dd></div>
+          <div><dt>Your password</dt><dd>Your PayPal password stays with PayPal.</dd></div></dl>
+        {linked === null ? error ? <button type="button" className="button-secondary" onClick={() => setAttempt((value) => value + 1)}>Check again</button> : null
+          : linked ? confirming ? <ConfirmAction returnFocusId="paypal-connection-action" title="Revoke this PayPal connection?" message="Your entries stay. Duplicate-account checks still apply at checkout, and some pools may require you to reconnect."
+            confirmLabel="Confirm revoke link" cancelLabel="Keep linked" busy={busy !== null} onConfirm={() => void unlink()} onCancel={() => setConfirming(false)} />
+            : <div className="settings-actions"><button type="button" className="button-secondary" id="paypal-connection-action" onClick={() => setConfirming(true)} disabled={busy !== null}>Revoke the link</button></div>
+          : <div className="settings-actions"><button type="button" className="button-primary" id="paypal-connection-action" onClick={() => void link()} disabled={busy !== null}>{busy === "link" ? "Opening PayPal..." : "Link PayPal"}</button>
+            <p className="shop-copy">Approve the connection in PayPal, then return here. Nothing is charged.</p></div>}
+      </section>
+      <p className="settings-footnote"><Icon name="shield" />A linked PayPal account helps limit duplicate entries; it does not prove one account per person.</p>
     </section>
   );
 }
@@ -294,6 +281,9 @@ type Delegation = ApiComponents["schemas"]["DelegationView"];
 
 /** Buyer delegations: scoped, capped, expiring tokens shown exactly once. */
 export function AgentSettingsPage() {
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const [revokeBusy, setRevokeBusy] = useState(false);
+  const [tokenMessage, setTokenMessage] = useState("");
   const [items, setItems] = useState<Delegation[] | null>(null);
   const [pools, setPools] = useState<{ pool_id: string; title: string }[]>([]);
   const [poolsProblem, setPoolsProblem] = useState<{ code: string; message: string } | null>(null);
@@ -304,15 +294,19 @@ export function AgentSettingsPage() {
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [poolsLoading, setPoolsLoading] = useState(true);
+
   async function load() {
+    setPoolsLoading(true);
     const [listedResult, poolsResult] = await Promise.allSettled([
       api.GET("/api/v1/me/delegations"),
       api.GET("/api/v1/pools", { params: { query: { status: "OPEN" } } }),
     ]);
+    setPoolsLoading(false);
     const listed = listedResult.status === "fulfilled" ? listedResult.value : null;
     const open = poolsResult.status === "fulfilled" ? poolsResult.value : null;
     if (!listed || listed.error || !listed.data) setError(envelope(listed?.error));
-    else setItems(listed.data.items);
+    else { setItems(listed.data.items); setError(null); }
     if (!open || open.error || !Array.isArray(open.data)) {
       setPoolsProblem(envelope(open?.error));
     } else {
@@ -327,8 +321,9 @@ export function AgentSettingsPage() {
 
   async function create(event: FormEvent) {
     event.preventDefault();
-    const capCents = Math.round(Number(cap.replace(/,/g, "")) * 100);
-    if (!selected.length || !Number.isFinite(capCents) || capCents <= 0 || new Date(expires) <= new Date()) {
+    const capCents = usdToCents(cap);
+    const expiry = new Date(`${expires}Z`);
+    if (!selected.length || capCents === null || !Number.isSafeInteger(capCents) || capCents <= 0 || Number.isNaN(expiry.getTime())) {
       setError({ code: "VALIDATION_ERROR", message: "Pick at least one pool, a positive cap and a future expiry." });
       return;
     }
@@ -338,7 +333,7 @@ export function AgentSettingsPage() {
         body: {
           scope: { pool_ids: selected, category: null },
           max_cap_cents: capCents,
-          expires_at: new Date(expires).toISOString(),
+          expires_at: expiry.toISOString(),
         },
       });
       if (failure || !data) setError(envelope(failure));
@@ -349,29 +344,71 @@ export function AgentSettingsPage() {
   }
 
   async function revoke(id: string) {
-    if (!window.confirm("Revoke this delegation? Any AI client holding its token stops working immediately.")) return;
-    const { error: failure } = await api.DELETE("/api/v1/me/delegations/{delegation_id}", {
-      params: { path: { delegation_id: id } },
-    });
-    if (failure) setError(envelope(failure)); else await load();
+    if (revokeBusy) return;
+    setRevokeBusy(true); setError(null);
+    try {
+      const {error: failure} = await api.DELETE("/api/v1/me/delegations/{delegation_id}", {params: {path: {delegation_id: id}}});
+      if (failure) setError(envelope(failure));
+      else { setRevoking(null); await load(); }
+    } catch { setError({code: "REQUEST_FAILED", message: "The delegation could not be revoked. Try again."}); }
+    finally { setRevokeBusy(false); }
+  }
+
+  async function copyToken() {
+    if (!token) return;
+    try { await navigator.clipboard.writeText(token); setTokenMessage("Token copied. Store it securely."); }
+    catch { setTokenMessage("Could not copy. Select the token and copy it manually."); }
   }
 
   return (
-    <section aria-labelledby="agent-settings-title" className="mx-auto w-full max-w-[820px]">
+    <section aria-labelledby="agent-settings-title" className="buyer-settings">
+      <header className="settings-heading">
       <h1 id="agent-settings-title" className="shop-title">Agent settings</h1>
       <p className="shop-copy mt-2">
         A delegation lets your AI client join, list and withdraw entries inside the pools you choose,
         up to the cap you set. It cannot pay: only you approve payments on PayPal.
       </p>
+      </header>
       {error ? <div className="mt-5"><Notice kind="error" code={error.code}>{error.message}</Notice></div> : null}
       {token ? (
-        <div className="panel mt-5 p-5">
+        <div className="settings-surface settings-token">
           <p className="text-sm font-semibold text-ink">Copy this token now. It is shown once.</p>
           <code className="mt-2 block break-all rounded-lg bg-canvas p-3 text-xs">{token}</code>
-          <p className="mt-2 text-xs text-muted">FairPool stores only an HMAC of this token; it cannot be shown again.</p>
+          <p className="shop-copy">Store this token securely. You can revoke its access below.</p>
+          <div className="settings-actions"><button type="button" className="button-secondary" onClick={() => void copyToken()}><Icon name="copy" />Copy token</button><button type="button" className="shop-quiet-button" onClick={() => {setToken(null); setTokenMessage("");}}>Hide token</button></div>
+          {tokenMessage ? <p role="status" className="shop-copy">{tokenMessage}</p> : null}
         </div>
       ) : null}
-      <form onSubmit={(event) => void create(event)} className="panel mt-6 flex flex-col gap-4 p-6">
+
+      <div className="settings-surface settings-delegations">
+        <h2 className="text-base font-semibold text-ink">Your delegations</h2>
+        {items === null ? error ? <button type="button" className="button-secondary" onClick={() => void load()}>Try again</button> : <p role="status" className="mt-3 text-sm text-muted">Loading delegations…</p> : items.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">No delegations yet. An AI client needs one before it can act for you.</p>
+        ) : (
+          <ul className="mt-3 grid gap-3">
+            {items.map((item) => {
+              const scope = item.scope as { pool_ids?: string[] };
+              return (
+                <li key={item.id} className="delegation-record">
+                  <span>
+                    {scope.pool_ids?.length ?? 0} pool{scope.pool_ids?.length === 1 ? "" : "s"} · cap {formatCents(item.max_cap_cents)} · expires {formatDateTime(item.expires_at)}
+                    {item.revoked_at ? " · revoked" : ""}
+                  </span>
+                  {item.revoked_at ? null : (
+                    <button type="button" className="shop-quiet-button" id={`agent-revoke-${item.id}`} onClick={() => setRevoking(item.id)}>Revoke</button>
+                  )}
+                  <ul className="delegation-pool-list" aria-label="Authorized pools">{(scope.pool_ids ?? []).map((id) => <li key={id}><Icon name="layers" /><span>{pools.find((pool) => pool.pool_id === id)?.title ?? "Previously selected pool"}</span></li>)}</ul>
+                  {revoking === item.id ? <ConfirmAction returnFocusId={`agent-revoke-${item.id}`} title="Revoke this delegation?" message="The agent's token will stop working immediately. Existing pool entries are kept." confirmLabel="Confirm revoke delegation" cancelLabel="Keep delegation" busy={revokeBusy} onConfirm={() => void revoke(item.id)} onCancel={() => setRevoking(null)} /> : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <details className="settings-integration"><summary>Connect your agent</summary><p className="shop-copy">Use the delegation token with a compatible client. It can list pools, join, list entries and withdraw entries within your scope. It has no payment tool.</p><a className="signup-back" href="/openapi.json">Open agent API reference</a></details>
+      </div>
+      <form onSubmit={(event) => void create(event)} className="settings-surface settings-delegation-form">
+        <h2>Create agent access</h2>
+        <p className="shop-copy">Choose the pools and spending limit this agent may use. You remain in control of payment.</p>
         <fieldset>
           <legend className="text-sm font-semibold text-ink">Pools this delegation may use</legend>
           {poolsProblem ? (
@@ -387,10 +424,10 @@ export function AgentSettingsPage() {
                 </button>
               </Notice>
             </div>
-          ) : pools.length === 0 ? <p className="mt-2 text-sm text-muted">No open pools right now.</p> : (
+          ) : poolsLoading ? <p role="status" className="shop-copy">Loading available pools...</p> : pools.length === 0 ? <p className="mt-2 text-sm text-muted">No open pools right now.</p> : (
             <div className="mt-2 grid gap-2">
               {pools.map((pool) => (
-                <label key={pool.pool_id} className="flex items-center gap-2 text-sm">
+                <label key={pool.pool_id} className="settings-pool-option">
                   <input
                     type="checkbox"
                     checked={selected.includes(pool.pool_id)}
@@ -407,7 +444,7 @@ export function AgentSettingsPage() {
           <label className="text-sm">Maximum total per entry (USD)
             <input className="form-input mt-1" inputMode="decimal" value={cap} onChange={(event) => setCap(event.target.value)} />
           </label>
-          <label className="text-sm">Expires
+          <label className="text-sm">Expires (UTC)
             <input className="form-input mt-1" type="datetime-local" value={expires} onChange={(event) => setExpires(event.target.value)} />
           </label>
         </div>
@@ -415,34 +452,6 @@ export function AgentSettingsPage() {
           {busy ? "Creating…" : "Create delegation"}
         </button>
       </form>
-      <div className="panel mt-6 p-6">
-        <h2 className="text-base font-semibold text-ink">Your delegations</h2>
-        {items === null ? <p role="status" className="mt-3 text-sm text-muted">Loading delegations…</p> : items.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">No delegations yet. An AI client needs one before it can act for you.</p>
-        ) : (
-          <ul className="mt-3 grid gap-3">
-            {items.map((item) => {
-              const scope = item.scope as { pool_ids?: string[] };
-              return (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 text-sm">
-                  <span>
-                    {scope.pool_ids?.length ?? 0} pool{scope.pool_ids?.length === 1 ? "" : "s"} · cap {formatCents(item.max_cap_cents)} · expires {new Date(item.expires_at).toLocaleString()}
-                    {item.revoked_at ? " · revoked" : ""}
-                  </span>
-                  {item.revoked_at ? null : (
-                    <button type="button" className="button-secondary" onClick={() => void revoke(item.id)}>Revoke</button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <p className="mt-4 text-xs text-muted">
-          Agent API: <a className="underline" href="/openapi.json">the OpenAPI document</a>. The MCP endpoint offers
-          exactly four tools (list_pools, enter_pool, list_entries, withdraw_entry) and no payment tool. A stdlib-only
-          sample client lives at samples/agent_client.py in the repository.
-        </p>
-      </div>
     </section>
   );
 }

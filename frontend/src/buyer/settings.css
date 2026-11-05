@@ -1,0 +1,54 @@
+/* Account management uses readable forms and records, not dashboard tiles. */
+.buyer-settings { width: 100%; max-width: 1080px; margin: 0 auto; display: grid; gap: 24px; }
+.settings-heading { padding-bottom: 24px; border-bottom: 1px solid rgb(var(--color-line) / .6); }
+.settings-heading .shop-copy { max-width: 68ch; margin-top: 12px; }
+.settings-heading-action { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.settings-heading-action button { flex-shrink: 0; }
+.settings-surface { min-width: 0; padding: 30px; background: rgb(var(--color-card)); border: 1px solid rgb(var(--color-line) / .7); border-radius: 12px; }
+.settings-surface h2 { font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
+.settings-connection { display: flex; gap: 18px; align-items: center; }
+.settings-service-icon { display: grid; place-items: center; width: 52px; height: 52px; flex-shrink: 0; border-radius: 12px; background: rgb(var(--color-tint)); color: rgb(var(--color-accent)); }
+.settings-service-icon .icon { width: 26px; height: 26px; }
+.settings-state { display: flex; gap: 8px; align-items: center; font-size: 14px; margin-top: 8px; }
+.settings-state .icon { width: 16px; height: 16px; }
+.settings-facts { display: grid; gap: 0; margin-block: 28px 18px; font-size: 14px; line-height: 1.7; }
+.settings-facts > div { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 24px; padding: 18px 0; border-top: 1px solid rgb(var(--color-line) / .55); }
+.settings-facts dt { color: rgb(var(--color-muted)); }
+.settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-top: 18px; }
+.settings-actions p { max-width: 48ch; }
+.settings-footnote { display: flex; gap: 10px; align-items: flex-start; max-width: 70ch; color: rgb(var(--color-muted)); font-size: 12px; line-height: 1.8; }
+.settings-footnote .icon { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; }
+.settings-confirm { width: 100%; padding: 22px; margin-top: 20px; border: 1px solid rgb(var(--color-danger) / .4); border-radius: 8px; background: rgb(var(--color-danger-soft)); }
+.settings-confirm h3 { font-size: 15px; font-weight: 650; }
+.settings-confirm p { max-width: 65ch; margin-top: 8px; font-size: 13px; line-height: 1.8; }
+.settings-token { border-color: rgb(var(--color-action)); }
+.settings-delegation-form { display: grid; gap: 24px; }
+.settings-delegation-form fieldset { min-width: 0; }
+.settings-delegation-form legend { margin-bottom: 12px; }
+.settings-pool-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px; border: 1px solid rgb(var(--color-line) / .6); border-radius: 8px; font-size: 14px; cursor: pointer; }
+.settings-pool-option:has(input:checked) { background: rgb(var(--color-tint)); border-color: rgb(var(--color-accent)); }
+.settings-pool-option input { width: 18px; height: 18px; flex-shrink: 0; accent-color: rgb(var(--color-action)); }
+.delegation-record { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding: 22px 0; border-top: 1px solid rgb(var(--color-line) / .6); font-size: 13px; line-height: 1.7; }
+.delegation-pool-list { flex-basis: 100%; display: grid; gap: 8px; color: rgb(var(--color-muted)); }
+.delegation-pool-list li { display: flex; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
+.delegation-pool-list .icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.settings-integration { padding-top: 20px; margin-top: 12px; border-top: 1px solid rgb(var(--color-line) / .6); }
+.settings-integration summary { min-height: 44px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.settings-integration p { margin-block: 10px; max-width: 70ch; }
+.buyer-settings .address-book-layout { grid-template-columns: minmax(0, 1fr); }
+.saved-address-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
+.buyer-settings .address-entry { padding: 24px 0 4px; min-width: 0; }
+.buyer-settings .address-list h2 { margin-bottom: 24px; }
+.buyer-settings .address-editor { max-width: 760px; width: 100%; }
+.address-book-layout.is-editing { grid-template-columns: minmax(240px, .85fr) minmax(0, 1.5fr); align-items: start; }
+.address-book-layout.is-editing .saved-address-grid { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1150px) { .address-book-layout.is-editing { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .settings-heading-action { flex-direction: column; align-items: stretch; gap: 20px; }
+  .settings-surface { padding: 22px; }
+  .settings-facts > div { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .settings-facts dt { font-size: 12px; }
+  .settings-connection { align-items: flex-start; gap: 14px; }
+  .settings-service-icon { width: 42px; height: 42px; }
+  .saved-address-grid { grid-template-columns: minmax(0, 1fr); }
+}

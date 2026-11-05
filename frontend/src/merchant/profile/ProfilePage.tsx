@@ -67,26 +67,27 @@ export function ProfilePage() {
 
   useEffect(() => {
     let live = true;
-    void api
-      .GET("/api/v1/me")
-      .then(({ data, error: failure }) => {
+    async function loadProfile() {
+      try {
+        const {data} = await api.GET("/api/v1/merchant/profile");
         if (!live) return;
-        if (data?.display_name) {
-          // Keep anything the merchant has already typed.
-          setDisplayName((current) => current || data.display_name);
-        } else if (failure) {
-          setPrefillProblem("Your account name could not be loaded. Enter it below.");
+        if (data?.merchant_id) {
+          setDisplayName(data.display_name);
+          setPayeeEmail(data.payee_email ?? "");
+          setPaypalMerchantId(data.paypal_merchant_id ?? "");
+          setAttestations(Object.fromEntries(ATTESTATIONS.map((row) => [row.key, accepted(data.attestations[row.key])])));
+          setResult(data);
+        } else {
+          const me = await api.GET("/api/v1/me");
+          if (!live) return;
+          if (me.data?.display_name) setDisplayName(me.data.display_name);
+          else setPrefillProblem("Your profile could not be loaded. Enter your business details below.");
         }
-      })
-      .catch(() => {
-        if (live) setPrefillProblem("Your account name could not be loaded. Enter it below.");
-      })
-      .finally(() => {
-        if (live) setPrefillLoading(false);
-      });
-    return () => {
-      live = false;
-    };
+      } catch { if (live) setPrefillProblem("Your profile could not be loaded. Your existing settings stay unchanged unless you edit them."); }
+      finally { if (live) setPrefillLoading(false); }
+    }
+    void loadProfile();
+    return () => { live = false; };
   }, []);
 
   function noteEdited(field: string) {
@@ -167,7 +168,8 @@ export function ProfilePage() {
             <h2 id="profile-form-title">Merchant record</h2>
           </div>
           <div className="shop-panel-pad">
-            <form onSubmit={(event) => void save(event)}>
+            <form className="merchant-profile-form" onSubmit={(event) => void save(event)}>
+              <fieldset className="profile-identity" disabled={prefillLoading || saving}><legend>Business identity</legend>
               <label className="merchant-field" htmlFor="profile-name">
                 Display name
               </label>
@@ -179,7 +181,9 @@ export function ProfilePage() {
                 onChange={(event) => setDisplayName(event.target.value)}
               />
 
-              <label className="merchant-field mt-4" htmlFor="profile-payee-email">
+              </fieldset>
+              <fieldset className="profile-payee" disabled={prefillLoading || saving}><legend>Payment destination</legend>
+              <label className="merchant-field" htmlFor="profile-payee-email">
                 Payee email (optional)
               </label>
               <input
@@ -210,11 +214,12 @@ export function ProfilePage() {
                 }}
               />
               <p id="profile-kept-help" className="merchant-help">
-                Leave a payee field blank to keep the value already saved. Only the fields you
-                change are sent, so an attestation you do not touch keeps its existing record.
+                Unchanged fields keep their stored values. Clear a payee field and save to remove it.
+                Attestations you do not change keep their existing record.
               </p>
 
-              <fieldset className="merchant-attestations">
+              </fieldset>
+              <fieldset className="merchant-attestations" disabled={prefillLoading || saving}>
                 <legend className="merchant-field">Attestations</legend>
                 {ATTESTATIONS.map((row) => (
                   <label key={row.key} className="merchant-check">
@@ -246,7 +251,7 @@ export function ProfilePage() {
               ) : null}
 
               <div className="merchant-actions">
-                <button type="submit" className="button-primary" disabled={saving}>
+                <button type="submit" className="button-primary" disabled={saving || prefillLoading}>
                   {saving ? "Saving…" : "Save profile"}
                 </button>
               </div>
@@ -287,7 +292,7 @@ export function ProfilePage() {
                     return (
                       <li key={row.key}>
                         <div>
-                          <strong>{row.key}</strong>
+                          <strong>{row.label}</strong>
                           <span>{accepted(value) ? "Accepted" : "Not accepted"}</span>
                         </div>
                         {at ? <time dateTime={at}>{formatDateTime(at)}</time> : null}

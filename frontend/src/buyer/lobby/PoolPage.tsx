@@ -609,7 +609,7 @@ function LotPlanPanel({
 }
 
 function RulesPanel({ poolId, rulesHash }: { poolId: string; rulesHash: string | null }) {
-  const [rules, setRules] = useState<string | null>(null);
+  const [rules, setRules] = useState<ApiComponents["schemas"]["RulesDocument"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -625,9 +625,7 @@ function RulesPanel({ poolId, rulesHash }: { poolId: string; rulesHash: string |
         setError(envelope(failure).message);
         return;
       }
-      // The published document is structured data; it is shown exactly as the server
-      // returns it. The human-readable audit view arrives with the public audit page.
-      setRules(JSON.stringify(data.rules_document, null, 2));
+      setRules(data.rules_document);
     } catch {
       setError("Check your connection and try again.");
     } finally {
@@ -663,9 +661,25 @@ function RulesPanel({ poolId, rulesHash }: { poolId: string; rulesHash: string |
         </p>
       ) : null}
       {rules !== null ? (
-        <pre className="mt-3 overflow-x-auto rounded-lg bg-canvas p-4 font-mono text-xs leading-relaxed">
-          {rules}
-        </pre>
+        <div className="published-rules">
+          <dl className="published-rule-facts">
+            <div><dt>How seats are allocated</dt><dd>{rules.allocation === "seeded_lottery_v1" ? "Seeded lottery" : rules.allocation || "Not published"}</dd></div>
+            {typeof rules.require_paypal_link === "boolean" ? <div><dt>PayPal account connection</dt><dd>{rules.require_paypal_link ? "Required to participate" : "Not required by these published rules"}</dd></div> : null}
+            {text(rules.template?.title) ? <div><dt>Product</dt><dd>{text(rules.template.title)}</dd></div> : null}
+            {Array.isArray(rules.template?.bundle_contents) ? <div><dt>Included items</dt><dd>{rules.template.bundle_contents.filter((item): item is string => typeof item === "string").join(", ")}</dd></div> : null}
+            {number(rules.template?.delivery_sla_days) !== null ? <div><dt>Delivery requirement</dt><dd>Within {number(rules.template.delivery_sla_days)} days</dd></div> : null}
+            {number(rules.template?.min_return_days) !== null ? <div><dt>Minimum return window</dt><dd>{number(rules.template.min_return_days)} days</dd></div> : null}
+            {text(rules.timeline?.open_at) ? <div><dt>Entries open</dt><dd>{formatDateTime(String(rules.timeline.open_at))}</dd></div> : null}
+            {text(rules.timeline?.close_at) ? <div><dt>Entries close</dt><dd>{formatDateTime(String(rules.timeline.close_at))}</dd></div> : null}
+            {number(rules.refill?.max_refill_waves) !== null ? <div><dt>Maximum refill rounds</dt><dd>{number(rules.refill.max_refill_waves)}</dd></div> : null}
+          </dl>
+          {Array.isArray(rules.lot_plan) && rules.lot_plan.length > 0 ? <section className="published-lot-plan"><h3>Lots by delivery zone</h3><ul>{rules.lot_plan.map((zone, index) => <li key={index}><strong>{text(zone.zone_id) ?? "Published zone"}</strong><ul>{Array.isArray(zone.lots) ? zone.lots.map((item, row) => {
+            const lot = record(item);
+            return <li key={row}>Lot {row + 1}: {number(lot?.seats) ?? "Unpublished"} seats; minimum {number(lot?.min_seats) ?? "unpublished"}</li>;
+          }) : null}</ul></li>)}</ul></section> : null}
+          {rules.disclosures?.lots_may_differ === true ? <p className="shop-copy">Separate lots may have different final prices.</p> : null}
+          <p className="shop-copy">The complete published record, selection methods and verification evidence are available on the public audit page below.</p>
+        </div>
       ) : null}
       <Link
         className="mt-3 inline-block text-sm font-semibold underline underline-offset-4"

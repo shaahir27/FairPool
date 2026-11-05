@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Suspense, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Brand } from "./Brand";
@@ -7,7 +7,7 @@ import { Icon } from "./Icon";
 import { LoadingScreen } from "./LoadingScreen";
 import { api } from "../api/client";
 import { setCsrfToken } from "../lib/csrf";
-import { accountState, resetSessionCache } from "../lib/session";
+import { accountState, resetSessionCache, subscribeAccount } from "../lib/session";
 import "../commerce.css";
 
 export type AreaTab = { to: string; label: string; end: boolean };
@@ -28,7 +28,7 @@ function WorkspaceContent({ children }: { children?: ReactNode }) {
  * render while every call fails. A refused call says so rather than pretending: the
  * buyer is still signed in, and saying otherwise would be a lie about a money surface.
  */
-function SignOut({ className = "account-nav-link" }: { className?: string }) {
+function SignOut({ className = "account-nav-link account-signout" }: { className?: string }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [busy, setBusy] = useState(false);
@@ -57,7 +57,7 @@ function SignOut({ className = "account-nav-link" }: { className?: string }) {
   return (
     <>
       <button type="button" className={className} disabled={busy} onClick={() => void signOut()}>
-        <Icon name="arrow" />
+        <Icon name="logout" />
         <span>{busy ? "Signing out…" : "Sign out"}</span>
       </button>
       {failed ? (
@@ -69,6 +69,26 @@ function SignOut({ className = "account-nav-link" }: { className?: string }) {
   );
 }
 
+function AccountMenu({ links, title, label }: { links: readonly AreaUtilityLink[]; title: string; label: string }) {
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (menu.current?.open && event.target instanceof Node && !menu.current.contains(event.target)) menu.current.open = false;
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, []);
+  return <details ref={menu} className="account-mobile-menu"
+    onClick={(event) => { if ((event.target as Element).closest("a")) event.currentTarget.open = false; }}
+    onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}>
+    <summary aria-label="Open account navigation"><Icon name="user" /><span>Account</span><Icon name="down" /></summary>
+    <nav aria-label={label}><p className="mobile-menu-title">{title}</p>
+      {links.map((link) => <NavLink key={link.to} className={({isActive}) => `account-nav-link${isActive ? " is-active" : ""}`} to={link.to}><Icon name={link.to.includes("paypal") ? "wallet" : link.to.includes("addresses") ? "truck" : "shield"} /><span>{link.label}</span></NavLink>)}
+      <SignOut />
+    </nav>
+  </details>;
+}
+
 export function AreaLayout({
   workspace,
   tabs,
@@ -76,10 +96,11 @@ export function AreaLayout({
   onPrefetch,
   children,
 }: AreaLayoutProps) {
-  if (workspace === "Buyer workspace" || workspace === "Ops console") {
+  const account = useSyncExternalStore(subscribeAccount, accountState);
+  if (workspace === "Buyer workspace" || workspace === "Ops console" || workspace === "Merchant workspace") {
     const admin = workspace === "Ops console";
-    const home = admin ? "/ops" : "/discover";
-    const account = accountState();
+    const merchant = workspace === "Merchant workspace";
+    const home = admin ? "/ops" : merchant ? "/merchant/demand" : "/discover";
     const firstName = account ? account.display_name.split(" ")[0] : null;
     const links = tabs.map((tab, index) => (
       <NavLink
@@ -90,18 +111,18 @@ export function AreaLayout({
         onFocus={() => onPrefetch?.(tab.to)}
         className={({ isActive }) => `account-nav-link ${isActive ? "is-active" : ""}`}
       >
-        <Icon name={admin ? (index === 0 ? "shield" : index === 1 ? "layers" : index === 2 ? "returns" : "receipt") : index === 0 ? "search" : index === 1 ? "layers" : "bag"} />
+        <Icon name={merchant ? (index === 0 ? "search" : index === 1 ? "layers" : index === 2 ? "bag" : "settings") : admin ? (index === 0 ? "shield" : index === 1 ? "layers" : index === 2 ? "returns" : "receipt") : index === 0 ? "search" : index === 1 ? "layers" : "bag"} />
         <span>{tab.label}</span><Icon name="chevron" className="nav-chevron" />
       </NavLink>
     ));
     return <>
-      <div className={`commerce-shell${admin ? " ops-workspace-shell" : ""}`}>
+      <div className={`commerce-shell${admin ? " ops-workspace-shell" : merchant ? " merchant-workspace-shell" : ""}`}>
         <a href="#main" className="skip-link">Skip to content</a>
-        <aside className="account-sidebar">
+        <aside className="account-sidebar" aria-label="Workspace sidebar">
           <Link to={home} aria-label="FairPool home"><Brand /></Link>
-          {admin ? <div className="sidebar-hello"><p className="sidebar-hello-name font-display">Administration</p><p className="sidebar-hello-state"><Icon name="shield" />Platform operations</p></div> : account ? (
+          {merchant ? <div className="sidebar-hello"><p className="sidebar-hello-name">Merchant workspace</p><p className="sidebar-hello-state"><Icon name="bag" />Supply, bids and deliveries</p></div> : admin ? <div className="sidebar-hello"><p className="sidebar-hello-name">Administration</p><p className="sidebar-hello-state"><Icon name="shield" />Platform operations</p></div> : account ? (
             <div className="sidebar-hello">
-              <p className="sidebar-hello-name font-display">Hi{firstName ? `, ${firstName}` : ""}</p>
+              <p className="sidebar-hello-name">Hi{firstName ? `, ${firstName}` : ""}</p>
               {/* The link state is the server's own answer, and no more is claimed:
                   linking is what lets a pool hold one entry per PayPal account. */}
               <p className="sidebar-hello-state">
@@ -112,25 +133,27 @@ export function AreaLayout({
           ) : (
             <p className="sidebar-caption">Your shopping space</p>
           )}
-          <nav aria-label={`${workspace} tabs`} className="account-navigation">{links}</nav>
-          <div className="sidebar-bottom">
+          <div className="sidebar-nav-scroll">
+            <nav aria-label={`${workspace} tabs`} className="account-navigation">{links}</nav>
             <nav aria-label={`${workspace} settings`} className="account-navigation secondary-navigation">
-              {utilityLinks.map((link) => <NavLink key={link.to} to={link.to} className="account-nav-link"><Icon name={link.to.includes("paypal") ? "wallet" : "settings"} /><span>{link.label}</span></NavLink>)}
+              {utilityLinks.map((link) => <NavLink key={link.to} to={link.to} className={({isActive}) => `account-nav-link${isActive ? " is-active" : ""}`}><Icon name={link.to.includes("paypal") ? "wallet" : link.to.includes("addresses") ? "truck" : "shield"} /><span>{link.label}</span></NavLink>)}
             </nav>
-            <div className="sidebar-note"><Icon name={admin ? "shield" : "layers"} /><strong>{admin ? "Every change, accounted for." : "A better price, together."}</strong><p>{admin ? "Lot changes follow the state machine and are recorded in the audit trail." : "One pool. A shared opportunity. Your own order."}</p></div>
-            <p className="sidebar-demo">PayPal Sandbox demo<br />No real money moves.</p>
+          </div>
+          <div className="sidebar-bottom">
+            {account ? <div className="sidebar-account"><span className="sidebar-avatar" aria-hidden="true">{firstName?.slice(0, 1).toUpperCase()}</span><div><strong title={account.display_name}>{account.display_name}</strong><span>{admin ? "Administrator" : merchant ? "Merchant" : "Buyer account"}</span></div></div> : null}
             <SignOut />
+            <p className="sidebar-demo">Sandbox demo. No real money moves</p>
           </div>
         </aside>
         <div className="commerce-workspace">
           <header className="account-topbar">
             <div className="account-mobile-brand"><Link to={home} aria-label="FairPool home"><Brand /></Link></div>
-            <span className="account-context">{admin ? (account?.display_name ? `${account.display_name} · Administrator` : "Administrator") : account ? `${account.display_name}'s account` : "Your account"}</span>
+            <span className="account-context">{merchant ? (account?.display_name ? `${account.display_name} - Merchant` : "Merchant workspace") : admin ? (account?.display_name ? `${account.display_name} · Administrator` : "Administrator") : account ? `${account.display_name}'s account` : "Your account"}</span>
             <div className="account-topbar-right"><HonestyLabels kinds={["sandbox"]} />
-              <details className="account-mobile-menu" onClick={(event) => { if ((event.target as Element).closest("a")) event.currentTarget.open = false; }} onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); } }}><summary aria-label="Open account navigation"><Icon name="user" /><span>Account</span></summary><nav aria-label={admin ? "Mobile admin navigation" : "Mobile buyer navigation"}><p className="mobile-menu-title">{admin ? "Administration" : "Your account"}</p>{utilityLinks.map((link) => <Link key={link.to} className="account-nav-link" to={link.to}>{link.label}</Link>)}<SignOut /></nav></details>
+              <AccountMenu links={utilityLinks} title={merchant ? "Merchant account" : admin ? "Administration" : "Your account"} label={merchant ? "Mobile merchant navigation" : admin ? "Mobile admin navigation" : "Mobile buyer navigation"} />
             </div>
           </header>
-          <nav className="mobile-primary-navigation" aria-label={admin ? "Mobile admin workspace navigation" : "Mobile shopping navigation"}>{links}</nav>
+          <nav className="mobile-primary-navigation" aria-label={merchant ? "Mobile merchant workspace navigation" : admin ? "Mobile admin workspace navigation" : "Mobile shopping navigation"}>{links}</nav>
           <main id="main" className="commerce-content"><WorkspaceContent>{children}</WorkspaceContent></main>
         </div>
       </div>
