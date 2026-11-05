@@ -9,7 +9,9 @@ migration, payment execution or hosting-plan change is included.
 A live request to `/health` took 32.4 seconds on the first probe. Render identifies
 the active service as free in Oregon; the configured Supabase pooler is in
 us-east-1. The first-probe delay is consistent with a free-service cold start,
-not proof of a slow SQL query. Do not mask it with fake progress or a keep-alive job.
+not proof of a slow SQL query. It is recorded as an infrastructure limit and is not
+masked with fake progress; the separate keep-alive pings below remove the sleeping
+instance while they are actually running.
 
 Repeated authenticated demo reads measured:
 
@@ -98,9 +100,68 @@ Graphify update before publishing. Browser visual performance is not claimed mea
 
 A browser hard reload intentionally discards private in-memory snapshots. It still
 needs authentication and first data reads. A client cache cannot remove a sleeping
-Render instance's first request or cross-region network latency. An always-on service
+Render instance's first request or cross-region network latency; the sleep itself is
+handled by the keep-alive pings below rather than by the cache. An always-on service
 and colocated backend/database are infrastructure follow-ups requiring a separate
 hosting decision; this change does not alter billing, move data or fake readiness.
+
+## Keep-alive pings
+
+Added 5 November 2026, after this document first told the owner not to hide the cold
+start behind a keep-alive job. The owner decided to run one anyway, so the mechanism,
+its cadence and its limits are recorded here instead of being left implicit.
+
+Render's free-tier rule ([docs page](https://render.com/docs/free)): a free web service
+spins down after **15 minutes** without inbound traffic, waking takes **about a minute**,
+and only inbound requests count as activity. The interval therefore has to be shorter
+than 15 minutes; it is **10 minutes**, which leaves a 5-minute margin for a late or
+failed run. A 20-minute cadence would sleep the service between pings.
+
+Two runners, both requesting `/health` and then `/ready`:
+
+- `.github/workflows/keep-warm.yml` — cron `*/10 * * * *`, plus a manual
+  `workflow_dispatch` button used to wake the app just before a demo or a screen share.
+- `tools/keep_warm.ps1` — the same two requests, run by a Windows scheduled task on the
+  owner's machine while the repository is private.
+
+`/ready` is included because it runs the database and migration checks, so the free
+Supabase project also sees queries and does not reach the pause-after-about-7-days rule.
+
+The workflow stays **disabled while the repository is private**. A scheduled job on a
+private repository bills at least one minute per run, so a 10-minute cadence is about
+4,320 minutes a month against the 2,000 free GitHub Actions minutes and would exhaust
+the quota and block CI. The repository flips public at T10A02/T11X01 (before 12 November
+2026); scheduled runs are free on a public repository, so it is enabled then:
+
+```powershell
+gh workflow enable keep-warm.yml      # after the repository becomes public
+```
+
+Register the local task once (it needs no elevation and no secrets):
+
+```powershell
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File D:\Desktop\project\FairPool\tools\keep_warm.ps1'
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 3)
+Register-ScheduledTask -TaskName 'FairPool Keep Warm' -Action $action -Trigger $trigger -Settings $settings -Description 'Requests /health and /ready every 10 minutes so the free Render service does not spin down.'
+```
+
+Check and remove:
+
+```powershell
+Get-ScheduledTaskInfo -TaskName 'FairPool Keep Warm' | Select-Object LastRunTime, LastTaskResult, NextRunTime
+Get-Content "$env:TEMP\fairpool-keep-warm.log" -Tail 4
+Unregister-ScheduledTask -TaskName 'FairPool Keep Warm' -Confirm:$false
+```
+
+Success line: `LastTaskResult` is `0`, the next run time is about ten minutes ahead, and
+the log shows `/health HTTP 200` and `/ready HTTP 200`.
+
+Limits stated honestly: the local task runs only while the owner's machine is awake, so
+a closed laptop or a paused machine brings the cold start back. A ping cannot make a
+warm read faster than the 0.5-1 second measurements above, and it does not change the
+Render plan, the region or the BD-05 decision that paid instances must return before
+20 November 2026.
 
 ## Primary references
 

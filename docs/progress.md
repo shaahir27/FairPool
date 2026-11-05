@@ -329,6 +329,8 @@ Design evidence: research used W3C contrast/use-of-color guidance, Adobe Spectru
 
 | 2026-11-01 | owner | Render free plan has no background worker, so the hosted demo never runs the `reconciler.sweep` cron: the sweep runs only where a worker is deployed, and the demo relies on the admin-triggered sweep. `deploy/render.yaml` therefore still declares no worker service and no paid instance is added (spend nothing on Render). IG-4 is unaffected because the cron is proven locally by `test_the_reconciler_thread_enqueues_one_coalesced_sweep` and `test_the_sweep_cron_enqueues_one_coalescing_job_per_tick`. | OPEN |
 
+| 2026-11-05 | owner | Keep the free Render service awake: request `/health` and `/ready` every 10 minutes, because Render spins a free web service down after 15 minutes without inbound traffic and needs about a minute to wake. `tools/keep_warm.ps1` runs from a Windows scheduled task on the owner's machine now; `.github/workflows/keep-warm.yml` carries the same 10-minute cron and the manual wake button and stays disabled until the repository is public, since a 10-minute schedule on a private repository would use about 4,320 of the 2,000 free Actions minutes a month and block CI. Cadence and commands recorded in `navigation-performance.md`. | DONE |
+
 ## Requests between members
 
 T05A02 batch-one pass (2026-11-02): the owner explicitly requested authentication and checkout screens, then an original commerce layout and a new app-wide palette, including shared branding, shell and visual tokens. This authorizes the necessary B-owned frontend/shared and buyer authentication edits for this A-owned task under solo operation; no later-phase buyer/merchant features are pulled forward.

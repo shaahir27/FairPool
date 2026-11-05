@@ -1,0 +1,49 @@
+name: Keep warm
+
+# Render spins a free web service down after 15 minutes with no inbound traffic and
+# needs about a minute to wake (https://render.com/docs/free), so a 10-minute ping
+# leaves a 5-minute margin. /ready runs the database check as well, which keeps the
+# free Supabase project from pausing after about 7 days without queries.
+#
+# This repository is private until the submission flip. A scheduled job on a private
+# repository bills at least one minute per run, so a 10-minute cadence would consume
+# about 4,320 of the 2,000 free GitHub Actions minutes each month and then block CI.
+# Keep this workflow disabled while the repository is private; the owner's machine
+# covers that window through tools/keep_warm.ps1. Enable it once the repository is
+# public with: gh workflow enable keep-warm.yml
+
+"on":
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Why this manual wake run was started
+        required: false
+        default: Waking the hosted app before a demo
+
+permissions: {}
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Wake the hosted app
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      BASE_URL: https://fairpool-api.onrender.com
+    steps:
+      - name: Request health and readiness
+        run: |
+          set -eu
+          for path in /health /ready; do
+            started=$SECONDS
+            code=$(curl --silent --show-error --output /dev/null \
+              --max-time 90 --retry 2 --retry-delay 5 \
+              --write-out '%{http_code}' "${BASE_URL}${path}")
+            echo "${path} -> HTTP ${code} after $((SECONDS - started))s"
+            [ "${code}" = "200" ] || exit 1
+          done
