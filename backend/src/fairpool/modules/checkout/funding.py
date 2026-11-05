@@ -269,7 +269,13 @@ class FundingService:
         now = await self.clock.db_now(session)
         lot.funded_at = now
         await session.flush()
-        await self._notify_merchant(session, award, kind="lot.funded", lot_id=lot.id)
+        await self._notify_merchant(
+            session,
+            award,
+            kind="lot.funded",
+            lot_id=lot.id,
+            completed_captures=completed,
+        )
         run_at = (
             lot.fund_deadline_at if lot.fund_deadline_at and lot.fund_deadline_at > now else now
         )
@@ -692,7 +698,13 @@ class FundingService:
         return int(completed_rows or 0) == int(on_ledger)
 
     async def _notify_merchant(
-        self, session: AsyncSession, award: AwardView, *, kind: str, lot_id: UUID
+        self,
+        session: AsyncSession,
+        award: AwardView,
+        *,
+        kind: str,
+        lot_id: UUID,
+        completed_captures: int | None = None,
     ) -> None:
         user_id = await session.scalar(
             select(Merchant.user_id).where(Merchant.id == award.merchant_id)
@@ -701,12 +713,15 @@ class FundingService:
             # An award without a merchant user cannot happen (foreign key), but a
             # notification is not worth failing a funding decision over.
             return
-        await self.notifier.notify(
-            session,
-            user_id=user_id,
-            kind=kind,
-            payload={"lot_id": str(lot_id), "merchant_id": str(award.merchant_id)},
-        )
+        payload: dict[str, Any] = {
+            "lot_id": str(lot_id),
+            "merchant_id": str(award.merchant_id),
+        }
+        if completed_captures is not None:
+            # The merchant is told the lot reached its minimum with the actual
+            # quantity the ledger counted, so the notification cannot overstate it.
+            payload["completed_captures"] = completed_captures
+        await self.notifier.notify(session, user_id=user_id, kind=kind, payload=payload)
 
 
 __all__ = [
