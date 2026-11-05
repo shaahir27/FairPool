@@ -1,5 +1,5 @@
 {
-  "status": "pending",
+  "status": "passed",
   "date": "2026-11-05",
-  "note": "The phase-8 branch run id is recorded once the closure commit is pushed and all nine jobs are green."
+  "note": "CI run 41993483078 on commit 15cc6cb completed success across all nine jobs: Compose, Import boundaries, Docs check, Frontend, Merchant OpenAPI check, Typecheck, Lint, Test and Secret scan. The evidence-only commit after it changes docs/evidence and docs/progress only."
 }

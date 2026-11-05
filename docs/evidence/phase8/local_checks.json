@@ -1,5 +1,11 @@
 {
-  "status": "pending",
+  "status": "passed",
   "date": "2026-11-05",
-  "note": "The closure commit records the real make verify output and the make gate-check GATE=ig-8 transcript here."
+  "backend": "1205 offline tests passed (37 deselected: sandbox, sandbox_interactive, faults, ai_eval), 1 warning; ruff check and format clean; mypy --strict clean over 95 sources; tools/check_imports.py 0 violations; tools/validate_docs.py 0 errors (2 known illustrative-path warnings); Merchant OpenAPI exactly ten operations; frontend generated types match the committed OpenAPI.",
+  "faults": "18 passed, 4 deselected (the Phase 3-6 fault set; Phase 9 owns F1-F30).",
+  "frontend": "219 tests across 25 files passed; eslint clean; tsc --noEmit and vite build passed.",
+  "migrations": "Upgrade from 0001, fresh head and both Alembic drift checks passed; no new upgrade operations.",
+  "it8": "tools/it8_live.py passed all 15 steps in process; the 10,000-entry simulation allocated in 5,386 ms (limit 10,000); the live verification read the IT-7 capture back and matched 1/1 at 47,000 cents.",
+  "demo": "tools/demo_seed.py seeded the five-pool scenario twice with identical counts; tools/demo_seed_check.py reported ALL CHECKS PASSED, including the 10,000-entry simulation, merchant roles and attestations, the 94,000-cent funded ledger and the zero-net failed lot.",
+  "note": "These are the automated checks. The gate additionally lists S9 (Zapier trial) and C-18 (live shipment tracking, whose formal contract test is T09A02) as owner items; they are recorded as pending rather than claimed."
 }
