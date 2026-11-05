@@ -142,14 +142,15 @@ number, one randomness value and what was actually verified with which library.
 
 **Result.** The live cluster reports version 9.5.5 and an enterprise license expiring 2028-02-29. The local `.multilingual-e5-small-elasticsearch` endpoint failed with 429 because no ML node had capacity, so the managed `.jina-embeddings-v5-text-small` endpoint was used. A temporary 20-document index mapped `search_text` into `semantic_text`; the hybrid RRF query combined a BM25 `match` on the text field with a `semantic` query on the embedding field. Top-five recall was 10/10 on ten labelled queries, equal to the PostgreSQL baseline (10/10), at 205-387 ms per query. The temporary index was deleted. `SEARCH_BACKEND=elastic` and `ELASTIC_INFERENCE_ID=.jina-embeddings-v5-text-small` are set; similarity remains advisory and never changes a bid's status.
 
-## S9: Zapier MCP managed mode (G13). PENDING (steps prepared 2026-11-05)
+## S9: Zapier MCP managed mode (G13). RECORDED 2026-11-05, READ-ONLY (trial ends 2026-11-11)
 
-The trial has not been started; that is an owner action with a clock. When it is:
+The owner's Pro trial ran on a managed-mode server ("Fairpool Server") connected to Claude through Zapier's own connector. The result is a read-only bridge:
 
-1. Create the managed-mode MCP server with four Webhooks-by-Zapier actions, one per tool, and lock the URL and `Authorization` fields: `fairpool_list_pools` (GET `/agent/v1/pools`, query `q`, `limit`), `fairpool_join_pool` (POST `/agent/v1/entries`, body `pool_id`, `request.*`, `idempotency_key`), `fairpool_list_entries` (GET `/agent/v1/entries`, query `pool_id`), `fairpool_withdraw_entry` (POST `/agent/v1/entries/withdraw`, body `entry_id`).
-2. Use a buyer delegation token with a short expiry and a low cap; never paste it into the AI client's prompt, only into the locked Authorization field.
-3. Record: the tool list the client sees, the locked fields, one join and one withdraw with their idempotency keys, task usage per call, and the trial expiry date. Then set `ZAPIER_BRIDGE=managed`.
-4. No other Zapier app may be enabled. The bridge exposes no payment action.
+1. The GET tool returned live data from `GET /agent/v1/entries` with its URL and `Authorization` locked in the Zapier configuration (2 billing tasks per call). The client listed the server's tools; the server exposes Webhooks by Zapier only.
+2. The UI allows one action per event type, so at most three usable tools exist (GET, POST, Custom Request); PUT has no Agent API route.
+3. Both write tools failed to deliver a schema-valid body. The POST join built from flat Data rows failed on the header, then the delegation cap (`900.00` against `600.00`), then the request validator once the cap and the delivery date (`required_by` must be at least `fund_by` + SLA) were corrected. The Custom Request join, sending the exact JSON as its `data` string, returned only "Request validation failed." The same body sent directly to the Agent API answers 200, and the same join/withdraw succeed through FairPool's `/mcp` endpoint. Failed write calls were charged 0 tasks.
+4. Zapier's managed tool returns a summary only and shows its preset body and headers as `[object Object]`, so the body could not be made valid from the client. This is a bridge limit, not an API limit. `ZAPIER_BRIDGE` stays **off**; FairPool's MCP endpoint is the documented agent path, and the README says the Zapier bridge was not demonstrated for writes.
+5. The delegation token used in the locked headers appeared in owner screenshots during setup and was revoked after this record. No payment action was ever exposed.
 
 ## S10: PayPal MCP read-only verification (G14). RECORDED Oct 28, 2026
 

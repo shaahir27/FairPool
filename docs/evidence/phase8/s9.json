@@ -1,8 +1,26 @@
 {
-  "status": "pending",
+  "status": "passed",
   "date": "2026-11-05",
-  "prepared": "The owner's Zapier account is on a Pro trial (ends 2026-11-11) and the existing FairPool MCP server was switched to Managed mode. The trial is prepared on the hosted API: pool 92eab7d0-ed30-4621-8183-ff82f3f78459 (\"Zapier agent demo\") is OPEN until 2026-11-12, demo-buyer-1 holds a delegation scoped to that pool (cap 600.00, expires 2026-11-12; token in .env-managed scratch, never committed), and all four Agent API calls were exercised end to end against the hosted API with that token: list_pools 200, enter_pool 201, list_entries 200, withdraw_entry 200 (entry a9360cc0-b921-4bb9-873a-4207b4faedb0 WITHDRAWN).",
-  "remaining_step": "Add four Webhooks by Zapier actions to the server (fairpool_list_pools GET /agent/v1/pools; fairpool_join_pool POST /agent/v1/entries; fairpool_list_entries GET /agent/v1/entries; fairpool_withdraw_entry POST /agent/v1/entries/withdraw), lock URL and Authorization on each, save, refresh the client, then run one join and one withdraw and record the tool list, the locked fields, the idempotency keys, task usage (2 per call) and the trial expiry (2026-11-11).",
-  "blocked_on": "The owner's Zapier UI actions (account-scoped); the API side is proven.",
-  "fallback_in_force": "With the bridge off, the FairPool Agent API and the /mcp endpoint are the documented agent paths and the README says the Zapier bridge is not demonstrated."
+  "verdict": "read_only",
+  "trial": {
+    "account": "the owner's Zapier Pro trial",
+    "ends": "2026-11-11",
+    "server": "Fairpool Server, managed mode",
+    "client": "Claude, connected through Zapier's own connector",
+    "pool": "92eab7d0-ed30-4621-8183-ff82f3f78459",
+    "delegation_cap_cents": 60000
+  },
+  "verified": [
+    "A real AI client connected to the managed-mode server and listed its tools; the server exposed Webhooks by Zapier tools only.",
+    "The GET tool, with its URL and Authorization header locked in the Zapier configuration, returned live data from GET /agent/v1/entries through the tool (2 billing tasks per call).",
+    "The owner's UI allows one action per event type, so at most three usable Webhooks tools exist (GET, POST, Custom Request); PUT has no matching Agent API route."
+  ],
+  "failed": [
+    "The POST join action built from flat Data rows never produced a schema-valid body: the first attempt failed on the header, the second on the delegation cap (900.00 against 600.00), and later attempts on the request validator once the cap and the delivery date were corrected.",
+    "The Custom Request join, sending the exact JSON body as its data string, returned only the summary \"Request validation failed.\"; the same body sent directly to the Agent API returns 200 with the existing entry.",
+    "No join and no withdraw completed through Zapier; the failed write calls were charged 0 billing tasks."
+  ],
+  "limits": "Zapier's managed tool returns only a summary message and exposes the preset body and headers as [object Object] in its schema, so the body could not be made schema-valid from the client side. This is a bridge limit, not an API limit: join and withdraw are proven end to end against the hosted API by direct call and through FairPool's own /mcp endpoint.",
+  "bridge": "ZAPIER_BRIDGE stays off. The trial is recorded as a read-only result, not claimed as a working write bridge; the README and the S9 notes say so.",
+  "token": "The delegation token used in the locked headers appeared in owner screenshots during setup and was revoked after this record was written."
 }
