@@ -280,3 +280,14 @@
     margin: 0;
   }
 }
+
+.ff-task-navigation { display: flex; flex-wrap: wrap; gap: 12px 28px; padding-block: 4px 16px; border-bottom: 1px solid rgb(var(--color-line) / .6); }
+.ff-task-navigation a { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600; color: rgb(var(--color-accent)); text-decoration: underline; text-underline-offset: 5px; }
+.ff-picker h2, #ff-rows-title, #ff-verify-title { font-size: 18px; font-weight: 650; letter-spacing: -.02em; scroll-margin-top: 24px; }
+.ff-ship { padding: 24px; margin-top: 28px; }
+.ff-ship-list { gap: 24px; margin-top: 20px; }
+.ff-ship-row { padding-top: 18px; border-top: 1px solid rgb(var(--color-line) / .5); }
+@media (min-width: 761px) and (max-width: 1180px) {
+  .ff-table th, .ff-table td { padding-inline: 6px; font-size: 12px; overflow-wrap: anywhere; }
+}
+@media (max-width: 540px) { .ff-ship { padding: 18px; } }

@@ -743,7 +743,7 @@ export interface paths {
         };
         /**
          * Me Orders
-         * @description Every order of this buyer with the receipt that goes with it.
+         * @description CR-10: one owner-scoped read includes the context a purchase history needs.
          */
         get: operations["me_orders"];
         put?: never;
@@ -1062,7 +1062,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Merchant Profile Get */
+        get: operations["merchant_profile_get"];
         put?: never;
         /**
          * Merchant Profile
@@ -1488,6 +1489,8 @@ export interface components {
              * Format: uuid
              */
             lot_id: string;
+            /** Merchant Display Name */
+            merchant_display_name?: string | null;
             /** Min Seats */
             min_seats: number;
             /** Payment Mode */
@@ -1499,6 +1502,10 @@ export interface components {
              * Format: uuid
              */
             pool_id: string;
+            /** Pool Title */
+            pool_title?: string | null;
+            /** Product Title */
+            product_title?: string | null;
             /** Seats */
             seats: number;
             /** Status */
@@ -2281,12 +2288,19 @@ export interface components {
             entry_id: string;
             /** Entry Status */
             entry_status: string;
+            /** Labels */
+            labels?: string[];
             offer?: components["schemas"]["OfferRef"] | null;
             /**
              * Pool Id
              * Format: uuid
              */
             pool_id: string;
+            /** Pool Status */
+            pool_status?: string | null;
+            /** Pool Title */
+            pool_title?: string | null;
+            product?: components["schemas"]["ProductDisplay"] | null;
         };
         /** MeEntryList */
         MeEntryList: {
@@ -2300,17 +2314,30 @@ export interface components {
              * Format: uuid
              */
             buyer_order_id: string;
+            /** Capture Id */
+            capture_id?: string | null;
+            /** Labels */
+            labels?: string[];
             /**
              * Lot Id
              * Format: uuid
              */
             lot_id: string;
+            merchant?: components["schemas"]["MerchantDisplay"] | null;
+            /** Placed At */
+            placed_at?: string | null;
+            /** Pool Id */
+            pool_id?: string | null;
+            /** Pool Title */
+            pool_title?: string | null;
+            product?: components["schemas"]["ProductDisplay"] | null;
             /** Receipt */
             receipt?: {
                 [key: string]: unknown;
             } | null;
             /** Status */
             status: string;
+            terms?: components["schemas"]["OfferTerms"] | null;
             /** Total Cents */
             total_cents: number;
         };
@@ -2411,6 +2438,10 @@ export interface components {
             merchant_id: string;
             /** Onboarding Status */
             onboarding_status: string;
+            /** Payee Email */
+            payee_email?: string | null;
+            /** Paypal Merchant Id */
+            paypal_merchant_id?: string | null;
         };
         /**
          * MockToggleRequest
@@ -5259,6 +5290,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merchant_profile_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantProfileResponse"];
                 };
             };
             /** @description Validation Error */

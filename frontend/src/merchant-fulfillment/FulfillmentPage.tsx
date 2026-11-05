@@ -555,6 +555,7 @@ export function FulfillmentPage() {
           </div>
         ) : (
           <>
+            <nav className="ff-task-navigation" aria-label="Fulfillment tasks"><a href="#ff-rows-title">Shipping queue</a><a href="#ff-verify-title">Payment verification</a></nav>
             <section className="shop-panel shop-panel-pad" aria-labelledby="ff-rows-title">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>

@@ -6,12 +6,17 @@ import {
   type ApiComponents,
   envelope,
   formatCents,
+  formatDateTime,
+  honestyKinds,
+  HonestyLabels,
+  ProductArt,
   Icon,
   Notice,
   StatusPill,
   statusStyle,
 } from "../../shared";
 import { loadOrders } from "../prefetch";
+import "../settings.css";
 
 type MeOrder = ApiComponents["schemas"]["MeOrder"];
 type Outcome = "in-progress" | "paid" | "released" | "not-completed";
@@ -35,6 +40,8 @@ function outcomeOf(status: string): Outcome {
 }
 
 export function OrdersPage() {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Outcome | "all">("all");
   const [orders, setOrders] = useState<MeOrder[] | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -59,8 +66,8 @@ export function OrdersPage() {
     };
   }, [attempt]);
 
-  // The list carries no provider reference, so each order's own read supplies the
-  // capture id. A failed read is reported as a failed read, never as "no capture".
+  // CR-10 supplies capture references in the list. Older API versions still use
+  // the existing detail read; a failed read never means "no capture".
   useEffect(() => {
     if (!orders || orders.length === 0) return;
     let live = true;
@@ -91,114 +98,37 @@ export function OrdersPage() {
         }));
       }
     };
-    void Promise.all(orders.map((order) => load(order.buyer_order_id)));
+    void Promise.all(orders.filter((order) => order.capture_id === undefined).map((order) => load(order.buyer_order_id)));
     return () => {
       live = false;
     };
   }, [orders]);
 
-  async function copyCapture(buyerOrderId: string, value: string): Promise<void> {
+  async function copyCapture(value: string): Promise<void> {
     try {
       if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(value);
-      setCopyMessage(`PayPal capture reference copied for ${buyerOrderId}.`);
+      setCopyMessage("PayPal payment reference copied.");
     } catch {
       setCopyMessage("The reference could not be copied. Select it and copy it manually.");
     }
   }
 
-  return (
-    <section aria-labelledby="orders-title" className="mx-auto w-full max-w-[1100px]">
-      <div className="shop-heading">
-        <h1 id="orders-title" className="shop-title">
-          Orders
-        </h1>
-        <p className="shop-copy mt-1" role="status" aria-live="polite" aria-atomic="true">
-          {orders === null
-            ? error
-              ? "Your orders could not be loaded."
-              : "Loading your orders."
-            : `${orders.length} ${orders.length === 1 ? "order" : "orders"} recorded for you.`}
-        </p>
-        {copyMessage ? (
-          <p className="secondary-copy mt-1" role="status" aria-live="polite">
-            {copyMessage}
-          </p>
-        ) : null}
-      </div>
-
-      {error ? (
-        <div className="mb-6">
-          {/* Polite: the shell may already be announcing its own sign-out alert. */}
-          <Notice kind="warn" code={error.code}>
-            We couldn’t load your orders. {error.message}{" "}
-            <button
-              type="button"
-              className="signup-back inline-flex min-h-[44px] items-center"
-              onClick={() => setAttempt((value) => value + 1)}
-            >
-              Try again
-            </button>
-          </Notice>
-        </div>
-      ) : null}
-
-      {orders === null ? (
-        error ? null : (
-          <div role="status" aria-busy="true" aria-label="Loading your orders" className="grid gap-4">
-            {[0, 1, 2].map((index) => (
-              <div key={index} className="panel">
-                <div className="skeleton h-5 w-1/3" />
-                <div className="skeleton mt-3 h-4 w-2/3" />
-              </div>
-            ))}
-          </div>
-        )
-      ) : orders.length === 0 ? (
-        <section className="panel" aria-labelledby="orders-empty">
-          <h2 id="orders-empty">No orders yet</h2>
-          <p className="shop-copy mt-2">Orders appear here after you approve an offer and PayPal confirms the payment.</p>
-          <Link className="button-secondary mt-5" to="/discover">
-            Find a pool to join
-            <Icon name="arrow" />
-          </Link>
-        </section>
-      ) : (
-        <div className="grid gap-8">
-          {GROUPS.map((group) => {
-            const grouped = orders.filter((order) => outcomeOf(order.status) === group.id);
-            if (grouped.length === 0) return null;
-            return (
-              <section key={group.id} aria-labelledby={`orders-${group.id}`} className="enter-rise">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 id={`orders-${group.id}`} className="text-lg font-semibold tracking-[-.02em]">
-                    {group.title}
-                  </h2>
-                  <span className="text-xs text-muted">
-                    {grouped.length} {grouped.length === 1 ? "order" : "orders"}
-                  </span>
-                </div>
-                <p className="shop-copy mt-1">{group.note}</p>
-                <ul className="panel mt-3 divide-y divide-line/60">
-                  {grouped.map((order) => (
-                    <OrderRow
-                      key={order.buyer_order_id}
-                      order={order}
-                      capture={captures[order.buyer_order_id]}
-                      captureProblem={captureProblems[order.buyer_order_id]}
-                      onCopyCapture={(value) =>
-                        void copyCapture(order.buyer_order_id, value)
-                      }
-                    />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
+  const search = query.trim().toLowerCase();
+  const visible = (orders ?? []).filter((order) => (filter === "all" || outcomeOf(order.status) === filter) && (!search || [order.product?.title, order.pool_title, order.merchant?.display_name].some((part) => part?.toLowerCase().includes(search))));
+  return <section aria-labelledby="orders-title" className="orders-page">
+    <header className="settings-heading"><h1 id="orders-title" className="shop-title">Orders</h1><p className="shop-copy">Your purchases, payment updates and order details.</p></header>
+    {error ? <Notice kind="warn" code={error.code}>We could not load your orders. {error.message} <button type="button" className="signup-back" onClick={() => setAttempt((value) => value + 1)}>Try again</button></Notice> : null}
+    {copyMessage ? <p role="status" className="shop-copy">{copyMessage}</p> : null}
+    {orders === null ? error ? null : <div role="status" aria-busy="true" aria-label="Loading your orders" className="purchase-feed">{[0,1,2].map((index) => <div key={index} className="shop-panel shop-panel-pad"><div className="skeleton h-5 w-1/2" /><div className="skeleton mt-4 h-4 w-2/3" /></div>)}</div>
+      : orders.length === 0 ? <div className="pool-list-empty"><Icon name="bag" /><h2>No orders yet</h2><p>Your order will appear here when a pool sends you an offer.</p><Link className="button-secondary" to="/discover">Find a pool to join<Icon name="arrow" /></Link></div>
+      : <><div className="order-list-controls"><label className="catalogue-search"><Icon name="search" /><span className="sr-only">Search your orders</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search product or merchant" /></label>
+        <label className="order-status-filter">Payment status<select className="form-input" value={filter} onChange={(event) => setFilter(event.target.value as Outcome | "all")}><option value="all">All orders</option>{GROUPS.map((group) => <option key={group.id} value={group.id}>{group.title}</option>)}</select></label></div>
+        <p role="status" className="pool-list-summary">{visible.length} {visible.length === 1 ? "order" : "orders"}{filter !== "all" || search ? " match your filters" : " in your history"}.</p>
+        {visible.length === 0 ? <div className="pool-list-empty"><Icon name="search" /><h2>No matching orders</h2><p>Try another product name or payment status.</p><button type="button" className="button-secondary" onClick={() => {setQuery(""); setFilter("all");}}>Clear filters</button></div>
+          : <ul className="purchase-feed" aria-label="Your orders">{visible.map((order) => <OrderRow key={order.buyer_order_id} order={order} capture={order.capture_id === undefined ? captures[order.buyer_order_id] : order.capture_id} captureProblem={captureProblems[order.buyer_order_id]} onCopyCapture={(value) => void copyCapture(value)} />)}</ul>}
+      </>}
+  </section>;
 }
 
 function OrderRow({
@@ -215,19 +145,31 @@ function OrderRow({
   const style = statusStyle(order.status);
   const hasReceipt = Boolean(order.receipt);
   return (
-    <li className="py-5 first:pt-0 last:pb-0">
+    <li className="purchase-record">
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <p className="break-all font-mono text-xs text-muted">{order.buyer_order_id}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="order-purchase-product">
+            {order.product ? <ProductArt title={order.product.title} /> : null}
+            <div><h3>{order.product?.title ?? order.pool_title ?? "Order details"}</h3>
+              {order.merchant ? <p className="purchase-merchant">{order.merchant.display_name}</p> : null}
+              {order.product ? <p className="entry-product-variant">{[order.product.variant, order.product.condition].filter(Boolean).join(", ")}</p> : null}
+              {order.placed_at ? <p className="purchase-date">Ordered {formatDateTime(order.placed_at)}</p> : null}
+            </div>
+          </div>
+
+          <div className="purchase-order-status">
             <StatusPill status={order.status} tone={style.tone}>
               {style.label}
             </StatusPill>
-            <code className="text-xs text-muted">{order.status}</code>
+
           </div>
+          {order.terms ? <p className="purchase-terms">Delivery within {order.terms.delivery_sla_days} days. {order.terms.returns_days}-day returns</p> : null}
+          {order.labels && honestyKinds(order.labels).some((kind) => kind !== "sandbox") ? <div className="mt-3"><HonestyLabels kinds={honestyKinds(order.labels).filter((kind) => kind !== "sandbox")} /></div> : null}
+          <details className="entry-technical-details"><summary>Order details and references</summary>
+          <p className="entry-reference">Order reference: <code>{order.buyer_order_id}</code></p><p className="entry-reference">Order status: <code>{order.status}</code></p>
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <Icon name={hasReceipt ? "receipt" : "info"} />
-            {hasReceipt ? "Receipt available" : "No receipt for this order"}
+            {hasReceipt ? "Entry receipt available" : "No entry receipt for this order"}
           </p>
           {capture ? (
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -254,6 +196,7 @@ function OrderRow({
               No PayPal capture yet.
             </p>
           ) : null}
+          </details>
         </div>
         <div className="text-left sm:text-right">
           <p className="text-xl font-semibold tracking-tight tabular-nums">
@@ -262,8 +205,9 @@ function OrderRow({
           <Link
             className="signup-back mt-1 inline-flex min-h-[44px] items-center gap-2"
             to={`/orders/${order.buyer_order_id}`}
+            aria-label={`${hasReceipt ? "Open order and receipt for" : "Open order for"} ${order.buyer_order_id}`}
           >
-            {hasReceipt ? "Open order and receipt for" : "Open order for"} {order.buyer_order_id}
+            View order
             <Icon name="arrow" />
           </Link>
         </div>

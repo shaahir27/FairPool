@@ -162,13 +162,7 @@
   resize: vertical;
 }
 
-.merchant-json {
-  min-height: 300px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  tab-size: 2;
-}
+
 
 .merchant-actions {
   display: flex;
@@ -704,22 +698,52 @@
     width: 100%;
   }
 
-  .merchant-json {
-    min-height: 240px;
-  }
 }
 
-/* The merchant area is the only tabbed workspace on the shared app shell; at
-   phone width its four tabs must wrap inside the header instead of widening the
-   page. Scoped here so the shared shell stays untouched. */
-@media (max-width: 640px) {
-  .app-header .workspace-tabs {
-    flex-wrap: wrap;
-  }
+/* Bid entry is a commerce form; optional parsing is secondary to editable terms. */
+.bid-composer-workspace { grid-template-columns: minmax(0, 1fr); }
+.bid-composer-workspace > :first-child { padding-bottom: 24px; border-bottom: 1px solid rgb(var(--color-line) / .6); }
+.bid-composer-workspace > :first-child > textarea { max-width: 70ch; }
+.bid-fields { display: grid; gap: 32px; max-width: 780px; }
+.bid-fieldset { min-width: 0; padding: 0; border: 0; display: grid; gap: 18px; }
+.bid-fieldset legend { padding: 0; margin-bottom: 12px; font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
+.bid-fieldset + .bid-fieldset { border-top: 1px solid rgb(var(--color-line) / .6); padding-top: 24px; }
+.bid-field { display: grid; align-content: start; gap: 8px; min-width: 0; font-size: 13px; font-weight: 600; }
+.bid-field .form-input { width: 100%; min-width: 0; margin: 0; font-weight: 400; }
+.bid-field .merchant-help { font-weight: 400; margin-top: 0; }
+.bid-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.bid-tier { padding-bottom: 16px; border-bottom: 1px solid rgb(var(--color-line) / .4); }
+.merchant-lot-list > li > .merchant-composer { margin-top: 12px; }
+.merchant-workspace-shell .mobile-primary-navigation { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 540px) {
+  .bid-field-pair { grid-template-columns: minmax(0, 1fr); }
+  .bid-fields { gap: 28px; }
+  .merchant-workspace-shell .mobile-primary-navigation .account-nav-link { font-size: 11px; }
+}
 
-  .app-header .workspace-tab {
-    flex: 1 1 40%;
-    min-width: 0;
-    white-space: normal;
-  }
+.merchant-page { width: 100%; max-width: 1180px; margin: 0 auto; }
+.merchant-workspace-shell .commerce-content { width: 100%; container-type: inline-size; }
+.merchant-profile-grid { grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); }
+.merchant-developer-grid { grid-template-columns: minmax(280px, .85fr) minmax(0, 1.4fr); }
+.merchant-profile-form { display: grid; gap: 28px; }
+.merchant-profile-form > fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.merchant-profile-form legend { font-size: 15px; font-weight: 650; margin-bottom: 18px; }
+.merchant-profile-form .form-input { width: 100%; margin-top: 8px; }
+.merchant-profile-form .merchant-check { padding-block: 12px; align-items: flex-start; }
+.merchant-profile-form .merchant-check input { margin-top: 3px; }
+.merchant-developer-grid .merchant-key { border: 0; border-radius: 0; padding: 18px 0; border-bottom: 1px solid rgb(var(--color-line) / .65); }
+.merchant-developer-grid .merchant-key:first-child { padding-top: 0; }
+.bid-quote-import > summary, .merchant-proof > summary { cursor: pointer; min-height: 44px; font-size: 14px; font-weight: 600; padding-block: 12px; }
+.bid-quote-import[open] > summary { margin-bottom: 14px; }
+.merchant-proof { padding-top: 18px; border-top: 1px solid rgb(var(--color-line) / .6); margin-top: 20px; }
+.bid-pricing-correction { padding: 16px; background: rgb(var(--color-warn-soft)); color: rgb(var(--color-warn)); border-radius: 8px; font-size: 13px; line-height: 1.7; }
+.bid-pricing-correction button { margin-top: 14px; }
+@container (max-width: 850px) {
+  .merchant-profile-grid, .merchant-developer-grid { grid-template-columns: minmax(0, 1fr); }
+  .merchant-lot { grid-template-columns: 76px minmax(0, 1fr); }
+  .merchant-lot-actions { grid-column: 1 / -1; justify-self: end; }
+  .merchant-lot-art .product-art { width: 76px; height: 76px; }
+}
+@media (max-width: 1000px) {
+  .merchant-profile-grid, .merchant-developer-grid { grid-template-columns: minmax(0, 1fr); }
 }

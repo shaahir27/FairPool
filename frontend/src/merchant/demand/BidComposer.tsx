@@ -10,6 +10,7 @@ import {
   StatusPill,
 } from "../../shared";
 import { failureEnvelope, productName } from "../lib";
+import { BidFields } from "./BidFields";
 
 type LotSummary = ApiComponents["schemas"]["MerchantLotSummary"];
 type Ambiguity = ApiComponents["schemas"]["QuoteAmbiguity"];
@@ -34,9 +35,6 @@ type SavedBid = {
 
 type Tier = { minQty: number; priceCents: number };
 
-const REQUIRED_FIELDS =
-  "v, product_key, condition, bundle_contents, capacity, target_quantity, moq, tiers, tax, delivery, returns, valid_until, evidence";
-
 function recordValue(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -48,7 +46,7 @@ function textValue(value: unknown): string | null {
 }
 
 function intValue(value: unknown): number | null {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
 function stringsValue(value: unknown): string[] | null {
@@ -70,10 +68,9 @@ function tiersOf(value: unknown): Tier[] {
   return tiers;
 }
 
-/** A starting shape the server will accept; the zero price is the merchant's to set. */
-function templateFor(lot: LotSummary): string {
-  return JSON.stringify(
-    {
+/** Lot requirements prefill the manual form; the merchant must enter a price. */
+function templateFor(lot: LotSummary): Record<string, unknown> {
+  return {
       v: 1,
       product_key: lot.product_key,
       condition: lot.condition,
@@ -81,17 +78,14 @@ function templateFor(lot: LotSummary): string {
       capacity: lot.seats,
       target_quantity: lot.min_seats,
       moq: lot.min_seats,
-      tiers: [{ min_qty: 1, item_price_cents: 0 }],
+      tiers: [{ min_qty: 1, item_price_cents: null }],
       shipping_cents_by_zone: { [lot.zone_id]: 0 },
       tax: { mode: "INCLUDED" },
       delivery: { sla_days: lot.delivery_sla_days },
       returns: { days: lot.min_return_days },
       valid_until: lot.bid_close_at,
       evidence: { note: "" },
-    },
-    null,
-    2,
-  );
+  };
 }
 
 function newIdempotencyKey(): string {
@@ -152,6 +146,8 @@ function Summary({ structured, fallbackKey }: { structured: Record<string, unkno
           )}
         </dd>
       </div>
+      <div><dt>Price includes</dt><dd>Shipping and tax</dd></div>
+      {intValue(structured.total_capacity) !== null ? <div><dt>Shared inventory capacity</dt><dd>{intValue(structured.total_capacity)}</dd></div> : null}
       <div>
         <dt>Delivery</dt>
         <dd>{slaDays !== null ? `within ${slaDays} days` : "Not stated in the bid"}</dd>
@@ -164,6 +160,8 @@ function Summary({ structured, fallbackKey }: { structured: Record<string, unkno
         <dt>Valid until</dt>
         <dd>{textValue(structured.valid_until) ?? "Not stated in the bid"}</dd>
       </div>
+      <div><dt>Supply evidence</dt><dd>{textValue(recordValue(structured.evidence)?.note) ?? "Not stated in the bid"}</dd></div>
+      {textValue(recordValue(structured.evidence)?.url) ? <div><dt>Evidence link</dt><dd className="break-all">{textValue(recordValue(structured.evidence)?.url)}</dd></div> : null}
     </dl>
   );
 }
@@ -174,7 +172,8 @@ function Summary({ structured, fallbackKey }: { structured: Record<string, unkno
  */
 export function BidComposer({ lot }: { lot: LotSummary }) {
   const [quoteText, setQuoteText] = useState("");
-  const [editorText, setEditorText] = useState(() => templateFor(lot));
+  const [fields, setFields] = useState<Record<string, unknown>>(() => templateFor(lot));
+  const [formVersion, setFormVersion] = useState(0);
   const [notes, setNotes] = useState("");
   const [parsing, setParsing] = useState(false);
   const [quoteNotice, setQuoteNotice] = useState<QuoteNotice | null>(null);
@@ -224,7 +223,8 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
         );
         return;
       }
-      setEditorText(JSON.stringify(data.proposed_fields ?? {}, null, 2));
+      setFields({ ...recordValue(data.proposed_fields), v: 1 });
+      setFormVersion((version) => version + 1);
       setAmbiguities(data.ambiguities ?? []);
       setQuoteNotice({
         kind: "info",
@@ -244,16 +244,19 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
   function reviewBid(event: FormEvent) {
     event.preventDefault();
     setFormProblem("");
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(editorText);
-    } catch {
-      setFormProblem("The bid fields must be valid JSON.");
+    const structured = { ...fields };
+    if (structured.total_capacity === null) delete structured.total_capacity;
+    if (structured.shipping_cents_by_zone === null) delete structured.shipping_cents_by_zone;
+    if (!Array.isArray(fields.tiers) || fields.tiers.length === 0) {
+      setFormProblem("Add at least one delivered price tier before review.");
       return;
     }
-    const structured = recordValue(parsed);
-    if (!structured) {
-      setFormProblem("The bid fields must be one JSON object.");
+    if (recordValue(fields.tax)?.mode !== "INCLUDED" || Object.values(recordValue(fields.shipping_cents_by_zone) ?? {}).some((cost) => cost !== 0)) {
+      setFormProblem("Your delivered prices must include shipping and tax. Confirm the included-price terms before review.");
+      return;
+    }
+    if (fields.tiers.some((tier) => intValue(recordValue(tier)?.item_price_cents) === null)) {
+      setFormProblem("Enter a valid USD price with no more than two decimal places for every tier.");
       return;
     }
     setReviewed({ structured, idempotencyKey: newIdempotencyKey() });
@@ -321,7 +324,8 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
 
   function startOver() {
     setQuoteText("");
-    setEditorText(templateFor(lot));
+    setFields(templateFor(lot));
+    setFormVersion((version) => version + 1);
     setNotes("");
     setAmbiguities([]);
     setQuoteNotice(null);
@@ -347,8 +351,9 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
       <div className="shop-panel-pad">
         {stage === "edit" ? (
           <form onSubmit={reviewBid}>
-            <div className="merchant-composer-grid">
-              <div>
+            <div className="merchant-composer-grid bid-composer-workspace">
+              <details className="bid-quote-import">
+                <summary>Import an existing quote (optional)</summary>
                 <label className="merchant-field" htmlFor="bid-quote">
                   Paste your quote
                 </label>
@@ -358,7 +363,6 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
                   rows={6}
                   value={quoteText}
                   maxLength={4000}
-                  autoFocus
                   placeholder="Paste the seller's quote. The parser proposes fields; you confirm them."
                   onChange={(event) => setQuoteText(event.target.value)}
                 />
@@ -385,7 +389,7 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
                     <ul className="merchant-ambiguities">
                       {ambiguities.map((ambiguity) => (
                         <li key={`${ambiguity.field}-${ambiguity.question}`}>
-                          <code className="merchant-code">{ambiguity.field}</code>
+                          <strong>{ambiguity.field.replaceAll("_", " ")}</strong>
                           <p>{ambiguity.question}</p>
                         </li>
                       ))}
@@ -407,24 +411,9 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
                   maxLength={2000}
                   onChange={(event) => setNotes(event.target.value)}
                 />
-              </div>
+              </details>
               <div>
-                <label className="merchant-field" htmlFor="bid-fields">
-                  Bid fields (JSON)
-                </label>
-                <textarea
-                  id="bid-fields"
-                  className="form-input merchant-textarea merchant-json"
-                  rows={16}
-                  value={editorText}
-                  spellCheck={false}
-                  aria-describedby="bid-fields-help"
-                  onChange={(event) => setEditorText(event.target.value)}
-                />
-                <p id="bid-fields-help" className="merchant-help">
-                  Required: {REQUIRED_FIELDS}. Replace the zero price and the empty evidence
-                  note before review; the server validates every field.
-                </p>
+                <BidFields key={formVersion} value={fields} onChange={setFields} />
                 {formProblem ? <FieldError>{formProblem}</FieldError> : null}
                 <div className="merchant-actions">
                   <button type="submit" className="button-primary">
@@ -491,12 +480,14 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
                 </Notice>
               </div>
             ) : null}
+            <details className="merchant-proof"><summary>Sealed bid receipt</summary>
             <p className="merchant-label">Receipt hash</p>
             <code className="merchant-hash">{saved.hash}</code>
             <p className="merchant-help">
               Keep this hash. It identifies the sealed revision and is not shown again in
               this form.
             </p>
+            </details>
             <div className="merchant-actions">
               <Link className="button-secondary" to="/merchant/bids">
                 Open Active Bids

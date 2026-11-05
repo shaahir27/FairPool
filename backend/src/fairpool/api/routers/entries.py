@@ -17,14 +17,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Security
 from fastapi.responses import JSONResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_buyer
+from fairpool.api.routers.checkout import _labels
 from fairpool.config import Settings
-from fairpool.db.models.catalog import PoolEntry
-from fairpool.db.models.enums import BuyerOrderStatus
+from fairpool.db.models.catalog import Pool, PoolEntry
+from fairpool.db.models.enums import BuyerOrderStatus, PoolMode
+from fairpool.db.models.pools import Allocation, Lot
 from fairpool.domain.errors import ApplicationError
 from fairpool.fakes.vault import FakePaymentVaultProvider
 from fairpool.infra.audit import PostgresAuditLog
@@ -373,15 +375,34 @@ async def me_entries(
     principal: Annotated[Principal, Security(require_buyer)],
     db: Annotated[AsyncSession, Depends(database_session)],
 ) -> schemas.MeEntryList:
-    entries = list(
-        await db.scalars(
-            select(PoolEntry)
+    rows = (
+        await db.execute(
+            select(PoolEntry, Pool, Lot)
+            .join(Pool, Pool.id == PoolEntry.pool_id)
+            .outerjoin(
+                Allocation,
+                and_(Allocation.entry_id == PoolEntry.id, Allocation.pool_id == PoolEntry.pool_id),
+            )
+            .outerjoin(Lot, Lot.id == Allocation.lot_id)
             .where(PoolEntry.user_id == principal.user_id)
             .order_by(PoolEntry.created_at, PoolEntry.id)
         )
+    ).all()
+    entries = [entry for entry, _, _ in rows]
+    pools = {entry.pool_id: pool for entry, pool, _ in rows}
+    lots = {entry.id: lot for entry, _, lot in rows}
+    views = await entry_views(
+        db,
+        entries,
+        frontend_base_url=_settings(request).frontend_base_url,
+        include_terminal_orders=True,
     )
-    views = await entry_views(db, entries, frontend_base_url=_settings(request).frontend_base_url)
-    return schemas.MeEntryList(items=[_me_entry(view) for view in views])
+    return schemas.MeEntryList(
+        items=[
+            _me_entry(view, pool=pools[UUID(view["pool_id"])], lot=lots[UUID(view["entry_id"])])
+            for view in views
+        ]
+    )
 
 
 @router.get(
@@ -418,7 +439,9 @@ async def _entry_view(
     return _me_entry(await entry_view(db, entry, frontend_base_url=frontend_base_url))
 
 
-def _me_entry(view: dict[str, Any]) -> schemas.MeEntry:
+def _me_entry(
+    view: dict[str, Any], *, pool: Pool | None = None, lot: Lot | None = None
+) -> schemas.MeEntry:
     allocation = view["allocation"]
     offer = view["offer"]
     return schemas.MeEntry(
@@ -427,4 +450,23 @@ def _me_entry(view: dict[str, Any]) -> schemas.MeEntry:
         entry_status=view["entry_status"],
         allocation=None if allocation is None else schemas.AllocationView(**allocation),
         offer=None if offer is None else schemas.OfferRef(**offer),
+        pool_title=pool.title if pool is not None else None,
+        pool_status=str(pool.status) if pool is not None else None,
+        labels=_labels(lot)
+        if lot is not None
+        else (
+            ["SANDBOX", "SIMULATED"]
+            if pool is not None and pool.mode == PoolMode.SIMULATION
+            else ["SANDBOX"]
+        ),
+        product=(
+            schemas.ProductDisplay(
+                title=str(pool.template.get("title", pool.title)),
+                variant=pool.template.get("variant"),
+                condition=str(pool.template.get("condition", "")),
+                bundle_contents=[str(item) for item in pool.template.get("bundle_contents", [])],
+            )
+            if pool is not None
+            else None
+        ),
     )

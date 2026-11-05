@@ -78,6 +78,12 @@ async def test_the_profile_route_keeps_fields_the_request_omits(
         },
     )
     assert first.status_code == 200, first.text
+    current = await client.get("/api/v1/merchant/profile")
+    assert current.status_code == 200
+    assert current.json()["display_name"] == "Keeper"
+    assert current.json()["payee_email"] == "seller@example.test"
+    assert current.json()["paypal_merchant_id"] == "MERCHANT-1"
+    assert all(current.json()["attestations"][key]["accepted"] for key in ATTESTATION_KEYS)
 
     second = await client.post(
         "/api/v1/merchant/profile",

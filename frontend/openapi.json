@@ -43,6 +43,17 @@
             "title": "Lot Id",
             "type": "string"
           },
+          "merchant_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant Display Name"
+          },
           "min_seats": {
             "title": "Min Seats",
             "type": "integer"
@@ -73,6 +84,28 @@
             "format": "uuid",
             "title": "Pool Id",
             "type": "string"
+          },
+          "pool_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Title"
+          },
+          "product_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Title"
           },
           "seats": {
             "title": "Seats",
@@ -2077,6 +2110,13 @@
             "title": "Entry Status",
             "type": "string"
           },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
           "offer": {
             "anyOf": [
               {
@@ -2091,6 +2131,38 @@
             "format": "uuid",
             "title": "Pool Id",
             "type": "string"
+          },
+          "pool_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Status"
+          },
+          "pool_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Title"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductDisplay"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2124,10 +2196,83 @@
             "title": "Buyer Order Id",
             "type": "string"
           },
+          "capture_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Id"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
           "lot_id": {
             "format": "uuid",
             "title": "Lot Id",
             "type": "string"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MerchantDisplay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "placed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Placed At"
+          },
+          "pool_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Id"
+          },
+          "pool_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Title"
+          },
+          "product": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProductDisplay"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "receipt": {
             "anyOf": [
@@ -2144,6 +2289,16 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "terms": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfferTerms"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "total_cents": {
             "title": "Total Cents",
@@ -2382,6 +2537,28 @@
           "onboarding_status": {
             "title": "Onboarding Status",
             "type": "string"
+          },
+          "payee_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee Email"
+          },
+          "paypal_merchant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paypal Merchant Id"
           }
         },
         "required": [
@@ -6897,7 +7074,7 @@
     },
     "/api/v1/me/orders": {
       "get": {
-        "description": "Every order of this buyer with the receipt that goes with it.",
+        "description": "CR-10: one owner-scoped read includes the context a purchase history needs.",
         "operationId": "me_orders",
         "parameters": [
           {
@@ -8034,6 +8211,55 @@
       }
     },
     "/api/v1/merchant/profile": {
+      "get": {
+        "operationId": "merchant_profile_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Merchant Profile Get"
+      },
       "post": {
         "description": "Create or update the merchant row and stamp the three attestations.\n\nThis is the one merchant route that cannot require the row: it creates it.\nThe role check stays, so a buyer still cannot call it.",
         "operationId": "merchant_profile",

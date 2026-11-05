@@ -129,6 +129,7 @@ describe("Demand Board", () => {
     showDemand();
 
     fireEvent.click(await screen.findByRole("button", { name: "Prepare a bid" }));
+    fireEvent.click(screen.getByText("Import an existing quote (optional)"));
     fireEvent.change(screen.getByLabelText("Paste your quote"), {
       target: { value: "27-inch monitors, $500 each, minimum 2." },
     });
@@ -136,7 +137,58 @@ describe("Demand Board", () => {
 
     expect(await screen.findByText(/Quote parsing is unavailable/)).toBeInTheDocument();
     expect(screen.getByText("FEATURE_DISABLED")).toBeInTheDocument();
-    expect(screen.getByLabelText("Bid fields (JSON)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Delivered price, tier 1 (USD)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Bid fields (JSON)")).not.toBeInTheDocument();
+  });
+
+  it("prepares a manual bid with exact dollar inputs and keeps tier edits through review", async () => {
+    transport.get.mockResolvedValue({ data: [lot()] });
+    transport.put.mockResolvedValue({data: {bid_id: "manual-bid", revision: 1, status: "PROPOSED", receipt: {hash: "b".repeat(64)}}});
+    transport.post.mockResolvedValue({data: {bid_id: "manual-bid", revision: 1, status: "CONFIRMED"}});
+    showDemand();
+    fireEvent.click(await screen.findByRole("button", { name: "Prepare a bid" }));
+    fireEvent.change(screen.getByLabelText("Included items"), { target: { value: "Monitor\nStand" } });
+    fireEvent.change(screen.getByLabelText("Delivered price, tier 1 (USD)"), { target: { value: "129.09" } });
+    fireEvent.change(screen.getByLabelText("Supply evidence"), { target: { value: "Stock reserved" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add price tier" }));
+    fireEvent.change(screen.getByLabelText("Minimum quantity, tier 2"), { target: { value: "6" } });
+    fireEvent.change(screen.getByLabelText("Delivered price, tier 2 (USD)"), { target: { value: "120.01" } });
+    fireEvent.click(screen.getByRole("button", { name: "Review bid" }));
+    expect(await screen.findByRole("region", { name: "Confirm this bid" })).toHaveTextContent("$129.09");
+    expect(screen.getByText("$120.01")).toBeInTheDocument();
+    expect(transport.put).not.toHaveBeenCalled();
+    expect(transport.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Back to edit" }));
+    expect(screen.getByLabelText("Delivered price, tier 2 (USD)")).toHaveValue("120.01");
+    expect(screen.getByLabelText("Included items")).toHaveValue("Monitor\nStand");
+    fireEvent.click(screen.getByRole("button", {name: "Review bid"}));
+    fireEvent.click(screen.getByRole("button", {name: "Save and confirm bid"}));
+    expect(await screen.findByText("Bid confirmed")).toBeInTheDocument();
+    const body = transport.put.mock.calls[0]?.[1].body;
+    expect(body.structured.tiers).toEqual([{min_qty: 1, item_price_cents: 12909}, {min_qty: 6, item_price_cents: 12001}]);
+    expect(body.structured.bundle_contents).toEqual(["Monitor", "Stand"]);
+    expect(body.structured.v).toBe(1);
+  });
+
+  it("omits unanswered optional proposal fields so a merchant never has to repair JSON", async () => {
+    transport.get.mockResolvedValue({data: [lot()]});
+    transport.post.mockImplementation(async (path: string) => ({data: path.endsWith("/quote")
+      ? {proposed_fields: {...structured, total_capacity: null, shipping_cents_by_zone: null}, ambiguities: []}
+      : {status: "CONFIRMED"}}));
+    transport.put.mockResolvedValue({data: {bid_id: "bid-one", revision: 1, status: "PROPOSED", receipt: {hash: "a".repeat(64)}}});
+    showDemand();
+    fireEvent.click(await screen.findByRole("button", {name: "Prepare a bid"}));
+    fireEvent.click(screen.getByText("Import an existing quote (optional)"));
+    fireEvent.change(screen.getByLabelText("Paste your quote"), {target: {value: "An existing quote"}});
+    fireEvent.click(screen.getByRole("button", {name: "Parse quote"}));
+    await screen.findByText(/Quote parsed into the fields below/);
+    fireEvent.click(screen.getByRole("button", {name: "Review bid"}));
+    fireEvent.click(screen.getByRole("button", {name: "Save and confirm bid"}));
+    await screen.findByText("Bid confirmed");
+    const payload = transport.put.mock.calls[0]?.[1].body.structured;
+    expect(payload).not.toHaveProperty("total_capacity");
+    expect(payload).not.toHaveProperty("shipping_cents_by_zone");
+    expect(payload.tiers).toEqual(structured.tiers);
   });
 
   it("saves nothing until the bid is confirmed, then shows the receipt hash", async () => {
@@ -171,14 +223,15 @@ describe("Demand Board", () => {
     showDemand();
 
     fireEvent.click(await screen.findByRole("button", { name: "Prepare a bid" }));
+    fireEvent.click(screen.getByText("Import an existing quote (optional)"));
     fireEvent.change(screen.getByLabelText("Paste your quote"), {
       target: { value: "27-inch monitors, $500 each, minimum 2." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Parse quote" }));
 
     expect(await screen.findByText("How long should this offer stay valid?")).toBeInTheDocument();
-    const editor = screen.getByLabelText("Bid fields (JSON)");
-    expect(editor).toHaveValue(JSON.stringify(structured, null, 2));
+    expect(screen.getByLabelText("Delivered price, tier 1 (USD)")).toHaveValue("500.00");
+    expect(screen.getByLabelText("Delivered price, tier 2 (USD)")).toHaveValue("470.00");
 
     fireEvent.click(screen.getByRole("button", { name: "Review bid" }));
     const review = await screen.findByRole("region", { name: "Confirm this bid" });
@@ -200,7 +253,7 @@ describe("Demand Board", () => {
     };
     expect(putInit.params.path).toEqual({ lot_id: "lot-one" });
     expect(putInit.headers["Idempotency-Key"]).toEqual(expect.any(String));
-    expect(putInit.body.structured.product_key).toBe("monitor-27-4k");
+    expect(putInit.body.structured).toEqual(structured);
 
     const confirmCall = transport.post.mock.calls.find(
       ([path]) => path === "/api/v1/merchant/bids/{bid_id}/confirm",
@@ -211,6 +264,15 @@ describe("Demand Board", () => {
 });
 
 describe("Merchant profile", () => {
+  it("loads the stored business, payee and attestations before editing", async () => {
+    transport.get.mockResolvedValue({data: {merchant_id: "merchant-one", display_name: "Stored business", payee_email: "seller@example.test", paypal_merchant_id: "PAYEE-1", onboarding_status: "DEMO", attestations: {inventory_reserved: {accepted: true}}}});
+    showProfile();
+    await waitFor(() => expect(screen.getByLabelText("Display name")).toHaveValue("Stored business"));
+    expect(screen.getByLabelText("Payee email (optional)")).toHaveValue("seller@example.test");
+    expect(screen.getByLabelText("PayPal merchant ID (optional)")).toHaveValue("PAYEE-1");
+    expect(screen.getByLabelText(/Inventory is reserved/)).toBeChecked();
+    expect(transport.post).not.toHaveBeenCalled();
+  });
   it("prefills the account name, records the three attestations and shows the server's status", async () => {
     transport.get.mockResolvedValue({
       data: { display_name: "Demo Merchant Alpha", role: "merchant", paypal_linked: false },
@@ -277,7 +339,7 @@ describe("Merchant profile", () => {
     const name = await screen.findByLabelText("Display name");
     await waitFor(() => expect(name).toHaveValue("Demo Merchant Alpha"));
     expect(
-      screen.getByText(/Leave a payee field blank to keep the value already saved/),
+      screen.getByText(/Unchanged fields keep their stored values/),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save profile" }));

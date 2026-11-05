@@ -1,159 +1,100 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const transport = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
-vi.mock("../src/shared/api/client", () => ({
-  api: { GET: transport.get, POST: transport.post },
-  API_BASE_URL: "http://localhost:8000",
-}));
-
+import { beforeEach, expect, it, vi } from "vitest";
+const transport = vi.hoisted(() => ({get: vi.fn(), post: vi.fn()}));
+vi.mock("../src/shared/api/client", () => ({api: {GET: transport.get, POST: transport.post}, API_BASE_URL: "http://localhost:8000"}));
 import { OrdersPage } from "../src/buyer/orders/OrdersPage";
 import { resetBuyerPrefetch } from "../src/buyer/prefetch";
+const paid = {buyer_order_id: "order-paid", lot_id: "lot-one", pool_id: "pool-one", pool_title: "Workstation pool", status: "CAPTURED", total_cents: 49900, receipt: {commitment: "c".repeat(64)}, product: {title: "27-inch monitor", variant: "Black", condition: "NEW", bundle_contents: ["Monitor", "Stand"]}, merchant: {display_name: "Demo Merchant"}, terms: {delivery_sla_days: 5, returns_days: 30}, capture_id: "CAP-LIST-1", placed_at: "2026-11-01T12:00:00Z", labels: ["SANDBOX"]};
+const progress = {...paid, buyer_order_id: "order-progress", status: "AUTHORIZING", product: {...paid.product, title: "Desk lamp"}, capture_id: null, receipt: null, total_cents: 12345};
+function show() {return render(<MemoryRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><OrdersPage /></MemoryRouter>);}
+function orders(items: unknown[]) {transport.get.mockResolvedValue({data: {items}});}
+beforeEach(() => {resetBuyerPrefetch(); transport.get.mockReset(); transport.post.mockReset(); vi.restoreAllMocks();});
 
-const receipt = {
-  commitment: "c".repeat(64),
-  salt_hex: "s".repeat(64),
-  signature: "sig-base64url",
-  signed_at: "2026-11-02T10:03:00Z",
-};
-
-const orders = [
-  { buyer_order_id: "order-paid", lot_id: "lot-a", status: "CAPTURED", total_cents: 49900, receipt },
-  { buyer_order_id: "order-progress", lot_id: "lot-b", status: "AUTHORIZING", total_cents: 12345, receipt: null },
-  { buyer_order_id: "order-void", lot_id: "lot-a", status: "VOIDED", total_cents: 2500, receipt: null },
-  { buyer_order_id: "order-refund", lot_id: "lot-c", status: "REFUNDED", total_cents: 7700, receipt },
-  { buyer_order_id: "order-expired", lot_id: "lot-d", status: "EXPIRED", total_cents: 9900, receipt: null },
-  { buyer_order_id: "order-declined", lot_id: "lot-e", status: "DECLINED", total_cents: 1500, receipt: null },
-];
-
-function show() {
-  return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <OrdersPage />
-    </MemoryRouter>,
-  );
-}
-
-beforeEach(() => {
-  resetBuyerPrefetch();
-  transport.get.mockReset();
-  transport.post.mockReset();
+it("shows a single named purchase feed with merchant, terms, amount and payment status", async () => {
+  orders([paid, progress]); show();
+  const feed = await screen.findByRole("list", {name: "Your orders"});
+  expect(within(feed).getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+  expect(screen.getAllByText("Demo Merchant")).toHaveLength(2);
+  expect(screen.getByText("$499.00")).toBeInTheDocument();
+  expect(screen.getAllByText(/Delivery within 5 days/)).toHaveLength(2);
+  expect(screen.getByText("Payment completed")).toBeInTheDocument();
+  expect(screen.getByText("Confirming the hold")).toBeInTheDocument();
+  expect(screen.queryByRole("heading", {name: "Paid"})).toBeNull();
+  expect(screen.queryByRole("heading", {name: "In progress"})).toBeNull();
 });
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.useRealTimers();
+it("uses the list's capture reference without a detail request per purchase", async () => {
+  orders([paid, progress]); show(); await screen.findByText("27-inch monitor");
+  expect(await screen.findByText("CAP-LIST-1")).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(1);
 });
-
-describe("Orders grouping", () => {
-  it("groups orders by their API outcome", async () => {
-    transport.get.mockResolvedValue({ data: { items: orders } });
-    show();
-
-    const paid = await screen.findByRole("region", { name: "Paid" });
-    const progress = screen.getByRole("region", { name: "In progress" });
-    const released = screen.getByRole("region", { name: "Released" });
-    const closed = screen.getByRole("region", { name: "Not completed" });
-
-    expect(within(paid).getByText("Payment completed")).toBeInTheDocument();
-    expect(within(progress).getByText("Confirming the hold")).toBeInTheDocument();
-    expect(within(released).getByText("Hold released")).toBeInTheDocument();
-    expect(within(released).getByText("Refunded")).toBeInTheDocument();
-    expect(within(closed).getByText("Offer expired")).toBeInTheDocument();
-    expect(within(closed).getByText("Declined")).toBeInTheDocument();
-  });
-
-  it("shows each order's total and the API's raw status beside the label", async () => {
-    transport.get.mockResolvedValue({ data: { items: orders } });
-    show();
-
-    const paid = await screen.findByRole("region", { name: "Paid" });
-    expect(within(paid).getByText("$499.00")).toBeInTheDocument();
-    expect(within(paid).getByText("CAPTURED")).toBeInTheDocument();
-    const closed = screen.getByRole("region", { name: "Not completed" });
-    expect(within(closed).getByText("$99.00")).toBeInTheDocument();
-    expect(within(closed).getByText("$15.00")).toBeInTheDocument();
-  });
-
-  it("says whether a receipt exists and links to that order by name", async () => {
-    transport.get.mockResolvedValue({ data: { items: orders } });
-    show();
-
-    const paid = await screen.findByRole("region", { name: "Paid" });
-    const progress = screen.getByRole("region", { name: "In progress" });
-
-    expect(within(paid).getByText("Receipt available")).toBeInTheDocument();
-    expect(within(paid).getByRole("link", { name: "Open order and receipt for order-paid" })).toHaveAttribute(
-      "href",
-      "/orders/order-paid",
-    );
-    expect(within(progress).getByText("No receipt for this order")).toBeInTheDocument();
-    expect(within(progress).getByRole("link", { name: "Open order for order-progress" })).toHaveAttribute(
-      "href",
-      "/orders/order-progress",
-    );
-  });
+it("keeps internal states and IDs under references instead of making them the purchase title", async () => {
+  orders([paid]); show();
+  const reference = await screen.findByText("order-paid");
+  expect(reference.closest("details")?.open).toBe(false);
+  expect(screen.getByText("CAPTURED").closest("details")?.open).toBe(false);
+  expect(screen.getByRole("link", {name: "Open order and receipt for order-paid"})).toHaveTextContent("View order");
 });
-
-describe("PayPal capture reference", () => {
-  it("shows the capture reference, copies it, and says plainly when there is none", async () => {
-    const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
-    Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
-    transport.get.mockImplementation(
-      (path: string, init?: { params?: { path?: { buyer_order_id?: string } } }) => {
-        if (path === "/api/v1/me/orders") {
-          return Promise.resolve({
-            data: {
-              items: [
-                { buyer_order_id: "order-paid", lot_id: "lot-a", status: "CAPTURED", total_cents: 49900, receipt },
-                { buyer_order_id: "order-progress", lot_id: "lot-b", status: "AUTHORIZING", total_cents: 12345, receipt: null },
-              ],
-            },
-          });
-        }
-        const id = init?.params?.path?.buyer_order_id;
-        return Promise.resolve({
-          data: { paypal: { capture_id: id === "order-paid" ? "CAP-9F2A1" : null } },
-        });
-      },
-    );
-    show();
-
-    const paid = await screen.findByRole("region", { name: "Paid" });
-    expect(await within(paid).findByText("CAP-9F2A1")).toBeInTheDocument();
-    expect(within(paid).getByText("PayPal capture")).toBeInTheDocument();
-    fireEvent.click(
-      within(paid).getByRole("button", { name: "Copy PayPal capture reference for order-paid" }),
-    );
-    expect(
-      await screen.findByText("PayPal capture reference copied for order-paid."),
-    ).toBeInTheDocument();
-    expect(clipboard.writeText).toHaveBeenCalledWith("CAP-9F2A1");
-
-    const progress = screen.getByRole("region", { name: "In progress" });
-    expect(await within(progress).findByText("No PayPal capture yet.")).toBeInTheDocument();
-    expect(within(progress).queryByText("PayPal capture")).not.toBeInTheDocument();
-  });
+it("filters payment outcomes in place with no extra request", async () => {
+  orders([paid, progress]); show(); await screen.findByText("Desk lamp");
+  fireEvent.change(screen.getByLabelText("Payment status"), {target: {value: "paid"}});
+  expect(screen.queryByRole("heading", {name: "Desk lamp"})).toBeNull();
+  expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(1);
 });
-
-describe("Orders states", () => {
-  it("shows an empty state when there are no orders", async () => {
-    transport.get.mockResolvedValue({ data: { items: [] } });
-    show();
-
-    expect(await screen.findByRole("heading", { name: "No orders yet" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Find a pool to join" })).toHaveAttribute("href", "/discover");
-    expect(screen.queryByRole("region", { name: "Paid" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "In progress" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the error inside the page and retries the load", async () => {
-    transport.get.mockRejectedValueOnce(new TypeError("network unavailable")).mockResolvedValueOnce({ data: { items: [orders[0]] } });
-    show();
-
-    expect(await screen.findByText(/We couldn’t load your orders/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    const paid = await screen.findByRole("region", { name: "Paid" });
-    expect(within(paid).getByText("$499.00")).toBeInTheDocument();
-  });
+it("finds a purchase by product or merchant and recovers from an empty filter", async () => {
+  orders([paid, progress]); show(); await screen.findByText("Desk lamp");
+  fireEvent.change(screen.getByLabelText("Search your orders"), {target: {value: "lamp"}});
+  expect(screen.queryByRole("heading", {name: "27-inch monitor"})).toBeNull();
+  fireEvent.change(screen.getByLabelText("Payment status"), {target: {value: "released"}});
+  expect(screen.getByRole("heading", {name: "No matching orders"})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Clear filters"}));
+  expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+});
+it("does not treat a capture reference as payment success", async () => {
+  orders([{...paid, status: "OFFERED"}]); show();
+  expect(await screen.findByText("Offer sent")).toBeInTheDocument();
+  expect(screen.queryByText("Payment completed")).toBeNull();
+});
+it("shows refund and hold-release states distinctly", async () => {
+  orders([{...paid, buyer_order_id: "refunded", status: "REFUNDED"}, {...progress, status: "VOIDED"}]); show();
+  expect(await screen.findByText("Refunded")).toBeInTheDocument();
+  expect(screen.getByText("Hold released")).toBeInTheDocument();
+});
+it("keeps capture reads compatible with an older API that omits the list field", async () => {
+  const legacy: Record<string, unknown> = {...paid}; delete legacy.capture_id;
+  transport.get.mockImplementation(async (path: string) => path === "/api/v1/me/orders" ? {data: {items: [legacy]}} : {data: {paypal: {capture_id: "CAP-LEGACY"}}});
+  show(); expect(await screen.findByText("CAP-LEGACY")).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(2);
+});
+it("copies the payment reference only when the buyer asks", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true});
+  orders([paid]); show(); await screen.findByText("27-inch monitor");
+  expect(writeText).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("Order details and references"));
+  fireEvent.click(screen.getByRole("button", {name: "Copy PayPal capture reference for order-paid"}));
+  expect(await screen.findByText("PayPal payment reference copied.")).toBeInTheDocument();
+  expect(writeText).toHaveBeenCalledWith("CAP-LIST-1");
+});
+it("distinguishes a failed legacy capture read from no capture", async () => {
+  const legacy: Record<string, unknown> = {...paid}; delete legacy.capture_id;
+  transport.get.mockImplementation(async (path: string) => path === "/api/v1/me/orders" ? {data: {items: [legacy]}} : {error: {error: {code: "REQUEST_FAILED"}}});
+  show(); expect(await screen.findByText("The PayPal capture reference could not be loaded.")).toBeInTheDocument();
+  expect(screen.queryByText("No PayPal capture yet.")).toBeNull();
+});
+it("does not flash an empty history before the list arrives", async () => {
+  let finish!: (value: unknown) => void; transport.get.mockReturnValue(new Promise((resolve) => {finish = resolve;}));
+  show(); expect(screen.getByRole("status", {name: "Loading your orders"})).toBeInTheDocument();
+  expect(screen.queryByText("No orders yet")).toBeNull();
+  await act(async () => {finish({data: {items: [paid]}});});
+  expect(await screen.findByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+});
+it("offers a retry after a history error and a useful first-use empty state", async () => {
+  transport.get.mockResolvedValueOnce({error: {error: {code: "REQUEST_FAILED", message: "Offline."}}}).mockResolvedValueOnce({data: {items: []}});
+  show(); expect(await screen.findByText(/Offline/)).toBeInTheDocument();
+  expect(screen.queryByText("No orders yet")).toBeNull();
+  fireEvent.click(screen.getByRole("button", {name: "Try again"}));
+  expect(await screen.findByRole("heading", {name: "No orders yet"})).toBeInTheDocument();
 });

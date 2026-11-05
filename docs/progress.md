@@ -196,7 +196,7 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 | T09B01 | B | L | TODO | | Public audit page and verify-my-place |
 | T09B02 | B | L | TODO | | AI evaluation sets and runner |
 | T09B03 | B | M | TODO | | Concurrency and property suites for pools, allocation and auction |
-| T09B04 | B | M | TODO | | UI polish and honesty copy |
+| T09B04 | B | M | IN PROGRESS | | Workspace redesign; CR-10 read models; see workspace-ui-plan.md. make verify green (1207 backend / 253 frontend); build and independent source review pass. Browser visual QA blocked by URL policy; pending visual acceptance. |
 | T09X01 | AB | L | TODO | | README full draft |
 | T09X02 | AB | M | TODO | | Feature freeze and IT-3 |
 

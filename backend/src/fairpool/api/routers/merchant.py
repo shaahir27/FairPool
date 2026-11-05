@@ -62,6 +62,34 @@ def _auction_ai(request: Request) -> Any | None:
         return None
 
 
+def _profile_response(merchant: Merchant) -> schemas.MerchantProfileResponse:
+    return schemas.MerchantProfileResponse(
+        merchant_id=merchant.id,
+        display_name=merchant.display_name,
+        onboarding_status=str(merchant.onboarding_status),
+        attestations=merchant.attestations,
+        payee_email=merchant.payee_email,
+        paypal_merchant_id=merchant.paypal_merchant_id,
+    )
+
+
+@router.get(
+    "/api/v1/merchant/profile",
+    response_model=schemas.MerchantProfileResponse,
+    operation_id="merchant_profile_get",
+)
+async def merchant_profile_get(
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+) -> schemas.MerchantProfileResponse:
+    if principal.role != "merchant":
+        raise HTTPException(403, "FORBIDDEN")
+    merchant = await db.scalar(select(Merchant).where(Merchant.user_id == principal.user_id))
+    if merchant is None:
+        raise ApplicationError("NOT_FOUND")
+    return _profile_response(merchant)
+
+
 @router.post(
     "/api/v1/merchant/profile",
     response_model=schemas.MerchantProfileResponse,
@@ -94,12 +122,7 @@ async def merchant_profile(
         present=payload.model_fields_set,
     )
     await db.commit()
-    return schemas.MerchantProfileResponse(
-        merchant_id=merchant.id,
-        display_name=merchant.display_name,
-        onboarding_status=str(merchant.onboarding_status),
-        attestations=merchant.attestations,
-    )
+    return _profile_response(merchant)
 
 
 @router.get(

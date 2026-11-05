@@ -13,6 +13,7 @@ const PATHS = {
   user: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 22v-3a8 8 0 0 1 16 0v3",
   arrow: "M5 12h14 M13 6l6 6-6 6",
   close: "M6 6l12 12 M18 6L6 18",
+  logout: "M9 4H3v16h6 M9 12h12 M16 7l5 5-5 5",
   copy: "M8 8h12v13H8z M16 8V3H3v13h5",
   receipt: "M5 2h14v20l-3-2-4 2-4-2-3 2z M8 7h8 M8 11h8 M8 15h5",
   check: "M4 12l5 5L20 6",

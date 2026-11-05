@@ -1,252 +1,121 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const transport = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
-vi.mock("../src/shared/api/client", () => ({
-  api: { GET: transport.get, POST: transport.post },
-  API_BASE_URL: "http://localhost:8000",
-}));
-
-// Most tests need only to know that the offer was embedded; one test swaps in the
-// real checkout to prove its countdown uses the server's clock.
-const checkoutStub = vi.hoisted(() => ({ real: false }));
-vi.mock("../src/checkout", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/checkout")>();
-  return {
-    ...actual,
-    OfferCheckout: (props: { buyerOrderId: string; onChanged?: () => void }) =>
-      checkoutStub.real ? (
-        <actual.OfferCheckout {...props} />
-      ) : (
-        <div data-testid="offer-checkout">
-          Checkout for {props.buyerOrderId}
-          {props.onChanged ? (
-            <button type="button" onClick={props.onChanged}>
-              Simulate approval
-            </button>
-          ) : null}
-        </div>
-      ),
-  };
-});
-
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, expect, it, vi } from "vitest";
+const transport = vi.hoisted(() => ({get: vi.fn(), post: vi.fn()}));
+vi.mock("../src/shared/api/client", () => ({api: {GET: transport.get, POST: transport.post}, API_BASE_URL: "http://localhost:8000"}));
 import { MyPoolsPage } from "../src/buyer/my-pools/MyPoolsPage";
 import { resetBuyerPrefetch } from "../src/buyer/prefetch";
-import { resetSessionCache } from "../src/shared";
 
-const offerEntry = {
-  entry_id: "entry-offer",
-  pool_id: "pool-offer",
-  entry_status: "ELIGIBLE",
-  allocation: { status: "SEATED", zone_id: "US-EAST", rank: 1, lot_id: "lot-one", waitlist_position: null },
-  offer: { buyer_order_id: "order-one", status: "OFFERED", offer_expires_at: "2026-11-02T10:15:00Z" },
-};
-
-const waitlistEntry = {
-  entry_id: "entry-wait",
-  pool_id: "pool-wait",
-  entry_status: "ELIGIBLE",
-  allocation: { status: "WAITLISTED", zone_id: "US-EAST", rank: 5, lot_id: "lot-one", waitlist_position: 3 },
-  offer: null,
-};
-
-const pendingEntry = {
-  entry_id: "entry-pending",
-  pool_id: "pool-pending",
-  entry_status: "SUBMITTED",
-  allocation: null,
-  offer: null,
-};
-
-const pricedOutEntry = {
-  entry_id: "entry-priced",
-  pool_id: "pool-priced",
-  entry_status: "ELIGIBLE",
-  allocation: { status: "PRICED_OUT", zone_id: "US-EAST", rank: 4, lot_id: "lot-two", waitlist_position: null },
-  offer: null,
-};
-
-const capturedEntry = {
-  entry_id: "entry-captured",
-  pool_id: "pool-captured",
-  entry_status: "ELIGIBLE",
-  allocation: { status: "SEATED", zone_id: "US-EAST", rank: 1, lot_id: "lot-one", waitlist_position: null },
-  offer: { buyer_order_id: "order-captured", status: "CAPTURED", offer_expires_at: "2026-11-02T10:15:00Z" },
-};
-
-const offerResponse = {
-  buyer_order_id: "order-one",
-  status: "OFFERED",
-  merchant: { display_name: "Demo Merchant Alpha" },
-  product: { title: "27-inch 4K monitor", variant: "Black", condition: "NEW", bundle_contents: ["Monitor", "Stand"] },
-  terms: { delivery_sla_days: 7, returns_days: 30 },
-  totals: { item_cents: 48000, shipping_cents: 1000, tax_cents: 900, total_cents: 49900, cap_cents: 60000 },
-  offer_expires_at: "2026-11-02T10:15:00Z",
-  offer_started_at: "2026-11-02T10:00:00Z",
-  server_now: "2026-11-02T10:02:00Z",
-  pool_id: "pool-offer",
-  pool_title: "Monitor pool",
-  notices: {
-    hold: "A hold is placed only after approval.",
-    lots_may_differ: "Separate lots may have different prices.",
-    fallback: null,
-  },
-};
-
+const pending = {entry_id: "entry-one", pool_id: "pool-one", pool_title: "Workstation pool", entry_status: "SUBMITTED", allocation: null, offer: null, product: {title: "27-inch monitor", variant: "Black", condition: "NEW", bundle_contents: ["Monitor", "Stand"]}};
+const waiting = {...pending, entry_id: "entry-wait", pool_id: "pool-wait", product: {...pending.product, title: "Ceramic kettle"}, allocation: {status: "WAITLISTED", zone_id: "US-EAST", rank: 8, waitlist_position: 3, lot_id: "lot-one"}};
+const offer = {...pending, entry_id: "entry-offer", pool_id: "pool-offer", product: {...pending.product, title: "Desk lamp"}, offer: {buyer_order_id: "order-one", status: "OFFERED", offer_expires_at: "2026-12-01T12:00:00Z"}};
 function show() {
-  return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <MyPoolsPage />
-    </MemoryRouter>,
-  );
+  return render(<MemoryRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><Routes><Route path="/" element={<MyPoolsPage />} /><Route path="/offers/:id" element={<h1>Offer review destination</h1>} /><Route path="/orders/:id" element={<h1>Order destination</h1>} /><Route path="/pools/:id" element={<h1>Pool destination</h1>} /></Routes></MemoryRouter>);
 }
+beforeEach(() => {resetBuyerPrefetch(); transport.get.mockReset(); transport.post.mockReset();});
+function entries(items: unknown[]) {transport.get.mockResolvedValue({data: {items}});}
 
-function respondWithEntries(items: unknown[]) {
-  transport.get.mockImplementation(async (path: string) => {
-    if (path === "/api/v1/me/entries") return { data: { items } };
-    if (path === "/api/v1/me/addresses") return { data: { addresses: [] } };
-    if (path === "/api/v1/offers/{buyer_order_id}") return { data: offerResponse };
-    return { data: null };
-  });
-}
-
-beforeEach(() => {
-  resetBuyerPrefetch();
-  checkoutStub.real = false;
-  transport.get.mockReset();
-  transport.post.mockReset();
+it("opens on one current-pool list instead of stacked technical status sections", async () => {
+  entries([pending, waiting, offer]); show();
+  const feed = await screen.findByRole("list", {name: "Current pool entries"});
+  expect(within(feed).getAllByRole("article")).toHaveLength(3);
+  expect(screen.queryByRole("heading", {name: "Pending"})).toBeNull();
+  expect(screen.queryByRole("heading", {name: "Waitlist"})).toBeNull();
+  expect(screen.queryByRole("heading", {name: "Action required"})).toBeNull();
+  expect(screen.getByRole("button", {name: "Current pools 3"})).toHaveAttribute("aria-pressed", "true");
 });
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.useRealTimers();
+it("puts a named offer first and takes review to the existing checkout route without a payment write", async () => {
+  entries([pending, waiting, offer]); show();
+  const feed = await screen.findByRole("list", {name: "Current pool entries"});
+  expect(within(feed).getAllByRole("heading")[0]).toHaveTextContent("Desk lamp");
+  expect(screen.getByText("Offer ready to review")).toBeInTheDocument();
+  expect(screen.getByText(/Review by/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("link", {name: "Review offer"}));
+  expect(await screen.findByRole("heading", {name: "Offer review destination"})).toBeInTheDocument();
+  expect(transport.post).not.toHaveBeenCalled();
 });
-
-describe("My Pools grouping", () => {
-  it("groups entries into pending, waitlist and action required", async () => {
-    respondWithEntries([pendingEntry, waitlistEntry, offerEntry]);
-    show();
-
-    const pending = await screen.findByRole("region", { name: "Pending" });
-    const waitlist = screen.getByRole("region", { name: "Waitlist" });
-    const action = screen.getByRole("region", { name: "Action required" });
-
-    expect(within(pending).getByText("No seat allocation yet.")).toBeInTheDocument();
-    expect(within(waitlist).getByText("Waitlisted, position #3")).toBeInTheDocument();
-    expect(within(action).getByTestId("offer-checkout")).toHaveTextContent("order-one");
-    expect(within(pending).queryByTestId("offer-checkout")).not.toBeInTheDocument();
-    expect(within(waitlist).queryByTestId("offer-checkout")).not.toBeInTheDocument();
-  });
-
-  it("keeps a priced-out entry in pending and labels it from the API status", async () => {
-    respondWithEntries([pricedOutEntry]);
-    show();
-
-    const pending = await screen.findByRole("region", { name: "Pending" });
-    expect(within(pending).getByText("PRICED_OUT")).toBeInTheDocument();
-    expect(within(pending).getByText("Priced out of this lot. No seat was allocated to this entry.")).toBeInTheDocument();
-    const waitlist = screen.getByRole("region", { name: "Waitlist" });
-    expect(within(waitlist).getByText("No entries are on a waitlist.")).toBeInTheDocument();
-  });
-
-  it("falls back to the allocation rank when no waitlist position is returned", async () => {
-    respondWithEntries([{ ...waitlistEntry, allocation: { ...waitlistEntry.allocation, waitlist_position: null } }]);
-    show();
-
-    const waitlist = await screen.findByRole("region", { name: "Waitlist" });
-    expect(within(waitlist).getByText("Waitlisted, position #5")).toBeInTheDocument();
-  });
-
-  it("treats an offer past approval as a line linking to its order, not an action", async () => {
-    respondWithEntries([capturedEntry]);
-    show();
-
-    const pending = await screen.findByRole("region", { name: "Pending" });
-    const action = screen.getByRole("region", { name: "Action required" });
-
-    expect(within(action).getByText("No offers are waiting for you.")).toBeInTheDocument();
-    expect(within(action).queryByTestId("offer-checkout")).not.toBeInTheDocument();
-    expect(within(pending).getByText("Payment completed")).toBeInTheDocument();
-    expect(within(pending).getByRole("link", { name: "Open order for order-captured" })).toHaveAttribute(
-      "href",
-      "/orders/order-captured",
-    );
-    expect(within(pending).queryByTestId("offer-checkout")).not.toBeInTheDocument();
-  });
-
-  it("links every entry to its pool lobby by name", async () => {
-    respondWithEntries([pendingEntry, waitlistEntry]);
-    show();
-
-    const pending = await screen.findByRole("region", { name: "Pending" });
-    const waitlist = screen.getByRole("region", { name: "Waitlist" });
-    expect(within(pending).getByRole("link", { name: "Open pool lobby for pool-pending" })).toHaveAttribute(
-      "href",
-      "/pools/pool-pending",
-    );
-    expect(within(waitlist).getByRole("link", { name: "Open pool lobby for pool-wait" })).toHaveAttribute(
-      "href",
-      "/pools/pool-wait",
-    );
-  });
-
-  it("renders the offer countdown from the server's clock, not the device's", async () => {
-    checkoutStub.real = true;
-    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-03T10:00:00Z"));
-    respondWithEntries([offerEntry]);
-    show();
-
-    expect(await screen.findByText("13:00")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Continue to PayPal/ })).toBeEnabled();
-    expect(screen.getByRole("link", { name: /Back to your pool/ })).toHaveAttribute("href", "/pools/pool-offer");
-  });
+it("shows the server's waiting-list position without substituting allocation rank", async () => {
+  entries([waiting]); show();
+  expect(await screen.findByText("You're #3 on the waiting list.")).toBeInTheDocument();
+  expect(screen.getByText("On the waiting list")).toBeInTheDocument();
+});
+it("does not invent a waiting-list position when it is unavailable", async () => {
+  entries([{...waiting, allocation: {...waiting.allocation, waitlist_position: null}}]); show();
+  expect(await screen.findByText("You're on the waiting list. Your position is not available yet.")).toBeInTheDocument();
+  expect(screen.queryByText(/#8/)).toBeNull();
+});
+it("separates withdrawn and completed entries from current participation", async () => {
+  entries([pending, {...pending, entry_id: "withdrawn", entry_status: "WITHDRAWN", product: {...pending.product, title: "Travel bag"}}, {...offer, entry_id: "paid", offer: {...offer.offer, status: "CAPTURED"}}]); show();
+  await screen.findByRole("list", {name: "Current pool entries"});
+  expect(screen.queryByText("Travel bag")).toBeNull();
+  fireEvent.click(screen.getByRole("button", {name: "Past entries 2"}));
+  expect(screen.getByText("You withdrew from this pool. This entry is no longer participating.")).toBeInTheDocument();
+  expect(screen.getByText("Payment completed")).toBeInTheDocument();
+  expect(screen.queryByRole("link", {name: "Review offer"})).toBeNull();
+  expect(screen.getByRole("link", {name: "View order"})).toHaveAttribute("href", "/orders/order-one");
+});
+it("keeps references and backend states inside an optional disclosure", async () => {
+  entries([pending]); show();
+  const disclosure = (await screen.findByText("Entry details")).closest("details")!;
+  expect(disclosure.open).toBe(false);
+  fireEvent.click(screen.getByText("Entry details"));
+  expect(within(disclosure).getByText("pool-one")).toBeInTheDocument();
+  expect(within(disclosure).getByText("SUBMITTED")).toBeInTheDocument();
+  expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+});
+it("searches names in the loaded feed without another API call", async () => {
+  entries([pending, waiting]); show(); await screen.findByText("Ceramic kettle");
+  fireEvent.change(screen.getByLabelText("Search your pools"), {target: {value: "kettle"}});
+  expect(screen.queryByRole("heading", {name: "27-inch monitor"})).toBeNull();
+  expect(screen.getByRole("heading", {name: "Ceramic kettle"})).toBeInTheDocument();
+  expect(transport.get).toHaveBeenCalledTimes(1);
+});
+it("offers recovery for an empty search", async () => {
+  entries([pending]); show(); await screen.findByText("27-inch monitor");
+  fireEvent.change(screen.getByLabelText("Search your pools"), {target: {value: "missing"}});
+  expect(screen.getByRole("heading", {name: "No matching pools"})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Clear search"}));
+  expect(screen.getByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+});
+it("explains a priced-out entry in history without treating it as a waiting-list seat", async () => {
+  entries([{...waiting, allocation: {...waiting.allocation, status: "PRICED_OUT"}}]); show();
+  fireEvent.click(await screen.findByRole("button", {name: "Past entries 1"}));
+  expect(screen.getByText("Your price limit did not qualify for this lot. No seat was assigned.")).toBeInTheDocument();
+  expect(screen.queryByText(/You're #/)).toBeNull();
+});
+it("loads without flashing a join or approval action", async () => {
+  let finish!: (value: unknown) => void;
+  transport.get.mockReturnValue(new Promise((resolve) => {finish = resolve;}));
+  show(); expect(screen.getByRole("status", {name: "Loading your pools"})).toBeInTheDocument();
+  expect(screen.queryByRole("link", {name: "Review offer"})).toBeNull();
+  await act(async () => {finish({data: {items: [offer]}});});
+  expect(await screen.findByRole("link", {name: "Review offer"})).toBeInTheDocument();
+});
+it("retries a failed history read without pretending the account has no pools", async () => {
+  transport.get.mockResolvedValueOnce({error: {error: {code: "REQUEST_FAILED", message: "Try again."}}}).mockResolvedValueOnce({data: {items: [pending]}});
+  show(); expect(await screen.findByRole("alert")).toHaveTextContent("Try again.");
+  expect(screen.queryByText("No pools joined yet")).toBeNull();
+  fireEvent.click(screen.getByRole("button", {name: "Try again"}));
+  expect(await screen.findByRole("heading", {name: "27-inch monitor"})).toBeInTheDocument();
+});
+it("has an honest first-use empty state", async () => {
+  entries([]); show();
+  expect(await screen.findByRole("heading", {name: "No pools joined yet"})).toBeInTheDocument();
+  expect(screen.getByRole("link", {name: "Find a pool"})).toHaveAttribute("href", "/discover");
 });
 
-describe("My Pools states", () => {
-  it("shows a calm empty state when the buyer has no entries", async () => {
-    respondWithEntries([]);
-    show();
+it("keeps a cancelled pool without an order in history and explains its outcome", async () => {
+  entries([{...pending, pool_status: "CANCELLED", labels: ["SANDBOX", "SIMULATED"]}]); show();
+  fireEvent.click(await screen.findByRole("button", {name: "Past entries 1"}));
+  expect(screen.getByText("This pool was cancelled. This entry is no longer participating.")).toBeInTheDocument();
+  expect(screen.getByText("SIMULATED")).toBeInTheDocument();
+  expect(screen.queryByRole("link", {name: "Review offer"})).toBeNull();
+});
 
-    expect(await screen.findByRole("heading", { name: "No entries yet" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Find an open pool" })).toHaveAttribute("href", "/discover");
-    expect(screen.queryByRole("region", { name: "Pending" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the page usable after a failed load and retries", async () => {
-    transport.get.mockRejectedValueOnce(new TypeError("network unavailable")).mockResolvedValueOnce({ data: { items: [pendingEntry] } });
-    show();
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(/connection|try again/i);
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("region", { name: "Pending" })).toBeInTheDocument();
-  });
-
-  it("reloads the entry list when an inline approval changes the offer", async () => {
-    respondWithEntries([offerEntry]);
-    show();
-
-    await screen.findByTestId("offer-checkout");
-    fireEvent.click(screen.getByRole("button", { name: "Simulate approval" }));
-
-    await waitFor(() =>
-      expect(transport.get.mock.calls.filter(([path]) => path === "/api/v1/me/entries")).toHaveLength(2),
-    );
-  });
-
-  it("never shows the previous session's cached entries to the next user", async () => {
-    respondWithEntries([pendingEntry]);
-    const first = show();
-    expect(await screen.findByText("pool-pending")).toBeInTheDocument();
-    first.unmount();
-
-    // What sign-out (and any 401) does: the session ends, so the cached pages go too.
-    resetSessionCache("out");
-
-    respondWithEntries([waitlistEntry]);
-    show();
-    const waitlist = await screen.findByRole("region", { name: "Waitlist" });
-    expect(within(waitlist).getByText("Waitlisted, position #3")).toBeInTheDocument();
-    expect(screen.queryByText("pool-pending")).not.toBeInTheDocument();
-    expect(transport.get.mock.calls.filter(([path]) => path === "/api/v1/me/entries")).toHaveLength(2);
-  });
+it("labels a simulated captured order instead of implying a real payment", async () => {
+  entries([{...offer, labels: ["SANDBOX", "SIMULATED", "FALLBACK: single stand-in seller"], offer: {...offer.offer, status: "CAPTURED"}}]); show();
+  fireEvent.click(await screen.findByRole("button", {name: "Past entries 1"}));
+  expect(screen.getByText("SIMULATED")).toBeInTheDocument();
+  expect(screen.getByText("FALLBACK: single stand-in seller")).toBeInTheDocument();
+  expect(screen.getByText("Payment completed")).toBeInTheDocument();
 });

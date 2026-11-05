@@ -44,7 +44,11 @@ CHECKOUT_HINT = "A human approves payment on PayPal; this API cannot pay."
 
 
 async def entry_views(
-    session: AsyncSession, entries: Iterable[PoolEntry], *, frontend_base_url: str
+    session: AsyncSession,
+    entries: Iterable[PoolEntry],
+    *,
+    frontend_base_url: str,
+    include_terminal_orders: bool = False,
 ) -> list[dict[str, Any]]:
     """Every entry's allocation and live offer in four queries, never two per entry."""
     rows = list(entries)
@@ -57,13 +61,14 @@ async def entry_views(
             select(Allocation).where(Allocation.entry_id.in_(ids))
         )
     }
-    # Oldest first, so the newest active order is the one left in the map.
+    order_query = select(BuyerOrder).where(BuyerOrder.entry_id.in_(ids))
+    if not include_terminal_orders:
+        order_query = order_query.where(BuyerOrder.status.in_(ACTIVE_ORDER_STATUSES))
+    # Oldest first, so the newest matching order is the one left in the map.
     orders = {
         order.entry_id: order
         for order in await session.scalars(
-            select(BuyerOrder)
-            .where(BuyerOrder.entry_id.in_(ids), BuyerOrder.status.in_(ACTIVE_ORDER_STATUSES))
-            .order_by(BuyerOrder.created_at, BuyerOrder.id)
+            order_query.order_by(BuyerOrder.created_at, BuyerOrder.id)
         )
     }
     zone_seats = await _zone_seats(session, allocations.values())

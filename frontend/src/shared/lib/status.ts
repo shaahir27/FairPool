@@ -64,9 +64,18 @@ export const TERMINAL_BUYER_ORDER_STATUSES: readonly string[] = [
   "DECLINED",
 ];
 
+const ENTRY_STATUS: Readonly<Record<string, StatusStyle>> = {
+  SUBMITTED: {label: "Entry received", tone: "pending"},
+  ELIGIBLE: {label: "Entry accepted", tone: "pending"},
+  SEATED: {label: "Seat allocated", tone: "active"},
+  WAITLISTED: {label: "On the waiting list", tone: "pending"},
+  WITHDRAWN: {label: "Withdrawn", tone: "neutral"},
+  PRICED_OUT: {label: "Outside your price limit", tone: "neutral"},
+};
+
 export function statusStyle(status: string): StatusStyle {
   return (
     BUYER_ORDER_STATUS[status] ??
-    LOT_STATUS[status] ?? { label: status, tone: "neutral" }
+    LOT_STATUS[status] ?? ENTRY_STATUS[status] ?? { label: status, tone: "neutral" }
   );
 }
