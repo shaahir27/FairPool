@@ -31862,7 +31862,10 @@
     "gemini-full-quota-20261031.json",
     "gemini-resume-run2-retry-20261031.json",
     "gemini-resume-run3-20261031.json",
-    "gemini-v5-full-20261101.json"
+    "gemini-v5-full-20261101.json",
+    "gemini-v10-intake-spots-20261106.json",
+    "gemini-v10-intake-spots-retry-20261106.json",
+    "gemini-v10-intake-spots-retry2-20261106.json"
   ],
   "history": [
     {
@@ -55779,5 +55782,3201 @@
         "passed": true
       }
     ]
+  },
+  "v10_intake_spots": {
+    "fingerprint": {
+      "model_parse": "gemini-3.5-flash-lite",
+      "model_sim": "gemini-3.5-flash-lite",
+      "prompt_version": "phase2-gemini-v10",
+      "schema_version": "phase2-v1",
+      "dataset_revision": "phase2-synthetic-v2",
+      "dataset_sha256": "02acc35721febe681278beeabe6e86a5ca5aa55e22e4de84702f9c201fbfb9f6"
+    },
+    "results": [
+      {
+        "run": 1,
+        "case_id": "intake-001",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 5,
+        "matched_fields": 5,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Which monitor variant do you prefer: black or white?"
+            }
+          ],
+          "clarifying_question": "Which monitor variant do you prefer: black or white?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "1bb8175022e4c903a2946f0434b7f10b5e78da3a0a2ba1dee6ea323bdce955d2",
+            "output": {
+              "invalid_response": "{\n  \"pool_id\": null,\n  \"match_confidence\": \"low\",\n  \"condition\": \"NEW\",\n  \"quantity\": 1,\n  \"delivery\": {\n    \"region\": \"NY\"\n  },\n  \"required_by\": null,\n  \"max_total\": {\n    \"amount\": null,\n    \"currency\": null\n  },\n  \"firm_requirements\": [],\n  \"preferences\": [],\n  \"ambiguities\": [\n    {\n      \"field\": \"pool_id\",\n      \"question\": \"Which variant of the monitor would you like (black or white)? Reference AA is ambiguous.\"\n    }\n  ],\n  \"clarifying_question\": \"Which variant of the monitor would you like (black or white)?\"\n}"
+            },
+            "ok": false,
+            "error": "VALIDATION_FAILED: ValueError: Missing candidate",
+            "latency_ms": 4062,
+            "tokens_in": 726,
+            "tokens_out": 176
+          },
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "1bb8175022e4c903a2946f0434b7f10b5e78da3a0a2ba1dee6ea323bdce955d2",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Which monitor variant do you prefer: black or white?"
+                }
+              ],
+              "clarifying_question": "Which monitor variant do you prefer: black or white?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 4797,
+            "tokens_in": 742,
+            "tokens_out": 116
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-002",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": "2026-12-20",
+          "max_total": {
+            "amount": "117.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "b09abcca05db37c253769ad7593cfd1a74741f5e16f44dcbc3d9c237b7796323",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": "2026-12-20",
+              "max_total": {
+                "amount": "117.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1827,
+            "tokens_in": 752,
+            "tokens_out": 173
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-003",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "300",
+            "currency": "EUR"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Which specific candidate pool does reference AC refer to?"
+            }
+          ],
+          "clarifying_question": "Which specific candidate pool does reference AC refer to?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "6a6ddadc603b5a7af578c34852358c0dbc0be7a78fd7d790751d4d78e28d5bd4",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "300",
+                "currency": "EUR"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Which specific candidate pool does reference AC refer to?"
+                }
+              ],
+              "clarifying_question": "Which specific candidate pool does reference AC refer to?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3109,
+            "tokens_in": 595,
+            "tokens_out": 117
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-004",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 3,
+        "matched_fields": 3,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "131.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "be6814ee5b2c0d0549f5d9b98b6f38c1179adf2b43254bc92e1a07441300e97e",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "131.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3327,
+            "tokens_in": 740,
+            "tokens_out": 161
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-005",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "condition",
+              "question": "Are you looking for new or refurbished condition?"
+            }
+          ],
+          "clarifying_question": "Are you looking for new or refurbished condition?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "3e3e3e335879f41c97c494e4cd58952a0abef9123a953d4d6b56e57f3c160a3b",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "condition",
+                  "question": "Are you looking for new or refurbished condition?"
+                }
+              ],
+              "clarifying_question": "Are you looking for new or refurbished condition?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1985,
+            "tokens_in": 590,
+            "tokens_out": 108
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-006",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "145.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "quantity",
+              "question": "Quantity is one per entry; requests for more require clarification."
+            }
+          ],
+          "clarifying_question": "Quantity is one per entry; requests for more require clarification."
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "f626c504bcaca01886cfe4220fcd0c3e1a715394d157bc4aeaadf74fec3ec8d8",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "145.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "quantity",
+                  "question": "Quantity is one per entry; requests for more require clarification."
+                }
+              ],
+              "clarifying_question": "Quantity is one per entry; requests for more require clarification."
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2983,
+            "tokens_in": 596,
+            "tokens_out": 121
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-007",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "f8c8ad104b99e3bcc2435b8588f632a4afa4a06ab548adff82dd14c54e84e5c9",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2812,
+            "tokens_in": 624,
+            "tokens_out": 80
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-008",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "159.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "2af553e6d217d519e8699ba2f7d609dbf90e6748c9bac35c4528b92095407773",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "159.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 4780,
+            "tokens_in": 621,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-009",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "166.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "7243bc4b4f1d9a6ba3e7a80d578c7de2e2f91058c82a1b29c3e8c07d87df506b",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "166.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2656,
+            "tokens_in": 608,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-010",
+        "task": "INTAKE",
+        "demo": true,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "173.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "77829f8c3e485283496353646cf0682898aea42b17e21c850bd7a733efc814fc",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "173.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2969,
+            "tokens_in": 627,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-011",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 5,
+        "matched_fields": 5,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Which monitor variant (black or white) would you like?"
+            }
+          ],
+          "clarifying_question": "Which monitor variant (black or white) would you like?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "53ea251e8918931fc04b1bab38c659dc0407784904e3f33849d08bbf72941300",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Which monitor variant (black or white) would you like?"
+                }
+              ],
+              "clarifying_question": "Which monitor variant (black or white) would you like?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1891,
+            "tokens_in": 726,
+            "tokens_out": 118
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-012",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": "2026-12-20",
+          "max_total": {
+            "amount": "187.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [
+            "Reference AL"
+          ],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "dfaebb662148851dfc055adf64a4dd1eb2995f913d7e2563f48995420321783c",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": "2026-12-20",
+              "max_total": {
+                "amount": "187.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [
+                "Reference AL"
+              ],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1717,
+            "tokens_in": 752,
+            "tokens_out": 182
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-013",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "300",
+            "currency": "EUR"
+          },
+          "firm_requirements": [],
+          "preferences": [
+            "New monitor"
+          ],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "e479f4387acf1f3b2cb61d8d7d5145b3a675785472e612b5b13623df7886d45e",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "300",
+                "currency": "EUR"
+              },
+              "firm_requirements": [],
+              "preferences": [
+                "New monitor"
+              ],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2344,
+            "tokens_in": 595,
+            "tokens_out": 131
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-014",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 3,
+        "matched_fields": 3,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "201.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [
+            "Reference AN"
+          ],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "b0aec67185a660eafc79544a6beebf78407a1dc0e90e361dc9c377dea23725b7",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "201.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [
+                "Reference AN"
+              ],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2108,
+            "tokens_in": 740,
+            "tokens_out": 170
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-015",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "condition",
+              "question": "Do you require new or refurbished condition?"
+            }
+          ],
+          "clarifying_question": "Do you require new or refurbished condition?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "da1c5f69b5ebce07b21e1fc208d4fb02cc7019a01d57b93ffce80a48d31399e7",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "condition",
+                  "question": "Do you require new or refurbished condition?"
+                }
+              ],
+              "clarifying_question": "Do you require new or refurbished condition?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2219,
+            "tokens_in": 590,
+            "tokens_out": 106
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-016",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "215.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "quantity",
+              "question": "The requested quantity is 2, but only 1 is supported per entry. Please clarify your quantity."
+            }
+          ],
+          "clarifying_question": "The requested quantity is 2, but only 1 is supported per entry. Please clarify your quantity."
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "724e99495b80ee2749acbbfda76636822b32f9258187fc1129e745c63b36f0ba",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "215.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "quantity",
+                  "question": "The requested quantity is 2, but only 1 is supported per entry. Please clarify your quantity."
+                }
+              ],
+              "clarifying_question": "The requested quantity is 2, but only 1 is supported per entry. Please clarify your quantity."
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2155,
+            "tokens_in": 596,
+            "tokens_out": 139
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-017",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "fa3290820e13bb39c8546fd956eed4e669674f9378ca06885e79906115d77e17",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1625,
+            "tokens_in": 624,
+            "tokens_out": 116
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-018",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "229.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "f00ca7ef81ede450aefd2e81615d96313ebfc8e0dc79234b056d4b31dceef1f7",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "229.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1625,
+            "tokens_in": 621,
+            "tokens_out": 87
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-019",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "236.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Which candidate pool does Reference AS refer to?"
+            }
+          ],
+          "clarifying_question": "Which candidate pool does Reference AS refer to?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "91e39a0fb396fbbd39c382776d1d8aca1fa726c57bc9085da9554f3e0e9c29a6",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "236.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Which candidate pool does Reference AS refer to?"
+                }
+              ],
+              "clarifying_question": "Which candidate pool does Reference AS refer to?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2250,
+            "tokens_in": 608,
+            "tokens_out": 117
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-020",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "243.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Could you please specify the pool ID for the item you are looking for?"
+            }
+          ],
+          "clarifying_question": "Could you please specify the pool ID for the item you are looking for?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "eb8618db5cc9b7d19832b07c31e0ae9d243da8f5594753961d1e0be14c822a0f",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "243.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Could you please specify the pool ID for the item you are looking for?"
+                }
+              ],
+              "clarifying_question": "Could you please specify the pool ID for the item you are looking for?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1828,
+            "tokens_in": 627,
+            "tokens_out": 129
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-021",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 5,
+        "matched_fields": 5,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Which variant (black or white) of the monitor do you prefer?"
+            }
+          ],
+          "clarifying_question": "Which variant (black or white) of the monitor do you prefer?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "9b12e177982195ca76ef4dfe92267ca8a1fceaa4c6df7b9d322dc516c51ba45b",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Which variant (black or white) of the monitor do you prefer?"
+                }
+              ],
+              "clarifying_question": "Which variant (black or white) of the monitor do you prefer?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1891,
+            "tokens_in": 726,
+            "tokens_out": 172
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-022",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": "2026-12-20",
+          "max_total": {
+            "amount": "257.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "1287a13a2b7e6d8e2c1955597af7a4da8f0d0f1be3b29bf8b9468646ec5b9af7",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": "2026-12-20",
+              "max_total": {
+                "amount": "257.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2484,
+            "tokens_in": 752,
+            "tokens_out": 173
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-023",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "300",
+            "currency": "EUR"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "b1763d83663e34e66f016091af6b5d54e6d5e14a75b7b912698e9d4faa35e844",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "300",
+                "currency": "EUR"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1953,
+            "tokens_in": 595,
+            "tokens_out": 68
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-024",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 3,
+        "matched_fields": 3,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "271.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [
+            "Reference AX"
+          ],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "d48c3359c24305072d2c7e9eac610e9b54b1b63de5b6eb400f0e9bcefac676ec",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "271.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [
+                "Reference AX"
+              ],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3780,
+            "tokens_in": 740,
+            "tokens_out": 170
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-025",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "condition",
+              "question": "I require both new and refurbished condition, please clarify."
+            }
+          ],
+          "clarifying_question": "I require both new and refurbished condition, please clarify."
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "62505d3e55043b0a1af7e93cf17d53a7c0c70082ba685e364a9459232ca2ae4a",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "condition",
+                  "question": "I require both new and refurbished condition, please clarify."
+                }
+              ],
+              "clarifying_question": "I require both new and refurbished condition, please clarify."
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3078,
+            "tokens_in": 590,
+            "tokens_out": 112
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-026",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "285.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "quantity",
+              "question": "You requested two monitors, but the maximum allowed quantity per entry is one. Do you want to proceed with a quantity of one?"
+            }
+          ],
+          "clarifying_question": "You requested two monitors, but the maximum allowed quantity per entry is one. Do you want to proceed with a quantity of one?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "f07b600fb216d0c4be290c9c339b79ab5bbc442d99e0feba5fd1a8a996ac03de",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "285.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "quantity",
+                  "question": "You requested two monitors, but the maximum allowed quantity per entry is one. Do you want to proceed with a quantity of one?"
+                }
+              ],
+              "clarifying_question": "You requested two monitors, but the maximum allowed quantity per entry is one. Do you want to proceed with a quantity of one?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3343,
+            "tokens_in": 596,
+            "tokens_out": 199
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-027",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "0943a99aa092eb8ca51d90913350f27e26432df750b4363e9c3b298be303db9a",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2609,
+            "tokens_in": 624,
+            "tokens_out": 80
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-028",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "299.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "155650ee1641b98839da6fc0a6fbcc1536bb8cd309f18d91dcd570707f9237f1",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "299.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2109,
+            "tokens_in": 621,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-029",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "306.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "2845e168f93fc9d723fc3e75cbc434dffa979c8269989c9077b31c23017f9f9a",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "306.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2484,
+            "tokens_in": 608,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-030",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "313.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "0dfc88554d447bd2b0abf30b14a7ad1cec17ea1da81af6d3e74be92f346043a1",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "313.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3358,
+            "tokens_in": 627,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-031",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "max_total",
+              "question": "What is the budget?"
+            }
+          ],
+          "clarifying_question": "What is the budget?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "957bb6499105f2bd9879f866f349d485dc17f9631273e24c4bd649d4a9a10b04",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "max_total",
+                  "question": "What is the budget?"
+                }
+              ],
+              "clarifying_question": "What is the budget?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2921,
+            "tokens_in": 592,
+            "tokens_out": 104
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-032",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": "2026-12-20",
+          "max_total": {
+            "amount": "327.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [
+            "Reference BF"
+          ],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "274f3bddf0fd566e0176406f13e1cfeb3f7fc4c17205c812c57426958c7172ce",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": "2026-12-20",
+              "max_total": {
+                "amount": "327.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [
+                "Reference BF"
+              ],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3093,
+            "tokens_in": 752,
+            "tokens_out": 138
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-033",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "300",
+            "currency": "EUR"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "b37153818a2061f38d927562318d5ff7148d98a9c71b5e46b77d199573a1bf0b",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "300",
+                "currency": "EUR"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1797,
+            "tokens_in": 595,
+            "tokens_out": 122
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-034",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 3,
+        "matched_fields": 3,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "341.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "02f8852588e82dc1e11131a97ab18e67befe27aff52f42e05b9005f201f096fb",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "341.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3562,
+            "tokens_in": 740,
+            "tokens_out": 161
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-035",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "condition",
+              "question": "Did you want new or refurbished condition?"
+            }
+          ],
+          "clarifying_question": "Did you want new or refurbished condition?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "2944e3a2e95a724a2ce9dcabdc1b0e85cbb7fd66be7647a4b4f5a914fa009041",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "condition",
+                  "question": "Did you want new or refurbished condition?"
+                }
+              ],
+              "clarifying_question": "Did you want new or refurbished condition?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2187,
+            "tokens_in": 590,
+            "tokens_out": 155
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-036",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "355.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "quantity",
+              "question": "Quantity is one per entry; requests for more require clarification."
+            }
+          ],
+          "clarifying_question": "Quantity is one per entry; requests for more require clarification."
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "f63290f4297cf6fadb5695ed3051f5df2cdf1fe61e6fbecfe833d2991db119b7",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "355.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "quantity",
+                  "question": "Quantity is one per entry; requests for more require clarification."
+                }
+              ],
+              "clarifying_question": "Quantity is one per entry; requests for more require clarification."
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1907,
+            "tokens_in": 596,
+            "tokens_out": 121
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-037",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "c205875619d58255bc43d66febc478d57cf7be6d00c8fdf96068652d81633cc7",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2328,
+            "tokens_in": 624,
+            "tokens_out": 65
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-038",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "369.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "c73c213b87e1e0859d1d8e0e9ee2a1b915523d12751f8fba29b4f1d29cf64271",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "369.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3422,
+            "tokens_in": 621,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-039",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "376.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "7dfc0d894f5f89a301f7588c01cc0d0aaba3cbdb85455b4938b5175c6eff11d0",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "376.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2405,
+            "tokens_in": 608,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-040",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "383.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "78491e0644f8ce8ba922b875ea77f9ea7bef163e0b1f4a2c7733a152dfaa2ca0",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "383.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1782,
+            "tokens_in": 627,
+            "tokens_out": 87
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-041",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "max_total",
+              "question": "What is your maximum budget?"
+            }
+          ],
+          "clarifying_question": "What is your maximum budget?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "55351dfa0d1317fdb48bb7f39e887938711f6b5e5bbfa0cf13a731b481d05e02",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "max_total",
+                  "question": "What is your maximum budget?"
+                }
+              ],
+              "clarifying_question": "What is your maximum budget?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1641,
+            "tokens_in": 592,
+            "tokens_out": 156
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-042",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 4,
+        "matched_fields": 4,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": "NY"
+          },
+          "required_by": "2026-12-20",
+          "max_total": {
+            "amount": "397.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [
+            "Reference BP"
+          ],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "2033ff989c2bd576885a5da82a0959c3fb4b0cc9b6404cdfc953cd48f6248674",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": "NY"
+              },
+              "required_by": "2026-12-20",
+              "max_total": {
+                "amount": "397.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [
+                "Reference BP"
+              ],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2155,
+            "tokens_in": 752,
+            "tokens_out": 182
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-043",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "300",
+            "currency": "EUR"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "pool_id",
+              "question": "Could you please specify which monitor reference BQ you are interested in?"
+            }
+          ],
+          "clarifying_question": "Could you please specify which monitor reference BQ you are interested in?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "33f43b4d60e19c47acaa7d9c9255daa029dbaabc57d56bff27bf87d493e1a6ed",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "300",
+                "currency": "EUR"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "pool_id",
+                  "question": "Could you please specify which monitor reference BQ you are interested in?"
+                }
+              ],
+              "clarifying_question": "Could you please specify which monitor reference BQ you are interested in?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2780,
+            "tokens_in": 596,
+            "tokens_out": 125
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-044",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 3,
+        "matched_fields": 3,
+        "output": {
+          "pool_id": "00000000-0000-4000-8000-000000000001",
+          "match_confidence": "high",
+          "condition": "NEW",
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "411.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [
+            "Reference BR"
+          ],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "3e0644244f56bddb44099fb8a0c4149e545ef876d8999caa86724197ce3b94d4",
+            "output": {
+              "pool_id": "00000000-0000-4000-8000-000000000001",
+              "match_confidence": "high",
+              "condition": "NEW",
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "411.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [
+                "Reference BR"
+              ],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1921,
+            "tokens_in": 740,
+            "tokens_out": 170
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-045",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "condition",
+              "question": "Do you prefer new or refurbished condition?"
+            }
+          ],
+          "clarifying_question": "Do you prefer new or refurbished condition?"
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "3c000a833c89d99210be6fa459de19f64e151526df4fd6a108d12c8ed146733d",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "condition",
+                  "question": "Do you prefer new or refurbished condition?"
+                }
+              ],
+              "clarifying_question": "Do you prefer new or refurbished condition?"
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2172,
+            "tokens_in": 590,
+            "tokens_out": 106
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-046",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "425.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [
+            {
+              "field": "quantity",
+              "question": "Quantity is one per entry; requests for more require clarification."
+            }
+          ],
+          "clarifying_question": "Quantity is one per entry; requests for more require clarification."
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "c9fcb0f35a01683be1cd3f7d2c43b5a4f32215e537310cdb2b6ea85523ac7974",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "425.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [
+                {
+                  "field": "quantity",
+                  "question": "Quantity is one per entry; requests for more require clarification."
+                }
+              ],
+              "clarifying_question": "Quantity is one per entry; requests for more require clarification."
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 2094,
+            "tokens_in": 596,
+            "tokens_out": 121
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-047",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": null,
+            "currency": null
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "aae85b5a25e0b86529331ebfda9b6c20a143269ca6cfecc53277d489f430fa68",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": null,
+                "currency": null
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 3342,
+            "tokens_in": 624,
+            "tokens_out": 80
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-048",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "439.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "aae8065c79331b6969fae872e2217db366648ae3db4ef2b19a890648e8dd92ba",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "439.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1641,
+            "tokens_in": 621,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-049",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 2,
+        "matched_fields": 2,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "446.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "3bb2b2ee00e3437d862535d105f1ebdccfc87718e64a3bfcb460d3788894874a",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "446.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1983,
+            "tokens_in": 608,
+            "tokens_out": 124
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "case_id": "intake-050",
+        "task": "INTAKE",
+        "demo": false,
+        "expected_fields": 1,
+        "matched_fields": 1,
+        "output": {
+          "pool_id": null,
+          "match_confidence": "none",
+          "condition": null,
+          "quantity": 1,
+          "delivery": {
+            "region": null
+          },
+          "required_by": null,
+          "max_total": {
+            "amount": "453.25",
+            "currency": "USD"
+          },
+          "firm_requirements": [],
+          "preferences": [],
+          "ambiguities": [],
+          "clarifying_question": null
+        },
+        "review": false,
+        "errors": [],
+        "attempts": [
+          {
+            "task": "INTAKE",
+            "model": "gemini-3.5-flash-lite",
+            "prompt_version": "phase2-gemini-v10/phase2-v1",
+            "input_hash": "6be66b4d0d435c8681d5010d7220137aa42913251909d61ada858bc074b67ab5",
+            "output": {
+              "pool_id": null,
+              "match_confidence": "none",
+              "condition": null,
+              "quantity": 1,
+              "delivery": {
+                "region": null
+              },
+              "required_by": null,
+              "max_total": {
+                "amount": "453.25",
+                "currency": "USD"
+              },
+              "firm_requirements": [],
+              "preferences": [],
+              "ambiguities": [],
+              "clarifying_question": null
+            },
+            "ok": true,
+            "error": null,
+            "latency_ms": 1797,
+            "tokens_in": 627,
+            "tokens_out": 124
+          }
+        ]
+      }
+    ],
+    "exact_extraction_field_accuracy": 1.0,
+    "source": "gemini-v10-intake-spots-20261106.json (+ retry and retry2), one live run per case, quota failures retained"
   }
 }

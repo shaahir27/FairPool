@@ -2,7 +2,7 @@
 
 Contracts are the exact interfaces between modules and between the two members. They are what lets Member A and Member B work in parallel without waiting for each other's code. They are derived from `docs/system-design.md` and tightened where the design left bytes, columns or names open.
 
-Current version: `contracts-v1.7`, tagged after CR-11. Nothing in this folder changes after that tag except through a change request. The line above this one previously still read `contracts-v1.4` although `contracts-v1.5` and `contracts-v1.6` were already recorded below; the stale number is corrected rather than relied on.
+Current version: `contracts-v1.8`, tagged after CR-12. Nothing in this folder changes after that tag except through a change request. The line above this one previously still read `contracts-v1.4` although `contracts-v1.5` and `contracts-v1.6` were already recorded below; the stale number is corrected rather than relied on.
 
 ## Files
 
@@ -26,6 +26,43 @@ No payment, fairness, account-verification or agent permission changes are inclu
 | `config-and-errors.md` | Environment variables, switches, error codes, reason codes, timing profiles | Both |
 
 ## Rules
+
+### CR-12: A date the buyer wrote is read, and a date they did not write is asked for (owner authorized 2026-11-06)
+
+A live INTAKE run against the hosted demo failed every message that stated a date.
+`ai-schemas.md` section 2 defines `required_by` as `YYYY-MM-DD or null` and requires the
+server to ask when the date is unresolved, but the adapter demanded that the model's
+canonical string appear **verbatim** in the buyer's message. "by Nov 30, 2026" and "by
+Friday" therefore both ended the whole proposal with a retry and then the manual form:
+the first because the model copied the written form the schema rejects, the second
+because a weekday can never be copied as an ISO date. A message with a `$` amount and
+a `USD` proposal died the same way in the currency check, whose marker list had no
+dollar sign.
+
+This row records the reading that was missing rather than a new rule. Section 2.6 still
+asks for a date the pool can meet, and the schema still emits only an ISO day or null.
+What changes is how a value is grounded: an explicit calendar date in any written form
+(ISO, `Nov 30, 2026`, `30 November 2026`) is canonicalised and accepted when the
+message states that day; a weekday or a relative phrase is not a value, so the field
+goes back to null and 2.6 asks the buyer. A numeric slash date (`11/30/2026`) grounds
+nothing on purpose, because two readers disagree about which number is the day. For
+2.4 a currency symbol states its code as plainly as the code does, so `$650`,
+`650 dollars` and `USD 650` all ground USD; a currency the message contradicts still
+fails.
+
+The question of 2.6 is a turn of its own, so grounding also reads the buyer's own
+earlier messages in `history`: "by Friday" followed by "2026-11-30" states the date in
+the second message and the pool, region and cap in the first. The server's own
+questions are excluded from grounding on purpose — the 2.6 question quotes the pool's
+latest delivery date, and that bound must never come back as if the buyer had chosen
+it.
+
+Affected tasks: **T04B01** (intake, retrieval, proposal and confirmation). No schema
+shape, endpoint or table changes; `PROMPT_VERSION` moves to `phase2-gemini-v10` so the
+`ai_runs` rows of the two readings are distinguishable, and all 50 labelled intake
+cases were re-measured live at v10 (100% on their labelled fields, recorded as
+`v10_intake_spots` in `docs/evidence/phase2/gemini.json`) so the Phase 2 evidence
+still describes the shipped prompt.
 
 ### CR-11: Make the draw and the bid set verifiable without trusting FairPool's word (owner authorized 2026-11-06)
 
@@ -181,6 +218,7 @@ No new contract tag or phase-gate claim is made by this change request.
 
 | Version | Date | Change | Approved by |
 |---|---|---|---|
+| contracts-v1.8 | 2026-11-06 | CR-12: `required_by` is read from an explicit calendar date in any written form and canonicalised, an ungroundable date becomes the section 2.6 question instead of a failed proposal, and a currency symbol grounds its code in 2.4. Affects T04B01 | @shaahir27 (owner) after independent agent review; delivered on `main` under the AGENTS.md section 6 solo-operation note |
 | contracts-v1.7 | 2026-11-06 | CR-11: audit-page reveal gate for `seed_hex`/`beacon`/`audit_checkpoints`, per-lot `bids_root` and `bids_count`, a signed read-time `checkpoint`, checkpoint coverage over the `pool`, `lot` and `bid` subjects, `BeaconClient.fetch` round-window enforcement, `pools.beacon` changed from add to merge, and the `bid_set_case` vector. Affects T04A04, T06A06, T00B01, T09B01 | @shaahir27 (owner) after independent agent review; delivered on `main` under the AGENTS.md section 6 solo-operation note |
 | contracts-v1 | 2026-10-30 | Initial freeze after full review; corrections C1-C15 and status consolidation recorded | @shaahir27 (owner) after independent agent review |
 

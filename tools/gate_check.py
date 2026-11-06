@@ -97,6 +97,60 @@ GATE_EVIDENCE: dict[str, tuple[str, tuple[str, ...]]] = {
 REQUIRED_EVIDENCE = GATE_EVIDENCE["ig-2"][1]
 
 
+def intake_spot_errors(
+    report: dict[str, object],
+    expected: dict[str, object],
+    fingerprint: dict[str, object],
+    labelled_cases: dict[str, dict[str, object]],
+    dataset: list[dict[str, object]],
+) -> list[str]:
+    """A prompt revision that changes intake must re-measure every intake case.
+
+    CR-12 changed the intake instructions (an answer to a clarifying question keeps
+    the fields the buyer already stated), so the recorded v4 baseline no longer
+    describes the shipped prompt on its own. This block is measured at the shipped
+    version, over one logged attempt per case, and must clear the same 95% field bar
+    the acceptance policy uses.
+    """
+    from evaluate_gemini import acceptance_errors, evidence_row_errors
+
+    spot = report.get("v10_intake_spots", {})
+    if not isinstance(spot, dict):
+        return ["Gemini: missing or failed v10 intake spot checks"]
+    spot_fingerprint = spot.get("fingerprint", {})
+    results = spot.get("results", [])
+    if not isinstance(spot_fingerprint, dict) or not isinstance(results, list):
+        return ["Gemini: missing or failed v10 intake spot checks"]
+    required_ids = {case["id"] for case in dataset if case["task"] == "INTAKE"}
+    ids = [row.get("case_id") for row in results if isinstance(row, dict)]
+    extraction = [row for row in results if isinstance(row, dict) and row.get("task") == "INTAKE"]
+    total = sum(int(row.get("expected_fields") or 0) for row in extraction)
+    matched = sum(int(row.get("matched_fields") or 0) for row in extraction)
+    failed = (
+        any(
+            spot_fingerprint.get(key) != value
+            for key, value in {**expected, "prompt_version": "phase2-gemini-v10"}.items()
+        )
+        or any(
+            spot_fingerprint.get(key) != fingerprint.get(key)
+            for key in ("model_parse", "model_sim")
+        )
+        or not required_ids.issubset(set(ids))
+        or len(ids) != len(set(ids))
+        or total == 0
+        or matched / total < 0.95
+        or bool(acceptance_errors(results))
+        or bool(evidence_row_errors(results, labelled_cases, spot_fingerprint))
+        or any(
+            str(attempt.get("error", "")).startswith("PROVIDER_UNAVAILABLE")
+            for row in results
+            if isinstance(row, dict)
+            for attempt in row.get("attempts", [])
+        )
+    )
+    return ["Gemini: missing or failed v10 intake spot checks"] if failed else []
+
+
 def gemini_errors(evidence: Path, root: Path) -> list[str]:
     """The Phase 2 live-evaluation checks, kept exactly as they were."""
     errors: list[str] = []
@@ -132,16 +186,17 @@ def gemini_errors(evidence: Path, root: Path) -> list[str]:
         "dataset_sha256": hashlib.sha256(json.dumps(dataset, sort_keys=True).encode()).hexdigest(),
     }
     fingerprint = report.get("fingerprint", {})
-    baseline_v4 = (
-        PROMPT_VERSION == "phase2-gemini-v8"
-        and fingerprint.get("prompt_version") == "phase2-gemini-v4"
-    )
+    # The recorded baseline was measured under v4. A later prompt revision keeps it
+    # acceptable only through that revision's own re-measuring block below, so a
+    # prompt edit without a fresh measurement is still rejected (the v10 intake
+    # spots exist for exactly that reason).
+    baseline_recorded = fingerprint.get("prompt_version") == "phase2-gemini-v4"
     baseline_expected = (
-        {**expected, "prompt_version": "phase2-gemini-v4"} if baseline_v4 else expected
+        {**expected, "prompt_version": "phase2-gemini-v4"} if baseline_recorded else expected
     )
     if any(fingerprint.get(k) != v for k, v in baseline_expected.items()):
         errors.append("Gemini: stale prompt/schema/dataset fingerprint")
-    if baseline_v4:
+    if baseline_recorded:
         spot = report.get("v5_spot_checks", {})
         spot_fingerprint = spot.get("fingerprint", {})
         spot_results = spot.get("results", [])
@@ -179,6 +234,10 @@ def gemini_errors(evidence: Path, root: Path) -> list[str]:
             errors.append("Gemini: missing or failed v7 conflict spot checks")
         if v8_conflict_spot_errors(report.get("v8_conflict_spots", {}), model):
             errors.append("Gemini: missing or failed v8 conflict spot checks")
+        if PROMPT_VERSION == "phase2-gemini-v10":
+            errors.extend(
+                intake_spot_errors(report, expected, fingerprint, labelled_cases, dataset)
+            )
         if current_validator_errors(report.get("results", []), labelled_cases, model) or (
             current_validator_errors(spot_results, labelled_cases, model)
         ):

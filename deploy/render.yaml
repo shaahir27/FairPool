@@ -112,13 +112,14 @@ envVarGroups:
 
   - name: ai
     envVars:
-      # AI_ENABLED stays false until GEMINI_API_KEY is present in this group: config.py
-      # refuses to start when AI_ENABLED=true and the key is missing, which would take
-      # down the whole public URL the judges use. The live group also drifted from this
-      # blueprint - it currently names Claude models, while adapters/ai implements
-      # google-genai only. Fix the model names here and in the group together.
+      # The hosted demo runs with AI on: the owner set GEMINI_API_KEY in this group
+      # (and the service keeps a sync:false slot for it), so every live intake, quote
+      # and reconciliation call reaches Google Gemini. config.py refuses to start when
+      # AI_ENABLED=true and the key is missing, which is the intended fail-closed
+      # state: a deploy that loses the key fails loudly instead of serving a demo
+      # whose AI controls silently do nothing.
       - key: AI_ENABLED
-        value: "false"
+        value: "true"
       - key: AI_MODEL_PARSE
         value: gemini-3.5-flash-lite
       - key: AI_MODEL_SIM

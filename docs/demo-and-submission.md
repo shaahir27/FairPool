@@ -6,9 +6,9 @@ Hackathon: "Build What's Next with PayPal and AI" (Devpost). Submissions close *
 
 | Requirement (from the hackathon brief) | How we meet it | Task |
 |---|---|---|
-| Application integrating PayPal using the free Sandbox, plus an AI tool or model | FairPool: PayPal Vault (setup token, payment token) with Orders v2 charges and refunds (authorize, capture and void in the fallback mode), webhooks, PayPal JavaScript SDK v6 (fallback approval), local PayPal MCP read-only inspection, Orders v2 shipment tracking; Claude for intake, quote parsing and reconciliation | all |
+| Application integrating PayPal using the free Sandbox, plus an AI tool or model | FairPool: PayPal Vault (setup token, payment token) with Orders v2 charges and refunds (authorize, capture and void in the fallback mode), webhooks, PayPal JavaScript SDK v6 (fallback approval), local PayPal MCP read-only inspection, Orders v2 shipment tracking; Google Gemini (`gemini-3.5-flash-lite` through `google-genai`) for intake, quote parsing and reconciliation | all |
 | Text description of features and functionality | Devpost description from the README | T10A03 |
-| Tools used: which AI tools or models and how | Claude (intake, quote parsing, offer reconciliation, simulation text); Elastic (retrieval); Zapier MCP and our MCP server (agentic interface); APIMatic (SDKs and plugin); PayPal MCP and SDK | T10A03 |
+| Tools used: which AI tools or models and how | Google Gemini via `google-genai` (intake, quote parsing, offer reconciliation, simulation text); Elastic (retrieval); Zapier MCP and our MCP server (agentic interface); APIMatic (SDKs and plugin); PayPal MCP and SDK. The merchant's separate Claude assistant, connected to the PayPal MCP for the read-only verification beat, is the merchant's own tool, not a FairPool dependency | T10A03 |
 | Functional demo: run instructions or hosted URL; a mockup does not count | Hosted Render URL plus `docker compose` instructions | T09A03, T10A02 |
 | Public repository with an open-source license detectable in About | MIT `LICENSE` at the root | T10A02 |
 | Demo video under 3 minutes, public on YouTube, running on its intended device, no third-party trademarks or copyrighted music | Section 3 | T10B02 |
@@ -63,7 +63,7 @@ If S9 (Zapier) did not pass, the second beat uses the FairPool MCP server and sa
 
 ## 6. Devpost fields
 
-Project name and tagline; description (features, who it is for, why it matters); built with (languages, frameworks, PayPal APIs, Claude, Elastic, Zapier MCP, APIMatic, Render); try-it links (hosted URL, repository); video; images (audit page, merchant console, checkout, tracker); tools-used statement (which AI tools or models and how). Copy claims only from `docs/product-spec.md` section 3.
+Project name and tagline; description (features, who it is for, why it matters); built with (languages, frameworks, PayPal APIs, Google Gemini, Elastic, Zapier MCP, APIMatic, Render); try-it links (hosted URL, repository); video; images (audit page, merchant console, checkout, tracker); tools-used statement (which AI tools or models and how). Copy claims only from `docs/product-spec.md` section 3.
 
 ## 7. Final QA checklist (task T11X01)
 

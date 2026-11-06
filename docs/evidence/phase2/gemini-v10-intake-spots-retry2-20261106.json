@@ -1,0 +1,83 @@
+{
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v10",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "c8ab3d679534a0ec5a07abb493234b38b49ef29c640d101c09432d9727fcf7fb"
+  },
+  "started_at": "2026-11-06T11:45:14.978345+00:00",
+  "status": "passed",
+  "reason": null,
+  "selection": {
+    "case_ids": [
+      "intake-023"
+    ],
+    "runs": 1
+  },
+  "results": [
+    {
+      "run": 1,
+      "case_id": "intake-023",
+      "task": "INTAKE",
+      "demo": false,
+      "expected_fields": 1,
+      "matched_fields": 1,
+      "output": {
+        "pool_id": null,
+        "match_confidence": "none",
+        "condition": "NEW",
+        "quantity": 1,
+        "delivery": {
+          "region": null
+        },
+        "required_by": null,
+        "max_total": {
+          "amount": "300",
+          "currency": "EUR"
+        },
+        "firm_requirements": [],
+        "preferences": [],
+        "ambiguities": [],
+        "clarifying_question": null
+      },
+      "review": false,
+      "errors": [],
+      "attempts": [
+        {
+          "task": "INTAKE",
+          "model": "gemini-3.5-flash-lite",
+          "prompt_version": "phase2-gemini-v10/phase2-v1",
+          "input_hash": "b1763d83663e34e66f016091af6b5d54e6d5e14a75b7b912698e9d4faa35e844",
+          "output": {
+            "pool_id": null,
+            "match_confidence": "none",
+            "condition": "NEW",
+            "quantity": 1,
+            "delivery": {
+              "region": null
+            },
+            "required_by": null,
+            "max_total": {
+              "amount": "300",
+              "currency": "EUR"
+            },
+            "firm_requirements": [],
+            "preferences": [],
+            "ambiguities": [],
+            "clarifying_question": null
+          },
+          "ok": true,
+          "error": null,
+          "latency_ms": 1953,
+          "tokens_in": 595,
+          "tokens_out": 68
+        }
+      ]
+    }
+  ],
+  "exact_extraction_field_accuracy": 1.0,
+  "exact_extraction_case_accuracy": 1.0,
+  "completed_at": "2026-11-06T11:45:17.024053+00:00"
+}

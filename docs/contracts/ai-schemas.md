@@ -38,9 +38,9 @@ Server validation after the model (deterministic; DEP-1, FR-IN-01 to FR-IN-07):
 1. `pool_id` is one of the supplied candidates and the pool is OPEN; otherwise status NO_MATCH.
 2. `condition` equals the pool template condition (a mismatch becomes a clarifying question, never a silent change).
 3. `quantity` is 1. A request for more is explained ("limit one per entry") and the proposal continues with 1 only if the buyer agrees.
-4. `max_total.currency` is USD; any other currency becomes an ambiguity. Convert the amount to `max_total_cents` (positive, within the template's bounds).
+4. `max_total.currency` is USD; any other currency becomes an ambiguity. Convert the amount to `max_total_cents` (positive, within the template's bounds). A symbol states its code as plainly as the code does, so `$650`, `650 dollars` and `USD 650` all ground USD (CR-12); a currency the message contradicts is an ambiguity, never a conversion.
 5. `delivery.region` maps to exactly one zone of the template; otherwise ask.
-6. `required_by` is not earlier than the pool's latest delivery date (`fund_by` plus `delivery_sla_days`); otherwise tell the buyer the pool cannot meet the date.
+6. `required_by` is not earlier than the pool's latest delivery date (`fund_by` plus `delivery_sla_days`); otherwise tell the buyer the pool cannot meet the date. A written date in any form (ISO, `Nov 30, 2026`, `30 November 2026`) is canonicalised to the day the message states (CR-12). A weekday or a relative phrase is not a value: the field becomes null and this item asks for the date. A numeric slash date (`11/30/2026`) grounds nothing, because two readers disagree about which number is the day. Grounding reads the buyer's earlier messages in `history` when the current one only answers the question, and never the server's own question text, which quotes the pool's bound.
 7. `firm_requirements` are a subset of what the template provides; anything else is shown as unsupported.
 8. Ask at most one clarifying question per turn, at most three turns, then the manual form.
 

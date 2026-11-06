@@ -216,6 +216,36 @@ async def test_three_questions_then_the_manual_form(db_session: AsyncSession) ->
     assert await count(db_session, "intake_proposals", "user_id = :u", u=user_id) == 0
 
 
+async def test_answering_the_date_question_completes_the_proposal(db_session: AsyncSession) -> None:
+    """CR-12: an unresolved date is one question, and the answer finishes the card.
+
+    The first turn states no date (a weekday is not a date), so 2.6 asks for one.
+    The second turn supplies it and the proposal is stored and shown, not lost.
+    """
+    pool_id = await open_pool(db_session)
+    user_id = await buyer(db_session, "date-answer")
+    ai = ConstantFakeAI(proposal(pool_id, required_by=None))
+    intake, _ = service(ai, pool_id=pool_id)
+
+    first = await intake.propose(
+        db_session, user_id=user_id, message=MESSAGE, pool_id_override=pool_id
+    )
+    assert first["status"] == "NEEDS_CLARIFICATION"
+    assert "which date" in str(first["clarifying_question"])
+
+    ai.response = proposal(pool_id)
+    second = await intake.propose(
+        db_session,
+        user_id=user_id,
+        message="2026-12-15",
+        pool_id_override=pool_id,
+        session_id=UUID(str(first["session_id"])),
+    )
+
+    assert second["status"] == "READY_TO_CONFIRM"
+    assert second["confirmation_card"]["required_by"] == "2026-12-15"
+
+
 # ------------------------------------------------------- deterministic checks
 
 

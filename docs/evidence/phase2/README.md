@@ -12,6 +12,17 @@ cases and 89 v5 spots; each measured 100% on its labelled extraction fields.
 The v4 case sent to review and the quota-interrupted attempts remain recorded;
 the v5 spots are not represented as a full v5 evaluation. Under the proposed
 rules the Gemini evidence check passes; current-revision CI evidence is pending.
+
+On 2026-11-06 prompt v10 changed the intake instructions (an answer to a
+clarifying question carries the fields the buyer already stated; CR-12). All 50
+labelled intake cases were measured live once at v10 and recorded as
+`v10_intake_spots` in `gemini.json`; the measured field accuracy is 100% and the
+gate's own checker accepts the block. Ten cases hit provider-unavailable errors in
+the first pass and were re-measured in two follow-up reports; the quota failures
+stay in `gemini-v10-intake-spots-20261106.json` (all three raw reports are listed
+in `source_reports`). This block re-measures intake only, because the intake
+instructions are what changed; the v4 baseline and the v5/v6/v7/v8 blocks still
+stand for their own revisions.
 Independent review found additional ambiguous-capacity variants. The v6, v7 and
 v8 guards each have two separately labelled live spot checks; the v8 validator
 also rechecks every accepted v4/v5 output offline. These do not constitute full

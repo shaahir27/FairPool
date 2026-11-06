@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from fairpool.adapters.ai.client import AIUnavailable, GeminiAI
-from fairpool.adapters.ai.schemas import Intake, strict_json
+from fairpool.adapters.ai.client import AIUnavailable, GeminiAI, grounded_currency
+from fairpool.adapters.ai.schemas import Intake, stated_dates, strict_json
 
 
 class Logger:
@@ -482,3 +482,171 @@ async def test_ordinary_quotes_with_a_time_span_or_a_range_are_not_sent_to_revie
     """
     parsed = await _parse_with(quote_text, _quote_payload(**{field: value}))
     assert parsed[field] == value
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("due 2026-11-30", {"2026-11-30"}),
+        ("due Nov 30, 2026", {"2026-11-30"}),
+        ("due 30 November 2026", {"2026-11-30"}),
+        ("due November 30th, 2026", {"2026-11-30"}),
+        ("due 2026-02-30", set()),
+        ("due 11/30/2026", set()),
+        ("due Friday", set()),
+        ("due in three weeks", set()),
+    ],
+)
+def test_stated_dates_read_only_unambiguous_calendar_dates(text, expected):
+    """The guard grounds a canonical date against what the message really states.
+
+    A slash date is deliberately unread: 11/30 and 30/11 are the same string for
+    two readers, so it cannot ground a canonical value (ai-schemas.md 2.6).
+    """
+    assert stated_dates(text) == expected
+
+
+@pytest.mark.parametrize(
+    "code, text, grounded",
+    [
+        ("USD", "my cap is $650", True),
+        ("USD", "my cap is 650 dollars", True),
+        ("USD", "my cap is USD 650", True),
+        ("USD", "my cap is 650 euros", False),
+        ("USD", "no currency stated, cap 650", False),
+        ("EUR", "my cap is €650", True),
+        ("GBP", "my cap is £650", True),
+    ],
+)
+def test_currency_symbols_and_words_ground_a_code_and_a_contradiction_does_not(
+    code, text, grounded
+):
+    assert grounded_currency(code, text) is grounded
+
+
+async def test_written_date_grounds_the_canonical_value_and_an_invented_one_is_dropped():
+    grounded_650 = {**BASE, "max_total": {"amount": "650", "currency": "USD"}}
+
+    async def generate(**kwargs):
+        return SimpleNamespace(
+            text=json.dumps({**grounded_650, "required_by": "2026-12-01"}),
+            usage_metadata=None,
+            candidates=[],
+        )
+
+    ai = GeminiAI(
+        api_key="fictional", model_parse="m", model_sim="m", logger=Logger(), generate=generate
+    )
+    message = "New monitor to NY by Nov 30, 2026; my cap is $650."
+    result = await ai.parse_intake(None, message=message, candidates=[], history=[])
+    assert result["required_by"] is None
+    assert result["max_total"] == {"amount": "650", "currency": "USD"}
+
+    async def stated(**kwargs):
+        return SimpleNamespace(
+            text=json.dumps({**grounded_650, "required_by": "2026-11-30"}),
+            usage_metadata=None,
+            candidates=[],
+        )
+
+    ai = GeminiAI(
+        api_key="fictional", model_parse="m", model_sim="m", logger=Logger(), generate=stated
+    )
+    result = await ai.parse_intake(None, message=message, candidates=[], history=[])
+    assert result["required_by"] == "2026-11-30"
+
+
+async def test_relative_date_asks_for_the_date_instead_of_failing_the_proposal():
+    logger = Logger()
+
+    async def generate(**kwargs):
+        return SimpleNamespace(
+            text=json.dumps(
+                {
+                    **BASE,
+                    "required_by": "Friday",
+                    "max_total": {"amount": "650", "currency": "USD"},
+                }
+            ),
+            usage_metadata=None,
+            candidates=[],
+        )
+
+    ai = GeminiAI(
+        api_key="fictional", model_parse="m", model_sim="m", logger=logger, generate=generate
+    )
+    result = await ai.parse_intake(
+        None, message="New monitor to NY by Friday; my cap is $650.", candidates=[], history=[]
+    )
+    # One call, not a wasted retry: the field goes back to null and the intake
+    # pipeline asks "By which date do you need it" (ai-schemas.md 2.6, FR-IN-02).
+    assert result["required_by"] is None
+    assert len(logger.rows) == 1 and logger.rows[0]["ok"] is True
+
+
+async def test_written_validity_date_grounds_the_quote_timestamp():
+    payload = _quote_payload(capacity=8, valid_until="2026-11-15T23:59:59+00:00")
+    parsed = await _parse_with("Capacity is 8 units. Valid until Nov 15, 2026.", payload)
+    assert parsed["valid_until"] == "2026-11-15T23:59:59+00:00"
+
+    invented = _quote_payload(capacity=8, valid_until="2026-12-01T23:59:59+00:00")
+    with pytest.raises(AIUnavailable):
+        await _parse_with("Capacity is 8 units. Valid until Nov 15, 2026.", invented)
+
+
+async def test_an_answer_grounds_against_the_buyers_earlier_turns():
+    """The clarifying question is a turn of its own: the fields come from before it.
+
+    "by Friday" then "2026-11-30" states the date in the second message and the
+    cap, region and pool in the first, so grounding must read both (CR-12).
+    """
+    first = "I need a new 27-inch monitor delivered to NY by Friday, my cap is $650."
+    answer = {
+        **BASE,
+        "required_by": "2026-11-30",
+        "delivery": {"region": "NY"},
+        "max_total": {"amount": "650", "currency": "USD"},
+    }
+
+    async def generate(**kwargs):
+        return SimpleNamespace(text=json.dumps(answer), usage_metadata=None, candidates=[])
+
+    ai = GeminiAI(
+        api_key="fictional", model_parse="m", model_sim="m", logger=Logger(), generate=generate
+    )
+    parsed = await ai.parse_intake(
+        None,
+        message="2026-11-30",
+        candidates=[],
+        history=[{"message": first, "question": "By which date do you need it (YYYY-MM-DD)?"}],
+    )
+    assert parsed["required_by"] == "2026-11-30"
+    assert parsed["max_total"] == {"amount": "650", "currency": "USD"}
+
+
+async def test_our_own_question_cannot_ground_the_date_it_quotes():
+    """The question names the pool's latest delivery date; that is not the buyer's.
+
+    If the question text counted as a source, the model could copy our own bound
+    back as if the buyer had chosen it. Only the buyer's messages are read.
+    """
+    answer = {**BASE, "required_by": "2026-11-17"}
+
+    async def generate(**kwargs):
+        return SimpleNamespace(text=json.dumps(answer), usage_metadata=None, candidates=[])
+
+    ai = GeminiAI(
+        api_key="fictional", model_parse="m", model_sim="m", logger=Logger(), generate=generate
+    )
+    parsed = await ai.parse_intake(
+        None,
+        message="yes",
+        candidates=[],
+        history=[
+            {
+                "message": "I need a new monitor delivered to NY.",
+                "question": "This pool can only deliver by 2026-11-17. Which date should I use?",
+            }
+        ],
+    )
+    assert parsed["required_by"] is None

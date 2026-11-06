@@ -15,6 +15,65 @@ Positive = Annotated[int, Field(gt=0, le=1000000)]
 Condition = Literal["NEW", "REFURBISHED", "OPEN_BOX"]
 Text = Annotated[str, Field(max_length=4000)]
 
+_MONTHS = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+_MONTH_WORD = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?"
+    r"|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+_NTH = r"(?:st|nd|rd|th)?"
+
+
+def _iso(year: int, month: int, day: int) -> str | None:
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return None
+
+
+def stated_dates(text: str) -> set[str]:
+    """Absolute calendar dates the text states, canonicalised to ISO.
+
+    ISO, "Nov 30, 2026" and "30 November 2026" name one day each and are read.
+    "11/30/2026" is not: a US reader and a European reader disagree about which
+    number is the day, so it grounds nothing and the buyer is asked instead.
+    A weekday or a relative phrase is not a date at all (ai-schemas.md 2).
+    """
+    found: set[str] = set()
+    for year, month, day in re.findall(r"\b(\d{4})-(\d{2})-(\d{2})(?![0-9])", text):
+        value = _iso(int(year), int(month), int(day))
+        if value is not None:
+            found.add(value)
+    forms = (
+        # month name first: "Nov 30, 2026"
+        (rf"\b({_MONTH_WORD})\.?\s+(\d{{1,2}}){_NTH},?\s+(\d{{4}})\b", 0, 1, 2),
+        # day first: "30 November 2026"
+        (rf"\b(\d{{1,2}}){_NTH}\s+(?:of\s+)?({_MONTH_WORD}),?\s+(\d{{4}})\b", 1, 0, 2),
+    )
+    for pattern, month_at, day_at, year_at in forms:
+        for groups in re.findall(pattern, text, re.I):
+            month = _MONTHS.get(str(groups[month_at])[:3].lower())
+            value = (
+                _iso(int(groups[year_at]), month, int(groups[day_at]))
+                if month is not None
+                else None
+            )
+            if value is not None:
+                found.add(value)
+    return found
+
 
 class Closed(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -50,9 +109,18 @@ class Intake(Closed):
     @field_validator("required_by")
     @classmethod
     def iso_date(cls, value: str | None) -> str | None:
-        if value is not None and date.fromisoformat(value).isoformat() != value:
-            raise ValueError("ISO date required")
-        return value
+        """The field is one absolute day, canonicalised, or null (ai-schemas.md 2).
+
+        A written date the server can read is normalised; a weekday or another
+        relative phrase is not a value this system may copy, so it becomes null
+        and the intake pipeline asks the buyer for the date (section 2.6,
+        FR-IN-02). Raising here used to throw away the whole proposal over one
+        unresolved field.
+        """
+        if value is None:
+            return None
+        found = stated_dates(value)
+        return next(iter(found)) if len(found) == 1 else None
 
 
 class Tier(Closed):

@@ -260,6 +260,40 @@ def test_gemini_evidence_rejects_stale_fingerprint_and_duplicate_cases(tmp_path,
             for c in spot_cases
         ],
     }
+    report["v10_intake_spots"] = {
+        "fingerprint": fingerprint,
+        "results": [
+            {
+                "run": 1,
+                "case_id": c["id"],
+                "task": c["task"],
+                "demo": c["demo"],
+                "expected_fields": 1,
+                "matched_fields": 1,
+                "errors": [],
+            }
+            for c in dataset
+            if c["task"] == "INTAKE"
+        ],
+    }
+    path.write_text(json.dumps(report))
+    assert gate.evidence_errors(tmp_path) == []
+    report["v10_intake_spots"]["results"] = report["v10_intake_spots"]["results"][:-1]
+    path.write_text(json.dumps(report))
+    assert any("v10" in x for x in gate.evidence_errors(tmp_path))
+    report["v10_intake_spots"]["results"] = [
+        {
+            "run": 1,
+            "case_id": c["id"],
+            "task": c["task"],
+            "demo": c["demo"],
+            "expected_fields": 1,
+            "matched_fields": 1,
+            "errors": [],
+        }
+        for c in dataset
+        if c["task"] == "INTAKE"
+    ]
     path.write_text(json.dumps(report))
     assert gate.evidence_errors(tmp_path) == []
     report["v5_spot_checks"]["results"] = report["v5_spot_checks"]["results"][:-1]
