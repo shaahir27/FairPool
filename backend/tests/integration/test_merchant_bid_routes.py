@@ -168,4 +168,12 @@ async def test_a_rejected_bid_reports_its_reason_to_its_owner(
 
     assert view.status_code == 200, view.text
     assert view.json()["status"] == "REJECTED"
-    assert view.json()["reject_reason"] == "R8_INFEASIBLE"
+    # CR-11: R8 is decided from the seated buyers' hidden caps, so the merchant is
+    # told that the lot's feasibility or capacity rules were not met, not which of the
+    # three feasibility codes fired. The exact code stays in the column for ops and the
+    # auditor (config-and-errors.md fixes that code set).
+    assert view.json()["reject_reason"] == "did not meet the lot's feasibility or capacity rules"
+    stored = await db_session.scalar(
+        text("SELECT reject_reason FROM bids WHERE id = :bid"), {"bid": bid}
+    )
+    assert stored == "R8_INFEASIBLE"

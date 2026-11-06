@@ -52,6 +52,7 @@ BID_KEYS: Final[tuple[str, ...]] = (
     "condition",
     "bundle_contents",
     "capacity",
+    "total_capacity",
     "target_quantity",
     "moq",
     "tiers",
@@ -62,7 +63,16 @@ BID_KEYS: Final[tuple[str, ...]] = (
     "evidence",
 )
 BID_TEXT_KEYS: Final[tuple[str, ...]] = ("product_key", "condition", "valid_until")
-BID_COUNT_KEYS: Final[tuple[str, ...]] = ("capacity", "moq", "target_quantity")
+# CR-11: total_capacity is required, not optional. With the key absent, R9 fell back
+# to that lot's own capacity (handlers.py), so one merchant could state 10,000 on each
+# of ten lots and be treated as able to supply 10,000 to every one of them. A single
+# declared total per pool makes that comparison impossible.
+BID_COUNT_KEYS: Final[tuple[str, ...]] = (
+    "capacity",
+    "total_capacity",
+    "moq",
+    "target_quantity",
+)
 
 
 def _int_field(value: object) -> int:
@@ -142,8 +152,6 @@ def validate_structured(structured: Mapping[str, Any], *, flat_delivered: bool) 
         raise ApplicationError("VALIDATION_ERROR")
     for key in BID_COUNT_KEYS:
         _positive_int(structured[key])
-    if structured.get("total_capacity") is not None:
-        _positive_int(structured["total_capacity"])
     _tiers(structured["tiers"])
     mode = _tax(structured)
     shipping = _shipping_by_zone(structured)

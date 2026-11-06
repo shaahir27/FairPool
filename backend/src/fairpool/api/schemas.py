@@ -297,6 +297,11 @@ class AllocationView(ResponseModel):
     rank: int
     lot_id: UUID | None = None
     waitlist_position: int | None = None
+    # F6: the two numbers that decide PRICED_OUT, so the buyer can tell a wrong cap
+    # from a real one. item_cents is the awarded delivered price, which the public
+    # audit page publishes anyway; cap_cents is this buyer's own confirmed limit.
+    item_cents: int | None = None
+    cap_cents: int | None = None
 
 
 class OfferRef(ResponseModel):
@@ -360,11 +365,28 @@ class AuditLot(ResponseModel):
     status: str
     rank_range: list[int]
     award: AuditAward | None = None
+    # CR-11: written by lot.bid_close. Both stay None when bidding is still open or
+    # when the lot was force-awarded, which never writes LS-02 -- absent is honest,
+    # a zero would claim an empty bid set.
+    bids_root: str | None = None
+    bids_count: int | None = None
 
 
 class AuditCheckpoint(ResponseModel):
     action: str
     hash: str
+
+
+class AuditCheckpointProof(ResponseModel):
+    """CR-11: the published chain head, signed so a reader need not trust the copy."""
+
+    v: int
+    pool_id: str
+    entries_root: str | None
+    bids_roots: dict[str, str | None]
+    head_seq: int | None
+    head_hash: str | None
+    signature: str
 
 
 class PublicAuditResponse(ResponseModel):
@@ -379,6 +401,7 @@ class PublicAuditResponse(ResponseModel):
     seed_is_demo: bool = False
     lots: list[AuditLot] = Field(default_factory=list)
     audit_checkpoints: list[AuditCheckpoint] = Field(default_factory=list)
+    checkpoint: AuditCheckpointProof | None = None
 
 
 class PublicKeysResponse(ResponseModel):

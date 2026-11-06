@@ -707,8 +707,20 @@ async def test_public_audit_publishes_the_close_subset_and_nothing_personal(
             "seed_hex",
             "seed_is_demo",
             "lots",
+            "checkpoint",
         ]
     )
+    # CR-11: the signed chain head is published with the close subset. It carries ids
+    # and hashes only, which the personal-data scan below already covers.
+    assert body["checkpoint"] is None or set(body["checkpoint"]) == {
+        "v",
+        "pool_id",
+        "entries_root",
+        "bids_roots",
+        "head_seq",
+        "head_hash",
+        "signature",
+    }
     assert body["rules_hash"] == "a" * 64
     assert body["pool_status"] == "CLOSED"
     assert body["entries_count"] == 2

@@ -466,6 +466,11 @@ async def test_agent_views_allocation_and_offer_for_the_human_hand_off(
         "rank": 5,
         "lot_id": None,
         "waitlist_position": 3,
+        # F6: the two optional fields ride along as null on this surface -- the agent
+        # read does not load the award or the cap, and api.md scopes them to
+        # GET /api/v1/me/entries rather than inventing them here.
+        "item_cents": None,
+        "cap_cents": None,
     }
     assert body["offer"]["buyer_order_id"] == str(order_id)
     assert body["offer"]["status"] == "OFFERED"

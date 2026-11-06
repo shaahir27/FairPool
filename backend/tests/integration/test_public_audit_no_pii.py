@@ -97,6 +97,8 @@ async def test_the_audit_publishes_lots_their_awards_and_the_seed(
     lot = payload["lots"][0]
     assert sorted(lot) == [
         "award",
+        "bids_count",
+        "bids_root",
         "lot_id",
         "lot_order",
         "rank_range",
@@ -104,6 +106,10 @@ async def test_the_audit_publishes_lots_their_awards_and_the_seed(
         "status",
         "zone_id",
     ]
+    # CR-11: this fixture writes the lot directly, so no LS-02 row exists and the bid
+    # set stays absent rather than claiming an empty set (that would read as "no bid
+    # was ever recorded" instead of "not recorded").
+    assert lot["bids_root"] is None and lot["bids_count"] is None
     assert lot["lot_id"] == str(world.lot_id)
     assert lot["zone_id"] == "US-EAST" and lot["seats"] == 3 and lot["status"] == "AWARDED"
     # Ranks 1 and 2 are the seated allocations; the waitlisted entry holds none.

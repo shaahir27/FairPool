@@ -47,6 +47,9 @@ const structured = {
   condition: "NEW",
   bundle_contents: ["monitor", "stand"],
   capacity: 3,
+  // CR-11: bids.py requires one declared total for the whole pool, so a parsed quote
+  // that states shared inventory carries it explicitly.
+  total_capacity: 3,
   target_quantity: 3,
   moq: 2,
   tiers: [
@@ -187,7 +190,10 @@ describe("Demand Board", () => {
     fireEvent.click(screen.getByRole("button", {name: "Save and confirm bid"}));
     await screen.findByText("Bid confirmed");
     const payload = transport.put.mock.calls[0]?.[1].body.structured;
-    expect(payload).not.toHaveProperty("total_capacity");
+    // CR-11: total_capacity is no longer an optional field a quote can leave blank. An
+    // unanswered one is stated as "only this lot", which understates inventory instead
+    // of letting the same capacity be claimed on every lot in the pool.
+    expect(payload.total_capacity).toEqual(payload.capacity);
     expect(payload).not.toHaveProperty("shipping_cents_by_zone");
     expect(payload.tiers).toEqual(structured.tiers);
   });

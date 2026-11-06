@@ -404,6 +404,12 @@ async def test_a_bid_with_no_applicable_tier_is_rejected_not_a_loser(
     assert str(bid.status) == str(BidStatus.REJECTED)
     assert str(bid.reject_reason) == "R8_NO_FEASIBLE_TIER"
     assert await lot_status(db_session, world.lot_id) == "CANCELLED"
-    assert [call.kind for call in world.ports.notifier.calls if call.kind == "bid.rejected"] == [
-        "bid.rejected"
-    ]
+    rejected = [call for call in world.ports.notifier.calls if call.kind == "bid.rejected"]
+    assert len(rejected) == 1
+    # CR-11: the stored code stays exact for ops and the auditor, but the merchant is
+    # not told which feasibility rule failed. R8 is decided from the seated buyers'
+    # hidden caps, so the exact code is a signal about the crowd, and repeated pools
+    # would let a merchant binary-search the cap curve and price just under it.
+    notice = rejected[0].payload
+    assert notice["reason"] == "did not meet the lot's feasibility or capacity rules"
+    assert "R8" not in str(notice)

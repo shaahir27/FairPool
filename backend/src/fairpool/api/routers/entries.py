@@ -24,6 +24,7 @@ from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_buyer
 from fairpool.api.routers.checkout import _labels
 from fairpool.config import Settings
+from fairpool.db.models.auction import Award
 from fairpool.db.models.catalog import Pool, PoolEntry
 from fairpool.db.models.enums import BuyerOrderStatus, PoolMode
 from fairpool.db.models.pools import Allocation, Lot
@@ -377,20 +378,23 @@ async def me_entries(
 ) -> schemas.MeEntryList:
     rows = (
         await db.execute(
-            select(PoolEntry, Pool, Lot)
+            select(PoolEntry, Pool, Lot, Award)
             .join(Pool, Pool.id == PoolEntry.pool_id)
             .outerjoin(
                 Allocation,
                 and_(Allocation.entry_id == PoolEntry.id, Allocation.pool_id == PoolEntry.pool_id),
             )
             .outerjoin(Lot, Lot.id == Allocation.lot_id)
+            .outerjoin(Award, Award.id == Lot.award_id)
             .where(PoolEntry.user_id == principal.user_id)
             .order_by(PoolEntry.created_at, PoolEntry.id)
         )
     ).all()
-    entries = [entry for entry, _, _ in rows]
-    pools = {entry.pool_id: pool for entry, pool, _ in rows}
-    lots = {entry.id: lot for entry, _, lot in rows}
+    entries = [entry for entry, _, _, _ in rows]
+    pools = {entry.pool_id: pool for entry, pool, _, _ in rows}
+    lots = {entry.id: lot for entry, _, lot, _ in rows}
+    awards = {entry.id: award for entry, _, _, award in rows}
+    caps = {entry.id: entry.cap_cents for entry in entries}
     views = await entry_views(
         db,
         entries,
@@ -399,7 +403,13 @@ async def me_entries(
     )
     return schemas.MeEntryList(
         items=[
-            _me_entry(view, pool=pools[UUID(view["pool_id"])], lot=lots[UUID(view["entry_id"])])
+            _me_entry(
+                view,
+                pool=pools[UUID(view["pool_id"])],
+                lot=lots[UUID(view["entry_id"])],
+                award=awards[UUID(view["entry_id"])],
+                cap_cents=caps[UUID(view["entry_id"])],
+            )
             for view in views
         ]
     )
@@ -440,9 +450,22 @@ async def _entry_view(
 
 
 def _me_entry(
-    view: dict[str, Any], *, pool: Pool | None = None, lot: Lot | None = None
+    view: dict[str, Any],
+    *,
+    pool: Pool | None = None,
+    lot: Lot | None = None,
+    award: Award | None = None,
+    cap_cents: int | None = None,
 ) -> schemas.MeEntry:
     allocation = view["allocation"]
+    if allocation is not None and cap_cents is not None:
+        # F6: only the PRICED_OUT sentence needs these, but they are published for any
+        # allocation because the same two numbers are what a seated buyer is charged.
+        allocation = {
+            **allocation,
+            "cap_cents": cap_cents,
+            "item_cents": None if award is None else int(award.item_cents),
+        }
     offer = view["offer"]
     return schemas.MeEntry(
         entry_id=view["entry_id"],

@@ -25,6 +25,7 @@ from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.modules.auction.bids import BidService
 from fairpool.modules.auction.confirm import confirm_and_reconcile
+from fairpool.modules.auction.handlers import merchant_reject_copy
 from fairpool.modules.auction.quote import QuoteService
 from fairpool.modules.auction.reconcile import OfferReconciler
 from fairpool.modules.identity.service import Principal
@@ -227,7 +228,9 @@ def bid_view(bid: Bid, revision: BidRevision, flags: list[BidFlag]) -> schemas.B
         status=str(bid.status),
         current_revision=int(bid.current_revision),
         structured=revision.structured,
-        reject_reason=bid.reject_reason,
+        # CR-11: the stored code stays exact; the copy a merchant reads is coarsened
+        # when it would describe the seated buyers' caps rather than their own bid.
+        reject_reason=merchant_reject_copy(str(bid.reject_reason or "")) or None,
         flags=[
             schemas.BidFlagView(
                 code=flag.code,

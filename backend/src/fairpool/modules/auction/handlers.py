@@ -34,7 +34,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.db.models.auction import Award, Bid, BidFlag, BidRevision, Merchant
@@ -90,6 +90,23 @@ _UNDECIDED_LOT_STATES: Final[frozenset[str]] = frozenset({"PLANNED", "BIDDING", 
 #: CONFIRMED, BS-10 from FLAGGED, BS-11 from DRAFT or PROPOSED. All four share the
 #: ``job:lot.award`` trigger, so the bid's own state picks the edge.
 _REJECTABLE_STATES: Final[frozenset[str]] = frozenset({"DRAFT", "PROPOSED", "CONFIRMED", "FLAGGED"})
+
+#: CR-11: what a losing merchant is told about an infeasibility or capacity rejection.
+#: Both codes are decided from the seated buyers' hidden caps, so the exact code is a
+#: signal about the crowd rather than about the bid: repeated pools let a merchant
+#: binary-search the cap curve and price just under it in the next one, which is the
+#: information sealing exists to keep private. The precise code still lands in
+#: ``bid.reject_reason`` and in the audit row, where ops and the auditor need it.
+_MERCHANT_VISIBLE_REASONS: Final[dict[str, str]] = {
+    "R8_INFEASIBLE": "did not meet the lot's feasibility or capacity rules",
+    "R8_NO_FEASIBLE_TIER": "did not meet the lot's feasibility or capacity rules",
+    "R9_CAPACITY_EXHAUSTED": "did not meet the lot's feasibility or capacity rules",
+}
+
+
+def merchant_reject_copy(reason: str) -> str:
+    """Coarsen only the codes that describe the crowd; leave the rest exact."""
+    return _MERCHANT_VISIBLE_REASONS.get(reason, reason)
 
 
 def lot_tiebreak_hash(seed_hex: str, lot_id: UUID, merchant_id: UUID) -> str:
@@ -231,10 +248,48 @@ class LotAuctionHandlers:
             await self._lot_job(session, "lot.bid_close", lot.id, run_at=lot.bid_close_at)
             return
         pool = await self._lock_pool(session, lot.pool_id)
+        # CR-11: commit to the bid set before the award exists. Buyers' entries were
+        # already committed to a root at close; bids were committed to nothing, so a
+        # revision or a whole bid created after this deadline produced a fresh valid
+        # receipt that no outside observer could detect (fairness-and-hashing.md §6).
+        bids_root, bids_count = await self._bid_set(session, lot.id)
         await self._lot_transition(
-            session, lot=lot, to_status="BID_CLOSED", trigger="job:lot.bid_close"
+            session,
+            lot=lot,
+            to_status="BID_CLOSED",
+            trigger="job:lot.bid_close",
+            payload={"bids_root": bids_root, "bids_count": bids_count},
         )
         await self._award_job(session, pool_id=pool.id, lot_id=lot.id)
+
+    @staticmethod
+    async def _bid_set(session: AsyncSession, lot_id: UUID) -> tuple[str, int]:
+        """The root over this lot's bids: one leaf per bid, its highest revision."""
+        latest = (
+            select(BidRevision.bid_id, func.max(BidRevision.revision).label("revision"))
+            .where(BidRevision.bid_id.in_(select(Bid.id).where(Bid.lot_id == lot_id)))
+            .group_by(BidRevision.bid_id)
+            .subquery()
+        )
+        leaves = [
+            str(value)
+            for value in (
+                await session.scalars(
+                    select(BidRevision.receipt_hash)
+                    .join(
+                        latest,
+                        and_(
+                            latest.c.bid_id == BidRevision.bid_id,
+                            latest.c.revision == BidRevision.revision,
+                        ),
+                    )
+                    .order_by(BidRevision.receipt_hash)
+                )
+            ).all()
+        ]
+        # An empty bid set has a defined root (EMPTY_MERKLE_ROOT) and count 0, which
+        # stays distinguishable from a force-awarded lot that never wrote LS-02.
+        return hashing.merkle_root(leaves), len(leaves)
 
     # ---------------------------------------------------------------- lot.award
 
@@ -539,10 +594,9 @@ class LotAuctionHandlers:
         """
         declared: dict[str, int] = {}
         for row in rows:
-            structured = row.revision.structured
-            total = structured.get("total_capacity")
-            value = int(total) if isinstance(total, int) else int(structured.get("capacity") or 0)
-            declared[str(row.merchant.id)] = value
+            # CR-11: total_capacity is required by bids.py, so there is no per-lot
+            # fallback left to fall through to.
+            declared[str(row.merchant.id)] = int(row.revision.structured["total_capacity"])
         used_rows = (
             await session.execute(
                 select(Award.merchant_id, func.sum(Lot.seats))
@@ -703,6 +757,17 @@ class LotAuctionHandlers:
             audit=self.audit,
             actor="worker",
         )
+        if to_status == "LOST":
+            # F6 / CR-11 audit follow-up: state-machines.md declares ``notify`` on
+            # BS-09, and the award used to issue none, so a merchant learned they lost
+            # only by polling their bid. BS-08's declared notify is the ``lot.awarded``
+            # notice the winner already receives in the same award.
+            await self.notifier.notify(
+                session,
+                user_id=row.merchant.user_id,
+                kind="bid.lost",
+                payload={"lot_id": str(row.bid.lot_id), "bid_id": str(row.bid.id)},
+            )
 
     async def _reject(self, session: AsyncSession, *, row: _BidRow, reason: str) -> None:
         """BS-06, BS-10 or BS-11: the first failed rule is the one recorded."""
@@ -722,7 +787,11 @@ class LotAuctionHandlers:
             session,
             user_id=row.merchant.user_id,
             kind="bid.rejected",
-            payload={"lot_id": str(row.bid.lot_id), "bid_id": str(row.bid.id), "reason": reason},
+            payload={
+                "lot_id": str(row.bid.lot_id),
+                "bid_id": str(row.bid.id),
+                "reason": merchant_reject_copy(reason),
+            },
         )
 
     async def _cancel(
@@ -751,6 +820,33 @@ class LotAuctionHandlers:
                 user_id=row.merchant.user_id,
                 kind="lot.cancelled",
                 payload={"lot_id": str(lot.id), "reason": why},
+            )
+        # F6: LS-04 also belongs to the buyers. They were told they held a seat, and
+        # until now only the merchants heard that the lot produced no feasible bid --
+        # a seated buyer's silence reads as "still waiting". ops.py's abort path
+        # (_notify_seated) already tells buyers; this is the same notice from the award
+        # path. The SQL is inlined because check_imports rule 5 forbids importing the
+        # checkout lane from here, not because the query differs.
+        seated = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT DISTINCT pe.user_id FROM allocations a "
+                        "JOIN pool_entries pe ON pe.id = a.entry_id "
+                        "WHERE a.lot_id = :lot AND a.status = 'SEATED'"
+                    ),
+                    {"lot": lot.id},
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for user_id in seated:
+            await self.notifier.notify(
+                session,
+                user_id=user_id,
+                kind="lot.cancelled",
+                payload={"lot_id": str(lot.id), "pool_id": str(lot.pool_id)},
             )
 
     def _write_award(

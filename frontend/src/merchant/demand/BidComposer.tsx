@@ -76,6 +76,10 @@ function templateFor(lot: LotSummary): Record<string, unknown> {
       condition: lot.condition,
       bundle_contents: [],
       capacity: lot.seats,
+      // CR-11: total_capacity is required. Bidding only this lot is the conservative
+      // assertion -- it understates shared inventory rather than overclaiming it -- and
+      // the merchant confirms the number before review.
+      total_capacity: lot.seats,
       target_quantity: lot.min_seats,
       moq: lot.min_seats,
       tiers: [{ min_qty: 1, item_price_cents: null }],
@@ -245,7 +249,11 @@ export function BidComposer({ lot }: { lot: LotSummary }) {
     event.preventDefault();
     setFormProblem("");
     const structured = { ...fields };
-    if (structured.total_capacity === null) delete structured.total_capacity;
+    // CR-11: bids.py requires total_capacity, so an unset value is stated as "only
+    // this lot" instead of being dropped and rejected at confirmation.
+    if (structured.total_capacity === null || structured.total_capacity === undefined) {
+      structured.total_capacity = structured.capacity;
+    }
     if (structured.shipping_cents_by_zone === null) delete structured.shipping_cents_by_zone;
     if (!Array.isArray(fields.tiers) || fields.tiers.length === 0) {
       setFormProblem("Add at least one delivered price tier before review.");

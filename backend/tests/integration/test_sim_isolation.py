@@ -59,14 +59,14 @@ async def test_a_simulation_pool_is_invisible_to_public_surfaces(
         lambda: public_pool(db_session, simulation.pool_id),
         lambda: pools_get(simulation.pool_id, db=db_session),
         lambda: pools_rules(simulation.pool_id, db=db_session),
-        lambda: public_audit(simulation.pool_id, db=db_session),
+        lambda: public_audit(simulation.pool_id, request=None, db=db_session),
     ):
         with pytest.raises(HTTPException) as caught:
             await surface()
         assert caught.value.status_code == 404
 
     # The live pool still answers: the filter is isolation, not a blanket 404.
-    live = await public_audit(world.pool_id, db=db_session)
+    live = await public_audit(world.pool_id, request=None, db=db_session)
     assert live["pool_status"] == "ALLOCATED"
     summary = await pools_get(world.pool_id, db=db_session)
     assert summary["pool_id"] == world.pool_id

@@ -197,7 +197,11 @@ class QuoteService:
             "delivery": {"sla_days": _positive(proposal.get("delivery_sla_days"))},
             "returns": {"days": _nonnegative(proposal.get("returns_days"))},
             "valid_until": _text_or(proposal.get("valid_until"), None),
-            "total_capacity": _positive(proposal.get("total_capacity")),
+            # CR-11: required by bids.py. A quote that never mentions shared inventory
+            # asserts only this lot, which understates rather than overclaims, and the
+            # merchant confirms the number on screen before review (BS-03).
+            "total_capacity": _positive(proposal.get("total_capacity"))
+            or _positive(proposal.get("capacity")),
             "evidence": {
                 "note": _text_or(proposal.get("evidence_note"), None),
                 # The model quotes text it saw; it never supplies a URL (section 1:

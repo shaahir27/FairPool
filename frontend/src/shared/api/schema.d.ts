@@ -1625,6 +1625,10 @@ export interface components {
         };
         /** AllocationView */
         AllocationView: {
+            /** Cap Cents */
+            cap_cents?: number | null;
+            /** Item Cents */
+            item_cents?: number | null;
             /** Lot Id */
             lot_id?: string | null;
             /** Rank */
@@ -1723,6 +1727,28 @@ export interface components {
             /** Hash */
             hash: string;
         };
+        /**
+         * AuditCheckpointProof
+         * @description CR-11: the published chain head, signed so a reader need not trust the copy.
+         */
+        AuditCheckpointProof: {
+            /** Bids Roots */
+            bids_roots: {
+                [key: string]: string | null;
+            };
+            /** Entries Root */
+            entries_root: string | null;
+            /** Head Hash */
+            head_hash: string | null;
+            /** Head Seq */
+            head_seq: number | null;
+            /** Pool Id */
+            pool_id: string;
+            /** Signature */
+            signature: string;
+            /** V */
+            v: number;
+        };
         /** AuditExportResponse */
         AuditExportResponse: {
             /** Checkpoints */
@@ -1731,6 +1757,10 @@ export interface components {
         /** AuditLot */
         AuditLot: {
             award?: components["schemas"]["AuditAward"] | null;
+            /** Bids Count */
+            bids_count?: number | null;
+            /** Bids Root */
+            bids_root?: string | null;
             /**
              * Lot Id
              * Format: uuid
@@ -2701,6 +2731,7 @@ export interface components {
             beacon?: {
                 [key: string]: unknown;
             } | null;
+            checkpoint?: components["schemas"]["AuditCheckpointProof"] | null;
             /** Commitments */
             commitments?: string[];
             /** Entries Count */

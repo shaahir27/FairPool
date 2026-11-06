@@ -399,6 +399,10 @@ async def test_the_entry_read_reports_the_allocation_and_the_live_offer(
         "rank": 1,
         "lot_id": str(lot_id),
         "waitlist_position": None,
+        # F6: these two carry values only on GET /api/v1/me/entries, which loads the
+        # award and the cap; this read leaves them null rather than inventing them.
+        "item_cents": None,
+        "cap_cents": None,
     }
     assert body["offer"]["buyer_order_id"] == str(order_id)
     assert body["offer"]["status"] == "OFFERED"

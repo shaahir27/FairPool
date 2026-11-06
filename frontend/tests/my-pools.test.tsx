@@ -83,6 +83,15 @@ it("explains a priced-out entry in history without treating it as a waiting-list
   expect(screen.getByText("Your price limit did not qualify for this lot. No seat was assigned.")).toBeInTheDocument();
   expect(screen.queryByText(/You're #/)).toBeNull();
 });
+// T09B04 acceptance 1 (F6): the cap is the number the AI proposed and the buyer
+// confirmed, so a wrong cap must be tellable apart from a price that really was higher.
+it("names the delivered price and the buyer's own confirmed limit when both are known", async () => {
+  entries([{...waiting, allocation: {...waiting.allocation, status: "PRICED_OUT", item_cents: 47000, cap_cents: 44000}}]); show();
+  fireEvent.click(await screen.findByRole("button", {name: "Past entries 1"}));
+  expect(screen.getByText(/delivered price for this lot was \$470\.00/)).toBeInTheDocument();
+  expect(screen.getByText(/confirmed limit was \$440\.00/)).toBeInTheDocument();
+  expect(screen.getByText(/checked and confirmed after the AI proposed it/)).toBeInTheDocument();
+});
 it("loads without flashing a join or approval action", async () => {
   let finish!: (value: unknown) => void;
   transport.get.mockReturnValue(new Promise((resolve) => {finish = resolve;}));

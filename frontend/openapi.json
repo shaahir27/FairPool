@@ -397,6 +397,28 @@
       },
       "AllocationView": {
         "properties": {
+          "cap_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Cents"
+          },
+          "item_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Cents"
+          },
           "lot_id": {
             "anyOf": [
               {
@@ -671,6 +693,81 @@
         "title": "AuditCheckpoint",
         "type": "object"
       },
+      "AuditCheckpointProof": {
+        "description": "CR-11: the published chain head, signed so a reader need not trust the copy.",
+        "properties": {
+          "bids_roots": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Bids Roots",
+            "type": "object"
+          },
+          "entries_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entries Root"
+          },
+          "head_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Head Hash"
+          },
+          "head_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Head Seq"
+          },
+          "pool_id": {
+            "title": "Pool Id",
+            "type": "string"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          },
+          "v": {
+            "title": "V",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "v",
+          "pool_id",
+          "entries_root",
+          "bids_roots",
+          "head_seq",
+          "head_hash",
+          "signature"
+        ],
+        "title": "AuditCheckpointProof",
+        "type": "object"
+      },
       "AuditExportResponse": {
         "properties": {
           "checkpoints": {
@@ -698,6 +795,28 @@
                 "type": "null"
               }
             ]
+          },
+          "bids_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bids Count"
+          },
+          "bids_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bids Root"
           },
           "lot_id": {
             "format": "uuid",
@@ -3298,6 +3417,16 @@
               }
             ],
             "title": "Beacon"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuditCheckpointProof"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "commitments": {
             "items": {

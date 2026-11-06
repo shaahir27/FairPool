@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api, useApiRead, type ApiComponents, envelope, formatDateTime, honestyKinds, HonestyLabels, Icon, Notice, ProductArt, RecordFilters, StatusPill, statusStyle } from "../../shared";
+import { api, useApiRead, type ApiComponents, envelope, formatCents, formatDateTime, honestyKinds, HonestyLabels, Icon, Notice, ProductArt, RecordFilters, StatusPill, statusStyle } from "../../shared";
 import "../settings.css";
 
 type Entry = ApiComponents["schemas"]["MeEntry"];
@@ -22,7 +22,17 @@ function updateFor(entry: Entry): string {
   if (entry.allocation?.status === "WAITLISTED") return entry.allocation.waitlist_position !== null
     ? `You're #${entry.allocation.waitlist_position} on the waiting list.`
     : "You're on the waiting list. Your position is not available yet.";
-  if (entry.allocation?.status === "PRICED_OUT") return "Your price limit did not qualify for this lot. No seat was assigned.";
+  if (entry.allocation?.status === "PRICED_OUT") {
+    // F6: the cap is the number the intake AI proposed and the buyer confirmed, so a
+    // misread value silently costs them their seat. Showing both numbers lets a buyer
+    // tell their own wrong cap from a price that really was above it.
+    const delivered = entry.allocation.item_cents;
+    const limit = entry.allocation.cap_cents;
+    if (delivered !== null && delivered !== undefined && limit !== null && limit !== undefined) {
+      return `The delivered price for this lot was ${formatCents(delivered)}. Your confirmed limit was ${formatCents(limit)} — the number you checked and confirmed after the AI proposed it. No seat was assigned.`;
+    }
+    return "Your price limit did not qualify for this lot. No seat was assigned.";
+  }
   if (entry.allocation?.status === "SEATED") return "You have been allocated a seat. Open the pool to check its current stage.";
   return "Your entry is recorded. Open the pool to see its current stage.";
 }
