@@ -69,8 +69,17 @@ envVarGroups:
         value: INFO
       - key: PAYMENT_ROUTER
         value: single_seller
+      # The demo ships the path the README describes: each buyer approves one AUTHORIZE
+      # order for the exact final amount, which is what live evidence IT-5, C-08 and C-09
+      # actually exercised. The code default stays vault_charge (config.py), whose real
+      # permission save is unshipped (DEP-5), so a live buyer there rejects VAULT_MISSING.
+      # payment_mode is stamped per lot at award and never changes, so existing hosted
+      # lots keep their old stamp until `make demo-reset && make demo-seed` re-creates them.
       - key: PAYMENT_MODE
-        value: vault_charge
+        value: authorize_capture
+      # States the DEP-5 limit in the blueprint instead of relying on the code default.
+      - key: VAULT_REAL_SAVE_ENABLED
+        value: "false"
       - key: BID_PRICING_MODE
         value: flat_delivered
       - key: PAYPAL_PAYLOAD_LEVEL
@@ -103,6 +112,11 @@ envVarGroups:
 
   - name: ai
     envVars:
+      # AI_ENABLED stays false until GEMINI_API_KEY is present in this group: config.py
+      # refuses to start when AI_ENABLED=true and the key is missing, which would take
+      # down the whole public URL the judges use. The live group also drifted from this
+      # blueprint - it currently names Claude models, while adapters/ai implements
+      # google-genai only. Fix the model names here and in the group together.
       - key: AI_ENABLED
         value: "false"
       - key: AI_MODEL_PARSE

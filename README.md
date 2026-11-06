@@ -2,11 +2,11 @@
 
 **Group buying where merchants compete for the group.**
 
-FairPool lets many people who want the same product join a shared **pool** for free, inside a fixed time window. When the window closes, a published rule decides who gets a place. Merchants then compete in a sealed reverse auction to fulfil that demand at the lowest fair price. Each selected buyer approves their own PayPal payment for the exact final amount. A lot is funded only when enough **completed** PayPal captures from different buyers meet the merchant's minimum; if the minimum is not reached, every approval is voided or refunded.
+FairPool lets many people who want the same product join a shared **pool** for free, inside a fixed time window. When the window closes, a published rule decides who gets a place. Merchants then compete in a sealed reverse auction to fulfil that demand at the lowest fair price. Each selected buyer approves their own PayPal payment for the exact final amount — the hosted demo runs `PAYMENT_MODE=authorize_capture`, the mode the live Sandbox evidence exercised. A lot is funded only when enough **completed** PayPal captures from different buyers meet the merchant's minimum; if the minimum is not reached, every approval is voided or refunded.
 
 > **$0 to join. No hold until a merchant meets your price and you approve.**
 
-FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **Sandbox**. No real money moves. AI proposes; deterministic rules decide; humans approve every payment.
+FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **Sandbox**. No real money moves. AI proposes; deterministic rules decide; a human confirms every payment — by approving the PayPal order in `authorize_capture`, the mode this demo runs, or by recording consent at join in `vault_charge`, where PayPal's own screen shows no amount and FairPool enforces the cap.
 
 ---
 
@@ -122,7 +122,7 @@ The buyer or merchant confirms what the AI proposed. Deterministic rules check e
 
 ## PayPal in the Sandbox
 
-- **Orders v2** with one `AUTHORIZE` order per buyer, addressed to the winning merchant.
+- **Orders v2** with one `AUTHORIZE` order per buyer, for the exact final amount. In this Sandbox app the order is addressed to the stand-in seller, not to the winning merchant, because the app has no marketplace permission; the merchant's name is shown to the buyer.
 - **JavaScript SDK v6** popup as the primary approval, with the redirect approval page as the fallback.
 - **Webhooks** are verified and treated as hints; a server-side GET always confirms the state.
 - **Authorizations, captures, voids and refunds** are called only by the payments adapter.
@@ -130,8 +130,8 @@ The buyer or merchant confirms what the AI proposed. Deterministic rules check e
 
 Demonstration limits:
 
-- One **stand-in sandbox seller** receives payments on behalf of the winning merchant. The merchant's name still appears on screen and in the order description, and the fallback is labelled wherever it matters.
-- Platform fees, Payouts, NVP/SOAP and multi-seller settlement are **not used**. Partner Referrals returned 403 in the Sandbox; the platform route is unavailable.
+- One **stand-in sandbox seller** receives payments on behalf of the winning merchant. The merchant's name still appears on screen and in the order description. The fallback is labelled on the checkout offer screen, in the hold notice beside the amount, and on the ops lot panel, which prints the stamped `payment_mode`.
+- Platform fees, Payouts, NVP/SOAP and multi-seller settlement are **not used**. Partner Referrals returned 403 in the Sandbox; the platform route is unavailable. A refund of a completed capture may not return PayPal's processing fees, and the Sandbox cannot show either way: "net zero" below means **FairPool's ledger**, which records captured and refunded amounts, not a fee-inclusive PayPal account balance.
 - US payers and USD only. India-domestic checkout is not supported.
 - No production readiness, marketplace approval or merchant settlement is claimed.
 
@@ -141,7 +141,7 @@ Demonstration limits:
 
 **We claim:**
 
-- Joining is free, and no PayPal hold exists before a buyer approves a specific amount.
+- Joining is free, and no PayPal hold exists before a buyer approves a specific amount. This is what `authorize_capture`, the mode this demo runs, does; in `vault_charge` nothing is held at all and the buyer records consent at join instead.
 - Selection follows a published rule with a public seed and per-buyer receipts, and it is **auditable under published rules**.
 - One entry per linked PayPal account per pool where the account-ID check works, and account-level duplicate control at checkout otherwise.
 - A lot is funded only when completed PayPal captures reach its minimum.

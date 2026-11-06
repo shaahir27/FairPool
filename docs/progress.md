@@ -191,7 +191,7 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 |---|---|---|---|---|---|
 | T09A01 | A | L | TODO | | Fault-injection suite |
 | T09A02 | A | M | TODO | | Sandbox contract suite complete |
-| T09A03 | A | M | TODO | | Deployment hardening and demo tooling |
+| T09A03 | A | M | IN PROGRESS | | Deployment hardening and demo tooling. Blueprint now pins `PAYMENT_MODE=authorize_capture` and states `VAULT_REAL_SAVE_ENABLED=false`; `tests/unit/test_render_blueprint_mode.py` ties the deployed mode and AI switch to the README claims. Hosted re-seed and live smoke still owed. |
 | T09A04 | A | S | TODO | | STRETCH: top-up after FUNDED |
 | T09B01 | B | L | TODO | | Public audit page and verify-my-place |
 | T09B02 | B | L | TODO | | AI evaluation sets and runner |
@@ -330,6 +330,7 @@ Design evidence: research used W3C contrast/use-of-color guidance, Adobe Spectru
 | 2026-11-01 | owner | Render free plan has no background worker, so the hosted demo never runs the `reconciler.sweep` cron: the sweep runs only where a worker is deployed, and the demo relies on the admin-triggered sweep. `deploy/render.yaml` therefore still declares no worker service and no paid instance is added (spend nothing on Render). IG-4 is unaffected because the cron is proven locally by `test_the_reconciler_thread_enqueues_one_coalesced_sweep` and `test_the_sweep_cron_enqueues_one_coalescing_job_per_tick`. | OPEN |
 
 | 2026-11-05 | owner | Keep the free Render service awake for the judges: request `/health` and `/ready` every 10 minutes, because Render spins a free web service down after 15 minutes without inbound traffic and needs about a minute to wake. `.github/workflows/keep-warm.yml` carries the schedule and a manual wake button; it runs `*/10 3-22 * * *` (20 hours a day, about 600 of the 750 free instance hours a month) and stays disabled until the repository is public, because a 10-minute schedule on a private repository would use about 4,320 of the 2,000 free Actions minutes a month and block CI. A Windows scheduled task on the owner's machine was tried first and removed: the owner only needs warmth from the public flip, and a laptop task flashes a PowerShell window every cycle. Cadence, hour arithmetic, Supabase pause rule and limits recorded in `navigation-performance.md`. | DONE |
+| 2026-11-06 | agent | Render `ai` env group (`evg-dbino28u01pc73dfacrg`) is read-only verified and needs owner action before hosted AI can work: it declares `AI_MODEL_PARSE=claude-sonnet-5-5` and `AI_MODEL_SIM=claude-haiku-5-5`, but `adapters/ai` implements `google-genai` only and no code path reads `ANTHROPIC_API_KEY` (present on the service). `GEMINI_API_KEY` is declared as a `sync: false` slot in `deploy/render.yaml` and is **absent** from both the group and the service env list, so `AI_ENABLED=true` would hit the `config.py` start-up rule and take the judges' URL down. Fix = set the Gemini key and change both model names to the current Gemini identifiers, then flip `AI_ENABLED` and redeploy. `deploy/render.yaml` keeps `AI_ENABLED=false` until this is done. | OPEN |
 
 ## Requests between members
 
