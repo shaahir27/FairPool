@@ -10,6 +10,9 @@ DEFAULT_ANNOUNCED: dict[str, Any] = {
     "source": "drand",
     "chain_hash": "ab" * 32,
     "round": 1,
+    # CR-11: the real announce() carries the round window. A fake that omits a key
+    # the real adapter returns is how the beacon dict drift went unnoticed.
+    "not_before": 1_700_000_000,
 }
 DEFAULT_RANDOMNESS = "cd" * 32
 DEFAULT_SIGNATURE = "ef" * 64

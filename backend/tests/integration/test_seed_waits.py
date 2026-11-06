@@ -210,3 +210,36 @@ async def test_a_malformed_beacon_value_is_not_a_seed(db_session: AsyncSession) 
     status, seed_hex, _, _ = await state(db_session, pool_id)
     assert status == "CLOSED" and seed_hex is None
     assert queue.jobs == []
+
+
+async def test_seed_keeps_the_announcement_alongside_the_fetched_value(
+    db_session: AsyncSession,
+) -> None:
+    """CR-11 acceptance: the beacon dict is merged, never replaced (db-schema.md).
+
+    The fetched body is what drand's ``/pub/{round}`` actually returns: round,
+    randomness and signature, with no ``source`` and no ``chain_hash``. Replacing
+    the announcement with it dropped those keys, and because
+    ``rules_document(pool)`` rebuilds its ``beacon`` sub-dict from the stored value
+    at read time, the served document then hashed to something other than the
+    stored ``rules_hash`` -- breaking the one property the audit page depends on.
+    """
+    announced = {"source": "drand", "chain_hash": "ab" * 32, "round": 7, "not_before": 1}
+    pool_id = await insert_pool(db_session, beacon=announced)
+    now = await DbClock().db_now(db_session)
+    beacon = FakeBeacon(
+        announced=announced,
+        fetched={"round": 7, "randomness": DEFAULT_RANDOMNESS, "signature": DEFAULT_SIGNATURE},
+    )
+    service, _, _, _ = seed_service(beacon=beacon, now=now)
+
+    await service.seed(db_session, {"pool_id": str(pool_id)})
+
+    _, seed_hex, _, stored = await state(db_session, pool_id)
+    assert seed_hex == DEFAULT_RANDOMNESS
+    assert stored["source"] == "drand"
+    assert stored["chain_hash"] == "ab" * 32
+    assert stored["not_before"] == 1
+    assert stored["round"] == 7
+    assert stored["randomness"] == DEFAULT_RANDOMNESS
+    assert stored["signature"] == DEFAULT_SIGNATURE

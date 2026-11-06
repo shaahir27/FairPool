@@ -86,14 +86,20 @@ class PoolSeedService:
                 raise ApplicationError("INTERNAL_ERROR")
             seed_hex = randomness
             seed_is_demo = False
-            beacon_response = fetched
+            # CR-11: merge onto the announcement, never replace it. The fetched body
+            # carries round, randomness and signature only, and rules_document(pool)
+            # rebuilds its beacon sub-dict from the stored value at read time -- a
+            # replaced dict would lose source and chain_hash and the served document
+            # would stop hashing to the stored rules_hash (db-schema.md pools.beacon).
+            beacon_response = {**announced, **fetched}
 
         # PS-04 through the whitelist; the job is its own trigger.
         assert_transition("pool", "CLOSED", "SEEDED", trigger="job:pool.seed")
         pool.seed_hex = seed_hex
         pool.seed_is_demo = seed_is_demo
-        # The full beacon response is stored so the public audit surface can show
-        # the round the seed came from (fairness §4, db-schema.md pools.beacon).
+        # The announcement plus the fetched value are stored so the public audit
+        # surface can show the round the seed came from (fairness §4, db-schema.md
+        # pools.beacon).
         pool.beacon = beacon_response
         pool.status = PoolStatus.SEEDED
         await session.flush()
