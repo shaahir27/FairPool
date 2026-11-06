@@ -46,7 +46,7 @@ A gate passes only when its integration test passes, `make gate-check GATE=ig-<n
 | IG-6 | `ig-6` | PH6 | T06A01, T06A02, T06A03, T06A04, T06B01, T06A05, T06A06, T06A07, T06B05 |
 | IG-7 | `ig-7` | PH7 | T07A01, T07A02, T07A03, T07A04, T07B01, T07A05, T07B03, T07A06, T07B05, T07X01 |
 | IG-8 | `ig-8` | PH8 | T08A01, T08A02, T08A03, T08A04, T08A05, T08A06, T08B01, T08B02, T08B03, T08B04, T08B05 |
-| IG-9 | `ig-9` | PH9 | T09A01, T09A02, T09A03, T09A04, T09B01, T09B02, T09B03, T09B04, T09X01, T09X02 |
+| IG-9 | `ig-9` | PH9 | T09A01, T09A02, T09A03, T09A04, T09A05, T09B01, T09B02, T09B03, T09B04, T09B05, T09X01, T09X02 |
 | IG-10 | `ig-10` | PH10 | T10A01, T10A02, T10A03, T10A04, T10B01, T10B02, T10X01, T10X02 |
 | IG-11 | `ig-11` | PH11 | T11X01, T11X02 |
 
@@ -160,10 +160,10 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-FN-02 | T04A03, T06A01, T07X01 |
 | FR-FN-03 | T06A02 |
 | FR-FN-04 | T04A03, T05A03, T06A01, T09A04 |
-| FR-FN-05 | T05A03, T06A01 |
+| FR-FN-05 | T05A03, T06A01, T09A05 |
 | FR-FN-06 | T05A02, T07A03 |
 | FR-FN-07 | T00B03, T02A02, T06A01, T07A03 |
-| FR-FN-08 | T02A03, T06A03, T09A01 |
+| FR-FN-08 | T02A03, T06A03, T09A01, T09A05 |
 | FR-HK-01 | T00A01, T10A02, T11X01 |
 | FR-HK-02 | T00A01, T00A04, T01A03, T01B03, T09A03, T10A02, T11X01 |
 | FR-HK-03 | T09X01, T11X01 |
@@ -222,7 +222,8 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-UI-05 | T08B02 |
 | FR-UI-06 | T08A01, T08A02 |
 | FR-UI-07 | T06A07, T08B02 |
-| FR-UI-08 | T01B03, T09B04 |
+| FR-UI-08 | T01B03, T09B04, T09B05 |
+| FR-UI-09 | T09B05 |
 
 ## 7. Sizing and conventions
 
@@ -1161,7 +1162,7 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 
 **Entry condition.** IG-8 passed.
 
-**Exit.** IT-9: All test layers are green: the fault suite F1 to F30 (F17 and F18 as disclosed limits), the Sandbox contract suite C-01 to C-18, concurrency and property suites and the AI evaluation baseline; the public audit page and verify-my-place reproduce the vectors; the README draft is complete; feature freeze, after which only fixes merge.
+**Exit.** IT-9: All test layers are green: the fault suite F1 to F30 (F17 and F18 as disclosed limits), the Sandbox contract suite C-01 to C-18, concurrency and property suites and the AI evaluation baseline; the public audit page and verify-my-place reproduce the vectors; the notification inbox lists and clears every kind the events write; each lot's money nets to zero and an imbalance raises the ledger alert; the README draft is complete; feature freeze, after which only fixes merge.
 
 **Watch.** One day for a very large amount of verification work: the highest-risk phase in the plan.
 
@@ -1171,10 +1172,12 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 | T09A02 | A | M | T02A01, T05A01 | Sandbox contract suite complete |
 | T09A03 | A | M | T01A03 | Deployment hardening and demo tooling |
 | T09A04 | A | S | T06A01 | STRETCH: top-up after FUNDED |
+| T09A05 | A | M | T05A03, T06A01 | Funding and ledger integrity check (audit F5) |
 | T09B01 | B | L | T00B01, T01B01 | Public audit page and verify-my-place |
 | T09B02 | B | L | T04B01, T06B01, T06A05 | AI evaluation sets and runner |
 | T09B03 | B | M | T06A06, T03B01 | Concurrency and property suites for pools, allocation and auction |
 | T09B04 | B | M | T07B01, T08B01, T08B02 | UI polish and honesty copy |
+| T09B05 | B | M | T06A06, T01B03 | In-app notifications inbox |
 | T09X01 | AB | L | T09A02, T09B02 | README full draft |
 | T09X02 | AB | M | T07X01 | Feature freeze and IT-3 |
 
@@ -1214,6 +1217,16 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 - **Tests that prove it:** `tests/integration/test_topup.py`.
 - **Requirements and invariants:** FR-FN-04.
 
+### T09A05: Funding and ledger integrity check (audit F5)
+
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T05A03, T06A01.
+- **Read first:** testing-strategy.md §3; state-machines.md LS-06, LS-07; vault-charge.md §6; system-design.md §12.
+- **Create or change:** `modules/checkout/funding.py` (the per-lot balance), the ops alert read, `frontend/src/buyer/my-pools/**` (the duplicate-control sentence), `backend/tests/integration/test_funding_balance.py`.
+- **Acceptance:** After a lot's money path ends, completed captures minus refunds minus voids equals the funded total read from the ledger; a difference is written as `ledger_imbalance`, appears on the ops alert list, and is never silently ignored. A forced imbalance proves both the alert and that the lot is not recorded as funded. The screen that relies on the vault's account-level duplicate control states that limit in the README's wording.
+- **Tests that prove it:** `test_lot_money_nets_to_zero`, `test_forced_imbalance_alerts_without_funding`.
+- **Requirements and invariants:** FR-FN-05, FR-FN-08, I3, I4.
+- **Contract:** no new endpoint planned; if the alert needs one, open a change request first.
+
 ### T09B01: Public audit page and verify-my-place
 
 - **Owner:** Member B. **Size:** L (1 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T00B01, T01B01.
@@ -1249,6 +1262,16 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 - **Acceptance:** Empty and error states, mobile layout, accessibility basics, labels for sandbox, fallback, simulated and mock, and no brand names.
 - **Tests that prove it:** label tests; mobile layout checks.
 - **Requirements and invariants:** FR-UI-08, FR-PP-03, FR-HK-06.
+
+### T09B05: In-app notifications inbox
+
+- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T06A06, T01B03.
+- **Read first:** api.md ("/api/v1/me"); state-machines.md LS-04, LS-07, BS-09; product-spec.md FR-UI-09.
+- **Create or change:** a `modules/notify` read service, the list and mark-read routes added by CR-13, `frontend/src/shared/components/NotificationInbox.tsx`, the buyer and merchant shells, `frontend/tests/notifications.test.tsx`.
+- **Acceptance:** A signed-in user sees only their own notifications, newest first, with an unread count that matches `GET /api/v1/me`; opening the inbox marks them read; every kind the events write (`lot.awarded`, `lot.cancelled`, `lot.funded`, `bid.lost`, `bid.flagged`, `buyer_order.offered`, `order.capture`, `order.vault_charge`, `refund`, `entry.rejected`, …) renders as a sentence, and an unknown kind renders a neutral line rather than raw JSON. Nothing is emailed, texted or pushed.
+- **Tests that prove it:** owner-scoped list and 401 for anonymous; mark-read idempotence; unread parity with `/me`; the UI renders each kind, the empty state and an unknown kind.
+- **Requirements and invariants:** FR-UI-09, FR-UI-08.
+- **Contract:** CR-13 adds the two routes to api.md before code; `notifications` already exists, so no migration.
 
 ### T09X01: README full draft
 

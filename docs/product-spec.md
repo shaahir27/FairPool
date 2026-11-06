@@ -148,6 +148,7 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 | FR-UI-06 | Merchant Tab 3, Fulfillment: funded lots, a shipping CSV (addresses only after the lot is FUNDED, N14), mark shipped with tracking numbers (FR-IG-08), and the verification manifest download (FR-IG-07) | UI plan |
 | FR-UI-07 | Merchant Tab 4, Developer API: create and revoke API keys (secret shown once), scopes, rate limits, SDK downloads and the portal link (FR-IG-05), quickstart | UI plan, INT-9 |
 | FR-UI-08 | Every screen shows the honesty labels and notices that the API returns (SANDBOX, FALLBACK, SIMULATED, DEMO SEED, MOCK); the browser never composes a claim itself (I13) | DESIGN 15 |
+| FR-UI-09 | A signed-in buyer or merchant can open an in-app inbox of the notifications their pools, entries and money events produced (seat, waitlist, loss, hold, capture, refund, correction), newest first, with an unread count; opening it marks them read. Notifications stay inside the app: no email, SMS or push is sent | Owner decision 2026-11-07 |
 
 ### Sponsor and PayPal tool integrations (decisions INT-1 to INT-9 in `docs/decisions.md`)
 
