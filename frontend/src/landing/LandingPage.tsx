@@ -13,6 +13,7 @@ const STEPS = [
 ] as const;
 
 const SAY = "On your own, you take the price you are given. Together, merchants compete to give your group their best.".split(" ");
+const BIDS: [string, number][] = [["Merchant A", 312], ["Merchant B", 298], ["Merchant D", 305], ["Merchant C", 284]];
 const at = (t: number) => ({ "--t": t }) as CSSProperties;
 
 const PANELS: ReactNode[] = [
@@ -37,8 +38,9 @@ function Rings() {
               {Array.from({ length: seats }, (_, index) => {
                 const angle = index * Math.PI * 2 / seats + ring * .18;
                 const marked = index % 7 === 0;
+                const me = ring === 2 && index === 3;
                 return <circle key={index} cx={260 + radius * Math.cos(angle)} cy={260 + radius * Math.sin(angle)}
-                  r={marked ? 5.5 : 3} className={marked ? "seat" : "pp"} style={marked ? { "--d": (ring * .6 + index * .25) + "s" } as CSSProperties : undefined} />;
+                  r={me ? 9.5 : marked ? 5.5 : 3} className={me ? "me" : marked ? "seat" : "pp"} style={marked ? { "--d": (ring * .6 + index * .25) + "s" } as CSSProperties : undefined} />;
               })}
             </svg>
           </div>
@@ -96,23 +98,6 @@ function useInView<T extends Element>() {
   return [ref, seen] as const;
 }
 
-export function Count({ to }: { to: number }) {
-  const [value, setValue] = useState(() => (prefersReducedMotion() ? to : 0));
-  useEffect(() => {
-    if (prefersReducedMotion()) return;
-    const start = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / 1100);
-      setValue(Math.round(to * (1 - (1 - p) ** 3)));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [to]);
-  return <>{value}</>;
-}
-
 export default function LandingPage() {
   const { hash } = useLocation();
   const [scene, setScene] = useState(0);
@@ -120,6 +105,15 @@ export default function LandingPage() {
   const poolRef = useRef<HTMLDivElement>(null);
   const [receiptRef, receiptSeen] = useInView<HTMLDivElement>();
   usePoolMotion(poolRef);
+  // The hero auction: 0 pool only, 1 to 4 bids arrive, 5 to 6 best offer, 7 reset.
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    if (prefersReducedMotion()) { setRound(5); return; }
+    const id = window.setInterval(() => setRound((r) => (r + 1) % 8), 1300);
+    return () => window.clearInterval(id);
+  }, []);
+  const won = round >= 5 && round <= 6;
+  const lowest = round === 0 || round === 7 ? null : Math.min(...BIDS.slice(0, Math.min(round, 4)).map(([, p]) => p));
   const rootRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -175,9 +169,8 @@ export default function LandingPage() {
         const rects = Array.from(list.children, (el) => el.getBoundingClientRect());
         let index = 0;
         rects.forEach((r, j) => { if (focus >= r.top) index = j; });
-        const current = rects[index];
-        if (!current) return;
-        const s = clamp((focus - current.top) / current.height);
+        const active = rects[index];
+        const s = active === undefined ? 0 : clamp((focus - active.top) / active.height);
         const progress = String((index + s) / STEPS.length);
         list.style.setProperty("--p", progress);
         stage.style.setProperty("--p", progress);
@@ -260,9 +253,17 @@ export default function LandingPage() {
             </ul>
             <p className="hero-sandbox">PayPal Sandbox demo. No real money moves.</p>
           </div>
-          <div className="pool" ref={poolRef} role="img" aria-label="Rings of seats around the FairPool mark, showing many buyers in one pool">
-            <div className="scene"><Rings /><div className="core"><PoolMark /></div></div>
-
+          <div className="live">
+            <div className="pool" ref={poolRef} role="img" aria-label="Animated illustration: buyers' seats in one pool while merchants send sealed bids">
+              <div className="scene"><div className="floor" />{round >= 1 && round <= 4 && <div className="ripple" key={round} />}<Rings /><div className="core"><PoolMark /></div></div>
+            </div>
+            <div className="hb-wrap" aria-hidden="true">
+              {BIDS.map(([name, price], i) => (
+                <div key={name} className={`hb hb${i + 1}${round > i && round <= 6 ? " in" : ""}${won ? (price === lowest ? " win" : " dim") : ""}`}><span>{name}</span><b key={round > i && round <= 6 ? "p" : "s"}>{round > i && round <= 6 ? `$${price}` : "Sealed"}</b></div>
+              ))}
+              <div className="hb-read"><span>{won ? "Your group’s best offer" : "Lowest sealed bid"}</span><b key={lowest ?? 0}>{lowest ? `$${lowest}` : "—"}</b></div>
+            </div>
+            <p className="live-note">Illustration with example numbers. The raspberry seat is you.</p>
           </div>
         </div>
       </section>

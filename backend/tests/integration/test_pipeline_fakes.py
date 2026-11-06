@@ -135,7 +135,38 @@ async def add_user(session: AsyncSession, tag: str, *, role: str = "buyer") -> U
 
 
 async def move_timeline(session: AsyncSession, pool_id: UUID, *, key: str, seconds: int) -> None:
-    """Move one timeline instant by ``seconds`` on the database clock."""
+    """Move one timeline instant by ``seconds`` on the database clock.
+
+    ``timeline`` is an input to ``rules_document``, so shifting it silently invalidates
+    the ``rules_hash`` that publish froze: the audit page then recomputes a different
+    hash over its own served document and reports the pool as tampered. That is exactly
+    how Q-2026-11-06-38 was produced -- the demo seeder shifts its own pools' windows to
+    make a fast rehearsal, and every shifted pool went red.
+
+    Rule inputs are only mutable until the close publishes the commitment snapshot, so
+    the shift is refused after that point and the hash is re-frozen with the new values
+    before it. Re-freezing pre-close is honest because nothing has been committed to the
+    old rules yet; after close it would be rewriting the rules buyers already agreed to.
+    """
+    from sqlalchemy import select
+
+    from fairpool.db.models.catalog import Pool
+    from fairpool.domain.hashing import rules_hash
+    from fairpool.modules.pools.service import rules_document
+
+    # populate_existing, not a plain select: the identity map can hand back an object
+    # whose entries_root predates a close that ran in this same session, and a stale
+    # read here would let a post-close window shift through.
+    pool = await session.scalar(
+        select(Pool)
+        .where(Pool.id == pool_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    if pool is None:
+        raise AssertionError("move_timeline: unknown pool")
+    if pool.entries_root is not None:
+        raise AssertionError("move_timeline: rule inputs are frozen once the close snapshot exists")
     value = datetime.now(UTC) + timedelta(seconds=seconds)
     await session.execute(
         text(
@@ -144,6 +175,12 @@ async def move_timeline(session: AsyncSession, pool_id: UUID, *, key: str, secon
         ),
         {"key": key, "value": value.strftime("%Y-%m-%dT%H:%M:%S.%fZ"), "id": pool_id},
     )
+    await session.flush()
+    pool = await session.scalar(
+        select(Pool).where(Pool.id == pool_id).execution_options(populate_existing=True)
+    )
+    pool.rules_hash = rules_hash(rules_document(pool))
+    await session.flush()
 
 
 async def drain(session: AsyncSession, handlers: dict[str, Any], limit: int = 200) -> list[str]:

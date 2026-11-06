@@ -134,4 +134,4 @@ demo-seed:
 	@$(PY) tools/demo_seed.py
 
 demo-reset:
-	@echo "SKIP: demo reset starts at T04B02"
+	@$(PY) tools/demo_reset.py

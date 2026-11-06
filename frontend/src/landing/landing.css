@@ -558,3 +558,50 @@ animation-delay:calc(.1s + var(--k)*.12s)}
 :where(.landing) .sd p,:where(.landing) .step.on .sd p {padding-left:0}
 :where(.landing) .stage.mcard {display:grid;position:relative;top:auto;z-index:auto;align-self:auto;grid-template-rows:auto auto;gap:10px;min-height:0;margin-top:20px;padding:16px 14px 14px;box-shadow:0 10px 24px rgb(var(--color-ink)/.16)}
 :where(.landing) .mcard .pn {min-height:0}}
+
+/* ================= Hero: the living auction ================= */
+:where(.landing) .live {position:relative;width:min(100%,560px);margin:0 auto}
+:where(.landing) .live .pool {width:100%;max-width:none;margin:0}
+@media(min-width:981px){:where(.landing) .hero {display:grid;align-items:center;min-height:min(100svh,900px)}:where(.landing) .hero>.wrap {width:100%}}
+/* The blueprint grid from the sheet below, laid on the floor under the pool and drifting toward you. */
+:where(.landing) .floor {position:absolute;inset:-48%;translate:0 0 -3cqw;background:linear-gradient(rgb(var(--color-canvas)/.22) 1px,transparent 1px),linear-gradient(90deg,rgb(var(--color-canvas)/.22) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(closest-side,#000 26%,transparent 70%);mask-image:radial-gradient(closest-side,#000 26%,transparent 70%);animation:landing-drift 7s linear infinite}
+@keyframes landing-drift {to {background-position:0 44px}}
+/* Each bid that arrives sends a ripple through the seats. */
+:where(.landing) .ripple {position:absolute;left:50%;top:50%;width:92%;aspect-ratio:1;margin:-46% 0 0 -46%;border-radius:50%;border:2px solid var(--mk);pointer-events:none;translate:0 0 2cqw;animation:landing-ripple 1.6s var(--ease-out) both}
+@keyframes landing-ripple {from {transform:scale(.18);opacity:.95} to {transform:scale(1);opacity:0}}
+:where(.landing) .me {fill:var(--act);stroke:var(--onf);stroke-width:2.5;animation:landing-pulse 2.4s ease-in-out infinite}
+/* Sealed bids arrive around the pool; the lowest one lights up at the end. */
+:where(.landing) .hb-wrap {position:absolute;left:0;right:0;top:0;aspect-ratio:1;pointer-events:none}
+:where(.landing) .hb {position:absolute;min-width:136px;padding:10px 14px;border:1px solid rgb(var(--color-canvas)/.34);border-radius:14px;background:rgb(var(--color-canvas)/.14);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:var(--onf);box-shadow:0 12px 24px rgb(var(--color-ink)/.22);opacity:0;transform:translate(var(--dx),var(--dy)) scale(.92);transition:opacity .5s,transform .7s var(--ease-out),background .4s,color .4s,box-shadow .4s}
+:where(.landing) .hb.in {opacity:1;transform:none}
+:where(.landing) .hb span {display:block;font-size:12px;color:var(--fm)}
+:where(.landing) .hb b {font-size:21px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+:where(.landing) .hb.dim {opacity:.5}
+:where(.landing) .hb.win {background:var(--mk);color:var(--ink);border-color:transparent;box-shadow:0 0 0 6px rgb(255 195 79/.28),0 16px 32px rgb(0 0 0/.25)}
+:where(.landing) .hb.win span {color:rgb(var(--color-ink)/.78)}
+:where(.landing) .hb1 {left:0;top:12%;--dx:-24px;--dy:-10px}
+:where(.landing) .hb2 {right:0;top:5%;--dx:24px;--dy:-14px}
+:where(.landing) .hb3 {right:0;top:70%;--dx:24px;--dy:14px}
+:where(.landing) .hb4 {left:0;top:76%;--dx:-24px;--dy:12px}
+:where(.landing) .hb-read {position:absolute;left:50%;top:88%;translate:-50% 0;display:flex;align-items:baseline;gap:12px;padding:10px 18px;border:1px solid rgb(var(--color-canvas)/.34);border-radius:999px;background:rgb(var(--color-ink)/.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);white-space:nowrap}
+:where(.landing) .hb-read span {font-size:13px;color:var(--fm)}
+:where(.landing) .hb-read b {min-width:3.4ch;font-size:22px;letter-spacing:-.03em;color:var(--mk);font-variant-numeric:tabular-nums;animation:landing-pop .5s var(--ease-out)}
+@keyframes landing-pop {from {transform:scale(1.3);color:#fff}}
+:where(.landing) .live-note {margin-top:14px;text-align:center;font-size:12.5px;color:var(--fm)}
+/* Narrower layouts: the bids become a tidy grid under the pool, so nothing overlaps. */
+@media(max-width:1100px){
+:where(.landing) .live {width:min(100%,400px)}
+:where(.landing) .live .pool {margin:-28px auto -60px}
+:where(.landing) .hb-wrap {position:static;aspect-ratio:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+:where(.landing) .hb {position:static;min-width:0;--dx:0px;--dy:12px}
+:where(.landing) .hb-read {position:static;translate:none;grid-column:1/-1;order:-1;justify-content:center}}
+
+/* Bids are always on stage: "Sealed" until they arrive, then the price is revealed. */
+:where(.landing) .hb {opacity:.68;border-style:dashed;transform:scale(.97)}
+:where(.landing) .hb.in {opacity:1;border-style:solid;transform:none}
+:where(.landing) .hb.in.dim {opacity:.5}
+:where(.landing) .hb:not(.in) b {font-size:15px;font-weight:500;letter-spacing:0;color:var(--fm)}
+:where(.landing) .hb.in b {animation:landing-pop .5s var(--ease-out)}
+:where(.landing) .me {filter:drop-shadow(0 0 7px rgb(var(--color-action)/.95))}
+@media(max-width:1100px){:where(.landing) .live .pool {margin:24px auto -60px}}
+@media(max-width:560px){:where(.landing) .hero-facts {flex-direction:row;flex-wrap:wrap;gap:6px 18px}}

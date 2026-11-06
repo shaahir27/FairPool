@@ -29,8 +29,9 @@ from fairpool.fakes.clock import FakeClock
 from fairpool.fakes.jobs import FakeJobQueue
 from fairpool.infra.clock import DbClock
 from fairpool.modules.pools.seed import PoolSeedService
-from fairpool.modules.pools.service import PoolService
+from fairpool.modules.pools.service import PoolService, rules_document
 from tests.integration.test_join_receipts import settings_for
+from tests.integration.test_pipeline_fakes import move_timeline
 from tests.integration.test_pools import payload
 from tests.integration.test_triggers import add_user
 
@@ -129,3 +130,93 @@ async def test_seeding_merges_the_beacon_body_onto_the_announcement(
     # fairness-and-hashing.md §4: only these three keys enter rules_document, so the
     # merged extra keys cannot change the frozen hash.
     assert set(body["rules_document"]["beacon"]) == {"source", "chain_hash", "round"}
+
+
+async def test_the_demo_seed_path_keeps_the_document_reproducible(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """BEACON_MODE=demo is what the hosted app runs, so pin that branch too.
+
+    The deployed pools are labelled DEMO SEED, and the audit page recomputes the rules
+    document on every read. If publish and the read disagreed in demo mode, every
+    hosted pool would show a red verdict, which is exactly what was seen on live data
+    created by an older build.
+    """
+    admin = await add_user(db_session, role="admin")
+    data = await payload(db_session)
+    pools = PoolService(
+        DbClock(), FakeAuditLog(), FakeJobQueue(), FakeBeacon(announced={"source": "demo"})
+    )
+    pool = await pools.create(db_session, actor_id=admin, payload=PoolInput.model_validate(data))
+    await pools.publish(db_session, pool.id, actor_id=admin)
+    frozen = str(pool.rules_hash)
+
+    await db_session.execute(
+        text(
+            "UPDATE pools SET status = CAST(:status AS pool_status), entries_root = :root, "
+            "entries_count = 0 WHERE id = :pool"
+        ),
+        {"status": "CLOSED", "root": hashing.merkle_root([]), "pool": str(pool.id)},
+    )
+    await db_session.execute(
+        text("UPDATE lots SET status = 'BID_CLOSED'::lot_status WHERE pool_id = :pool"),
+        {"pool": str(pool.id)},
+    )
+    await db_session.flush()
+    await db_session.refresh(pool)
+
+    now = await DbClock().db_now(db_session)
+    seeder = PoolSeedService(
+        FakeClock(now), FakeAuditLog(), FakeJobQueue(), FakeBeacon(announced={"source": "demo"})
+    )
+    await seeder.seed(db_session, {"pool_id": str(pool.id)})
+
+    body = (await client.get(f"/api/v1/public/pools/{pool.id}/audit")).json()
+
+    assert body["rules_hash"] == frozen
+    assert rules_hash(body["rules_document"]) == body["rules_hash"]
+    assert body["seed_is_demo"] is True
+    assert body["seed_hex"] == hashing.demo_seed(str(pool.id))
+
+
+async def test_shifting_a_window_keeps_the_document_reproducible(db_session: AsyncSession) -> None:
+    """Q-2026-11-06-38: the demo seeder moves its own windows, and that broke the hash.
+
+    `timeline` is an input to `rules_document`, so a pre-close shift must re-freeze
+    `rules_hash`; the audit page recomputes the document on every read and would
+    otherwise report a tampered pool.
+    """
+    admin = await add_user(db_session, role="admin")
+    data = await payload(db_session)
+    pools = PoolService(
+        DbClock(), FakeAuditLog(), FakeJobQueue(), FakeBeacon(announced={"source": "demo"})
+    )
+    pool = await pools.create(db_session, actor_id=admin, payload=PoolInput.model_validate(data))
+    await pools.publish(db_session, pool.id, actor_id=admin)
+
+    await move_timeline(db_session, pool.id, key="open_at", seconds=-120)
+    await move_timeline(db_session, pool.id, key="close_at", seconds=-60)
+    await db_session.refresh(pool)
+
+    assert rules_hash(rules_document(pool)) == pool.rules_hash
+
+
+async def test_a_window_shift_is_refused_once_the_close_snapshot_exists(
+    db_session: AsyncSession,
+) -> None:
+    """After the close the rules are the contract buyers committed under: not movable."""
+    admin = await add_user(db_session, role="admin")
+    data = await payload(db_session)
+    pools = PoolService(
+        DbClock(), FakeAuditLog(), FakeJobQueue(), FakeBeacon(announced={"source": "demo"})
+    )
+    pool = await pools.create(db_session, actor_id=admin, payload=PoolInput.model_validate(data))
+    await pools.publish(db_session, pool.id, actor_id=admin)
+    await db_session.execute(
+        text("UPDATE pools SET entries_root = :root WHERE id = :pool"),
+        {"root": hashing.merkle_root([]), "pool": str(pool.id)},
+    )
+    await db_session.flush()
+
+    with pytest.raises(AssertionError, match="frozen once the close snapshot exists"):
+        await move_timeline(db_session, pool.id, key="close_at", seconds=-60)
