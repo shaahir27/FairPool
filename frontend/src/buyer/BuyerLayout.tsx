@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { AreaLayout, type AreaTab, type AreaUtilityLink } from "../shared";
 import { prefetchBuyer } from "./prefetch";
 
@@ -14,13 +16,15 @@ const BUYER_UTILITY_LINKS: readonly AreaUtilityLink[] = [
   { to: "/settings/agents", label: "Agent settings" },
 ];
 
-export function BuyerLayout() {
+export function BuyerLayout({ children }: { children?: ReactNode }) {
   return (
     <AreaLayout
       workspace="Buyer workspace"
       tabs={BUYER_TABS}
       utilityLinks={BUYER_UTILITY_LINKS}
       onPrefetch={prefetchBuyer}
-    />
+    >
+      {children}
+    </AreaLayout>
   );
 }

@@ -1,17 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link, useParams } from "react-router-dom";
 
 import {
+  accountState,
   api,
   envelope,
   formatCents,
   HonestyLabels,
+  Icon,
   Notice,
   PublicLayout,
-  StatusPill,
+  resetSessionCache,
+  sessionState,
+  setAccount,
   useApiRead,
+  type Account,
   type ApiComponents,
 } from "../shared";
+import { BuyerLayout } from "../buyer";
 import {
   checkPlace,
   commitment as commitmentOf,
@@ -20,56 +26,87 @@ import {
   verifyEd25519,
   withoutSignature,
 } from "./verify";
+import "./audit.css";
 
 type Audit = ApiComponents["schemas"]["PublicAuditResponse"];
 type AuditLot = ApiComponents["schemas"]["AuditLot"];
+type Checkpoint = NonNullable<Audit["checkpoint"]>;
 
 /** One recomputation the visitor is shown as a verdict, never as a claim. */
-type Verdict = {label: string; detail: string; ok: boolean | null};
+type Verdict = {
+  label: string;
+  detail: string;
+  ok: boolean | null;
+  facts: {term: string; value: string}[];
+  list?: string[];
+};
 
 const PENDING: Verdict[] = [
-  {label: "Rules hash", detail: "Recomputing the published rules document…", ok: null},
-  {label: "Entries root", detail: "Rebuilding the Merkle root from the published list…", ok: null},
-  {label: "Chain checkpoint", detail: "Verifying the checkpoint signature…", ok: null},
+  {label: "Published rules", detail: "Recalculating the rules document…", ok: null, facts: []},
+  {label: "Entry list", detail: "Rebuilding the entry fingerprint…", ok: null, facts: []},
+  {label: "Tamper seal", detail: "Verifying the seal…", ok: null, facts: []},
 ];
 
 async function verdicts(audit: Audit, publicKey: string | null): Promise<Verdict[]> {
   const list = audit.commitments ?? [];
   const recomputedRules = await rulesHash(audit.rules_document);
   const recomputedRoot = await merkleRoot(list);
-  const proof = audit.checkpoint;
+  const proof: Checkpoint | null = audit.checkpoint ?? null;
   const signatureOk =
-    proof === null || proof === undefined || publicKey === null
+    proof === null || publicKey === null
       ? null
-      : await verifyEd25519(withoutSignature(proof as unknown as Record<string, unknown>), String(proof.signature), publicKey);
+      : await verifyEd25519(
+          withoutSignature(proof as unknown as Record<string, unknown>),
+          String(proof.signature),
+          publicKey,
+        );
+  const rulesOk = recomputedRules === audit.rules_hash;
   return [
     {
-      label: "Rules hash",
-      detail:
-        recomputedRules === audit.rules_hash
-          ? "The published rules document hashes to the served rules_hash."
-          : `Served ${short(audit.rules_hash)}, recomputed ${short(recomputedRules)}.`,
-      ok: recomputedRules === audit.rules_hash,
+      label: "Published rules",
+      detail: rulesOk
+        ? "The rules served with this page are the ones FairPool froze when the pool was published."
+        : `Served ${short(audit.rules_hash)}, recomputed ${short(recomputedRules)}. The document here is not the one that was frozen.`,
+      ok: rulesOk,
+      facts: [
+        {term: "Published hash", value: audit.rules_hash},
+        {term: "Recomputed here", value: recomputedRules},
+      ],
     },
     {
-      label: "Entries root",
+      label: "Entry list",
       detail:
         audit.entries_root === null
-          ? "Nothing to check yet: the commitment list is published at the close."
+          ? "Nothing to check yet: the entry list is published when entries close."
           : recomputedRoot === audit.entries_root
-            ? `${list.length} commitments rebuilt to the published root.`
+            ? `${list.length} entries rebuild the published fingerprint.`
             : `Published ${short(audit.entries_root)}, recomputed ${short(recomputedRoot)}.`,
       ok: audit.entries_root === null ? null : recomputedRoot === audit.entries_root,
+      facts: [
+        {term: "Published fingerprint", value: audit.entries_root ?? "not published yet"},
+        {term: "Recomputed here", value: recomputedRoot},
+        {term: "Entries in the list", value: String(list.length)},
+      ],
+      list,
     },
     {
-      label: "Chain checkpoint",
+      label: "Tamper seal",
       detail:
-        proof === null || proof === undefined
-          ? "No checkpoint published yet. It appears once bidding has closed (CR-11)."
+        proof === null
+          ? "No seal yet: it appears once bidding closes."
           : signatureOk
-            ? `Row ${proof.head_seq} verified against the published key.`
-            : "The signature does not verify against the published key.",
+            ? `Seal number ${proof.head_seq} verifies with FairPool's published key.`
+            : "The seal does not verify with the published key.",
       ok: signatureOk,
+      facts:
+        proof === null
+          ? [{term: "Seal", value: "not published yet"}]
+          : [
+              {term: "Seal number", value: String(proof.head_seq)},
+              {term: "Last action hash", value: String(proof.head_hash ?? "not published")},
+              {term: "Signature", value: String(proof.signature)},
+              {term: "FairPool's public key", value: publicKey ?? "not loaded"},
+            ],
     },
   ];
 }
@@ -78,8 +115,75 @@ function short(value: string | null | undefined): string {
   return value === null || value === undefined ? "none" : `${value.slice(0, 12)}…`;
 }
 
+/**
+ * The page keeps the buyer's own navigation when a buyer is signed in, and falls
+ * back to the public shell for everyone else: an audit link is shareable, but a
+ * buyer arriving from their pool must not lose the sidebar on the way.
+ */
+function useSessionAccount(): Account | null {
+  const [account, setLocal] = useState<Account | null>(accountState());
+  useEffect(() => {
+    if (account !== null || sessionState() === "out") return;
+    let live = true;
+    // Same answer RequireAuth would ask for; a refused call proves nothing.
+    void api
+      .GET("/api/v1/me")
+      .then(({data, response}) => {
+        if (!live) return;
+        if (response.status === 401) {
+          resetSessionCache("out");
+          return;
+        }
+        if (!response.ok || typeof data?.role !== "string") return;
+        resetSessionCache("in");
+        const next = {
+          display_name: typeof data.display_name === "string" ? data.display_name : "",
+          role: data.role,
+          paypal_linked: data.paypal_linked === true,
+        };
+        setAccount(next);
+        setLocal(next);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [account]);
+  return account;
+}
+
+function Shell({ children }: { children: ReactNode }) {
+  const account = useSessionAccount();
+  if (account?.role === "buyer") {
+    return <BuyerLayout>{children}</BuyerLayout>;
+  }
+  return <PublicLayout perspective="Public audit">{children}</PublicLayout>;
+}
+
 function lotFor(lots: AuditLot[], rank: number): AuditLot | undefined {
   return lots.find((lot) => lot.rank_range.length === 2 && rank >= lot.rank_range[0]! && rank <= lot.rank_range[1]!);
+}
+
+/** The title and zone names are inside the frozen rules document, so no extra call. */
+function rulesShape(document: Record<string, unknown>): {
+  title: string | null;
+  zones: Map<string, string>;
+} {
+  const template = document.template;
+  if (template === null || typeof template !== "object") return {title: null, zones: new Map()};
+  const record = template as Record<string, unknown>;
+  const title = typeof record.title === "string" ? record.title : null;
+  const zones = new Map<string, string>();
+  if (Array.isArray(record.zones)) {
+    for (const zone of record.zones) {
+      if (zone === null || typeof zone !== "object") continue;
+      const entry = zone as Record<string, unknown>;
+      if (typeof entry.zone_id === "string") {
+        zones.set(entry.zone_id, typeof entry.label === "string" ? entry.label : entry.zone_id);
+      }
+    }
+  }
+  return {title, zones};
 }
 
 export function AuditPage() {
@@ -112,6 +216,11 @@ export function AuditPage() {
   const [place, setPlace] = useState<string>("");
 
   const lotRows = useMemo(() => audit?.lots ?? [], [audit]);
+  const shape = useMemo(
+    () => rulesShape((audit?.rules_document ?? {}) as Record<string, unknown>),
+    [audit],
+  );
+  const areaOf = (zoneId: string) => shape.zones.get(zoneId) ?? zoneId;
 
   async function verifyPlace(event: React.FormEvent) {
     event.preventDefault();
@@ -119,21 +228,24 @@ export function AuditPage() {
     // before it reaches a hash function.
     const seed = audit?.seed_hex;
     if (audit === null || seed === null || seed === undefined || poolId === undefined) {
-      setPlace("The seed is published after the close and after bidding has ended.");
+      setPlace("The seed is published after entries close and after bidding has ended.");
       return;
     }
     try {
       const target = await commitmentOf(poolId, entryId.trim(), requestHash.trim(), saltHex.trim());
-      const result = await checkPlace(seed, audit.commitments ?? [], target);
+      const list = audit.commitments ?? [];
+      const result = await checkPlace(seed, list, target);
       if (!result.found) {
-        setPlace(`Your commitment ${short(target)} is not in the published list of ${(audit.commitments ?? []).length}.`);
+        setPlace(`Your entry is not in the published list of ${list.length}.`);
         return;
       }
       const lot = lotFor(lotRows, result.rank);
       setPlace(
-        `Your commitment recomputes to ${short(target)}, listed at position ${result.index + 1} of the sorted list. ` +
+        `Your entry is listed at position ${result.index + 1} of ${list.length}. ` +
           `With the published seed your rank is ${result.rank}` +
-          (lot ? `, which falls inside lot ${lot.lot_order + 1} (ranks ${lot.rank_range[0]}–${lot.rank_range[1]}, ${lot.zone_id}).` : ", which falls outside every filled lot — you are on the waitlist."),
+          (lot
+            ? `, which falls inside lot ${lot.lot_order} (ranks ${lot.rank_range[0]}–${lot.rank_range[1]}, ${areaOf(lot.zone_id)}).`
+            : ", which is outside every filled lot — you are on the waitlist."),
       );
     } catch (problem) {
       setPlace(`Cannot recompute: ${problem instanceof Error ? problem.message : "check the three receipt fields."}`);
@@ -143,128 +255,300 @@ export function AuditPage() {
   if (read.error) {
     const problem = envelope(read.error);
     return (
-      <PublicLayout perspective="Public audit">
+      <Shell>
+        <Link className="shop-back" to={`/pools/${poolId}`}>
+          <Icon name="arrow" />
+          Back to the pool
+        </Link>
         <Notice kind="error" code={problem.code}>
           This pool's audit record could not be read. {problem.message}
         </Notice>
-      </PublicLayout>
+      </Shell>
     );
   }
 
   if (audit === null) {
     return (
-      <PublicLayout perspective="Public audit">
-        <p role="status" aria-label="Loading audit record">
-          Loading the published audit record…
-        </p>
-      </PublicLayout>
+      <Shell>
+        <Link className="shop-back" to={`/pools/${poolId}`}>
+          <Icon name="arrow" />
+          Back to the pool
+        </Link>
+        <div className="audit">
+          <header className="audit-head">
+            <h1 className="audit-title">Public audit</h1>
+            <p className="audit-lede">
+              Reading the published record. Every check is recalculated in your browser
+              once it arrives.
+            </p>
+          </header>
+          <div className="audit-panel audit-skeleton" role="status" aria-label="Loading audit record">
+            <span className="sr-only">Loading the published audit record…</span>
+            <span className="audit-skeleton-row" />
+            <span className="audit-skeleton-row" />
+            <span className="audit-skeleton-row" />
+          </div>
+        </div>
+      </Shell>
     );
   }
 
+  const beacon = audit.beacon as Record<string, unknown> | null;
+  const beaconRound = beacon && typeof beacon.round === "number" ? beacon.round : null;
+  const seedLine =
+    audit.seed_is_demo
+      ? "Seed chosen by FairPool for this demo — not a public draw."
+      : audit.seed_hex === null
+        ? "Seed published when entries close."
+        : beaconRound === null
+          ? "Seed taken from the announced public beacon round."
+          : `Seed from public beacon round ${beaconRound}.`;
+
   return (
-    <PublicLayout perspective="Public audit">
-      <div className="shop-heading">
-        <h1 className="shop-title">Public audit</h1>
-        <p className="shop-copy">
-          Everything below is what FairPool published. Each check is recomputed in this browser from the
-          values on the page, so a match is your own arithmetic, not our assertion.
-        </p>
+    <Shell>
+      <Link className="shop-back" to={`/pools/${poolId}`}>
+        <Icon name="arrow" />
+        Back to the pool
+      </Link>
+      <div className="audit">
+        <header className="audit-head">
+          <h1 className="audit-title">Public audit</h1>
+          <p className="audit-pool">
+            {shape.title ?? "This pool"} <span>· Sandbox</span>
+          </p>
+          <p className="audit-lede">
+            Every check on this page is recalculated in your browser from what FairPool
+            published. A green line means your own arithmetic agrees with ours — you do not
+            have to take our word for it.
+          </p>
+          <div className="audit-meta">
+            <span>
+              Pool status <code>{audit.pool_status}</code>
+            </span>
+            <span>{seedLine}</span>
+            {audit.seed_is_demo ? <HonestyLabels kinds={["demoSeed"]} /> : null}
+          </div>
+        </header>
+
+        <section className="audit-section" aria-labelledby="audit-checks-title">
+          <h2 id="audit-checks-title">The three checks</h2>
+          <div className="audit-panel">
+            <div className="audit-checks">
+              {checks.map((verdict) => (
+                <article key={verdict.label} className="audit-check">
+                  <span
+                    className={`audit-mark ${verdict.ok === true ? "is-ok" : verdict.ok === false ? "is-bad" : "is-wait"}`}
+                    aria-label={verdict.ok === true ? "Check passed" : verdict.ok === false ? "Check failed" : undefined}
+                    aria-hidden={verdict.ok === null ? true : undefined}
+                  >
+                    <span aria-hidden="true">{verdict.ok === true ? "✓" : verdict.ok === false ? "✗" : "·"}</span>
+                  </span>
+                  <div>
+                    <h3>{verdict.label}</h3>
+                    <p>{verdict.detail}</p>
+                    {verdict.ok === null ? null : (
+                      <details className="audit-more">
+                        <summary>Show the exact values</summary>
+                        <dl className="audit-values">
+                          {verdict.facts.map((fact) => (
+                            <div key={fact.term}>
+                              <dt>{fact.term}</dt>
+                              <dd>{fact.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        {verdict.list !== undefined && verdict.list.length > 0 ? (
+                          <>
+                            <p className="audit-list-label">Published commitments, in order</p>
+                            <ol className="audit-list">
+                              {verdict.list.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ol>
+                          </>
+                        ) : null}
+                      </details>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {lotRows.length > 0 ? (
+          <section className="audit-section" aria-labelledby="audit-draw-title">
+            <h2 id="audit-draw-title">The draw</h2>
+            <p>
+              Entries were ordered by the published seed and cut into lots in rank order.
+              Each price is the winning bid as the merchant sealed it.
+            </p>
+            <div className="audit-panel audit-table-wrap">
+              <table className="audit-table">
+                <caption className="audit-caption">
+                  Lots, the ranks each one took, and what it won at.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Lot</th>
+                    <th scope="col">Area</th>
+                    <th scope="col">Seats</th>
+                    <th scope="col">Ranks</th>
+                    <th scope="col">Bids</th>
+                    <th scope="col">Winning price</th>
+                    <th scope="col">Bid seal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lotRows.map((lot) => (
+                    <tr key={String(lot.lot_id)}>
+                      <th scope="row">{lot.lot_order}</th>
+                      <td>{areaOf(lot.zone_id)}</td>
+                      <td className="audit-num">{lot.seats}</td>
+                      <td className="audit-num">
+                        {lot.rank_range.length === 2 ? `${lot.rank_range[0]}–${lot.rank_range[1]}` : "—"}
+                      </td>
+                      <td className="audit-num">{lot.bids_count ?? "—"}</td>
+                      <td className="audit-num audit-price">
+                        {lot.award ? formatCents(lot.award.item_cents) : "No award"}
+                      </td>
+                      <td>
+                        {lot.bids_root === null || lot.bids_root === undefined ? (
+                          <span className="audit-seal">
+                            {lot.status === "PLANNED" || lot.status === "BIDDING"
+                              ? "sealed at bid close"
+                              : "not recorded"}
+                          </span>
+                        ) : (
+                          <span className="audit-seal" title={lot.bids_root}>
+                            {short(lot.bids_root)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="audit-section" aria-labelledby="audit-place-title">
+          <h2 id="audit-place-title">Check your own place</h2>
+          <p>
+            Your entry receipt holds three values. Paste them here — nothing is sent
+            anywhere: the commitment, its position and your rank are computed in this tab.
+          </p>
+          <form className="audit-panel audit-form" onSubmit={(event) => void verifyPlace(event)}>
+            <div className="audit-fields">
+              <label htmlFor="audit-entry-id">
+                Entry id
+                <input
+                  id="audit-entry-id"
+                  className="form-input"
+                  value={entryId}
+                  onChange={(event) => setEntryId(event.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  aria-describedby="audit-receipt-help"
+                />
+              </label>
+              <label htmlFor="audit-request-hash">
+                Request hash
+                <input
+                  id="audit-request-hash"
+                  className="form-input"
+                  value={requestHash}
+                  onChange={(event) => setRequestHash(event.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  aria-describedby="audit-receipt-help"
+                />
+              </label>
+              <label htmlFor="audit-salt">
+                Salt
+                <input
+                  id="audit-salt"
+                  className="form-input"
+                  value={saltHex}
+                  onChange={(event) => setSaltHex(event.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  aria-describedby="audit-receipt-help"
+                />
+              </label>
+            </div>
+            <p className="audit-help" id="audit-receipt-help">
+              The receipt is the page shown when your entry was accepted; the salt is the
+              long random string in it, revealed only to you.
+            </p>
+            <button
+              type="submit"
+              className="button-primary"
+              disabled={entryId === "" || requestHash === "" || saltHex === ""}
+            >
+              Recompute my place
+            </button>
+            {/* A live region with its own name: the result is announced once, here. */}
+            <p role="status" aria-live="polite" aria-label="Recomputed place" className="audit-result">
+              {place}
+            </p>
+          </form>
+        </section>
+
+        <section className="audit-section" aria-labelledby="audit-limits-title">
+          <h2 id="audit-limits-title">What this page cannot prove</h2>
+          <ul className="audit-limits">
+            <li>
+              <strong>Completeness.</strong> Every commitment FairPool published is here, but
+              the page cannot show that no entry was left out.
+            </li>
+            <li>
+              <strong>Ownership.</strong> A commitment hides the request behind it; the salt
+              stays with each buyer. Recomputing your own proves your entry, not anyone else's.
+            </li>
+            <li>
+              <strong>The beacon.</strong> FairPool reads the round's published value but does
+              not verify that signature; an outside auditor holding the drand public key can.
+              Selection is auditable under published rules; it is not provably fair. A rank
+              tie would be broken by entry id, which the published list does not carry.
+            </li>
+          </ul>
+        </section>
+
+        <details className="audit-section audit-more audit-raw">
+          <summary>Published values, for auditors</summary>
+          <dl className="audit-values">
+            <div>
+              <dt>Rules hash</dt>
+              <dd>{audit.rules_hash}</dd>
+            </div>
+            <div>
+              <dt>Entry fingerprint</dt>
+              <dd>{audit.entries_root ?? "published at close"}</dd>
+            </div>
+            <div>
+              <dt>Entries published</dt>
+              <dd>{audit.entries_count ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Seed</dt>
+              <dd>{audit.seed_hex ?? "not yet revealed"}</dd>
+            </div>
+            <div>
+              <dt>Beacon</dt>
+              <dd>
+                {audit.beacon === null || audit.beacon === undefined
+                  ? "not yet revealed"
+                  : JSON.stringify(audit.beacon)}
+              </dd>
+            </div>
+          </dl>
+        </details>
       </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <StatusPill status={audit.pool_status}>Pool {audit.pool_status}</StatusPill>
-        {audit.seed_is_demo ? <HonestyLabels kinds={["demoSeed"]} /> : null}
-        {audit.seed_hex === null ? <span className="shop-copy">Seed not published yet</span> : null}
-      </div>
-
-      <ul className="mt-4">
-        {checks.map((verdict) => (
-          <li key={verdict.label} className="shop-panel shop-panel-pad">
-            <strong>{verdict.label}</strong>
-            <p className="shop-copy">{verdict.detail}</p>
-            {verdict.ok === true ? <span aria-label="Check passed">✓ matches</span> : null}
-            {verdict.ok === false ? <span aria-label="Check failed">✗ does not match</span> : null}
-          </li>
-        ))}
-      </ul>
-
-      <dl className="mt-4">
-        <dt>Rules hash</dt>
-        <dd>{audit.rules_hash}</dd>
-        <dt>Entries root</dt>
-        <dd>{audit.entries_root ?? "published at close"}</dd>
-        <dt>Commitments published</dt>
-        <dd>{audit.entries_count ?? 0}</dd>
-        <dt>Seed</dt>
-        <dd>{audit.seed_hex ?? "not yet revealed"}</dd>
-        <dt>Beacon</dt>
-        <dd>{audit.beacon === null || audit.beacon === undefined ? "not yet revealed" : JSON.stringify(audit.beacon)}</dd>
-      </dl>
-
-      {lotRows.length > 0 ? (
-        <table className="mt-4">
-          <caption>Lot boundaries and the bid-set commitments</caption>
-          <thead>
-            <tr>
-              <th scope="col">Lot</th>
-              <th scope="col">Zone</th>
-              <th scope="col">Seats</th>
-              <th scope="col">Ranks</th>
-              <th scope="col">Bid set root</th>
-              <th scope="col">Bids</th>
-              <th scope="col">Delivered price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lotRows.map((lot) => (
-              <tr key={String(lot.lot_id)}>
-                <th scope="row">{lot.lot_order + 1}</th>
-                <td>{lot.zone_id}</td>
-                <td>{lot.seats}</td>
-                <td>{lot.rank_range.length === 2 ? `${lot.rank_range[0]}–${lot.rank_range[1]}` : "—"}</td>
-                <td>{lot.bids_root === null || lot.bids_root === undefined ? "not recorded" : short(lot.bids_root)}</td>
-                <td>{lot.bids_count ?? "—"}</td>
-                <td>{lot.award ? formatCents(lot.award.item_cents) : "no award"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
-
-      <form className="mt-4" onSubmit={(event) => void verifyPlace(event)}>
-        <h2>Verify my place</h2>
-        <p className="shop-copy">
-          Paste the three values from your entry receipt. Nothing is sent anywhere: the commitment, its
-          position in the published list and your rank are computed here.
-        </p>
-        <label>
-          Entry id
-          <input value={entryId} onChange={(event) => setEntryId(event.target.value)} autoComplete="off" />
-        </label>
-        <label>
-          Request hash
-          <input value={requestHash} onChange={(event) => setRequestHash(event.target.value)} autoComplete="off" />
-        </label>
-        <label>
-          Salt
-          <input value={saltHex} onChange={(event) => setSaltHex(event.target.value)} autoComplete="off" />
-        </label>
-        <button type="submit" disabled={entryId === "" || requestHash === "" || saltHex === ""}>
-          Recompute my place
-        </button>
-        {/* Notice also carries role="status", so this live region needs its own name. */}
-        <p role="status" aria-live="polite" aria-label="Recomputed place">
-          {place}
-        </p>
-      </form>
-
-      <Notice kind="info">
-        What this page cannot prove: that the commitment list is complete, that a commitment matches the
-        request behind it (the salts stay with each buyer), or that the beacon round's BLS signature is
-        valid; FairPool does not verify that signature, and an outside auditor holding the drand public key can.
-        Selection is auditable under published rules; it is not provably fair. A rank tie would be broken
-        by entry id, which the published list does not carry.
-      </Notice>
-    </PublicLayout>
+    </Shell>
   );
 }

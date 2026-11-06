@@ -1,0 +1,391 @@
+/*
+ * The public audit page is a reading surface: one column, generous rhythm and a
+ * single accent for the one action. Values are shown on request, so the page
+ * opens as three sentences rather than a wall of hex.
+ */
+.audit {
+  display: grid;
+  gap: 40px;
+  max-width: 1020px;
+  color: rgb(var(--color-ink));
+}
+
+.audit-head {
+  display: grid;
+  gap: 10px;
+}
+
+.audit-title {
+  font-size: clamp(30px, 3.6vw, 40px);
+  font-weight: 700;
+  letter-spacing: -.045em;
+  line-height: 1.08;
+}
+
+.audit-pool {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.audit-pool span {
+  font-weight: 400;
+  color: rgb(var(--color-muted));
+}
+
+.audit-lede {
+  max-width: 68ch;
+  font-size: 15px;
+  line-height: 1.75;
+  color: rgb(var(--color-ink) / .82);
+}
+
+.audit-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgb(var(--color-muted));
+}
+
+.audit-meta code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+
+.audit-section {
+  display: grid;
+  gap: 14px;
+}
+
+.audit-section > h2 {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -.03em;
+}
+
+.audit-section > p {
+  max-width: 70ch;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgb(var(--color-muted));
+}
+
+.audit-panel {
+  border: 1px solid rgb(var(--color-tint-line) / .55);
+  border-radius: 18px;
+  background: rgb(var(--color-card));
+  padding: clamp(18px, 2.6vw, 28px);
+}
+
+/* Three checks in one surface: they share a subject, so they share a panel. */
+.audit-checks {
+  display: grid;
+}
+
+.audit-check {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 0;
+}
+
+.audit-check:first-child {
+  padding-top: 2px;
+}
+
+.audit-check:last-child {
+  padding-bottom: 2px;
+}
+
+.audit-check + .audit-check {
+  border-top: 1px solid rgb(var(--color-ink) / .1);
+}
+
+.audit-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.audit-mark.is-ok {
+  background: rgb(var(--color-frame));
+  color: rgb(var(--color-on-field));
+}
+
+.audit-mark.is-bad {
+  border: 1px solid rgb(var(--color-danger) / .35);
+  background: rgb(var(--color-danger-soft));
+  color: rgb(var(--color-danger));
+}
+
+.audit-mark.is-wait {
+  background: rgb(var(--color-line) / .35);
+  color: rgb(var(--color-muted));
+}
+
+.audit-check h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.audit-check p {
+  max-width: 74ch;
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgb(var(--color-muted));
+}
+
+.audit-more {
+  margin-top: 10px;
+}
+
+.audit-more > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgb(var(--color-accent-strong));
+}
+
+/* `display: inline-flex` hides the native marker, so the caret is drawn here. */
+.audit-more > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.7px solid currentColor;
+  border-bottom: 1.7px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.audit-more[open] > summary::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.audit-more > summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.audit-values {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgb(var(--color-surface));
+}
+
+.audit-values > div {
+  display: grid;
+  gap: 2px;
+}
+
+.audit-values dt {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: rgb(var(--color-muted));
+}
+
+.audit-values dd {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.audit-list-label {
+  margin-top: 14px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: rgb(var(--color-muted));
+}
+
+.audit-list {
+  max-height: 210px;
+  margin-top: 6px;
+  padding-left: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.audit-list li {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.audit-table-wrap {
+  overflow-x: auto;
+}
+
+.audit-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.audit-caption {
+  padding-bottom: 12px;
+  text-align: left;
+  font-size: 12.5px;
+  color: rgb(var(--color-muted));
+}
+
+.audit-table thead th {
+  padding: 0 14px 10px 0;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 650;
+  color: rgb(var(--color-muted));
+}
+
+.audit-table tbody th,
+.audit-table td {
+  padding: 14px 14px 14px 0;
+  border-top: 1px solid rgb(var(--color-ink) / .1);
+  text-align: left;
+  font-size: 14px;
+  vertical-align: top;
+}
+
+.audit-table tbody th {
+  font-weight: 650;
+}
+
+.audit-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-seal {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: rgb(var(--color-muted));
+}
+
+.audit-price {
+  font-weight: 650;
+}
+
+.audit-form {
+  display: grid;
+  gap: 16px;
+}
+
+.audit-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.audit-fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.audit-fields .form-input {
+  margin-top: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12.5px;
+}
+
+.audit-help {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: rgb(var(--color-muted));
+}
+
+.audit-form .button-primary {
+  justify-self: start;
+  min-width: 220px;
+}
+
+.audit-result {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgb(var(--color-surface));
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.audit-result:empty {
+  display: none;
+}
+
+.audit-limits {
+  display: grid;
+  gap: 10px;
+  max-width: 76ch;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgb(var(--color-muted));
+}
+
+.audit-limits strong {
+  font-weight: 650;
+  color: rgb(var(--color-ink));
+}
+
+.audit-raw > summary {
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .audit {
+    gap: 32px;
+  }
+
+  .audit-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-form .button-primary {
+    width: 100%;
+  }
+
+  .audit-table {
+    min-width: 560px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audit-more > summary::after {
+    transition: none;
+  }
+}
+
+/* The record takes a moment; the page keeps its shape instead of flashing empty. */
+.audit-skeleton {
+  display: grid;
+  gap: 14px;
+}
+
+.audit-skeleton-row {
+  display: block;
+  height: 16px;
+  border-radius: 8px;
+  background: rgb(var(--color-tint) / .75);
+}
+
+.audit-skeleton-row:nth-child(3) {
+  width: 72%;
+}
+
+.audit-skeleton-row:nth-child(4) {
+  width: 84%;
+}

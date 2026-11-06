@@ -49,7 +49,7 @@ async function auditPayload(overrides: Record<string, unknown> = {}) {
       {
         lot_id: "22222222-2222-4222-8222-222222222222",
         zone_id: "US-EAST",
-        lot_order: 0,
+        lot_order: 1,
         seats: 3,
         status: "FUNDED",
         rank_range: [1, 3],
@@ -94,9 +94,9 @@ beforeEach(() => {
 it("reports that the published rules document hashes to the served hash", async () => {
   serve(await auditPayload());
   show();
-  expect(await screen.findByText("Chain checkpoint")).toBeInTheDocument();
+  expect(await screen.findByText("Tamper seal")).toBeInTheDocument();
   expect(await screen.findAllByLabelText("Check passed")).toHaveLength(2);
-  expect(screen.getByText(/rebuilt to the published root/)).toBeInTheDocument();
+  expect(screen.getByText(/rebuild the published fingerprint/)).toBeInTheDocument();
   expect(screen.queryByText(/does not match/)).toBeNull();
 });
 
@@ -119,7 +119,7 @@ it("publishes the bid-set root and the number of bids per lot", async () => {
   serve(await auditPayload());
   show();
   const table = await screen.findByRole("table");
-  expect(screen.getByRole("columnheader", {name: "Bid set root"})).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", {name: "Bid seal"})).toBeInTheDocument();
   expect(table).toHaveTextContent(`${"ff".repeat(6)}…`);
   expect(table).toHaveTextContent("2");
 });
@@ -132,7 +132,7 @@ it("computes a buyer's rank from their own receipt fields", async () => {
   const lots = [{...((await auditPayload()).lots as Record<string, unknown>[])[0]!, rank_range: [1, list.length]}];
   serve(await auditPayload({commitments: list, lots}));
   show();
-  await screen.findByText("Chain checkpoint");
+  await screen.findByText("Tamper seal");
 
   fireEvent.change(screen.getByLabelText("Entry id"), {target: {value: entry.entry_id}});
   fireEvent.change(screen.getByLabelText("Request hash"), {target: {value: entry.request_hash}});
@@ -140,10 +140,10 @@ it("computes a buyer's rank from their own receipt fields", async () => {
   fireEvent.click(screen.getByRole("button", {name: "Recompute my place"}));
 
   // The recompute is async, so wait on its text rather than on the empty live region.
-  const result = await screen.findByText(/recomputes to/, {
+  const result = await screen.findByText(/listed at position/, {
     selector: '[aria-label="Recomputed place"]',
   });
-  expect(result).toHaveTextContent(`listed at position ${list.indexOf(mine) + 1} of the sorted list`);
+  expect(result).toHaveTextContent(`listed at position ${list.indexOf(mine) + 1} of ${list.length}`);
   // The vector's rank order is the draw, so the page's rank must match it exactly.
   expect(result).toHaveTextContent(`your rank is ${vectors.order.indexOf(entry.entry_id) + 1}`);
   expect(result).toHaveTextContent(`ranks 1–${list.length}`);
@@ -154,7 +154,7 @@ it("says so when a receipt is not in the published list", async () => {
   const entry = vectors.entries[0]!;
   serve(await auditPayload());
   show();
-  await screen.findByText("Chain checkpoint");
+  await screen.findByText("Tamper seal");
 
   // A different entry id over the same request is a commitment nobody published.
   fireEvent.change(screen.getByLabelText("Entry id"), {target: {value: "00000000-0000-4000-8000-000000000000"}});
