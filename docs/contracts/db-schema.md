@@ -400,7 +400,7 @@ Index: `UNIQUE (entry_id) WHERE status IN (active statuses)`; `(lot_id, status)`
 
 `timeline` values come from the timing profile (`TIMING_PROFILE`) at pool creation and are then frozen with the rules.
 
-**pools.beacon**: announced at publish `{"source": "drand", "chain_hash": "...", "round": 123456}` or `{"source": "demo"}`; after seeding add `{"randomness": "<64 hex>", "signature": "<hex>"}`.
+**pools.beacon**: announced at publish `{"source": "drand", "chain_hash": "...", "round": 123456, "not_before": <epoch seconds of close_at + beacon_delay_s>}` or `{"source": "demo"}`; after seeding **merge in** `{"randomness": "<64 hex>", "signature": "<hex>"}` onto the announcement, never replace it (CR-11) — a replaced dict would drop `source` and `chain_hash`, and `rules_document(pool)` rebuilds its `beacon` sub-dict from whatever is stored, so the served document would no longer hash to the stored `rules_hash`. Only `source`, `chain_hash` and `round` enter `rules_document`, so the extra keys `not_before`, `randomness` and `signature` never change `rules_hash`.
 
 **pool_entries.canonical_request** (key order irrelevant; hashing uses canonical JSON)
 

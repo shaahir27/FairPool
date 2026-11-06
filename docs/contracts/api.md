@@ -253,7 +253,11 @@ Vault mode (`vault-charge.md`): `POST /api/v1/entries/{entry_id}/vault` body `{"
 
 ### Public audit
 
-`GET /api/v1/public/pools/{pool_id}/audit` returns `rules_hash`, `rules_document`, `pool_status`, `entries_root`, `entries_count`, `commitments` (sorted list, after close), `beacon`, `seed_hex`, `seed_is_demo`, `lots` (each with `lot_id`, `zone_id`, `lot_order`, `seats`, `status`, `rank_range`, and, after award, `award` with merchant display name, `item_cents`, `tier_index`, `award_hash`, `valid_until`), and `audit_checkpoints` (action plus hash). No personal data, no salts, no caps.
+`GET /api/v1/public/pools/{pool_id}/audit` returns `rules_hash`, `rules_document`, `pool_status`, `entries_root`, `entries_count`, `commitments` (sorted list, after close), `beacon`, `seed_hex`, `seed_is_demo`, `lots` (each with `lot_id`, `zone_id`, `lot_order`, `seats`, `status`, `rank_range`, `bids_root` and `bids_count` once bidding has closed, and, after award, `award` with merchant display name, `item_cents`, `tier_index`, `award_hash`, `valid_until`), `audit_checkpoints` (action plus hash, covering the pool, its lots and their bids), and `checkpoint` (CR-11). No personal data, no salts, no caps, no bid contents.
+
+CR-11 reveal gate: `seed_hex`, `beacon` and `audit_checkpoints` are published only once no lot of the pool is still in `PLANNED` or `BIDDING`. Before that the answer carries `null`/`[]` for those keys, because a seed visible during bidding lets a merchant compute `tiebreak_hash(seed, lot, merchant)` before it prices anything. `commitments` and `entries_root` keep their existing after-close gate: they are what the draw is computed from, not what it depends on.
+
+CR-11 `checkpoint`: `{"payload": {"v": 1, "pool_id", "entries_root", "bids_roots", "head_seq", "head_hash"}, "signature": "base64url"}`, where `bids_roots` maps `lot_id` to that lot's `bids_root` (null while bidding is open), `head_seq`/`head_hash` are the last row of this pool's audit chain across the `pool`, `lot` and `bid` subjects, and the signature is the Ed25519 signature over `canonical_json(payload)` using the receipt signing key served at `GET /api/v1/public/keys`. It is computed at read time and stored nowhere, so it cannot drift from the rows it describes.
 
 ### Merchant
 

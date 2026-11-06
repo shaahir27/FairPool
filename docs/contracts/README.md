@@ -2,7 +2,7 @@
 
 Contracts are the exact interfaces between modules and between the two members. They are what lets Member A and Member B work in parallel without waiting for each other's code. They are derived from `docs/system-design.md` and tightened where the design left bytes, columns or names open.
 
-Current version: `contracts-v1.4`, tagged after the Phase 4 change request. Nothing in this folder changes after that tag except through a change request.
+Current version: `contracts-v1.7`, tagged after CR-11. Nothing in this folder changes after that tag except through a change request. The line above this one previously still read `contracts-v1.4` although `contracts-v1.5` and `contracts-v1.6` were already recorded below; the stale number is corrected rather than relied on.
 
 ## Files
 
@@ -26,6 +26,40 @@ No payment, fairness, account-verification or agent permission changes are inclu
 | `config-and-errors.md` | Environment variables, switches, error codes, reason codes, timing profiles | Both |
 
 ## Rules
+
+### CR-11: Make the draw and the bid set verifiable without trusting FairPool's word (owner authorized 2026-11-06)
+
+The audit story in this repository says anyone can recompute the result. A read of the
+code and the contracts together says they cannot, for three reasons, and all three are
+contract-level rather than incidental.
+
+First, the public audit payload published `seed_hex` and `beacon` as soon as the close
+snapshot existed — that is, while lots were still `PLANNED` or `BIDDING`. `lot_tiebreak_hash`
+is `hash(seed_hex, lot_id, merchant_id)`, so any merchant who read their own pool's page
+knew their exact tie-break position before pricing anything. Second, buyers' entries were
+committed to a Merkle root before the seed, but bids were committed to nothing: a bid
+revision or a whole bid created after the deadline produced a fresh valid receipt and no
+outside observer could tell. Third, the chain that is supposed to make both auditable was
+filtered to `subject_type = 'pool'`, so the bid and lot rows were invisible, and the
+checkpoint was unsigned, which left "tamper-evident only to someone holding a published
+checkpoint" with no anchor a third party could check.
+
+`api.md` gains the reveal gate, `bids_root`/`bids_count` per lot, the widened checkpoint
+list and a signed top-level `checkpoint` computed at read time. `fairness-and-hashing.md`
+gains the bid set root rule (one leaf per bid, its highest stored revision, sorted), the
+`BeaconClient.fetch` round-window enforcement, the checkpoint coverage wording, and an
+explicit statement that the round's BLS signature is **not** verified because no signing
+dependency is permitted here. `db-schema.md` changes `pools.beacon` from "add after
+seeding" to "merge after seeding" and names why: `rules_document(pool)` rebuilds its
+`beacon` sub-dict from the stored value at read time, so a replaced dict loses `source`
+and `chain_hash` and the served document stops hashing to the stored `rules_hash`. One
+vector block, `bid_set_case`, is added to `vectors/fairness_v1.json` so both the Python
+and the browser implementation are pinned to the same bytes.
+
+Affected tasks: **T04A04** (seed fetch and window), **T06A06** (bid sealing and the award
+handoff), **T00B01** (contract and vector freeze), **T09B01** (public audit page and
+verify-my-place, which is the consumer of every field above). Code lands in the following
+buckets F3, F4 and F2; none of them may precede this row.
 
 ### CR-10: Useful buyer workspace read models (owner authorized 2026-11-05)
 
@@ -147,6 +181,7 @@ No new contract tag or phase-gate claim is made by this change request.
 
 | Version | Date | Change | Approved by |
 |---|---|---|---|
+| contracts-v1.7 | 2026-11-06 | CR-11: audit-page reveal gate for `seed_hex`/`beacon`/`audit_checkpoints`, per-lot `bids_root` and `bids_count`, a signed read-time `checkpoint`, checkpoint coverage over the `pool`, `lot` and `bid` subjects, `BeaconClient.fetch` round-window enforcement, `pools.beacon` changed from add to merge, and the `bid_set_case` vector. Affects T04A04, T06A06, T00B01, T09B01 | @shaahir27 (owner) after independent agent review; delivered on `main` under the AGENTS.md section 6 solo-operation note |
 | contracts-v1 | 2026-10-30 | Initial freeze after full review; corrections C1-C15 and status consolidation recorded | @shaahir27 (owner) after independent agent review |
 
 | contracts-v1.1 | 2026-10-31 | Phase 2 provider, payment identity, rules vector/envelope, shipment association and evidence validation | @shaahir27 (owner) after independent review; merged into `main` and tagged |

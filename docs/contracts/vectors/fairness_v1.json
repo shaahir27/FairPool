@@ -447,6 +447,20 @@
       }
     }
   },
+  "bid_set_case": {
+    "note": "CR-11: bids_root = merkle_root over the sorted receipt_hash of each bid's highest stored revision at bid_close (fairness-and-hashing.md section 6). One leaf per bid, sorted ascending as hex, so the set is committed before the award exists.",
+    "bids": [
+      { "bid_id": "11111111-1111-4111-8111-111111111111", "revision": 1, "structured": { "item_price_cents": 28400, "moq": 20 }, "submitted_at": "2026-11-06T12:00:00+00:00" },
+      { "bid_id": "22222222-2222-4222-8222-222222222222", "revision": 1, "structured": { "item_price_cents": 29800, "moq": 20 }, "submitted_at": "2026-11-06T12:01:00+00:00" },
+      { "bid_id": "33333333-3333-4333-8333-333333333333", "revision": 2, "structured": { "item_price_cents": 31200, "moq": 18 }, "submitted_at": "2026-11-06T12:02:00+00:00" }
+    ],
+    "receipt_hashes": [
+      "34a1079941bc2cec3437cc5600c063382ded76cdf054070c16a819ec0fa8e683",
+      "ec084f21c61e1b4e87c3f3aaf27bcafa2ac1bb66d67def4bd4756e0eebeb3835",
+      "fc4281f6472f93bfceebf666b08518cd05256d894fb29a381b94dc57209d046b"
+    ],
+    "bids_root": "01f8b0dca2b79d0a46decb05cc88c3f2f07709fd00d17a133fc08c091f02ed5b"
+  },
   "rules": {
     "document": {
       "v": 1,

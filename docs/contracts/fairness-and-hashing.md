@@ -42,6 +42,8 @@ IDs are lowercase hyphenated UUIDs. `salt_hex` is 32 random bytes as 64 hex char
 ## 4. Seed
 
 - Live: `seed_hex` is the beacon round `randomness` value, lowercase hex (64 characters), from the round announced at publication (the first round whose time is at or after `close_at + beacon_delay_s`). Store the full beacon response in `pools.beacon`. If the round is unavailable, selection waits (F27); there is no fallback chosen by FairPool.
+- CR-11 enforcement, in `BeaconClient.fetch` and not only in prose: the returned body must carry `round` equal to the announced round, and the round's own scheduled time `genesis_time + (round - 1) * period` — read from the chain's `info` document at fetch time, never from the announcement — must be at or after the announced `not_before`. A mismatch is `INTEGRITY_ERROR`; an unresolved round is `None`, which is the F27 wait. `pool.beacon` is **merged** with the announcement and never replaced, so `source`, `chain_hash`, `round` and `not_before` survive seeding and `rules_document` still hashes to the stored `rules_hash`.
+- CR-11 stated limit: the round's BLS signature is not verified, because no signing-verification dependency is permitted in this project. `randomness` is therefore taken on trust from the configured endpoint. Selection remains "auditable under published rules"; an outside auditor holding the real drand public key can verify what FairPool cannot. `BEACON_MODE=demo` remains a labelled FairPool-chosen seed (DEMO SEED) and never a live draw.
 - Demo: `BEACON_MODE=demo` uses the demo seed and sets `seed_is_demo = true`. The UI shows DEMO SEED wherever the seed appears.
 
 ## 5. Ranking and lots
@@ -63,6 +65,8 @@ Entry receipt payload (canonical JSON):
 
 Bid receipt: `receipt_hash = sha256(canonical_json({"bid_id", "revision", "structured", "submitted_at", "v": 1}))`; the signature covers `canonical_json({"bid_id", "revision", "receipt_hash", "v": 1})`.
 
+**Bid set root (CR-11).** At `lot.bid_close`, one leaf per bid in that lot — the `receipt_hash` of its highest stored revision at that moment — sorted ascending as hex strings, gives `bids_root = merkle_root(leaves)` and `bids_count`. Both are written into the LS-02 audit payload and served on the public audit page. The buyer side already committed to its entry list before the seed existed; this commits to the bid list before the award exists, so a revision or a whole bid added after the deadline changes a published root instead of passing unnoticed. Contents stay sealed: the root is a hash, and the audit page never publishes a bid. Force-award (`admin_ops`) has no LS-02 row, so `bids_root` is nullable and the audit page must say `not recorded` rather than invent one.
+
 ## 7. Rules hash and award hash
 
 - `rules_hash = sha256(canonical_json(rules_document))` where `rules_document` has exactly these keys: `v` (1), `pool_id`, `rule_version`, `template`, `lot_plan`, `timeline`, `require_paypal_link`, `allocation` (`"seeded_lottery_v1"`), `bid_ranking` (`"ranking_v1"`), `refill` (`{"max_refill_waves": n}`), `beacon` (announced source, chain hash and round), `disclosures` (`{"lots_may_differ": true}`). It is computed at publish and shown on the public page (FR-LT-03).
@@ -71,6 +75,8 @@ Bid receipt: `receipt_hash = sha256(canonical_json({"bid_id", "revision", "struc
 ## 8. Audit chain
 
 `hash = sha256(prev_hash + "|" + canonical_json({"actor", "action", "subject_type", "subject_id", "payload", "created_at"}))`. The first row's `prev_hash` is 64 zeros. `AuditLog.append` takes a global transaction-level advisory lock so rows are chained in order, reads `now()` from the database for `created_at`, then inserts. Checkpoints (the latest hash) are written into the public audit payload at pool close and at award. The chain is tamper-evident only to someone holding a published checkpoint.
+
+CR-11 closes two gaps in that sentence. Coverage: the published `audit_checkpoints` list spans the `pool`, `lot` and `bid` subjects of this pool, so a `bid.confirmed` or a lot transition added after the fact cannot hide behind a pool-only view. Anchoring: the published `checkpoint` is signed with the receipt key, so a holder can check it without trusting the reader's own copy of the chain — and, because `audit_hash` uses no secret and the append-only trigger blocks `UPDATE`/`DELETE` but not `INSERT`, the signature is what turns "the chain is self-consistent" into "this chain was published at read time by FairPool". The remaining honest limit: a privileged writer who re-signs a rewritten chain still cannot be caught by the chain alone, which is why `bids_root` and `entries_root` are committed *before* the outcome they constrain.
 
 ## 9. Money, tax and ranking arithmetic
 
