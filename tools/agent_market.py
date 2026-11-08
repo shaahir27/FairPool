@@ -402,7 +402,10 @@ class Market:
                 text(
                     "SELECT count(*) FROM buyer_orders o "
                     "JOIN pool_entries e ON e.id = o.entry_id "
-                    "WHERE e.delegation_id IS NOT NULL"
+                    "WHERE e.delegation_id IS NOT NULL "
+                    "AND o.status::text IN ('AUTHORIZING','AUTHORIZED','CAPTURING',"
+                    "'CAPTURE_PENDING','CAPTURED','REFUNDING','VOIDED','AUTH_FAILED',"
+                    "'CAPTURE_FAILED')"
                 )
             )
         self.report["money"] = {
@@ -417,9 +420,10 @@ class Market:
             ],
             "buyer_orders_for_agent_entries": int(orders or 0),
             "derivation": (
-                "buyer_orders joined to pool_entries on entry_id, counted where "
-                "delegation_id is not null; a non-zero count would mean an agent-submitted "
-                "entry reached a money state without a human checkout"
+                "buyer_orders joined to pool_entries on entry_id where delegation_id is not "
+                "null, restricted to the provider-write statuses (AUTHORIZING..VOIDED, "
+                "AUTH_FAILED, CAPTURE_FAILED); an OFFERED or ORDER_CREATED row is not counted "
+                "because no payment call happened yet"
             ),
         }
         # The claim is only meaningful if no agent entry reached a money state at all.
@@ -434,11 +438,12 @@ class Market:
         from sqlalchemy import text
 
         statements = (
+            # awards reference bid_revisions, so they go first.
+            "DELETE FROM awards WHERE lot_id = :lot",
             "DELETE FROM bid_flags WHERE bid_revision_id IN (SELECT id FROM bid_revisions "
             "WHERE bid_id IN (SELECT id FROM bids WHERE lot_id = :lot))",
             "DELETE FROM bid_revisions WHERE bid_id IN (SELECT id FROM bids WHERE lot_id = :lot)",
             "DELETE FROM bids WHERE lot_id = :lot",
-            "DELETE FROM awards WHERE lot_id = :lot",
             "DELETE FROM allocations WHERE pool_id = :pool",
             "DELETE FROM entry_receipts WHERE entry_id IN "
             "(SELECT id FROM pool_entries WHERE pool_id = :pool)",

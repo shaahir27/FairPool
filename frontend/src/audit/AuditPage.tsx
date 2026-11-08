@@ -94,9 +94,11 @@ async function verdicts(audit: Audit, publicKey: string | null): Promise<Verdict
       detail:
         proof === null
           ? "No seal yet: it appears once bidding closes."
-          : signatureOk
-            ? `Seal number ${proof.head_seq} verifies with FairPool's published key.`
-            : "The seal does not verify with the published key.",
+          : publicKey === null
+            ? "The seal could not be checked here: FairPool's public key has not loaded."
+            : signatureOk
+              ? `Seal number ${proof.head_seq} verifies with FairPool's published key.`
+              : "The seal does not verify with the published key.",
       ok: signatureOk,
       facts:
         proof === null
@@ -202,13 +204,28 @@ export function AuditPage() {
       setChecks(PENDING);
       return;
     }
-    void verdicts(audit, publicKey).then((rows) => {
-      if (live) setChecks(rows);
-    });
+    void verdicts(audit, publicKey)
+      .then((rows) => {
+        if (live) setChecks(rows);
+      })
+      .catch(() => {
+        // A page that cannot recompute must say so instead of staying on "Recalculating…".
+        if (live) {
+          setChecks([
+            {label: "Published rules", detail: "These checks could not run in this browser.", ok: null, facts: []},
+            {label: "Entry list", detail: "These checks could not run in this browser.", ok: null, facts: []},
+            {label: "Tamper seal", detail: "These checks could not run in this browser.", ok: null, facts: []},
+          ]);
+        }
+      });
     return () => {
       live = false;
     };
   }, [audit, publicKey]);
+
+  useEffect(() => {
+    setPlace("");
+  }, [poolId]);
 
   const [entryId, setEntryId] = useState("");
   const [requestHash, setRequestHash] = useState("");
@@ -493,7 +510,7 @@ export function AuditPage() {
               Recompute my place
             </button>
             {/* A live region with its own name: the result is announced once, here. */}
-            <p role="status" aria-live="polite" aria-label="Recomputed place" className="audit-result">
+            <p role="status" aria-live="polite" data-testid="audit-place" className="audit-result">
               {place}
             </p>
           </form>

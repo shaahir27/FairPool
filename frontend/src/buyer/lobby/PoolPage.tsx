@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -121,6 +121,16 @@ export function PoolPage() {
   const [liveLots, setLiveLots] = useState<Record<string, string>>({});
 
   const [showReceipt, setShowReceipt] = useState(false);
+  const receiptSheet = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showReceipt) return;
+    receiptSheet.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowReceipt(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showReceipt]);
   const [pending, setPending] = useState<string | null>(null);
 
   useEffect(() => {
@@ -410,6 +420,8 @@ export function PoolPage() {
           onClick={() => setShowReceipt(false)}
         >
           <div
+            ref={receiptSheet}
+            tabIndex={-1}
             className="receipt-drawer-sheet"
             onClick={(e) => e.stopPropagation()}
           >

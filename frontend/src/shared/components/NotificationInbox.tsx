@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { api } from "../api/client";
+import { getCsrfToken } from "../lib/csrf";
 import { formatDateTime } from "../lib/format";
 import { Icon } from "./Icon";
 import "./NotificationInbox.css";
@@ -97,6 +98,7 @@ export function NotificationInbox() {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
+  const [staleToken, setStaleToken] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -111,6 +113,23 @@ export function NotificationInbox() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
+  // The badge has to exist before the panel is opened: marking read on open would
+  // otherwise destroy the only signal that anything arrived.
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const { data, error } = await api.GET("/api/v1/me/notifications");
+        if (live && !error && data) setUnread(data.unread);
+      } catch {
+        // A failed badge read is silent; opening the panel reports the error.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const load = async () => {
     setStatus("loading");
     try {
@@ -121,12 +140,22 @@ export function NotificationInbox() {
       setItems(data.items);
       setUnread(data.unread);
       setStatus("ready");
-      const marked = await api.POST("/api/v1/me/notifications/read");
-      if (!marked.error) {
-        setUnread(0);
-        setItems((rows) =>
-          rows.map((row) => (row.read_at ? row : { ...row, read_at: new Date().toISOString() })),
-        );
+      // A tab opened without signing in has the cookie but no CSRF token; the rows
+      // still render, and the header says why they stay unread.
+      if (!getCsrfToken()) {
+        setStaleToken(true);
+        return;
+      }
+      try {
+        const marked = await api.POST("/api/v1/me/notifications/read");
+        if (!marked.error) {
+          setUnread(0);
+          setItems((rows) =>
+            rows.map((row) => (row.read_at ? row : { ...row, read_at: new Date().toISOString() })),
+          );
+        }
+      } catch {
+        // Rows are already on screen; a failed mark-read only leaves the badge up.
       }
     } catch {
       setStatus("error");
@@ -148,6 +177,7 @@ export function NotificationInbox() {
         ref={trigger}
         type="button"
         className="inbox-trigger"
+        aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={toggle}
@@ -175,6 +205,12 @@ export function NotificationInbox() {
               <Icon name="close" />
             </button>
           </header>
+          {staleToken ? (
+            <p className="inbox-note" role="status">
+              Your sign-in token has expired in this tab, so these stay unread. Sign in
+              again to clear them.
+            </p>
+          ) : null}
           {status === "loading" ? <p className="inbox-note">Loading notifications…</p> : null}
           {status === "error" ? (
             <p className="inbox-note" role="alert">

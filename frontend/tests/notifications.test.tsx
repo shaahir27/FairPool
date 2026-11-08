@@ -8,6 +8,7 @@ vi.mock("../src/shared/api/client", () => ({
 }));
 
 import { NotificationInbox } from "../src/shared";
+import { setCsrfToken } from "../src/shared/lib/csrf";
 
 interface Item {
   id: string;
@@ -26,6 +27,7 @@ function item(kind: string, payload: Record<string, unknown> = {}, id = kind): I
 let list: { items: Item[]; unread: number } = { items: [], unread: 0 };
 
 beforeEach(() => {
+  setCsrfToken("test-csrf");
   list = { items: [], unread: 0 };
   transport.get.mockReset();
   transport.post.mockReset();
@@ -42,11 +44,28 @@ afterEach(() => {
 
 async function openInbox(): Promise<void> {
   render(<NotificationInbox />);
-  fireEvent.click(screen.getByRole("button", { name: /Inbox/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Notifications/ }));
   await screen.findByRole("region", { name: "Notifications" });
 }
 
 describe("the notification inbox", () => {
+  it("shows the unread badge before the panel is opened", async () => {
+    list = { items: [item("lot.awarded")], unread: 2 };
+    render(<NotificationInbox />);
+    expect(
+      await screen.findByRole("button", { name: "Notifications, 2 unread" }),
+    ).toBeInTheDocument();
+    expect(transport.post).not.toHaveBeenCalled();
+  });
+
+  it("keeps rows unread when the tab has no CSRF token", async () => {
+    setCsrfToken(null);
+    list = { items: [item("lot.awarded")], unread: 1 };
+    await openInbox();
+    expect(screen.getByText(/sign-in token has expired/i)).toBeInTheDocument();
+    expect(transport.post).not.toHaveBeenCalled();
+  });
+
   it("lists the owner's notifications, newest first, and marks them read", async () => {
     list = {
       items: [item("lot.awarded", {}, "newest"), item("bid.lost", {}, "older")],

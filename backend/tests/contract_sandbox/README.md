@@ -19,7 +19,9 @@ contract records; the adapter's own unit tests live under `backend/tests/unit/`.
 
 ## Markers
 
-- `sandbox` — no human needed; CI never runs it because the credentials are absent.
+- `sandbox` — no human needed. CI deselects it with the marker filter, and
+  `requires_credentials` also skips on `CI` even though the workflow exports dummy
+  credential variables.
 - `sandbox_interactive` — a human must approve one order in the Sandbox buyer account.
   The whole module skips unless `FAIRPOOL_SANDBOX_APPROVAL=1` is exported, so a default
   run passes with skips instead of waiting five minutes and failing.

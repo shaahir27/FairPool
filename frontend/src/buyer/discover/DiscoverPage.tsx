@@ -112,18 +112,21 @@ export function DiscoverPage() {
   const categories = Array.from(
     new Map(
       pools.flatMap((pool) => {
-        const key = pool.product_key?.split("-")[0]?.trim();
+        const key = pool.product_key?.split("-")[0]?.trim().toLowerCase();
         return key ? [[key, key.charAt(0).toUpperCase() + key.slice(1)] as const] : [];
       }),
     ).entries(),
   ).sort((a, b) => a[1].localeCompare(b[1]));
+  // A refetch can remove the last pool of the selected category; fall back to all.
+  const effectiveCategory =
+    category === "ALL" || categories.some(([id]) => id === category) ? category : "ALL";
   const visiblePools = pools.filter((pool) => {
     const matchesSearch = [pool.title, pool.variant, pool.condition].some((value) =>
       value?.toLocaleLowerCase().includes(search),
     );
     if (!matchesSearch) return false;
-    if (category === "ALL") return true;
-    return pool.product_key?.toLocaleLowerCase().split("-")[0] === category;
+    if (effectiveCategory === "ALL") return true;
+    return pool.product_key?.toLocaleLowerCase().split("-")[0] === effectiveCategory;
   });
 
   return (
@@ -149,8 +152,8 @@ export function DiscoverPage() {
           <div className="catalogue-category-bar" role="group" aria-label="Filter by category">
             <button
               type="button"
-              className={`category-pill-btn ${category === "ALL" ? "is-active" : ""}`}
-              aria-pressed={category === "ALL"}
+              className={`category-pill-btn ${effectiveCategory === "ALL" ? "is-active" : ""}`}
+              aria-pressed={effectiveCategory === "ALL"}
               onClick={() => setCategory("ALL")}
             >
               All pools
@@ -159,8 +162,8 @@ export function DiscoverPage() {
               <button
                 key={id}
                 type="button"
-                className={`category-pill-btn ${category === id ? "is-active" : ""}`}
-                aria-pressed={category === id}
+                className={`category-pill-btn ${effectiveCategory === id ? "is-active" : ""}`}
+                aria-pressed={effectiveCategory === id}
                 onClick={() => setCategory(id)}
               >
                 {label}
@@ -198,7 +201,7 @@ export function DiscoverPage() {
         ) : pools.length === 0 ? (
           <p className="shop-copy mt-5">No open pools to join right now.</p>
         ) : visiblePools.length === 0 ? (
-          <div className="catalogue-empty"><Icon name="search" /><p>No pools match your search.</p><button type="button" className="button-secondary" onClick={() => setQuery("")}>Clear search</button></div>
+          <div className="catalogue-empty"><Icon name="search" /><p>No pools match your search.</p><button type="button" className="button-secondary" onClick={() => { setQuery(""); setCategory("ALL"); }}>Clear search</button></div>
         ) : (
           <ul className="catalogue-grid">
             {visiblePools.map((pool) => (
@@ -390,7 +393,6 @@ function ConfirmationCardPanel({
 
 function PoolCard({ pool }: { pool: PoolSummary }) {
   const style = statusStyle(pool.status);
-  const fillPercent = Math.min(100, Math.round((pool.seats / Math.max(pool.min_seats, pool.seats, 1)) * 100));
   return (
     <article className="catalogue-card enhanced-pool-card">
       <div className="catalogue-card-badge-row">
@@ -419,12 +421,6 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
             .join(" · ")}
         </p>
         <div className="catalogue-facts"><span><Icon name="layers" />{pool.seats} seats · minimum {pool.min_seats}</span></div>
-        <div className="catalogue-progress-track" aria-hidden="true" title={`${pool.seats} seats filled`}>
-          <div className="catalogue-progress-fill" style={{ width: `${fillPercent}%` }} />
-        </div>
-        <div className="catalogue-progress-track" aria-hidden="true" title={`${pool.seats} seats filled`}>
-          <div className="catalogue-progress-fill" style={{ width: `${fillPercent}%` }} />
-        </div>
         <p className="catalogue-deadline">
           {pool.close_at ? (
             <>
