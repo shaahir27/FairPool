@@ -35,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.db.models.identity import Delegation
 from fairpool.domain.errors import ApplicationError
-from fairpool.modules.identity.mandate import ratified_mandate
+from fairpool.modules.identity.mandate import ratified_mandate, verify_ratification
 from fairpool.ports import AuditLog, Clock
 
 logger: Final[logging.Logger] = logging.getLogger("fairpool.identity.delegations")
@@ -100,6 +100,12 @@ class DelegationService:
         # a token that nobody ratified. Conditions are validated here, inside the only
         # path that mints a token, so no token can carry an unvalidated rule.
         normalized.update(ratified_mandate(scope))
+        # CR-14: the hash is the buyer's ratification of these exact mandate fields -- the
+        # cap and expiry included -- so it must be reproducible from them. A version with
+        # no hash, or any stored hash that does not match, is refused rather than persisted
+        # as a claim nothing checked.
+        if scope.get("mandate_version") is not None or scope.get("ratification_sha256") is not None:
+            verify_ratification(scope, max_cap_cents=max_cap_cents, expires_at=expires_at)
         token = _new_token()
         row = Delegation(
             id=uuid4(),

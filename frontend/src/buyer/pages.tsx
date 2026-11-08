@@ -327,7 +327,7 @@ function describeCondition(condition: MandateCondition): string {
   }
 }
 
-/** The exact text the buyer ratifies and the browser hashes; version 1 of the wording. */
+/** The buyer's readability view of the mandate; the hash covers the fields, not this text. */
 function renderMandate(poolTitles: string[], cap: string, expires: string, conditions: MandateCondition[]): string {
   return [
     "FairPool agent mandate (version 1)",
@@ -366,7 +366,28 @@ function conditionProblem(condition: MandateCondition): boolean {
   return !DAY.test(params.date ?? "");
 }
 
-/** SHA-256 of the rendered mandate; Web Crypto, so it is the browser's own digest. */
+/** Canonical JSON: sorted keys and compact separators, the bytes the server also hashes. */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** The mandate fields the server recomputes; the preview above is only a reading view. */
+function canonicalMandate(poolIds: string[], capCents: number, expiresAt: string, conditions: MandateRequestCondition[]): string {
+  return canonicalJson({
+    pool_ids: poolIds.map((id) => id.toLowerCase()).sort(),
+    category: null,
+    conditions,
+    max_cap_cents: capCents,
+    expires_at: expiresAt,
+  });
+}
+
+/** SHA-256 of a UTF-8 string; Web Crypto, so it is the browser's own digest. */
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -392,6 +413,25 @@ export function AgentSettingsPage() {
   const error = actionError ?? (accessRead.error ? envelope(accessRead.error) : null);
   const [busy, setBusy] = useState(false);
   const poolsLoading = poolsRead.isPending;
+  const renderedMandate = renderMandate(
+    selected.map((id) => pools.find((pool) => pool.pool_id === id)?.title ?? id),
+    cap,
+    expires,
+    conditions,
+  );
+  // A refetch can drop a closed pool, and its id is part of the mandate hash: a
+  // ratification given for the old set must not mint a token over the new one.
+  useEffect(() => {
+    setRatified(false);
+  }, [renderedMandate]);
+  useEffect(() => {
+    if (pools.length === 0) return;
+    const open = new Set(pools.map((pool) => pool.pool_id));
+    setSelected((current) => {
+      const next = current.filter((id) => open.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [pools]);
   async function load() {
     await Promise.all([accessRead.refetch({cancelRefetch: false}), poolsRead.refetch({cancelRefetch: false})]);
   }
@@ -404,7 +444,7 @@ export function AgentSettingsPage() {
 
   function updateCondition(index: number, change: (condition: MandateCondition) => MandateCondition) {
     setConditions((current) => current.map((condition, at) => (at === index ? change(condition) : condition)));
-    // The buyer ratified a text, not a form: any edit means ratifying again.
+    // The buyer ratified the fields, not a form: any edit means ratifying again.
     setRatified(false);
   }
 
@@ -429,12 +469,8 @@ export function AgentSettingsPage() {
       setError({ code: "VALIDATION_ERROR", message: "Review the mandate and ratify the mandate before access is created." });
       return;
     }
-    const rendered = renderMandate(
-      selected.map((id) => pools.find((pool) => pool.pool_id === id)?.title ?? id),
-      cap,
-      expires,
-      conditions,
-    );
+    const expiresAt = expiry.toISOString();
+    const conditionsPayload = serializeConditions(conditions);
     setBusy(true); setError(null); setToken(null);
     try {
       const { data, error: failure } = await api.POST("/api/v1/me/delegations", {
@@ -443,11 +479,11 @@ export function AgentSettingsPage() {
             pool_ids: selected,
             category: null,
             mandate_version: "1",
-            ratification_sha256: await sha256Hex(rendered),
-            conditions: serializeConditions(conditions),
+            ratification_sha256: await sha256Hex(canonicalMandate(selected, capCents, expiresAt, conditionsPayload)),
+            conditions: conditionsPayload,
           },
           max_cap_cents: capCents,
-          expires_at: expiry.toISOString(),
+          expires_at: expiresAt,
         },
       });
       if (failure || !data) setError(envelope(failure));
@@ -623,8 +659,8 @@ export function AgentSettingsPage() {
         </fieldset>
         <div>
           <h3 className="text-sm font-semibold text-ink">Your mandate</h3>
-          <pre data-testid="mandate-text" className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-canvas p-3 text-xs">{renderMandate(selected.map((id) => pools.find((pool) => pool.pool_id === id)?.title ?? id), cap, expires, conditions)}</pre>
-          <p className="shop-copy">FairPool stores a SHA-256 of this text with the delegation. Editing any field means you ratify again.</p>
+          <pre data-testid="mandate-text" className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-canvas p-3 text-xs">{renderedMandate}</pre>
+          <p className="shop-copy">FairPool stores a SHA-256 of these mandate fields — your selected pools, cap, expiry and conditions — with the delegation. This preview is for reading. Editing any field means you ratify again.</p>
         </div>
         <label className="settings-pool-option">
           <input type="checkbox" checked={ratified} onChange={(event) => setRatified(event.target.checked)} />

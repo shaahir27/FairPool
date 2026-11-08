@@ -316,7 +316,7 @@ it("requires an explicit ratification before any delegation token is requested",
   expect(screen.getByText(/not available in this build/)).toBeInTheDocument();
 });
 
-it("renders the mandate, hashes that text and sends the ratified conditions with the token", async () => {
+it("renders the mandate for reading and hashes the canonical mandate fields with the token", async () => {
   const pool = { pool_id: "11111111-1111-4111-8111-111111111111", title: "Demo monitor pool" };
   transport.get.mockImplementation((path: string) => {
     if (path === "/api/v1/me/delegations") return Promise.resolve({ data: { items: [] } });
@@ -327,6 +327,7 @@ it("renders the mandate, hashes that text and sends the ratified conditions with
   render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
 
   fireEvent.click(await screen.findByRole("checkbox", { name: /Demo monitor pool/ }));
+  fireEvent.change(screen.getByLabelText("Expires (UTC)"), { target: { value: "2026-12-01T00:00" } });
   fireEvent.click(screen.getByRole("button", { name: "Add condition" }));
   fireEvent.change(screen.getByLabelText("Condition 1 amount (USD)"), { target: { value: "520" } });
 
@@ -337,10 +338,20 @@ it("renders the mandate, hashes that text and sends the ratified conditions with
   fireEvent.click(screen.getByRole("checkbox", { name: /I ratify this mandate/ }));
   fireEvent.click(screen.getByRole("button", { name: "Create delegation" }));
 
-  const expectedHash = createHash("sha256").update(rendered).digest("hex");
+  // The canonical payload: sorted keys, compact JSON, the UTC millisecond expiry and
+  // sorted lowercase pool ids. This is what the server recomputes and hashes.
+  const canonical = JSON.stringify({
+    category: null,
+    conditions: [{ action: "REASK", params: { amount: "520" }, predicate: "PRICE_ABOVE" }],
+    expires_at: "2026-12-01T00:00:00.000Z",
+    max_cap_cents: 60000,
+    pool_ids: [pool.pool_id],
+  });
+  const expectedHash = createHash("sha256").update(canonical).digest("hex");
   await waitFor(() => expect(transport.post).toHaveBeenCalledWith("/api/v1/me/delegations", {
     body: expect.objectContaining({
       max_cap_cents: 60000,
+      expires_at: "2026-12-01T00:00:00.000Z",
       scope: expect.objectContaining({
         pool_ids: [pool.pool_id],
         mandate_version: "1",

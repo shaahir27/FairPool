@@ -7,16 +7,19 @@ a rule deterministic code can evaluate against stored rows alone. No provider ca
 model call is allowed to resolve a condition (rule 5).
 
 Amounts stay ``"520.00"`` strings because money is integer cents behind this boundary and
-a float would not survive the round trip (I3). A predicate outside the vocabulary, a param
-that belongs to another predicate, or a condition with no ``ratification_sha256`` is a
-``VALIDATION_ERROR``: refused, never guessed at.
+a float would not survive the round trip (I3). A predicate outside the vocabulary or a param
+that belongs to another predicate is a ``VALIDATION_ERROR``: refused, never guessed at.
+Conditions with no ``ratification_sha256`` are dropped, not validated: nothing distinguishes
+them from rules the buyer never ratified (``db-schema.md``).
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
-from collections.abc import Callable, Mapping
-from datetime import date
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from datetime import UTC, date, datetime
 from typing import Any, Final, NoReturn
 
 from fairpool.domain.errors import ApplicationError
@@ -138,3 +141,61 @@ def ratified_mandate(scope: Mapping[str, Any]) -> dict[str, Any]:
     if conditions is not None:
         mandate["conditions"] = validate_conditions(conditions, ratification_sha256=sha)
     return mandate
+
+
+def _utc_millis(value: datetime) -> str:
+    # Must equal JavaScript's Date.prototype.toISOString: UTC, milliseconds, trailing Z.
+    return value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def canonical_mandate(
+    *,
+    category: str | None,
+    conditions: Sequence[Mapping[str, Any]],
+    expires_at: datetime,
+    max_cap_cents: int,
+    pool_ids: Iterable[object],
+) -> str:
+    """The exact JSON the browser hashes and this server recomputes (FR-AI-06).
+
+    Sorted keys and compact separators make both languages emit the same UTF-8 bytes; the
+    rendered card is a readability view and is deliberately not what gets hashed.
+    """
+    payload: dict[str, Any] = {
+        "category": category,
+        "conditions": list(conditions),
+        "expires_at": _utc_millis(expires_at),
+        "max_cap_cents": max_cap_cents,
+        "pool_ids": sorted(str(pool_id).lower() for pool_id in pool_ids),
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def verify_ratification(
+    scope: Mapping[str, Any], *, max_cap_cents: int, expires_at: datetime
+) -> None:
+    """Refuse unless ``scope`` carries the buyer's hash of exactly these mandate fields."""
+    claimed = scope.get("ratification_sha256")
+    if not isinstance(claimed, str) or _SHA256.fullmatch(claimed) is None:
+        _refuse()
+    conditions = scope.get("conditions")
+    if conditions is None:
+        conditions = []
+    if not isinstance(conditions, list):
+        _refuse()
+    pool_ids = scope.get("pool_ids")
+    if pool_ids is None:
+        pool_ids = []
+    if not isinstance(pool_ids, list):
+        _refuse()
+    computed = hashlib.sha256(
+        canonical_mandate(
+            category=scope.get("category"),
+            conditions=conditions,
+            expires_at=expires_at,
+            max_cap_cents=max_cap_cents,
+            pool_ids=pool_ids,
+        ).encode()
+    ).hexdigest()
+    if claimed != computed:
+        _refuse()

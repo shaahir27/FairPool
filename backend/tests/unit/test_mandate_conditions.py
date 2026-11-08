@@ -8,14 +8,18 @@ evaluate, whether the predicate is invented or the params belong to another pred
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
 from fairpool.domain.errors import ApplicationError
-from fairpool.modules.identity.mandate import validate_conditions
+from fairpool.modules.identity.mandate import canonical_mandate, validate_conditions
 
 SHA = "a" * 64
+CONDITIONS: list[dict[str, Any]] = [
+    {"predicate": "PRICE_ABOVE", "action": "REASK", "params": {"amount": "520.00"}},
+]
 
 
 def refuse(conditions: Any, *, sha: str | None = SHA) -> None:
@@ -119,3 +123,24 @@ def test_a_condition_date_must_be_a_calendar_day() -> None:
 
 def test_a_condition_that_is_not_an_object_is_refused() -> None:
     refuse(["PRICE_ABOVE"])
+
+
+def test_the_canonical_mandate_is_sorted_compact_utc_milliseconds() -> None:
+    """The browser hashes these exact bytes, so the shape is pinned on both sides."""
+    pool_ids = [
+        "22222222-2222-4222-8222-222222222222",
+        "11111111-1111-4111-8111-111111111111",
+    ]
+    canonical = canonical_mandate(
+        category=None,
+        conditions=CONDITIONS,
+        expires_at=datetime(2026, 12, 1, 0, 0, 0, 123000, tzinfo=UTC),
+        max_cap_cents=60000,
+        pool_ids=pool_ids,
+    )
+    assert canonical == (
+        '{"category":null,"conditions":[{"action":"REASK","params":{"amount":"520.00"},'
+        '"predicate":"PRICE_ABOVE"}],"expires_at":"2026-12-01T00:00:00.123Z",'
+        '"max_cap_cents":60000,"pool_ids":["11111111-1111-4111-8111-111111111111",'
+        '"22222222-2222-4222-8222-222222222222"]}'
+    )
