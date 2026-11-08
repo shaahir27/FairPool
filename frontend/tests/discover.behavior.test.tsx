@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -114,6 +114,22 @@ describe("Discover and Join", () => {
     expect(screen.getAllByRole("searchbox", { name: "Search open pools" })).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Make a request" })).toBeInTheDocument();
     expect(screen.getByLabelText(PLACEHOLDER)).toBeInTheDocument();
+  });
+
+  it("filters the catalogue by a category derived from each pool's product key", async () => {
+    transport.get.mockResolvedValue({
+      data: [pool(), pool({ pool_id: "pool-two", title: "Ceramic kettle", product_key: "kettle-brew-1" })],
+    });
+    show();
+    await screen.findByRole("heading", { name: "Ceramic kettle" });
+    const group = screen.getByRole("group", { name: "Filter by category" });
+    expect(within(group).getByRole("button", { name: "Monitor" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Kettle" })).toBeInTheDocument();
+    fireEvent.click(within(group).getByRole("button", { name: "Kettle" }));
+    expect(screen.getByRole("heading", { name: "Ceramic kettle" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "27-inch 4K monitor" })).toBeNull();
+    fireEvent.click(within(group).getByRole("button", { name: "All pools" }));
+    expect(screen.getByRole("heading", { name: "27-inch 4K monitor" })).toBeInTheDocument();
   });
 
   it("asks for the pools that are open, ordered by entry count", async () => {

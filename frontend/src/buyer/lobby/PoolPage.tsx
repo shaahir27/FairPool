@@ -6,6 +6,7 @@ import {
   api,
   useApiRead,
   type ApiComponents,
+  formatCents,
   formatDateTime,
   HonestyLabels,
   Icon,
@@ -251,16 +252,6 @@ export function PoolPage() {
   }
 
   const receipt = entryPoolId === poolId && !entryError ? entry?.receipt ?? null : null;
-  if (showReceipt && receipt) {
-    return (
-      <EntryReceiptPage
-        receipt={receipt}
-        poolTitle={detail.title}
-        productDetails={{ condition: detail.condition, variant: detail.variant ?? null, entryStatus: entry?.entry_status ?? "Not available" }}
-        onBack={() => setShowReceipt(false)}
-      />
-    );
-  }
 
   const status = liveStatus ?? detail.status;
   const style = statusStyle(status);
@@ -305,93 +296,132 @@ export function PoolPage() {
       ) : null}
 
       <div className="pool-page-sections">
-        <div className="pool-information">
-          <section className="shop-panel lobby-product" aria-label="Product overview">
-            <ProductArt title={detail.title} />
-            <div>
-              <h2>Know what you’re joining</h2>
-              <p className="shop-copy">{[detail.condition?.replaceAll("_", " "), detail.variant].filter(Boolean).join(" · ")}. The pool’s published requirements apply to every merchant bid.</p>
-              <ul>
-                <li>{detail.seats} places across the published lot plan</li>
-                <li>Set your maximum before joining</li>
-                <li>Approve your own offer at the final price</li>
-              </ul>
-              <p className="shop-copy text-xs">Category illustration; exact appearance depends on the merchant’s offer.</p>
-            </div>
-          </section>
-          <StageStrip status={status} />
-        <section className="pool-entry-section" aria-label="Your place in this pool">
-          {entryPoolId !== poolId ? <section className="shop-panel shop-panel-pad" role="status" aria-label="Checking your entry" aria-busy="true"><p>Checking your entry…</p><div className="skeleton mt-4 h-10" /></section>
-          : entryError ? <section className="shop-panel shop-panel-pad"><Notice kind="error">We couldn’t check your entry. Try again before joining.</Notice><button type="button" className="button-secondary mt-4" onClick={() => setEntryRevision((value) => value + 1)}>Retry entry check</button></section>
-          : <JoinPanel
-            detail={detail}
-            entry={entry}
-            pending={pending}
-            status={status}
-            windowPassed={windowPassed}
-            onCleared={() => setPending(null)}
-            onPending={(value) => setPending(value)}
-            onViewReceipt={() => setShowReceipt(true)}
-            onJoined={() => {
-              setPending(null);
-              setEntryRevision((value) => value + 1);
-              setShowReceipt(false);
-            }}
-            onWithdrew={() => {
-              setShowReceipt(false);
-              setEntryRevision((value) => value + 1);
-            }}
-          />}
-          <TrustRow />
-        </section>
+        <div className="pool-terminal-grid">
+          <div className="pool-dossier-column">
+            <section className="shop-panel lobby-product" aria-label="Product overview">
+              <ProductArt title={detail.title} />
+              <div>
+                <h2>Know what you’re joining</h2>
+                <p className="shop-copy">{[detail.condition?.replaceAll("_", " "), detail.variant].filter(Boolean).join(" · ")}. The pool’s published requirements apply to every merchant bid.</p>
+                <ul>
+                  <li>{detail.seats} places across the published lot plan</li>
+                  <li>Set your maximum before joining</li>
+                  <li>Approve your own offer at the final price</li>
+                </ul>
+                <p className="shop-copy text-xs">Category illustration; exact appearance depends on the merchant’s offer.</p>
+              </div>
+            </section>
 
-          <section className="shop-panel" aria-labelledby="lobby-timeline">
-            <div className="shop-panel-pad">
-              <h2>How this pool runs</h2>
-              <p className="shop-copy mt-1">
-                One published window. Every entry received before it closes is considered under the
-                same rules, and arriving earlier earns no priority.
-              </p>
-              <dl className="price-rows mt-4">
-                <div>
-                  <dt>Entry window closes</dt>
-                  <dd>
-                    {detail.close_at ? (
-                      <time dateTime={detail.close_at}>{formatDateTime(detail.close_at)}</time>
-                    ) : (
-                      "Not published"
-                    )}
-                  </dd>
-                </div>
-                <TimelineRow label="Bidding window per lot" seconds={number(timeline.bid_window_s)} />
-                <TimelineRow
-                  label="Your approval window"
-                  seconds={number(timeline.offer_window_s)}
-                />
-                <TimelineRow
-                  label="Funding deadline after approval"
-                  seconds={number(timeline.fund_deadline_s)}
-                />
-                <div>
-                  <dt>Delivery zones</dt>
-                  <dd>{detail.zone_ids.join(", ") || "Not published"}</dd>
-                </div>
-              </dl>
-            </div>
+            <StageStrip status={status} />
+
+            <section className="shop-panel" aria-labelledby="lobby-timeline">
+              <div className="shop-panel-pad">
+                <h2>How this pool runs</h2>
+                <p className="shop-copy mt-1">
+                  One published window. Every entry received before it closes is considered under the
+                  same rules, and arriving earlier earns no priority.
+                </p>
+                <dl className="price-rows mt-4">
+                  <div>
+                    <dt>Entry window closes</dt>
+                    <dd>
+                      {detail.close_at ? (
+                        <time dateTime={detail.close_at}>{formatDateTime(detail.close_at)}</time>
+                      ) : (
+                        "Not published"
+                      )}
+                    </dd>
+                  </div>
+                  <TimelineRow label="Bidding window per lot" seconds={number(timeline.bid_window_s)} />
+                  <TimelineRow
+                    label="Your approval window"
+                    seconds={number(timeline.offer_window_s)}
+                  />
+                  <TimelineRow
+                    label="Funding deadline after approval"
+                    seconds={number(timeline.fund_deadline_s)}
+                  />
+                  <div>
+                    <dt>Delivery zones</dt>
+                    <dd>{detail.zone_ids.join(", ") || "Not published"}</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <LotPlanPanel plan={detail.lot_plan} liveLots={liveLots} />
+
+            <RulesPanel poolId={detail.pool_id} rulesHash={detail.rules_hash ?? null} />
+          </div>
+
+          <div className="pool-action-column">
             <CloseCountdown
               closeAt={detail.close_at ?? null}
               openAt={text(timeline.open_at)}
               serverNow={serverNow}
             />
-          </section>
 
-          <LotPlanPanel plan={detail.lot_plan} liveLots={liveLots} />
-
-          <RulesPanel poolId={detail.pool_id} rulesHash={detail.rules_hash ?? null} />
+            <section className="pool-entry-section" aria-label="Your place in this pool">
+              {entryPoolId !== poolId ? (
+                <section className="shop-panel shop-panel-pad" role="status" aria-label="Checking your entry" aria-busy="true">
+                  <p>Checking your entry…</p>
+                  <div className="skeleton mt-4 h-10" />
+                </section>
+              ) : entryError ? (
+                <section className="shop-panel shop-panel-pad">
+                  <Notice kind="error">We couldn’t check your entry. Try again before joining.</Notice>
+                  <button type="button" className="button-secondary mt-4" onClick={() => setEntryRevision((value) => value + 1)}>
+                    Retry entry check
+                  </button>
+                </section>
+              ) : (
+                <JoinPanel
+                  detail={detail}
+                  entry={entry}
+                  pending={pending}
+                  status={status}
+                  windowPassed={windowPassed}
+                  onCleared={() => setPending(null)}
+                  onPending={(value) => setPending(value)}
+                  onViewReceipt={() => setShowReceipt(true)}
+                  onJoined={() => {
+                    setPending(null);
+                    setEntryRevision((value) => value + 1);
+                    setShowReceipt(false);
+                  }}
+                  onWithdrew={() => {
+                    setShowReceipt(false);
+                    setEntryRevision((value) => value + 1);
+                  }}
+                />
+              )}
+              <TrustRow />
+            </section>
+          </div>
         </div>
-
-
       </div>
+
+      {showReceipt && receipt ? (
+        <div
+          className="receipt-drawer-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Entry receipt modal"
+          onClick={() => setShowReceipt(false)}
+        >
+          <div
+            className="receipt-drawer-sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EntryReceiptPage
+              receipt={receipt}
+              poolTitle={detail.title}
+              productDetails={{ condition: detail.condition, variant: detail.variant ?? null, entryStatus: entry?.entry_status ?? "Not available" }}
+              onBack={() => setShowReceipt(false)}
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -807,6 +837,62 @@ function JoinPanel({
         </div>
         <div className="shop-panel-pad">
           <p className="font-mono break-all text-xs text-muted">{entry.entry_id}</p>
+          {entry.offer && ["OFFERED", "ORDER_CREATED"].includes(entry.offer.status) ? (
+            <div className="offer-ready-card mt-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted">Offer ready</span>
+                <StatusPill status={entry.offer.status} tone="active">Action required</StatusPill>
+              </div>
+              <p className="text-sm font-semibold mt-2">A winning merchant was selected for your seat.</p>
+              <p className="shop-copy text-xs mt-1">Review the final price and the merchant&apos;s terms, then approve your payment before the window closes.</p>
+              <Link
+                to={`/offers/${entry.offer.buyer_order_id}`}
+                className="button-primary w-full mt-3 flex items-center justify-center gap-2"
+              >
+                Review offer
+                <Icon name="arrow" />
+              </Link>
+            </div>
+          ) : null}
+          {entry.allocation ? (
+            entry.allocation.status === "SEATED" ? (
+              <div className="allocation-card is-seated mt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sm">Seat allocated</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-tint text-ink">
+                    Rank #{entry.allocation.rank}
+                  </span>
+                </div>
+                <p className="shop-copy mt-1.5 text-xs">
+                  You have been awarded a seat in this pool. Merchants are submitting sealed bids in a reverse auction.
+                </p>
+              </div>
+            ) : entry.allocation.status === "WAITLISTED" ? (
+              <div className="allocation-card is-waitlisted mt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sm">On the waitlist</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-tint text-ink">
+                    {entry.allocation.waitlist_position !== null ? `Position #${entry.allocation.waitlist_position}` : "Waitlisted"}
+                  </span>
+                </div>
+                <p className="shop-copy mt-1.5 text-xs">
+                  If any seated buyer declines or fails to authorize their offer, the seat transfers automatically to you.
+                </p>
+              </div>
+            ) : entry.allocation.status === "PRICED_OUT" ? (
+              <div className="allocation-card mt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sm">Price Limit Exceeded</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-tint text-muted">$0 charged</span>
+                </div>
+                <p className="shop-copy mt-1.5 text-xs">
+                  {typeof entry.allocation.item_cents === "number" && typeof entry.allocation.cap_cents === "number"
+                    ? `Winning bid was ${formatCents(entry.allocation.item_cents)}. Your confirmed limit was ${formatCents(entry.allocation.cap_cents)}. Because of your limit, no seat was assigned.`
+                    : "Your price limit did not qualify for this lot. No seat was assigned."}
+                </p>
+              </div>
+            ) : null
+          ) : null}
           {receipt ? (
             <>
               <p className="shop-copy mt-3">

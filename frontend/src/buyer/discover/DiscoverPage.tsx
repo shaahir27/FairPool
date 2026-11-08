@@ -58,6 +58,7 @@ export function DiscoverPage() {
   const poolsLoading = catalogue.isPending;
   const poolsError = catalogue.error ? "We couldn’t load the open pools. Try again." : "";
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string>("ALL");
 
   async function ask(event: FormEvent) {
     event.preventDefault();
@@ -108,9 +109,22 @@ export function DiscoverPage() {
 
   const card = turn?.status === "READY_TO_CONFIRM" ? (turn.confirmation_card ?? null) : null;
   const search = query.trim().toLocaleLowerCase();
-  const visiblePools = pools.filter((pool) =>
-    [pool.title, pool.variant, pool.condition].some((value) => value?.toLocaleLowerCase().includes(search)),
-  );
+  const categories = Array.from(
+    new Map(
+      pools.flatMap((pool) => {
+        const key = pool.product_key?.split("-")[0]?.trim();
+        return key ? [[key, key.charAt(0).toUpperCase() + key.slice(1)] as const] : [];
+      }),
+    ).entries(),
+  ).sort((a, b) => a[1].localeCompare(b[1]));
+  const visiblePools = pools.filter((pool) => {
+    const matchesSearch = [pool.title, pool.variant, pool.condition].some((value) =>
+      value?.toLocaleLowerCase().includes(search),
+    );
+    if (!matchesSearch) return false;
+    if (category === "ALL") return true;
+    return pool.product_key?.toLocaleLowerCase().split("-")[0] === category;
+  });
 
   return (
     <section aria-labelledby="discover-title" className="discover-page">
@@ -131,6 +145,29 @@ export function DiscoverPage() {
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search open pools" />
           </label>
         </div>
+        {categories.length > 1 ? (
+          <div className="catalogue-category-bar" role="group" aria-label="Filter by category">
+            <button
+              type="button"
+              className={`category-pill-btn ${category === "ALL" ? "is-active" : ""}`}
+              aria-pressed={category === "ALL"}
+              onClick={() => setCategory("ALL")}
+            >
+              All pools
+            </button>
+            {categories.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`category-pill-btn ${category === id ? "is-active" : ""}`}
+                aria-pressed={category === id}
+                onClick={() => setCategory(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {poolsError ? (
           <div className="mt-4">
             <Notice kind="error">
@@ -353,8 +390,19 @@ function ConfirmationCardPanel({
 
 function PoolCard({ pool }: { pool: PoolSummary }) {
   const style = statusStyle(pool.status);
+  const fillPercent = Math.min(100, Math.round((pool.seats / Math.max(pool.min_seats, pool.seats, 1)) * 100));
   return (
-    <article className="catalogue-card">
+    <article className="catalogue-card enhanced-pool-card">
+      <div className="catalogue-card-badge-row">
+        {pool.condition ? (
+          <span className="pool-condition-badge">
+            {pool.condition.replaceAll("_", " ")}
+          </span>
+        ) : <span />}
+        <StatusPill status={pool.status} tone={style.tone}>
+          {style.label}
+        </StatusPill>
+      </div>
       <Link className="catalogue-art" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)} aria-label={`View ${pool.title}`}>
         <ProductArt title={pool.title} />
         <span className="catalogue-art-caption">Category illustration</span>
@@ -364,9 +412,6 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
           <h2 className="min-w-0 text-[17px] font-semibold leading-snug tracking-[-.025em]">
             {pool.title}
           </h2>
-          <StatusPill status={pool.status} tone={style.tone}>
-            {style.label}
-          </StatusPill>
         </div>
         <p className="shop-copy mt-2">
           {[pool.condition?.replaceAll("_", " "), pool.variant]
@@ -374,6 +419,12 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
             .join(" · ")}
         </p>
         <div className="catalogue-facts"><span><Icon name="layers" />{pool.seats} seats · minimum {pool.min_seats}</span></div>
+        <div className="catalogue-progress-track" aria-hidden="true" title={`${pool.seats} seats filled`}>
+          <div className="catalogue-progress-fill" style={{ width: `${fillPercent}%` }} />
+        </div>
+        <div className="catalogue-progress-track" aria-hidden="true" title={`${pool.seats} seats filled`}>
+          <div className="catalogue-progress-fill" style={{ width: `${fillPercent}%` }} />
+        </div>
         <p className="catalogue-deadline">
           {pool.close_at ? (
             <>

@@ -201,6 +201,18 @@ function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh
           <div className="shop-product-row"><ProductArt title={offer.product.title} small /><div><h2>{offer.product.title}</h2><p>{[offer.product.variant, offer.product.condition].filter(Boolean).join(" · ")}</p><p>Sold by {offer.merchant.display_name}</p><p>Quantity: 1</p></div></div>
           <dl className="price-rows"><Price label="Item" cents={offer.totals.item_cents} /><Price label="Shipping" cents={offer.totals.shipping_cents} /><Price label="Tax" cents={offer.totals.tax_cents} /></dl>
           <div className="shop-summary-total"><strong>Total <span className="text-xs font-normal text-muted">USD</span></strong><strong>{formatCents(offer.totals.total_cents)}</strong></div>
+          {unused > 0 ? (
+            <div className="cap-savings-callout">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Icon name="check" /> Below your confirmed cap
+                </span>
+                <span className="cap-savings-amount">
+                  +{formatCents(unused)} saved
+                </span>
+              </div>
+            </div>
+          ) : null}
           <div className="budget-note"><Icon name="check" /><span>Your maximum is <strong>{formatCents(offer.totals.cap_cents)}</strong>. {unused >= 0 ? `This total is ${formatCents(unused)} within your limit.` : "Review the final total before continuing."}</span></div>
         </div>
         <div className="summary-terms"><div><Icon name="truck" /><span>Delivery within {offer.terms.delivery_sla_days} days</span></div><div><Icon name="returns" /><span>{offer.terms.returns_days}-day return terms</span></div><div><Icon name="box" /><span>{offer.product.bundle_contents.join(", ")}</span></div></div>
