@@ -75,6 +75,20 @@ def stated_dates(text: str) -> set[str]:
     return found
 
 
+def _one_stated_date(value: str | None) -> str | None:
+    """The single absolute day ``value`` names, or null.
+
+    A written date the server can read is normalised; a weekday or another relative
+    phrase is not a value this system may copy, so it becomes null and the pipeline asks
+    (section 2.6, FR-IN-02). Returning null rather than raising is deliberate: raising
+    used to throw away a whole proposal over one unresolved field.
+    """
+    if value is None:
+        return None
+    found = stated_dates(value)
+    return next(iter(found)) if len(found) == 1 else None
+
+
 class Closed(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -109,18 +123,8 @@ class Intake(Closed):
     @field_validator("required_by")
     @classmethod
     def iso_date(cls, value: str | None) -> str | None:
-        """The field is one absolute day, canonicalised, or null (ai-schemas.md 2).
-
-        A written date the server can read is normalised; a weekday or another
-        relative phrase is not a value this system may copy, so it becomes null
-        and the intake pipeline asks the buyer for the date (section 2.6,
-        FR-IN-02). Raising here used to throw away the whole proposal over one
-        unresolved field.
-        """
-        if value is None:
-            return None
-        found = stated_dates(value)
-        return next(iter(found)) if len(found) == 1 else None
+        """The field is one absolute day, canonicalised, or null (ai-schemas.md 2)."""
+        return _one_stated_date(value)
 
 
 class Tier(Closed):
@@ -196,6 +200,102 @@ class Reconcile(Closed):
 
 class Simulation(Closed):
     text: Annotated[str, Field(min_length=1, max_length=4000)]
+
+
+# ---------------------------------------------------------------- MANDATE (CR-14)
+#
+# A closed vocabulary, enforced by the type system rather than by hand. Each predicate has
+# its own params model, so a parameter set that does not belong to its predicate fails
+# validation instead of being carried along. Adding a predicate means adding a member here
+# and a rule the server can evaluate from stored rows only (ai-schemas.md section 9).
+
+MandateAction = Literal["PROCEED", "REASK", "HALT"]
+
+
+class PoolScope(Closed):
+    """Which pools the agent may see; always narrower than the token it becomes."""
+
+    pool_ids: list[Annotated[str, Field(min_length=1, max_length=64)]] = Field(max_length=5)
+    category: Annotated[str, Field(max_length=100)] | None
+
+
+class PriceAboveParams(Closed):
+    amount: Amount
+
+
+class FundingBelowParams(Closed):
+    percent: Annotated[int, Field(strict=True, ge=1, le=100)]
+    hours_before_close: Annotated[int, Field(strict=True, ge=0, le=168)]
+
+
+class NoParams(Closed):
+    """``BLOCKING_FLAG_ON_AWARD`` takes no parameters; any key here is rejected."""
+
+
+class DatedParams(Closed):
+    date: str | None
+
+    @field_validator("date")
+    @classmethod
+    def iso_date(cls, value: str | None) -> str | None:
+        return _one_stated_date(value)
+
+
+class PriceAbove(Closed):
+    predicate: Literal["PRICE_ABOVE"]
+    action: MandateAction
+    params: PriceAboveParams
+
+
+class FundingBelow(Closed):
+    predicate: Literal["FUNDING_BELOW"]
+    action: MandateAction
+    params: FundingBelowParams
+
+
+class BlockingFlagOnAward(Closed):
+    predicate: Literal["BLOCKING_FLAG_ON_AWARD"]
+    action: MandateAction
+    params: NoParams
+
+
+class DeliveryAfter(Closed):
+    predicate: Literal["DELIVERY_AFTER"]
+    action: MandateAction
+    params: DatedParams
+
+
+class NoAwardBy(Closed):
+    predicate: Literal["NO_AWARD_BY"]
+    action: MandateAction
+    params: DatedParams
+
+
+MandateCondition = Annotated[
+    PriceAbove | FundingBelow | BlockingFlagOnAward | DeliveryAfter | NoAwardBy,
+    Field(discriminator="predicate"),
+]
+
+
+class Mandate(Closed):
+    """A proposed delegation mandate; the buyer ratifies it and the server mints the token.
+
+    ``reserved`` is deliberately not a field here. ``extra="forbid"`` rejects a model that
+    invents one, which is the whole mechanism behind "the model cannot alter the reserved
+    acts": there is nowhere to put them, and the server stamps them afterwards.
+    """
+
+    pool_scope: PoolScope
+    max_total: Money
+    expires: str | None
+    conditions: list[MandateCondition] = Field(max_length=5)
+    ambiguities: list[Ambiguity] = Field(max_length=30)
+    clarifying_question: Text | None
+
+    @field_validator("expires")
+    @classmethod
+    def iso_date(cls, value: str | None) -> str | None:
+        return _one_stated_date(value)
 
 
 def strict_json(value: str) -> Any:

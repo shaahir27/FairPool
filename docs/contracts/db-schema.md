@@ -39,7 +39,7 @@ The first five rows are compared by test with the `states:` lists in `state-mach
 | ledger_source | api, webhook, reconciler |
 | webhook_status | RECEIVED, PROCESSED, DEAD_LETTER, REJECTED |
 | job_status | PENDING, RUNNING, DONE, FAILED |
-| ai_task | INTAKE, QUOTE, RECONCILE, SIM_TEXT |
+| ai_task | INTAKE, QUOTE, RECONCILE, SIM_TEXT, MANDATE |
 
 Active buyer-order statuses (used by I8 and the partial unique index; see N1): OFFERED, ORDER_CREATED, APPROVED, AUTHORIZING, AUTHORIZED, CAPTURING, CAPTURE_PENDING, CAPTURED, REFUNDING.
 
@@ -145,7 +145,7 @@ The ciphertext column is never selected by list queries, logged, or returned by 
 
 Indexes: `UNIQUE (user_id) WHERE revoked_at IS NULL`; `UNIQUE (paypal_account_key) WHERE revoked_at IS NULL`.
 
-**delegations** (agent API): `id uuid PK`, `user_id uuid FK`, `token_hash text UNIQUE NOT NULL`, `scope jsonb NOT NULL` (`{"pool_ids": [uuid], "category": string or null}`), `max_cap_cents bigint NOT NULL`, `expires_at timestamptz NOT NULL`, `revoked_at timestamptz NULL`.
+**delegations** (agent API): `id uuid PK`, `user_id uuid FK`, `token_hash text UNIQUE NOT NULL`, `scope jsonb NOT NULL` (`{"pool_ids": [uuid], "category": string or null}`, plus — only when a mandate was ratified, CR-14 and FR-AI-06 — the additive keys `"mandate_version": string`, `"ratification_sha256": char(64)` and `"conditions": [{"predicate": string, "params": object, "action": "PROCEED | REASK | HALT"}]`), `max_cap_cents bigint NOT NULL`, `expires_at timestamptz NOT NULL`, `revoked_at timestamptz NULL`. The additive keys are inert for authorization: scope is still resolved from `pool_ids` and `category` alone, and a scope with neither is still refused rather than widened. No migration is needed **for this column** — it is already JSONB — but `DelegationService.create` normalises `scope` to exactly `{pool_ids, category}` and drops every other key, so persisting a mandate means extending that normaliser and `DelegationScope` together. A separate migration is required for `ai_task`, which is a PostgreSQL enum whose values are fixed in `0001`; see CR-14.
 
 ### Catalog and pools
 

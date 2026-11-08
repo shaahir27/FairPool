@@ -2006,8 +2006,16 @@ export interface components {
         DelegationScope: {
             /** Category */
             category?: string | null;
+            /** Conditions */
+            conditions?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Mandate Version */
+            mandate_version?: string | null;
             /** Pool Ids */
             pool_ids?: string[];
+            /** Ratification Sha256 */
+            ratification_sha256?: string | null;
         };
         /** DelegationView */
         DelegationView: {

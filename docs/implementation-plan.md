@@ -46,7 +46,7 @@ A gate passes only when its integration test passes, `make gate-check GATE=ig-<n
 | IG-6 | `ig-6` | PH6 | T06A01, T06A02, T06A03, T06A04, T06B01, T06A05, T06A06, T06A07, T06B05 |
 | IG-7 | `ig-7` | PH7 | T07A01, T07A02, T07A03, T07A04, T07B01, T07A05, T07B03, T07A06, T07B05, T07X01 |
 | IG-8 | `ig-8` | PH8 | T08A01, T08A02, T08A03, T08A04, T08A05, T08A06, T08B01, T08B02, T08B03, T08B04, T08B05 |
-| IG-9 | `ig-9` | PH9 | T09A01, T09A02, T09A03, T09A04, T09A05, T09B01, T09B02, T09B03, T09B04, T09B05, T09X01, T09X02 |
+| IG-9 | `ig-9` | PH9 | T09A01, T09A02, T09A03, T09A04, T09A05, T09A06, T09B01, T09B02, T09B03, T09B04, T09B05, T09B06, T09X01, T09X02 |
 | IG-10 | `ig-10` | PH10 | T10A01, T10A02, T10A03, T10A04, T10B01, T10B02, T10X01, T10X02 |
 | IG-11 | `ig-11` | PH11 | T11X01, T11X02 |
 
@@ -82,12 +82,14 @@ Sizes are agent-assisted person-days: S = 0.25, M = 0.5, L = 1, XL = 1.5. Each m
 | PH6 | 2 | 5.00 (250%) | 1.50 (75%) |
 | PH7 | 2 | 4.75 (238%) | 2.50 (125%) |
 | PH8 | 2 | 3.50 (175%) | 3.50 (175%) |
-| PH9 | 1 | 3.00 (300%) | 3.75 (375%) |
+| PH9 | 1 | 4.00 (400%) | 4.75 (475%) |
 | PH10 | 2 | 2.50 (125%) | 2.00 (100%) |
 | PH11 | 1 | 0.38 (38%) | 0.38 (38%) |
-| **Total** | 22 | **36.38 (165%)** | **22.63 (103%)** |
+| **Total** | 22 | **37.38 (170%)** | **23.63 (107%)** |
 
-**What this means, stated plainly.** With the Phase 4 onward reassignment and no scope removed, the full plan estimates 36.375 person-days for A and 22.625 for B against 22 planned working days each. For PH4 through PH11 alone, the estimated loads are 28.875 and 15.125 person-days respectively. Member A is the critical capacity constraint; reassess the schedule using actual progress rather than claiming the original balanced estimates still apply.
+**What this means, stated plainly.** With the Phase 4 onward reassignment and no scope removed, the full plan estimates 37.375 person-days for A and 23.625 for B against 22 planned working days each. For PH4 through PH11 alone, the estimated loads are 29.875 and 16.125 person-days respectively. Member A is the critical capacity constraint; reassess the schedule using actual progress rather than claiming the original balanced estimates still apply.
+
+**PH9 estimate, re-stated on Nov 7, 2026.** The 3.00 and 3.75 figures above were stale before this change: they predated T09A05 and T09B05, both added to PH9 on 2026-11-07 without the table being recomputed. CR-14 then adds T09A06 (A, M) and T09B06 (B, M). Recomputed from the task sizes with both shared tasks counting half to each member, PH9 is 4.00 person-days for A and 4.75 for B against one planned day — 400% and 475%, the worst ratio in the plan. Nothing has been cut to pay for it. The owner chooses from the section 4 candidates and writes the choice down; the honest reading is that PH9 cannot be completed as scoped in one day by either member, and that CR-14's two tasks are the first candidates to defer because the phase's verification debt (T09A01, T09A02, T09B02, T09B03) is what IG-9 actually exists to close.
 
 **PH3 estimate, re-stated on Nov 1, 2026.** The 2.25-day figure for Member A predates CR-3. Phase 3 now also carries, for A, the migration-0003 and model work, the deterministic request validator, the webhook signature-verification split, and `IG-3` support in the gate tool with its evidence set; and for B, the `confirmed_requests` pull-forward from `T04B01` and the public-key and close-time-audit pull-forward from `T04A06`. The measured Phase 2 rate — one phase of ten planned days closed in about two elapsed days, but with IG-2 closed by owner exception rather than by its automated evidence — says the honest PH3 estimate is roughly 3 days for A and 2.5 for B, not 2 and 2. Nothing has been cut to pay for it; if it does not fit, the owner chooses from the section 4 candidates and writes the choice down.
 
@@ -139,11 +141,13 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-AD-02 | T01A02 |
 | FR-AG-01 | T07A05, T07B03 |
 | FR-AG-02 | T07A05 |
+| FR-AG-03 | T09A06 |
 | FR-AI-01 | T02B03, T04B01 |
 | FR-AI-02 | T06A05 |
-| FR-AI-03 | T08B04 |
+| FR-AI-03 | T08B04, T09A06 |
 | FR-AI-04 | T06B01 |
 | FR-AI-05 | T09B02 |
+| FR-AI-06 | T09B06 |
 | FR-AU-01 | T05A06, T06A06 |
 | FR-AU-02 | T05A04, T06B01 |
 | FR-AU-03 | T05A06, T05A04 |
@@ -1158,13 +1162,13 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 
 ## PH9: Hardening, evaluation and feature freeze (gate IG-9)
 
-**Goal.** Fault-injection suite, complete Sandbox contract suite, concurrency and property suites, AI evaluation, public audit page with verify-my-place, UI polish, README draft and demo tooling; feature freeze.
+**Goal.** Fault-injection suite, complete Sandbox contract suite, concurrency and property suites, AI evaluation, public audit page with verify-my-place, UI polish, README draft and demo tooling; the CR-14 delegation mandate and the agent-populated market run; feature freeze.
 
 **Entry condition.** IG-8 passed.
 
-**Exit.** IT-9: All test layers are green: the fault suite F1 to F30 (F17 and F18 as disclosed limits), the Sandbox contract suite C-01 to C-18, concurrency and property suites and the AI evaluation baseline; the public audit page and verify-my-place reproduce the vectors; the notification inbox lists and clears every kind the events write; each lot's money nets to zero and an imbalance raises the ledger alert; the README draft is complete; feature freeze, after which only fixes merge.
+**Exit.** IT-9: All test layers are green: the fault suite F1 to F30 (F17 and F18 as disclosed limits), the Sandbox contract suite C-01 to C-18, concurrency and property suites and the AI evaluation baseline; the public audit page and verify-my-place reproduce the vectors; the notification inbox lists and clears every kind the events write; each lot's money nets to zero and an imbalance raises the ledger alert; a ratified mandate mints a delegation token that is no wider than the mandate; the agent-market report shows every attempted breach refused and zero PayPal writes originating from an AI-callable surface; the README draft is complete; feature freeze, after which only fixes merge.
 
-**Watch.** One day for a very large amount of verification work: the highest-risk phase in the plan.
+**Watch.** One day for a very large amount of verification work: the highest-risk phase in the plan. CR-14 adds two tasks to it and carries an abandonment rule: acceptance bullet 1 of T09B06 and of T09A06 is a gate, and if either fails the owner cancels both and withdraws CR-14 whole rather than landing one. Neither task is a candidate for a partial merge, and neither may be started before T09A02 and T09B02 are green, because the phase's verification debt outranks its new scope.
 
 | ID | Owner | Size | Depends on | Task |
 |---|---|---|---|---|
@@ -1173,11 +1177,13 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 | T09A03 | A | M | T01A03 | Deployment hardening and demo tooling |
 | T09A04 | A | S | T06A01 | STRETCH: top-up after FUNDED |
 | T09A05 | A | M | T05A03, T06A01 | Funding and ledger integrity check (audit F5) |
+| T09A06 | A | M | T07A05, T07B03, T08A03, T09A03 | CR-14: agent-populated market run and boundary report (FR-AG-03) |
 | T09B01 | B | L | T00B01, T01B01 | Public audit page and verify-my-place |
 | T09B02 | B | L | T04B01, T06B01, T06A05 | AI evaluation sets and runner |
 | T09B03 | B | M | T06A06, T03B01 | Concurrency and property suites for pools, allocation and auction |
 | T09B04 | B | M | T07B01, T08B01, T08B02 | UI polish and honesty copy |
 | T09B05 | B | M | T06A06, T01B03 | In-app notifications inbox |
+| T09B06 | B | M | T04B01, T07A05, T01B03 | CR-14: MANDATE task and buyer ratification card (FR-AI-06) |
 | T09X01 | AB | L | T09A02, T09B02 | README full draft |
 | T09X02 | AB | M | T07X01 | Feature freeze and IT-3 |
 
@@ -1227,6 +1233,16 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 - **Requirements and invariants:** FR-FN-05, FR-FN-08, I3, I4.
 - **Contract:** no new endpoint planned; if the alert needs one, open a change request first.
 
+### T09A06: Agent-populated market run and boundary report (CR-14)
+
+- **Owner:** Member A. **Size:** M (0.5 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T07A05, T07B03, T08A03, T09A03.
+- **Read first:** contracts/README.md CR-14; api.md §4.3, §4.4, §4.5; ai-schemas.md §9; product-spec.md FR-AG-03 and FR-AI-03; testing-strategy.md §6.
+- **Create or change:** `tools/agent_market.py`, the committed run evidence under `docs/evidence/phase9/`, and the README paragraph T09X01 copies.
+- **Acceptance:** Bullet 1 is the gate, and T09A06 does not proceed past it on a fixture: a live model produces a bid the Merchant Agent API accepts and sealing keeps, returning a `bid_id`, a `revision` and a receipt hash. Then: buyer agents holding ratified mandates drive `/mcp` and merchant agents holding scoped keys drive `/merchant-api/v1` over one pool whose payments use the fake router; every rejected bid is reported under its own R1 to R9 code; an adaptive adversary reads each refusal and changes strategy, and every breach it attempts is refused with the production code (`DELEGATION_CAP_EXCEEDED`, `NOT_FOUND` for a scope violation, `API_KEY_SCOPE`, `IDEMPOTENCY_CONFLICT`, `DELEGATION_INVALID`); the report states the count of PayPal writes originating from an AI-callable surface as zero, and reaches it by a join rather than reading it, because no audit action or actor names the surface a money call came from: `buyer_orders` to `pool_entries.submitted_via` and `delegation_id` and the entry-audit `payload["via"]`, against the money states in `agentapi/views.py`. The report names that join. three runs are retained with the model, prompt and dataset fingerprint; every simulated element is labelled. The report is evidence about a boundary and never a security claim: it states how many attempts were made and says plainly that zero observed breaches is a measured result, not a guarantee.
+- **Tests that prove it:** `tools/agent_market.py --self-check` drives the whole path against the fake AI and the fake router in CI with no provider traffic and no secret; the live run is a documented owner command rather than a CI test, and its JSON is committed as evidence.
+- **Requirements and invariants:** FR-AG-03, FR-AI-03, FR-AG-02, I1, I2, I12, rule 22.
+- **Contract:** CR-14. No new endpoint, table, job kind, state transition or environment variable; if the harness turns out to need an admin route to mint a run, open a change request first rather than adding one. The harness does **not** depend on T09B06 as a task, because a same-phase cross-owner dependency is forbidden (AGENTS.md §7); it depends on CR-14 instead, minting delegation tokens directly the way `test_mcp_contract.py` does and writing the `mandate_version`, `ratification_sha256` and `conditions` keys that `db-schema.md` now defines. CR-14's abandonment rule still couples the two tasks at the owner level: neither merges alone.
+
 ### T09B01: Public audit page and verify-my-place
 
 - **Owner:** Member B. **Size:** L (1 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T00B01, T01B01.
@@ -1272,6 +1288,16 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 - **Tests that prove it:** owner-scoped list and 401 for anonymous; mark-read idempotence; unread parity with `/me`; the UI renders each kind, the empty state and an unknown kind.
 - **Requirements and invariants:** FR-UI-09, FR-UI-08.
 - **Contract:** CR-13 adds the two routes to api.md before code; `notifications` already exists, so no migration.
+
+### T09B06: MANDATE task and buyer ratification card (CR-14)
+
+- **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH9. **Merge gate:** IG-9. **Depends on:** T04B01, T07A05, T01B03.
+- **Read first:** contracts/README.md CR-14; ai-schemas.md §1, §2 and §9; db-schema.md (`delegations`); api.md §4.4 and the `/api/v1/me/delegations` rows; product-spec.md FR-AI-06 and FR-AG-02.
+- **Create or change:** `adapters/ai/schemas.py` (the MANDATE schema and its strict validator), `adapters/ai/client.py` (one method), `modules/identity/mandate.py` (the closed predicate vocabulary and the server-side validation), `api/schemas.py` and `modules/identity/delegations.py` together (the create path drops every `scope` key that is not `pool_ids` or `category`, so the mandate cannot persist without both), `backend/migrations/versions/0007_ai_task_mandate.py`, the ratification card inside `AgentSettingsPage` in `frontend/src/buyer/pages.tsx` (there is no `frontend/src/buyer/settings/` directory), `backend/tests/unit/test_mandate_schema.py`, `backend/tests/ai_eval/data/mandate_cases.jsonl`.
+- **Acceptance:** Bullet 1 is the gate, and T09B06 does not proceed past it on a fixture: a live model returns a schema-valid mandate for a plain cap, for a cap with a lower price ceiling under it, and for a message carrying an injected instruction that must not change the output. Then: the buyer sees the mandate as rendered text, can edit every field, and must confirm before any token exists; the server stamps the reserved acts itself and the model cannot widen, narrow or omit them; a cap the buyer stated is never raised by the model; a predicate outside the closed vocabulary is dropped and reported as an ambiguity rather than guessed at; the ratified text's SHA-256, the `mandate_version` and the conditions are stored inside `delegations.scope`, and the minted token is never wider than the mandate; a condition is evaluated from stored rows only and never requires a provider or model call to resolve; an AI outage falls back to the plain delegation form instead of blocking the buyer; `ai_runs` records the run per ai-schemas.md §1 rule 5. The card states in plain words that the mandate authorizes no payment and that a human approves every charge.
+- **Tests that prove it:** `test_mandate_schema` rejects an unknown predicate, untyped params, a raised cap, a non-USD amount and a coerced number; `test_mandate_ratification_mints_a_narrower_token`; `test_mandate_conditions_never_call_a_provider`; the injection cases in `mandate_cases.jsonl` change nothing.
+- **Requirements and invariants:** FR-AI-06, FR-AG-01, FR-AG-02, I2, I14, rule 5, rule 22, rule 25.
+- **Contract:** CR-14 adds ai-schemas.md §9 and three keys inside the existing `delegations.scope` JSONB. That column needs no migration because it is already JSONB, but `ai_runs.task` is the PostgreSQL enum `ai_task` fixed in `0001`, so the new `MANDATE` value needs migration 0007 run outside a transaction block — and `tools/check_migrations.py`, which replays 0001-to-head, will not catch its absence. No new endpoint: minting still runs the existing delegations route, which keeps enforcing every rule it enforces today.
 
 ### T09X01: README full draft
 

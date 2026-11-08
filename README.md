@@ -118,6 +118,42 @@ AI is used only at the edges:
 
 The buyer or merchant confirms what the AI proposed. Deterministic rules check every field and make every decision. AI can never create, authorize, capture, void or refund a payment, and no AI-callable tool of ours can move money. Buyer requests, caps and personal data are never indexed by search.
 
+### A mandate, not a blank cheque
+
+A buyer can hand an AI client permission to act for them without handing it money. The model reads what the buyer wrote together with the request they already confirmed, and proposes a **delegation mandate**: which pools the agent may see, a maximum it may commit, when that permission expires, and a short list of stop-and-ask conditions. The conditions are drawn from a closed vocabulary — a price ceiling, a funding threshold, a blocking flag on the winning bid, a delivery date, an award deadline — with typed parameters, so the model selects a predicate rather than composing logic.
+
+The buyer reads the proposal as plain text, may edit every field, and confirms it before a token exists. Three properties are enforced in code, not in the prompt:
+
+- the mandate may **narrow** a ceiling but never raise the one the buyer stated;
+- the reserved acts are stamped by the server and are absent from the model's output schema, so an invented `reserved` field fails validation instead of being ignored;
+- the conditions survive to the stored token only together with a hash of the ratified text, so nothing can attach a condition to a permission nobody ratified.
+
+### An agent-populated market, measured
+
+`tools/agent_market.py` runs the buyer and merchant surfaces with agent participants and an adaptive adversary, over a pool whose payments use the fake router. It reports what was attempted and what refused, and the four MCP tools it exposes are exactly four: list pools, enter a pool, list entries, withdraw.
+
+Measured in the self-check run recorded under `docs/evidence/phase9/`:
+
+| Check | Result |
+|---|---|
+| Forged delegation token | refused 401 `DELEGATION_INVALID` |
+| Entry above the delegation's ceiling | refused 403 `DELEGATION_CAP_EXCEEDED` |
+| Read-only merchant key submitting a bid | refused 403 `API_KEY_SCOPE` |
+| Another merchant's sealed bid | 404 `NOT_FOUND`, never a 403 |
+| MCP body over 64 KiB | refused 413 before dispatch |
+| Institutional text inside merchant notes | stored and flagged for review, not treated as an instruction |
+| PayPal writes originating from an AI-callable surface | **0**, derived by joining buyer orders to entries and counting delegated ones |
+
+That zero is a measured result, not a guarantee: the run states how many attempts it made, and absence of an observed breach across those attempts is not a claim of security.
+
+### How the extraction itself is measured
+
+Model output is scored on labelled corpora — intake messages, merchant quotes, reconciliation cases and simulation cases — and the numbers are kept under `docs/evidence/` with the model, prompt and dataset fingerprint attached. The corpus is a fixed set, so a prompt or model change requires a fresh measured run before the figures are quoted again; a change without one is rejected by the gate tool rather than silently accepted.
+
+### Development-time PayPal context
+
+Coding agents on this project used the **APIMatic ContextMatic** plugin for version-aware PayPal API context while building the adapter, alongside the PayPal AI Toolkit skills. Verified Sandbox facts and recorded spike results override anything a plugin says, and the adapter calls raw REST rather than the Server SDK. The Merchant Agent API publishes a committed OpenAPI document and that document is the intended input to APIMatic's generator; the generated SDKs themselves are not committed yet, so nothing here claims they exist.
+
 ---
 
 ## PayPal in the Sandbox

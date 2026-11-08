@@ -119,6 +119,12 @@ class MeResponse(ResponseModel):
 class DelegationScope(StrictModel):
     pool_ids: list[UUID] = Field(default_factory=list)
     category: str | None = None
+    #: CR-14. Present only when the buyer ratified an AI-proposed mandate; the shape of
+    #: each condition is validated by ``modules/identity/mandate.py``, because the closed
+    #: vocabulary belongs to the mandate module rather than to this transport model.
+    mandate_version: str | None = Field(default=None, max_length=40)
+    ratification_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    conditions: list[dict[str, Any]] | None = Field(default=None, max_length=5)
 
 
 class DelegationCreateRequest(StrictModel):

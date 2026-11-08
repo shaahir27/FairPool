@@ -108,6 +108,17 @@ class FakeAI:
         payload = {"quote_text": quote_text, "lot_requirement": lot_requirement}
         return self._dict_response("parse_quote", payload)
 
+    async def parse_mandate(
+        self,
+        session: AsyncSession,
+        *,
+        message: str,
+        proposal: dict[str, Any],
+        candidates: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        payload = {"message": message, "proposal": proposal, "candidates": candidates}
+        return self._dict_response("parse_mandate", payload)
+
     async def reconcile_offer(
         self,
         session: AsyncSession,

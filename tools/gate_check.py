@@ -93,6 +93,25 @@ GATE_EVIDENCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "ci",
         ),
     ),
+    "ig-9": (
+        "phase9",
+        (
+            "migrations",
+            "local_checks",
+            "faults",
+            "sandbox_contracts",
+            "property_concurrency",
+            "ai_evaluation",
+            "audit_page",
+            "f5_funding_balance",
+            "notifications",
+            "mandate_gate",
+            "agent_market",
+            "readme_draft",
+            "independent_review",
+            "ci",
+        ),
+    ),
 }
 REQUIRED_EVIDENCE = GATE_EVIDENCE["ig-2"][1]
 

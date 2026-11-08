@@ -305,6 +305,17 @@ class AIClient(Protocol):
         lot_requirement: dict[str, Any],
     ) -> QuoteProposal: ...
 
+    async def parse_mandate(
+        self,
+        session: AsyncSession,
+        *,
+        message: str,
+        proposal: dict[str, Any],
+        candidates: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Propose a delegation mandate; the buyer ratifies it (CR-14, FR-AI-06)."""
+        ...
+
     async def reconcile_offer(
         self,
         session: AsyncSession,

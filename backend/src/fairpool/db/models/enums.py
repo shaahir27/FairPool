@@ -190,6 +190,8 @@ class AiTask(StrEnum):
     QUOTE = "QUOTE"
     RECONCILE = "RECONCILE"
     SIM_TEXT = "SIM_TEXT"
+    #: CR-14, FR-AI-06. Carried by the ``ai_task`` type, so migration 0007 adds it.
+    MANDATE = "MANDATE"
 
 
 def pg_enum(enum_cls: type[StrEnum], name: str) -> ENUM:

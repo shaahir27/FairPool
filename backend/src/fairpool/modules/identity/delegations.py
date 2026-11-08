@@ -88,10 +88,19 @@ class DelegationService:
             # An absolute instant is required (api.md section 1); a naive value would
             # depend on the server's local zone, which I15 forbids.
             raise ApplicationError("VALIDATION_ERROR")
-        normalized = {
+        normalized: dict[str, Any] = {
             "pool_ids": [str(pool_id) for pool_id in scope.get("pool_ids", [])],
             "category": scope.get("category"),
         }
+        # CR-14: a ratified mandate's three keys have to survive this rebuild, or the
+        # mandate is persisted as a bare scope and the token is minted from a gutted
+        # object. They survive together or not at all: a ratification hash is what makes
+        # the other two meaningful, so a caller that omits it cannot attach conditions to
+        # a token that nobody ratified.
+        if scope.get("ratification_sha256") is not None:
+            for key in ("mandate_version", "ratification_sha256", "conditions"):
+                if scope.get(key) is not None:
+                    normalized[key] = scope[key]
         token = _new_token()
         row = Delegation(
             id=uuid4(),
