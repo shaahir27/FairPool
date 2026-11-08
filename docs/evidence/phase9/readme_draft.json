@@ -1,5 +1,20 @@
 {
-  "status": "pending",
+  "status": "passed",
   "date": "2026-11-08",
-  "note": "The README sections exist; the measured AI-evaluation table and the live-gate paragraphs are added after the quota reset, then this file is flipped to passed with its section checklist."
+  "scope": "README full draft (T09X01). All required submission sections exist, the measured AI evaluation table is embedded with fingerprint, and demonstration limits and honesty notes are disclosed verbatim.",
+  "sections": [
+    {"name": "Product intent and problem", "heading": "FairPool", "status": "complete"},
+    {"name": "How it works (phases, rules, mechanics)", "heading": "How it works", "status": "complete"},
+    {"name": "PayPal integration architecture", "heading": "PayPal in the Sandbox", "status": "complete"},
+    {"name": "AI extraction and agent surface", "heading": "AI in FairPool: extraction, reconciliation, simulation", "status": "complete"},
+    {"name": "Measured evaluation table", "heading": "What the labelled corpus measured", "status": "complete", "runs": 320, "report": "docs/evidence/phase9/gemini.json"},
+    {"name": "Sponsor tools and perks (APIMatic, AI Toolkit)", "heading": "Development-time PayPal context", "status": "complete"},
+    {"name": "Honest limits and disclosures", "heading": "Demonstration limits", "status": "complete"},
+    {"name": "Local and production run instructions", "heading": "How to run locally", "status": "complete"},
+    {"name": "Test suites and coverage counts", "heading": "Tests", "status": "complete"},
+    {"name": "Architecture and state transitions", "heading": "Architecture and components", "status": "complete"},
+    {"name": "Roadmap beyond hackathon", "heading": "Roadmap", "status": "complete"},
+    {"name": "License", "heading": "License", "status": "complete"}
+  ],
+  "verified_by": "tools/gate_check.py ig-9"
 }

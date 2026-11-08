@@ -154,7 +154,15 @@ Model output is scored on labelled corpora — intake messages, merchant quotes,
 ### What the labelled corpus measured
 
 <!-- eval-table-start -->
-The measured table is printed from `docs/evidence/phase9/gemini.json` once the run completes; the file records the model, prompt version and dataset fingerprint so a later prompt or model change cannot borrow these figures.
+| Task | Runs | Clean | Field accuracy | Notes |
+|---|---|---|---|---|
+| INTAKE | 100 | 100/100 (100.0%) | 100.0% | 0 left for review |
+| QUOTE | 60 | 60/60 (100.0%) | 100.0% | 0 left for review |
+| RECONCILE | 120 | 120/120 (100.0%) | 100.0% | 23 left for review |
+| SIM_TEXT | 40 | 40/40 (100.0%) | 100.0% | 0 left for review |
+
+Injection and quoted-instruction cases: **32/32 clean** across the two runs.
+Model `gemini-3.5-flash-lite`, prompt `phase2-gemini-v10`, dataset `02acc35721fe…`, 320 results in `docs/evidence/phase9/gemini.json`.
 <!-- eval-table-end -->
 
 ### Development-time PayPal context

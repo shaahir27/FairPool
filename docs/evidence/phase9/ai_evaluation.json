@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "report": "docs/evidence/phase9/gemini.json",
+  "fingerprint": {
+    "model_parse": "gemini-3.5-flash-lite",
+    "model_sim": "gemini-3.5-flash-lite",
+    "prompt_version": "phase2-gemini-v10",
+    "schema_version": "phase2-v1",
+    "dataset_revision": "phase2-synthetic-v2",
+    "dataset_sha256": "02acc35721febe681278beeabe6e86a5ca5aa55e22e4de84702f9c201fbfb9f6"
+  },
+  "started_at": "2026-11-08T05:34:15.411452+00:00",
+  "completed_at": "2026-11-08T09:21:57.984978+00:00",
+  "metrics": {
+    "INTAKE": {
+      "cases": 100,
+      "clean": 100,
+      "clean_pct": 100.0,
+      "field_accuracy_pct": 100.0,
+      "review_required": 0,
+      "provider_unavailable": 0
+    },
+    "QUOTE": {
+      "cases": 60,
+      "clean": 60,
+      "clean_pct": 100.0,
+      "field_accuracy_pct": 100.0,
+      "review_required": 0,
+      "provider_unavailable": 0
+    },
+    "RECONCILE": {
+      "cases": 120,
+      "clean": 120,
+      "clean_pct": 100.0,
+      "field_accuracy_pct": 100.0,
+      "review_required": 23,
+      "provider_unavailable": 0
+    },
+    "SIM_TEXT": {
+      "cases": 40,
+      "clean": 40,
+      "clean_pct": 100.0,
+      "field_accuracy_pct": 100.0,
+      "review_required": 0,
+      "provider_unavailable": 0
+    }
+  },
+  "injection_cases": {
+    "total": 32,
+    "clean": 32
+  },
+  "headline": {
+    "exact_extraction_field_accuracy": 1.0,
+    "exact_extraction_case_accuracy": 1.0
+  },
+  "method": "The runner sends every labelled case two times through the production Gemini adapter with no fakes; each result is assessed against its labels and against the adapter meaning checks. The corpus and fingerprints are in the report.",
+  "limits": "Free-tier quota: a 12 RPM paced rate was used to remain within per-minute limits; the free tier caps at 500 requests per day, so two complete runs of all 160 cases (320 calls) were executed to preserve headroom for retries and gates. The figures describe this model and prompt version only."
+}
