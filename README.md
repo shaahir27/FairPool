@@ -27,6 +27,7 @@ FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **
 - [Tests](#tests)
 - [Deployment](#deployment)
 - [Documentation](#documentation)
+- [Roadmap](#roadmap)
 - [License](#license)
 
 ---
@@ -465,6 +466,10 @@ Free-tier limits: the Render API sleeps after 15 minutes idle and there is no fr
 The contracts in `docs/contracts/` are tagged through `contracts-v1.6` on `main`. That tag is the first to carry CR-8's guard widening and CR-9's receipt read-back: CR-9's own change-log entry deliberately claimed no tag of its own, so it rides on the gate tag.
 
 ---
+
+## Roadmap
+
+Beyond this submission: platform approval and multi-seller settlement so each winning merchant is paid directly; partial capture for price tiers as more buyers join; emergent pools proposed by buyers rather than only published templates; and India-domestic checkout with local providers once a merchant there can receive a domestic PayPal payment. The walkthrough video is added at submission time (T10B02); this draft does not link one yet.
 
 ## License
 
