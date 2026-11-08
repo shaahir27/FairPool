@@ -1,4 +1,4 @@
-import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { type FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -401,7 +401,10 @@ export function AgentSettingsPage() {
   const accessRead = useApiRead("/api/v1/me/delegations", (signal) => api.GET("/api/v1/me/delegations", {signal}));
   const poolsRead = useApiRead("/api/v1/pools?status=OPEN", (signal) => api.GET("/api/v1/pools", {signal, params: {query: {status: "OPEN"}}}), {staleTime: 60_000});
   const items: Delegation[] | null = accessRead.data?.items ?? null;
-  const pools = Array.isArray(poolsRead.data) ? poolsRead.data : [];
+  const pools = useMemo(
+    () => (Array.isArray(poolsRead.data) ? poolsRead.data : []),
+    [poolsRead.data],
+  );
   const poolsProblem = poolsRead.error ? envelope(poolsRead.error) : null;
   const [selected, setSelected] = useState<string[]>([]);
   const [cap, setCap] = useState("600");

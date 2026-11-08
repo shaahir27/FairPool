@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "scope": "T09A06 boundary report, run as `tools/agent_market.py --self-check` against the loopback fairpool_market_test database with the fake payment router and FakeAI. Everything here is labelled SIMULATED; no provider call and no PayPal host were contacted.",
+  "tools": ["enter_pool", "list_entries", "list_pools", "withdraw_entry"],
+  "sealed_bid": "A merchant agent submitted a bid that the Merchant Agent API accepted (HTTP 200), sealed at revision 1 with a valid 64-hex receipt hash.",
+  "adversary": {
+    "attempts": 6,
+    "refusals": [
+      "forged delegation token -> 401 DELEGATION_INVALID",
+      "entry above the delegation ceiling -> 403 DELEGATION_CAP_EXCEEDED",
+      "lots:read-only key submitting a well-formed bid -> 403 API_KEY_SCOPE",
+      "another merchant's sealed bid -> 404 NOT_FOUND, never a 403",
+      "MCP body over 64 KiB -> 413 VALIDATION_ERROR before dispatch",
+      "injection carried in merchant notes -> stored by design and flagged for review, not treated as an instruction (HTTP 200 on the storage call)"
+    ],
+    "breaches_succeeded": 0,
+    "wording": "Zero observed breaches is a measured result across these six attempts, not a guarantee."
+  },
+  "paypal_writes_from_ai_surface": {
+    "count": 0,
+    "derivation": "buyer_orders joined to pool_entries on entry_id where delegation_id is not null, restricted to the provider-write statuses (AUTHORIZING, AUTHORIZED, CAPTURING, CAPTURE_PENDING, CAPTURED, REFUNDING, VOIDED, AUTH_FAILED, CAPTURE_FAILED). An OFFERED or ORDER_CREATED row is not counted because no payment call happened yet.",
+    "entries_by_surface": "Two ELIGIBLE entries, both submitted by a human (`via: human`); no delegated entry exists in this run."
+  },
+  "cleanup": "The harness deletes the pool, entries, receipts, confirmed requests, bids, revisions, flags and awards it created, plus the two seeded delegation users. Its bot merchant account, profile and API key stay in the disposable test database by design; the report makes no claim of a full wipe.",
+  "live_run": "The live model bid (T09A06 acceptance bullet 1) is recorded separately by `tools/live_gates.py bid`; the run below states its status. The boundary report stays a self-check because every participant except the bid is a fixture."
+}

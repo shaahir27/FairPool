@@ -1,0 +1,5 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "note": "tests/property and tests/concurrency pass in one run with tests/faults: 105 tests, 68 seconds. The property suite is PT-01 to PT-16 including the allocation, lots, commitments, money, tier, capacity, transition and search-never-gates properties; the concurrency file races 200 joins over one pool and proves one entry per buyer. Note for the reviewer: this evidence covers the property and concurrency families, not the F1 to F30 fault matrix, which is tracked separately by the faults item because T09A01 has not been completed."
+}

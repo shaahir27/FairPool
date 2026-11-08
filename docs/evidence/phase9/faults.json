@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "matrix": "F1 to F30 from docs/testing-strategy.md section 4; every named test is present at the layer the matrix assigns and the name is identical.",
+  "verified_runs": [
+    "pytest backend/tests/faults backend/tests/concurrency -q -> 33 passed in 58.56s (loopback fairpool_faults_test).",
+    "pytest test_f12_merchant_withdraw_ops_abort.py test_f20_prompt_injection_no_effect.py test_f25_f28_approval_checks.py test_f17_f18_disclosed_limits.py test_f29_double_click.py -> 7 passed in 13.59s."
+  ],
+  "new_this_phase": {
+    "F01": "faults/test_f01_authorize_timeout_unknown_outcome.py: an unknown authorize outcome is settled by reading the provider, never by replaying the write.",
+    "F06": "faults/test_f06_approved_tab_closed_reconciler_continues.py: the reconciler settles an approval whose tab was closed.",
+    "F11": "faults/test_f11_offer_expires_mid_checkout_fails_lot.py: the expired offer authorizes nothing, offers no refill candidate, and the contracted funding timer closes the lot at net zero with the hold voided.",
+    "F12": "integration/test_f12_merchant_withdraw_ops_abort.py: merchant withdrawal and the ops abort path.",
+    "F13": "faults/test_f13_requote_new_attempt_old_order_abandoned.py: a requote creates a new attempt and the old order is abandoned.",
+    "F17_F18": "unit/test_f17_f18_disclosed_limits.py: the README and UI copy state the account-level duplicate-control limit and the omitted-entry limit.",
+    "F20": "integration/test_f20_prompt_injection_no_effect.py: text carrying an instruction is stored as data and changes no outcome.",
+    "F21_F22": "faults/test_f21_f22_gateway_retries.py: token expiry refreshes once; 429 and 5xx retry under the same idempotency key. These two exercise the adapter's retry table through an httpx.MockTransport at the HTTP boundary and are labelled plumbing tests, not Sandbox evidence.",
+    "F23": "faults/test_f23_worker_killed_mid_sweep.py: a killed worker leaves the sweep resumable and the reconciler settles it with one provider write.",
+    "F25_F28": "integration/test_f25_f28_approval_checks.py: wrong currency or payer country is rejected; a payee mismatch is rejected.",
+    "F29": "concurrency/test_f29_double_click.py: two tabs decide from locks, so one provider order and one row exist and neither tab errors.",
+    "F30": "faults/test_f30_funding_source_denied_vacancy.py: a denied funding source frees the seat for a vacancy instead of funding the lot."
+  },
+  "carried": "F02, F03, F04, F05, F07, F08, F09, F10, F14, F15, F16, F19, F24, F26 and F27 existed before this phase and still pass in the 33-test run.",
+  "disclosed_limits": "F17 and F18 are copy tests by design: FairPool controls one entry per linked account, not one person per account, and cannot prove no eligible entry was omitted. They assert the disclosure, not a protection.",
+  "no_production_change": "No production code was needed for these cases; F29 proved the existing row and lot locks already prevent a double order."
+}

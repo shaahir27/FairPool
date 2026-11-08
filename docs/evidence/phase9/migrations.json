@@ -1,0 +1,5 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "note": "CR-14 migration 0007 applied to the loopback fairpool_test database with `alembic upgrade head`; `SELECT enum_range(NULL::ai_task)` returned INTAKE, QUOTE, RECONCILE, SIM_TEXT, MANDATE; a real ai_runs row with task MANDATE was inserted with the production column set and read back by id, then deleted. HEAD_REVISION in db/migrations.py is 0007 and tests/unit/test_schema_contract.py asserts it against the newest file plus the ai_task enum against docs/contracts/db-schema.md. tools/check_migrations.py itself could not complete: its cycle downgrades to base, which aborts on rows left by an earlier force-award (documented under T09A03). The upgrade path is therefore proven directly rather than through that tool."
+}
