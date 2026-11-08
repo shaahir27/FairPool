@@ -1,5 +1,16 @@
 {
   "status": "passed",
   "date": "2026-11-08",
-  "note": "Backend unit suite 706 passed; backend integration suite 529 passed; fault, concurrency and property suites 105 passed; `ruff check tools backend/src backend/tests` clean; `python tools/validate_docs.py` 0 errors (2 pre-existing warnings, both the /api/v1/nope negative-test path); `python tools/check_generated.py` reports the frontend API types match the regenerated OpenAPI. Runs executed against the loopback fairpool_test database. CI on the branch is not yet observed and is tracked separately by the ci evidence item."
+  "commands": [
+    "APP_ENV=test DATABASE_URL=<loopback fairpool_test> .venv/Scripts/python.exe -m pytest backend/tests -q -m \"not sandbox and not sandbox_interactive\" -> 1376 passed, 17 deselected, 1 warning in 236.23s, on a schema recreated with `alembic upgrade head`.",
+    "pytest backend/tests/faults backend/tests/concurrency -q -> 33 passed in 58.56s.",
+    "pytest the integration/unit/concurrency F extras -> 7 passed in 13.59s.",
+    "cd frontend && npm test -- --run -> 312 passed across 31 files; npm run lint -> 0 errors; npm run build -> success.",
+    "ruff check backend/src backend/tests tools -> clean; mypy --strict modules and domain -> 97 files clean.",
+    "python tools/validate_docs.py -> 0 errors, 2 pre-existing warnings (the /api/v1/nope negative-test path).",
+    "python tools/check_generated.py -> frontend API types match the regenerated OpenAPI.",
+    "python tools/check_imports.py -> 0 violations."
+  ],
+  "database": "Every backend run used a disposable loopback database ending in _test. The first full run failed four merchant and simulation-isolation tests because an earlier killed run had left rows behind; the schema was dropped and recreated and all four passed, and the full suite then passed. The failure was environment state, not code, and is recorded rather than hidden.",
+  "not_run_here": "The 17 deselected sandbox and sandbox_interactive tests are covered by sandbox_contracts.json (9 pass, 9 skip with named owner reasons)."
 }
