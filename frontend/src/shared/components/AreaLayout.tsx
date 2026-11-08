@@ -5,6 +5,7 @@ import { Brand } from "./Brand";
 import { HonestyLabels } from "./HonestyLabels";
 import { Icon } from "./Icon";
 import { LoadingScreen } from "./LoadingScreen";
+import { NotificationInbox } from "./NotificationInbox";
 import { api } from "../api/client";
 import { setCsrfToken } from "../lib/csrf";
 import { accountState, resetSessionCache, subscribeAccount } from "../lib/session";
@@ -154,7 +155,7 @@ export function AreaLayout({
           <header className="account-topbar">
             <div className="account-mobile-brand"><Link to={home} aria-label="FairPool home"><Brand /></Link></div>
             <span className="account-context">{merchant ? (account?.display_name ? `${account.display_name} - Merchant` : "Merchant workspace") : admin ? (account?.display_name ? `${account.display_name} · Administrator` : "Administrator") : account ? `${account.display_name}'s account` : "Your account"}</span>
-            <div className="account-topbar-right"><HonestyLabels kinds={["sandbox"]} />
+            <div className="account-topbar-right">{admin ? null : <NotificationInbox />}<HonestyLabels kinds={["sandbox"]} />
               <AccountMenu links={utilityLinks} title={merchant ? "Merchant account" : admin ? "Administration" : "Your account"} label={merchant ? "Mobile merchant navigation" : admin ? "Mobile admin navigation" : "Mobile buyer navigation"} />
             </div>
           </header>

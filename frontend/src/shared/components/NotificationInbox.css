@@ -1,0 +1,23 @@
+/* The inbox is a quiet topbar control; its panel is the only raised surface. */
+.inbox { position: relative; }
+.inbox-trigger { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 7px 12px; border: 1px solid rgb(var(--color-line)); border-radius: 9px; background: rgb(var(--color-card)); color: rgb(var(--color-ink)); font-size: 12px; font-weight: 550; cursor: pointer; }
+.inbox-trigger:hover { background: rgb(var(--color-tint)); }
+.inbox-trigger:focus-visible, .inbox-close:focus-visible, .inbox-retry:focus-visible { outline: 2px solid rgb(var(--color-accent)); outline-offset: 2px; }
+.inbox-trigger .icon { width: 16px; height: 16px; }
+.inbox-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: rgb(var(--color-action)); color: rgb(var(--color-on-accent)); font-size: 11px; font-variant-numeric: tabular-nums; }
+.inbox-panel { position: absolute; z-index: 40; top: calc(100% + 8px); right: 0; width: min(360px, calc(100vw - 32px)); max-height: min(60vh, 520px); overflow-y: auto; border: 1px solid rgb(var(--color-line)); border-radius: 12px; background: rgb(var(--color-card)); color: rgb(var(--color-ink)); box-shadow: 0 18px 40px rgb(var(--color-ink) / .18); }
+.inbox-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid rgb(var(--color-line) / .6); position: sticky; top: 0; background: rgb(var(--color-card)); }
+.inbox-header h2 { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.inbox-state { margin-left: auto; font-size: 11px; color: rgb(var(--color-muted)); }
+.inbox-close { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: rgb(var(--color-muted)); cursor: pointer; }
+.inbox-close:hover { background: rgb(var(--color-tint)); }
+.inbox-close .icon { width: 14px; height: 14px; }
+.inbox-note { padding: 16px; font-size: 13px; line-height: 1.6; color: rgb(var(--color-muted)); }
+.inbox-retry { text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.inbox-list { list-style: none; margin: 0; padding: 0; }
+.inbox-item { padding: 12px 16px; border-top: 1px solid rgb(var(--color-line) / .45); }
+.inbox-item:first-child { border-top: 0; }
+.inbox-item.is-unread { background: rgb(var(--color-tint) / .55); }
+.inbox-item p { font-size: 13px; line-height: 1.6; }
+.inbox-item time { display: block; margin-top: 4px; font-size: 11px; color: rgb(var(--color-muted)); }
+@media (max-width: 640px) { .inbox-trigger span:not(.inbox-badge) { display: none; } .inbox-trigger { padding: 7px 9px; } }

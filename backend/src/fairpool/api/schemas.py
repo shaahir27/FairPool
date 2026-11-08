@@ -116,6 +116,28 @@ class MeResponse(ResponseModel):
     unread_notifications: int
 
 
+class NotificationView(ResponseModel):
+    """CR-13: one stored notification, returned as data rather than interpreted."""
+
+    id: UUID
+    kind: str
+    payload: dict[str, Any]
+    created_at: datetime
+    read_at: datetime | None
+
+
+class NotificationsResponse(ResponseModel):
+    #: The caller's newest 50 rows, and the unread count over all of them.
+    items: list[NotificationView]
+    unread: int
+
+
+class NotificationReadResponse(ResponseModel):
+    #: Idempotent: a second call marks nothing and still answers ``unread: 0``.
+    marked: int
+    unread: int
+
+
 class DelegationScope(StrictModel):
     pool_ids: list[UUID] = Field(default_factory=list)
     category: str | None = None

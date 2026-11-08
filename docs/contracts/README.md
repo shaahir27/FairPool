@@ -98,6 +98,39 @@ with no mandate is a script, and a mandate no agent ever used is a form.
 
 Independent review is required before IG-9 acceptance, as for every CR.
 
+### CR-13: The inbox exists in the database and has no way in (owner authorized 2026-11-07)
+
+FR-UI-09 asks for an in-app inbox of seat, waitlist, loss, hold, capture and refund
+events, newest first, with an unread count, and says nothing is emailed, texted or
+pushed. The notifications themselves are already written: `notifications` is frozen in
+migration `0001`, `modules/notify/service.py` writes one row inside the transaction that
+produced the event (I10), and `GET /api/v1/me` already returns `unread_notifications`
+from a count of the same rows. What is missing is a read. A signed-in buyer or merchant
+has no route that lists their own rows, and no route that marks them read, so the count
+`/me` reports can only ever grow.
+
+This change adds two owner-scoped session routes and no data:
+
+- `GET /api/v1/me/notifications` lists the caller's rows only, newest first by
+  `created_at` then `id` as a stable tie-break, capped at 50 items. Each item is
+  `{id, kind, payload, created_at, read_at}`; the envelope also carries `unread`, the
+  same count `GET /api/v1/me` reports, computed over all of the caller's rows rather
+  than the returned page. `payload` is the stored application payload, returned as
+  data, not interpreted by the route.
+- `POST /api/v1/me/notifications/read` marks every unread row of the caller as read with
+  the database clock (I15) and returns `{marked, unread}` with `unread` always `0`.
+  It is idempotent: a second call marks nothing and answers `marked: 0`, `unread: 0`.
+  The CSRF check that every session POST already carries applies unchanged.
+
+Both routes are owner-scoped by the session principal, never by a request parameter, so
+another user's notifications are neither listed nor marked; the read sets no status,
+writes no audit row and calls no provider. No new notification kind is introduced, no
+delivery channel is added, and no AI or agent surface reaches either route. The inbox
+remains retrieval: it never changes a bid, an entry, an order or a payment (I1, I2).
+
+Affected task: **T09B05**. `notifications` already exists, so there is no migration.
+**No new contract tag and no phase-gate claim is made by this change request.**
+
 ### CR-12: A date the buyer wrote is read, and a date they did not write is asked for (owner authorized 2026-11-06)
 
 A live INTAKE run against the hosted demo failed every message that stated a date.

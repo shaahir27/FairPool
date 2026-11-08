@@ -27,6 +27,8 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | POST | /api/v1/auth/login | B | public | Start session |
 | POST | /api/v1/auth/logout | B | session | End session |
 | GET | /api/v1/me | B | session | Current user, PayPal link state, unread notifications |
+| GET | /api/v1/me/notifications | B | session | CR-13: my notifications, newest first, limit 50, with an unread count |
+| POST | /api/v1/me/notifications/read | B | session | CR-13: mark my notifications read; idempotent, returns the marked count and `unread: 0` |
 | GET | /api/v1/me/addresses | B | session | List this buyer's saved delivery addresses |
 | POST | /api/v1/me/addresses | B | session | Save a delivery address |
 | PUT | /api/v1/me/addresses/{address_id} | B | session | Edit an owned delivery address or make it default |
