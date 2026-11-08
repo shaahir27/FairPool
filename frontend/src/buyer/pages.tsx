@@ -280,6 +280,98 @@ export function PayPalSettingsPage() {
 
 type Delegation = ApiComponents["schemas"]["DelegationView"];
 
+// CR-14: the closed mandate vocabulary from ai-schemas.md section 9. The browser offers
+// exactly these five predicates and three actions; the server refuses anything else.
+type MandatePredicate = "PRICE_ABOVE" | "FUNDING_BELOW" | "BLOCKING_FLAG_ON_AWARD" | "DELIVERY_AFTER" | "NO_AWARD_BY";
+type MandateAction = "PROCEED" | "REASK" | "HALT";
+type MandateCondition = { predicate: MandatePredicate; action: MandateAction; params: Record<string, string> };
+type MandateRequestCondition = { predicate: string; params: Record<string, string | number>; action: string };
+
+const MANDATE_PREDICATES: MandatePredicate[] = ["PRICE_ABOVE", "FUNDING_BELOW", "BLOCKING_FLAG_ON_AWARD", "DELIVERY_AFTER", "NO_AWARD_BY"];
+const MANDATE_ACTIONS: MandateAction[] = ["PROCEED", "REASK", "HALT"];
+const PREDICATE_LABELS: Record<MandatePredicate, string> = {
+  PRICE_ABOVE: "Price above a limit",
+  FUNDING_BELOW: "Funding below a level",
+  BLOCKING_FLAG_ON_AWARD: "An award carries a blocking flag",
+  DELIVERY_AFTER: "Delivery after a date",
+  NO_AWARD_BY: "No award by a date",
+};
+const ACTION_LABELS: Record<MandateAction, string> = { PROCEED: "Continue", REASK: "Ask me again", HALT: "Stop" };
+const EMPTY_PARAMS: Record<MandatePredicate, Record<string, string>> = {
+  PRICE_ABOVE: { amount: "" },
+  FUNDING_BELOW: { percent: "60", hours_before_close: "24" },
+  BLOCKING_FLAG_ON_AWARD: {},
+  DELIVERY_AFTER: { date: "" },
+  NO_AWARD_BY: { date: "" },
+};
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const AMOUNT = /^\d+(\.\d{1,2})?$/;
+
+function actionWord(action: MandateAction): string {
+  return action === "PROCEED" ? "continue" : action === "REASK" ? "ask me again" : "stop";
+}
+
+function describeCondition(condition: MandateCondition): string {
+  const { params, action } = condition;
+  switch (condition.predicate) {
+    case "PRICE_ABOVE":
+      return `- If the price is above USD ${params.amount || "(amount)"}, ${actionWord(action)}.`;
+    case "FUNDING_BELOW":
+      return `- If funding is below ${params.percent || "(percent)"}% ${params.hours_before_close || "(hours)"} hours before close, ${actionWord(action)}.`;
+    case "BLOCKING_FLAG_ON_AWARD":
+      return `- If an award carries a blocking flag, ${actionWord(action)}.`;
+    case "DELIVERY_AFTER":
+      return `- If delivery is after ${params.date || "(date)"}, ${actionWord(action)}.`;
+    case "NO_AWARD_BY":
+      return `- If no award is made by ${params.date || "(date)"}, ${actionWord(action)}.`;
+  }
+}
+
+/** The exact text the buyer ratifies and the browser hashes; version 1 of the wording. */
+function renderMandate(poolTitles: string[], cap: string, expires: string, conditions: MandateCondition[]): string {
+  return [
+    "FairPool agent mandate (version 1)",
+    `Pools: ${poolTitles.length ? poolTitles.join(", ") : "no pools selected"}`,
+    `Maximum per entry: USD ${cap.trim() || "(cap)"}`,
+    `Expires: ${expires.trim() || "(expiry)"} (UTC)`,
+    conditions.length ? `Conditions:\n${conditions.map(describeCondition).join("\n")}` : "Conditions: none",
+    "This mandate approves no payment. You approve every charge yourself.",
+  ].join("\n");
+}
+
+function serializeConditions(conditions: MandateCondition[]): MandateRequestCondition[] {
+  return conditions.map((condition) => ({
+    predicate: condition.predicate,
+    action: condition.action,
+    params: condition.predicate === "PRICE_ABOVE"
+      ? { amount: condition.params.amount ?? "" }
+      : condition.predicate === "FUNDING_BELOW"
+        ? { percent: Number(condition.params.percent ?? ""), hours_before_close: Number(condition.params.hours_before_close ?? "") }
+        : condition.predicate === "BLOCKING_FLAG_ON_AWARD"
+          ? {}
+          : { date: condition.params.date ?? "" },
+  }));
+}
+
+function conditionProblem(condition: MandateCondition): boolean {
+  const { predicate, params } = condition;
+  if (predicate === "PRICE_ABOVE") return !AMOUNT.test(params.amount ?? "");
+  if (predicate === "BLOCKING_FLAG_ON_AWARD") return false;
+  if (predicate === "FUNDING_BELOW") {
+    if (!/^\d+$/.test(params.percent ?? "") || !/^\d+$/.test(params.hours_before_close ?? "")) return true;
+    const percent = Number(params.percent);
+    const hours = Number(params.hours_before_close);
+    return percent < 1 || percent > 100 || hours > 168;
+  }
+  return !DAY.test(params.date ?? "");
+}
+
+/** SHA-256 of the rendered mandate; Web Crypto, so it is the browser's own digest. */
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /** Buyer delegations: scoped, capped, expiring tokens shown exactly once. */
 export function AgentSettingsPage() {
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -293,6 +385,8 @@ export function AgentSettingsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [cap, setCap] = useState("600");
   const [expires, setExpires] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16));
+  const [conditions, setConditions] = useState<MandateCondition[]>([]);
+  const [ratified, setRatified] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [actionError, setError] = useState<{code: string; message: string} | null>(null);
   const error = actionError ?? (accessRead.error ? envelope(accessRead.error) : null);
@@ -300,6 +394,23 @@ export function AgentSettingsPage() {
   const poolsLoading = poolsRead.isPending;
   async function load() {
     await Promise.all([accessRead.refetch({cancelRefetch: false}), poolsRead.refetch({cancelRefetch: false})]);
+  }
+
+  function addCondition() {
+    if (conditions.length >= 5) return;
+    setConditions((current) => [...current, { predicate: "PRICE_ABOVE", action: "REASK", params: { ...EMPTY_PARAMS.PRICE_ABOVE } }]);
+    setRatified(false);
+  }
+
+  function updateCondition(index: number, change: (condition: MandateCondition) => MandateCondition) {
+    setConditions((current) => current.map((condition, at) => (at === index ? change(condition) : condition)));
+    // The buyer ratified a text, not a form: any edit means ratifying again.
+    setRatified(false);
+  }
+
+  function removeCondition(index: number) {
+    setConditions((current) => current.filter((_, at) => at !== index));
+    setRatified(false);
   }
 
   async function create(event: FormEvent) {
@@ -310,17 +421,43 @@ export function AgentSettingsPage() {
       setError({ code: "VALIDATION_ERROR", message: "Pick at least one pool, a positive cap and a future expiry." });
       return;
     }
+    if (conditions.some(conditionProblem)) {
+      setError({ code: "VALIDATION_ERROR", message: "Fill every condition with a valid amount, percentage, hours or date." });
+      return;
+    }
+    if (!ratified) {
+      setError({ code: "VALIDATION_ERROR", message: "Review the mandate and ratify the mandate before access is created." });
+      return;
+    }
+    const rendered = renderMandate(
+      selected.map((id) => pools.find((pool) => pool.pool_id === id)?.title ?? id),
+      cap,
+      expires,
+      conditions,
+    );
     setBusy(true); setError(null); setToken(null);
     try {
       const { data, error: failure } = await api.POST("/api/v1/me/delegations", {
         body: {
-          scope: { pool_ids: selected, category: null },
+          scope: {
+            pool_ids: selected,
+            category: null,
+            mandate_version: "1",
+            ratification_sha256: await sha256Hex(rendered),
+            conditions: serializeConditions(conditions),
+          },
           max_cap_cents: capCents,
           expires_at: expiry.toISOString(),
         },
       });
       if (failure || !data) setError(envelope(failure));
-      else { setToken(data.token); setSelected([]); await load(); }
+      else {
+        setToken(data.token);
+        setSelected([]);
+        setConditions([]);
+        setRatified(false);
+        await load();
+      }
     } catch {
       setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
     } finally { setBusy(false); }
@@ -391,7 +528,8 @@ export function AgentSettingsPage() {
       </div>
       <form onSubmit={(event) => void create(event)} className="settings-surface settings-delegation-form">
         <h2>Create agent access</h2>
-        <p className="shop-copy">Choose the pools and spending limit this agent may use. You remain in control of payment.</p>
+        <p className="shop-copy">Write the mandate this agent must follow. It authorizes no payment: a human approves every charge, and the agent has no payment tool.</p>
+        <p className="shop-copy">AI-proposed mandates are not available in this build, so you write the mandate yourself.</p>
         <fieldset>
           <legend className="text-sm font-semibold text-ink">Pools this delegation may use</legend>
           {poolsProblem ? (
@@ -414,8 +552,11 @@ export function AgentSettingsPage() {
                   <input
                     type="checkbox"
                     checked={selected.includes(pool.pool_id)}
-                    onChange={(event) => setSelected((current) =>
-                      event.target.checked ? [...current, pool.pool_id] : current.filter((id) => id !== pool.pool_id))}
+                    onChange={(event) => {
+                      setSelected((current) =>
+                        event.target.checked ? [...current, pool.pool_id] : current.filter((id) => id !== pool.pool_id));
+                      setRatified(false);
+                    }}
                   />
                   {pool.title}
                 </label>
@@ -424,13 +565,71 @@ export function AgentSettingsPage() {
           )}
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm">Maximum total per entry (USD)
-            <input className="form-input mt-1" inputMode="decimal" value={cap} onChange={(event) => setCap(event.target.value)} />
+          <label className="text-sm">Maximum per entry (USD)
+            <input className="form-input mt-1" inputMode="decimal" value={cap} onChange={(event) => { setCap(event.target.value); setRatified(false); }} />
           </label>
           <label className="text-sm">Expires (UTC)
-            <input className="form-input mt-1" type="datetime-local" value={expires} onChange={(event) => setExpires(event.target.value)} />
+            <input className="form-input mt-1" type="datetime-local" value={expires} onChange={(event) => { setExpires(event.target.value); setRatified(false); }} />
           </label>
         </div>
+        <fieldset>
+          <legend className="text-sm font-semibold text-ink">Conditions this agent must honour</legend>
+          <p className="shop-copy">Optional. FairPool checks each condition against its own records, so no rule is left to the agent's judgement. The cap is per entry, not a total across pools.</p>
+          <div className="mt-3 grid gap-3">
+            {conditions.map((condition, index) => (
+              <div key={index} className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm">Condition {index + 1}
+                  <select
+                    className="form-input mt-1"
+                    aria-label={`Condition ${index + 1} predicate`}
+                    value={condition.predicate}
+                    onChange={(event) => updateCondition(index, (current) => {
+                      const predicate = event.target.value as MandatePredicate;
+                      return { ...current, predicate, params: { ...EMPTY_PARAMS[predicate] } };
+                    })}
+                  >
+                    {MANDATE_PREDICATES.map((predicate) => <option key={predicate} value={predicate}>{PREDICATE_LABELS[predicate]}</option>)}
+                  </select>
+                </label>
+                {condition.predicate === "PRICE_ABOVE" ? (
+                  <label className="text-sm">Amount (USD)
+                    <input className="form-input mt-1" inputMode="decimal" aria-label={`Condition ${index + 1} amount (USD)`} value={condition.params.amount} onChange={(event) => updateCondition(index, (current) => ({ ...current, params: { ...current.params, amount: event.target.value } }))} />
+                  </label>
+                ) : condition.predicate === "FUNDING_BELOW" ? (
+                  <>
+                    <label className="text-sm">Percent of seats filled
+                      <input className="form-input mt-1" inputMode="numeric" aria-label={`Condition ${index + 1} percent`} value={condition.params.percent} onChange={(event) => updateCondition(index, (current) => ({ ...current, params: { ...current.params, percent: event.target.value } }))} />
+                    </label>
+                    <label className="text-sm">Hours before close
+                      <input className="form-input mt-1" inputMode="numeric" aria-label={`Condition ${index + 1} hours before close`} value={condition.params.hours_before_close} onChange={(event) => updateCondition(index, (current) => ({ ...current, params: { ...current.params, hours_before_close: event.target.value } }))} />
+                    </label>
+                  </>
+                ) : condition.predicate === "BLOCKING_FLAG_ON_AWARD" ? null : (
+                  <label className="text-sm">Date
+                    <input className="form-input mt-1" type="date" aria-label={`Condition ${index + 1} date`} value={condition.params.date} onChange={(event) => updateCondition(index, (current) => ({ ...current, params: { ...current.params, date: event.target.value } }))} />
+                  </label>
+                )}
+                <label className="text-sm">Then
+                  <select className="form-input mt-1" aria-label={`Condition ${index + 1} action`} value={condition.action} onChange={(event) => updateCondition(index, (current) => ({ ...current, action: event.target.value as MandateAction }))}>
+                    {MANDATE_ACTIONS.map((action) => <option key={action} value={action}>{ACTION_LABELS[action]}</option>)}
+                  </select>
+                </label>
+                <button type="button" className="button-secondary w-fit" onClick={() => removeCondition(index)}>Remove condition {index + 1}</button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="button-secondary mt-3 w-fit" onClick={addCondition} disabled={conditions.length >= 5}>Add condition</button>
+          {conditions.length >= 5 ? <p className="shop-copy">A mandate carries at most five conditions.</p> : null}
+        </fieldset>
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Your mandate</h3>
+          <pre data-testid="mandate-text" className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-canvas p-3 text-xs">{renderMandate(selected.map((id) => pools.find((pool) => pool.pool_id === id)?.title ?? id), cap, expires, conditions)}</pre>
+          <p className="shop-copy">FairPool stores a SHA-256 of this text with the delegation. Editing any field means you ratify again.</p>
+        </div>
+        <label className="settings-pool-option">
+          <input type="checkbox" checked={ratified} onChange={(event) => setRatified(event.target.checked)} />
+          I ratify this mandate. The agent acts only inside it, and I approve every payment myself.
+        </label>
         <button type="submit" className="button-primary w-fit" disabled={busy || pools.length === 0}>
           {busy ? "Creating…" : "Create delegation"}
         </button>

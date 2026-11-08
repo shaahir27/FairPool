@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.db.models.identity import Delegation
 from fairpool.domain.errors import ApplicationError
+from fairpool.modules.identity.mandate import ratified_mandate
 from fairpool.ports import AuditLog, Clock
 
 logger: Final[logging.Logger] = logging.getLogger("fairpool.identity.delegations")
@@ -96,11 +97,9 @@ class DelegationService:
         # mandate is persisted as a bare scope and the token is minted from a gutted
         # object. They survive together or not at all: a ratification hash is what makes
         # the other two meaningful, so a caller that omits it cannot attach conditions to
-        # a token that nobody ratified.
-        if scope.get("ratification_sha256") is not None:
-            for key in ("mandate_version", "ratification_sha256", "conditions"):
-                if scope.get(key) is not None:
-                    normalized[key] = scope[key]
+        # a token that nobody ratified. Conditions are validated here, inside the only
+        # path that mints a token, so no token can carry an unvalidated rule.
+        normalized.update(ratified_mandate(scope))
         token = _new_token()
         row = Delegation(
             id=uuid4(),
