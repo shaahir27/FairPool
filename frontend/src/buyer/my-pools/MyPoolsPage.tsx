@@ -70,6 +70,15 @@ function EntryCard({entry}: {entry: Entry}) {
   const destination = ready && entry.offer ? `/offers/${entry.offer.buyer_order_id}` : entry.offer ? `/orders/${entry.offer.buyer_order_id}` : `/pools/${entry.pool_id}`;
   const action = ready ? "Review offer" : entry.offer ? "View order" : "View pool";
   return <li><article className={`pool-entry-card shop-panel shop-panel-pad${ready ? " has-ready-offer" : ""}`} aria-labelledby={`entry-${entry.entry_id}`}>
+    {ready ? (
+      <div className="ready-offer-banner" role="status">
+        <div className="flex items-center gap-2 font-semibold">
+          <Icon name="check" />
+          <span>Final price ready for your approval</span>
+        </div>
+        <p className="text-xs text-muted">A merchant met your price. No money is held until you review and confirm.</p>
+      </div>
+    ) : null}
     <div className="pool-entry-main"><div className="pool-entry-product">
       {entry.product ? <ProductArt title={title} /> : <span className="pool-entry-fallback"><Icon name="layers" /></span>}
       <div><h2 id={`entry-${entry.entry_id}`}>{title}</h2>{entry.pool_title && entry.pool_title !== title ? <p className="shop-copy">{entry.pool_title}</p> : null}{entry.product ? <p className="entry-product-variant">{[entry.product.variant, entry.product.condition.toLowerCase().replaceAll("_", " ")].filter(Boolean).join(", ")}</p> : null}</div>

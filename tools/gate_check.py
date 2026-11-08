@@ -93,6 +93,25 @@ GATE_EVIDENCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "ci",
         ),
     ),
+    "ig-9": (
+        "phase9",
+        (
+            "migrations",
+            "local_checks",
+            "faults",
+            "sandbox_contracts",
+            "property_concurrency",
+            "ai_evaluation",
+            "audit_page",
+            "f5_funding_balance",
+            "notifications",
+            "mandate_gate",
+            "agent_market",
+            "readme_draft",
+            "independent_review",
+            "ci",
+        ),
+    ),
 }
 REQUIRED_EVIDENCE = GATE_EVIDENCE["ig-2"][1]
 
@@ -330,10 +349,10 @@ def main() -> int:
             )
         if args.gate in ("ig-2", "ig-3", "ig-4", "ig-5", "ig-6", "ig-7", "ig-8"):
             commands.append([py, "tools/check_migrations.py"])
-        if args.gate in ("ig-3", "ig-4", "ig-5", "ig-6", "ig-7", "ig-8"):
+        if args.gate in ("ig-3", "ig-4", "ig-5", "ig-6", "ig-7", "ig-8", "ig-9"):
             # testing-strategy.md section 1: the fault suite is run by gate-check,
             # not by CI. IG-3 owns F5 and F16; IG-4 adds F7 and F8; IG-5 adds F9
-            # and F24; IG-6 adds F2, F3, F4 and F10.
+            # and F24; IG-6 adds F2, F3, F4 and F10; IG-9 completes F1 to F30.
             commands.append([py, "-m", "pytest", "backend/tests/faults", "-m", "faults", "-q"])
         commands.append([py, "tools/check_generated.py"])
         scanner = shutil.which("gitleaks")

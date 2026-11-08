@@ -102,8 +102,8 @@ flowchart TB
   A8 --> G8
   B8 --> G8
   subgraph PH9["PH9 Hardening, evaluation and feature freeze"]
-    A9["Member A<br/>T09A01 T09A02 T09A03 T09A04"]
-    B9["Member B<br/>T09B01 T09B02 T09B03 T09B04"]
+    A9["Member A<br/>T09A01 T09A02 T09A03 T09A04 T09A05 T09A06"]
+    B9["Member B<br/>T09B01 T09B02 T09B03 T09B04 T09B05 T09B06"]
     X9["Both<br/>T09X01 T09X02"]
   end
   G9{{"IG-9 merge gate<br/>IT-9"}}
@@ -170,8 +170,8 @@ PH7  A: T07A01 T07A02 T07A03 T07A04 T07A05 T07A06
 PH8  A: T08A01 T08A02 T08A03 T08A04 T08A05 T08A06
      B: T08B01 T08B02 T08B03 T08B04 T08B05
      ==== IG-8 merge gate, IT-8 ====
-PH9  A: T09A01 T09A02 T09A03 T09A04
-     B: T09B01 T09B02 T09B03 T09B04
+PH9  A: T09A01 T09A02 T09A03 T09A04 T09A05 T09A06
+     B: T09B01 T09B02 T09B03 T09B04 T09B05 T09B06
      both: T09X01 T09X02
      ==== IG-9 merge gate, IT-9 ====
 PH10 A: T10A01 T10A02 T10A03 T10A04
@@ -299,7 +299,7 @@ Merge gate IG-8; test IT-8. Load: Member A 3.50 of 2 days, Member B 3.50 of 2 da
 
 | Member A lane | Member B lane | Both |
 |---|---|---|
-| T09A01 (L) Fault-injection suite<br/>T09A02 (M) Sandbox contract suite complete<br/>T09A03 (M) Deployment hardening and demo tooling<br/>T09A04 (S) STRETCH: top-up after FUNDED | T09B01 (L) Public audit page and verify-my-place<br/>T09B02 (L) AI evaluation sets and runner<br/>T09B03 (M) Concurrency and property suites for pools, allocation and auction<br/>T09B04 (M) UI polish and honesty copy | T09X01 (L) README full draft<br/>T09X02 (M) Feature freeze and IT-3 |
+| T09A01 (L) Fault-injection suite<br/>T09A02 (M) Sandbox contract suite complete<br/>T09A03 (M) Deployment hardening and demo tooling<br/>T09A04 (S) STRETCH: top-up after FUNDED<br/>T09A05 (M) Funding and ledger integrity (audit F5)<br/>T09A06 (M) Agent-populated market run and boundary report (CR-14) | T09B01 (L) Public audit page and verify-my-place<br/>T09B02 (L) AI evaluation sets and runner<br/>T09B03 (M) Concurrency and property suites for pools, allocation and auction<br/>T09B04 (M) UI polish and honesty copy<br/>T09B05 (M) In-app notifications inbox<br/>T09B06 (M) MANDATE task and buyer ratification card (CR-14) | T09X01 (L) README full draft<br/>T09X02 (M) Feature freeze and IT-3 |
 
 Merge gate IG-9; test IT-9. Load: Member A 3.00 of 1 days, Member B 3.75 of 1 days.
 
@@ -452,16 +452,18 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | 53 | T09A02 Sandbox contract suite complete | M | PH9 | IG-9 | T02A01, T05A01 |
 | 54 | T09A03 Deployment hardening and demo tooling | M | PH9 | IG-9 | T01A03 |
 | 55 | T09A04 STRETCH: top-up after FUNDED | S | PH9 | IG-9 | T06A01 |
-| 56 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
-| 57 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
-| 58 | T10A01 Fixes from rehearsal 1 (payments, ops, fulfillment) | M | PH10 | IG-10 | T10X01 |
-| 59 | T10A02 Repository cleanup and compliance | M | PH10 | IG-10 | T09A03 |
-| 60 | T10A03 Devpost text | M | PH10 | IG-10 | T09X01 |
-| 61 | T10A04 Merchant SDKs and developer portal | M | PH10 | IG-10 | T08A03 |
-| 62 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
-| 63 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
-| 64 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
-| 65 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
+| 56 | T09A05 Funding and ledger integrity check (audit F5) | M | PH9 | IG-9 | T05A03, T06A01 |
+| 57 | T09A06 Agent-populated market run and boundary report (CR-14) | M | PH9 | IG-9 | T07A05, T07B03, T08A03, T09A03 |
+| 58 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
+| 59 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
+| 60 | T10A01 Fixes from rehearsal 1 (payments, ops, fulfillment) | M | PH10 | IG-10 | T10X01 |
+| 61 | T10A02 Repository cleanup and compliance | M | PH10 | IG-10 | T09A03 |
+| 62 | T10A03 Devpost text | M | PH10 | IG-10 | T09X01 |
+| 63 | T10A04 Merchant SDKs and developer portal | M | PH10 | IG-10 | T08A03 |
+| 64 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
+| 65 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
+| 66 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
+| 67 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
 
 ### Member B
 
@@ -502,11 +504,13 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | 33 | T09B02 AI evaluation sets and runner | L | PH9 | IG-9 | T04B01, T06B01, T06A05 |
 | 34 | T09B03 Concurrency and property suites for pools, allocation and auction | M | PH9 | IG-9 | T06A06, T03B01 |
 | 35 | T09B04 UI polish and honesty copy | M | PH9 | IG-9 | T07B01, T08B01, T08B02 |
-| 36 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
-| 37 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
-| 38 | T10B01 Fixes from rehearsal 1 (product, UI, agent lane) | M | PH10 | IG-10 | T10X01 |
-| 39 | T10B02 Demo video | L | PH10 | IG-10 | T10X02 |
-| 40 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
-| 41 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
-| 42 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
-| 43 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
+| 36 | T09B05 In-app notifications inbox | M | PH9 | IG-9 | T06A06, T01B03 |
+| 37 | T09B06 MANDATE task and buyer ratification card (CR-14) | M | PH9 | IG-9 | T04B01, T07A05, T01B03 |
+| 38 | T09X01 README full draft (both members) | L | PH9 | IG-9 | T09A02, T09B02 |
+| 39 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
+| 40 | T10B01 Fixes from rehearsal 1 (product, UI, agent lane) | M | PH10 | IG-10 | T10X01 |
+| 41 | T10B02 Demo video | L | PH10 | IG-10 | T10X02 |
+| 42 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
+| 43 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
+| 44 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
+| 45 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |

@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "method": "Three independent read-only reviews ran in parallel against the Phase 9 tree (money/mandate, security/notifications, frontend). Each was instructed to read the code and its callers, produce concrete failing cases with file:line and a smallest fix, and change nothing. Every finding is either fixed in a named commit or recorded below as accepted with its reason.",
+  "reviews": [
+    {
+      "lane": "money and mandate",
+      "verdict": "BLOCKERS FOUND, ALL FIXED",
+      "findings": [
+        {"severity": "BLOCKER", "finding": "The delegation mint stored ratification_sha256 but never verified it, so a cap above any mandate and an arbitrary hash returned 201.", "disposition": "FIXED 8f58fe2: the server recomputes the canonical mandate hash (scope, cap, expiry, ordered conditions) and refuses a mismatch; a missing hash with mandate_version is a refusal; red-green proven (4 tests fail with the gate disabled)."},
+        {"severity": "BLOCKER", "finding": "tools/live_gates.py logger signature made every live mandate case raise TypeError.", "disposition": "FIXED 94540ee."},
+        {"severity": "BLOCKER", "finding": "The bid gate's AI_ENABLED environment flag was inert because explicit settings kwargs win, so the quote answered 403 and the gate could never pass.", "disposition": "FIXED 94540ee: settings_for receives ai_enabled, the Gemini key and the public base URL explicitly."},
+        {"severity": "MAJOR", "finding": "Mandate conditions are stored but no surface evaluates them.", "disposition": "RECORDED Q-2026-11-08-39 and in the README: the cap, scope and expiry are enforced; conditions advise. Implementing an enforcing surface needs an additive response field and a CR."},
+        {"severity": "MAJOR", "finding": "ai-schemas section 9 says an invalid condition is dropped and reported as an ambiguity; the closed schema refuses the whole proposal instead.", "disposition": "RECORDED as a deliberate fail-closed deviation in mandate_gate.json: the schema is closed, so an unknown predicate never reaches persistence. Adding a repair-and-ambiguity path is a later change."},
+        {"severity": "MAJOR", "finding": "agent_market counted every buyer order for delegated entries, not provider-write states, and its self-check creates none, so zero was guaranteed.", "disposition": "FIXED 94540ee: the query is restricted to AUTHORIZING..VOIDED plus AUTH_FAILED and CAPTURE_FAILED, and the derivation is printed in the report."},
+        {"severity": "MINOR", "finding": "The harness's cleanup claim was false and its delete order violated the awards-to-revision foreign key.", "disposition": "FIXED 94540ee: awards are deleted first and the evidence states exactly what cleanup removes and what stays."},
+        {"severity": "MINOR", "finding": "mandate_gate.json said passed while its note admitted the live run was open.", "disposition": "FIXED: the file now scopes itself to the deterministic gate and names the live command and its status separately."},
+        {"severity": "MINOR", "finding": "The 'never wider' test asserted the values it had passed in.", "disposition": "FIXED 8f58fe2: the raised-cap POST with a stale hash must answer 422."}
+      ]
+    },
+    {
+      "lane": "security and notifications",
+      "verdict": "ONE MAJOR FIXED, ONE MINOR PARTIALLY FIXED, ONE DOCS FIXED",
+      "findings": [
+        {"severity": "MAJOR", "finding": "The unread badge never appeared because it was only set while opening the panel, which immediately marked everything read.", "disposition": "FIXED 94540ee: a mount fetch seeds the badge without marking; a test asserts the badge before opening and that no POST is sent."},
+        {"severity": "MINOR", "finding": "A tab with the cookie but no CSRF token cannot mark read; the auto-POST failed silently.", "disposition": "PARTIALLY FIXED 94540ee: the POST is skipped and the panel says why. Reissuing a CSRF token from the session is a separate endpoint and is not claimed."},
+        {"severity": "MINOR", "finding": "The sandbox README named the wrong CI protection (dummy credentials are exported; the real guards are the marker filter and the CI skip).", "disposition": "FIXED 94540ee."}
+      ],
+      "clean_checks": "Owner scoping uses only the session principal; CSRF is enforced by require_session; unread is the same predicate as /me over all rows with the limit applied to items only; payload renders as text with no HTML injection or payload-driven navigation; the interactive gate cannot run in CI and C-16 is pure."
+    },
+    {
+      "lane": "frontend",
+      "verdict": "FOUR MAJORS FIXED, ONE PARTIAL, MINORS FIXED",
+      "findings": [
+        {"severity": "MAJOR", "finding": "Unread badge could never appear.", "disposition": "FIXED 94540ee (same fix as the security lane)."},
+        {"severity": "MAJOR", "finding": "The audit page reported a failed seal when the public key simply had not loaded.", "disposition": "FIXED 94540ee: a key-not-loaded branch says it could not be checked."},
+        {"severity": "MAJOR", "finding": "A throwing recompute left 'Recalculating…' forever.", "disposition": "FIXED 94540ee: a catch lands three 'could not run in this browser' rows."},
+        {"severity": "MAJOR", "finding": "A refetch could change the rendered mandate or drop a pool without clearing ratification.", "disposition": "FIXED 94540ee: ratification resets on any rendered-text change, selected ids prune to open pools, and 8f58fe2 makes the server verify the bound fields."},
+        {"severity": "MAJOR", "finding": "The Discover capacity meter showed every pool at or above minimum as full, duplicated.", "disposition": "FIXED 94540ee: the meter and its CSS are removed."},
+        {"severity": "MAJOR", "finding": "'+180.00 saved' was a saving that did not happen.", "disposition": "FIXED 94540ee: the callout is removed; the budget note already states the delta correctly."},
+        {"severity": "MINOR", "finding": "Category filter compared a lowercased key to a raw id and a stale category could strand the grid.", "disposition": "FIXED 94540ee: both sides lowercase, an effective category falls back to ALL, and Clear search clears both."},
+        {"severity": "MINOR", "finding": "The receipt modal had no Escape, focus move or restore.", "disposition": "PARTIALLY FIXED 94540ee: Escape closes and the sheet takes focus. It is not a native dialog; recorded here."},
+        {"severity": "MINOR", "finding": "The inbox trigger lost its accessible name on narrow screens and the close target was 28 px.", "disposition": "FIXED 94540ee: an explicit aria-label with the unread count and a 44 px close target."},
+        {"severity": "MINOR", "finding": "A failed mark-read produced the load-error message over rendered rows.", "disposition": "FIXED 94540ee: the POST has its own catch."},
+        {"severity": "MINOR", "finding": "Dead CSS for the removed guarantee and savings blocks.", "disposition": "FIXED 94540ee."},
+        {"severity": "MINOR", "finding": "A status role with an aria-label could suppress the announcement, and a stale place verdict survived a pool change.", "disposition": "FIXED 94540ee: the label is gone and the place clears on pool change."}
+      ]
+    }
+  ],
+  "recorded_not_fixed": [
+    "Mandate conditions are advisory (Q-2026-11-08-39).",
+    "An invalid condition refuses the whole proposal instead of being dropped with an ambiguity; the schema is closed and no repair path exists (fail-closed, recorded).",
+    "A session with a cookie but no CSRF token cannot mark notifications read; the panel says so rather than pretending.",
+    "The receipt sheet is a hand-rolled overlay with Escape and initial focus, not a native dialog."
+  ]
+}

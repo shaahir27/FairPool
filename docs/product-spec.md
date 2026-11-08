@@ -101,6 +101,7 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 | FR-AI-03 | Synthetic buyer and merchant agents rehearse grouping, allocation and bids; everything simulated is labelled; a simulation does not prove conversion, participation or price compression | IDEA AI 3 |
 | FR-AI-04 | A pasted merchant quote is parsed by AI into proposed fields that the merchant confirms | DEP-2 |
 | FR-AI-05 | AI extraction and quote parsing are measured on labelled sets and the results are published in the README | DESIGN 8.4 |
+| FR-AI-06 | AI converts a buyer's free-text intent and stated risk limits into a proposed delegation mandate: pool scope, maximum cap, expiry and stop-and-ask conditions drawn from a closed predicate vocabulary. The buyer edits and ratifies it before a delegation token is issued, and the ratified text is hashed and stored with the AI run that produced it. A mandate never authorizes a payment (FR-AG-02) and the model never emits executable logic | CR-14 |
 
 ### Agent lane, audit, operations, simulation
 
@@ -108,6 +109,7 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 |---|---|---|
 | FR-AG-01 | Documented agent API: list and search pools, create entry (idempotent), list own entries or read one entry's status, withdraw entry; delegation tokens scoped by pool or category, maximum cap and expiry; also reachable through the FairPool MCP server and the Zapier managed-mode bridge | IDEA 3, DESIGN 13, INT-2, INT-3 |
 | FR-AG-02 | The agent API has no payment endpoint; humans approve payments on PayPal. In vault mode an agent can submit the confirmed request, but the entry needs the buyer to open the returned `vault_action_url`, accept the consent text and approve saving PayPal; until then the entry is not eligible | DESIGN 13 |
+| FR-AG-03 | An agent-populated market run drives the real buyer and merchant agent surfaces with model-driven participants plus an adaptive adversary, over a pool whose payments use the fake router (I12), and publishes a measured report: sealed bids submitted, R1 to R9 rejections by code, awards made, mandate breaches attempted and refused, and PayPal writes originating from any AI-callable surface, which must be zero. Everything simulated is labelled and the run never reaches PayPal (FR-AI-03) | INT-3, INT-9, CR-14 |
 | FR-AD-01 | Public audit page: rules and rules hash, commitments list and root, beacon round and value, lot boundaries, award summary, and a verify-my-place check | DESIGN 9, 15 |
 | FR-AD-02 | Hash-chained, append-only audit log with published checkpoints | DESIGN 5 |
 | FR-OP-01 | Ops console: lot state view, dead-letter webhooks, reconciler runs, mock-failure toggles for the demo, lot abort, audit export | DESIGN 15 |
@@ -148,6 +150,7 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 | FR-UI-06 | Merchant Tab 3, Fulfillment: funded lots, a shipping CSV (addresses only after the lot is FUNDED, N14), mark shipped with tracking numbers (FR-IG-08), and the verification manifest download (FR-IG-07) | UI plan |
 | FR-UI-07 | Merchant Tab 4, Developer API: create and revoke API keys (secret shown once), scopes, rate limits, SDK downloads and the portal link (FR-IG-05), quickstart | UI plan, INT-9 |
 | FR-UI-08 | Every screen shows the honesty labels and notices that the API returns (SANDBOX, FALLBACK, SIMULATED, DEMO SEED, MOCK); the browser never composes a claim itself (I13) | DESIGN 15 |
+| FR-UI-09 | A signed-in buyer or merchant can open an in-app inbox of the notifications their pools, entries and money events produced (seat, waitlist, loss, hold, capture, refund, correction), newest first, with an unread count; opening it marks them read. Notifications stay inside the app: no email, SMS or push is sent | Owner decision 2026-11-07 |
 
 ### Sponsor and PayPal tool integrations (decisions INT-1 to INT-9 in `docs/decisions.md`)
 

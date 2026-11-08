@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "contract": "CR-13 adds two owner-scoped session routes to docs/contracts/api.md: GET /api/v1/me/notifications (newest first by created_at then id, 50-item cap, items {id, kind, payload, created_at, read_at}, unread counted over all rows) and POST /api/v1/me/notifications/read (database clock, idempotent, returns marked and unread: 0). No migration: notifications already exists.",
+  "backend": "modules/notify/inbox.py plus api/routers/notifications.py, registered in api/app.py. Tests: backend/tests/integration/test_notifications.py -- 7 passed together with the API contract tests: owner-scoped list, anonymous 401, newest first, 50-row cap with full-row unread count, idempotent mark-read, unread parity with GET /api/v1/me, CSRF refusal, foreign rows untouched.",
+  "frontend": "shared/components/NotificationInbox.tsx mounted in the buyer and merchant topbar through AreaLayout (ops excluded, no restyle): fetch on open, then mark read; a sentence per stored kind and the task-listed kinds; a neutral line for unknown kinds; empty and error states; Escape closes. frontend/tests/notifications.test.tsx -- 17 passed; the full frontend suite passed at 310 tests in the lane run.",
+  "no_delivery_channel": "Nothing is emailed, texted or pushed; the inbox is retrieval only and never changes a bid, entry, order or payment.",
+  "owner_scoping": "Both routes read the session principal, never a request parameter; another user's rows are neither listed nor marked.",
+  "generated": "frontend/openapi.json and frontend/src/shared/api/schema.d.ts regenerated with the two routes; tools/check_generated.py clean."
+}

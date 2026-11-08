@@ -27,6 +27,110 @@ No payment, fairness, account-verification or agent permission changes are inclu
 
 ## Rules
 
+### CR-14: The agent surface has authority but no instrument, and has never met a model caller (owner authorized 2026-11-07)
+
+FR-AG-01, FR-IG-02 and FR-IG-04 already give an AI client a scoped delegation token, an
+MCP server and a merchant key, and `test_mcp_contract.py` and `test_merchant_agent_api.py`
+prove both surfaces refuse what they should. Two gaps remain, and both are about the caller
+rather than the surface.
+
+First, the token's scope, cap and expiry are set by a form, so what the buyer actually cares
+about has nowhere to live. "Do not go over $520 even though my cap is $600" and "pull me out
+if the pool is not filling" are not expressible in `{"pool_ids", "category"}`, and nothing
+evaluates them. The agent surface is bounded but not directed, so the human ratifies a number
+rather than a policy.
+
+Second, nothing has ever exercised these surfaces with a model as the caller. Both suites
+drive fixtures. Whether a model can produce a rule-legal sealed bid, and whether the boundary
+holds against a caller that reads a refusal and adapts, are unmeasured — and the unmeasured
+half is exactly the half the hackathon's agentic-commerce theme asks about.
+
+The change adds one new AI task, one enum value and three keys inside an existing JSONB column.
+No new endpoint, no new table, no new job kind, no new state transition, no new environment
+variable — but it does need a migration, for a reason that is easy to miss.
+
+- `ai-schemas.md` section 9 adds Task MANDATE: the model proposes scope, cap, expiry and
+  stop-and-ask conditions drawn from a **closed** five-predicate vocabulary with typed
+  params. It never emits executable logic, and it can never raise a cap the buyer stated. The
+  cap is enforced **per entry**, which is what `agentapi/service.py` does today; nothing sums a
+  delegation's caps across the several pools it may see, and §9 says so rather than implying a
+  total.
+- `db-schema.md` names three keys inside the existing `delegations.scope` JSONB —
+  `mandate_version`, `ratification_sha256`, `conditions`. Authorization still resolves from
+  `pool_ids` and `category` alone, so the new keys cannot widen a scope. **They need code, not
+  only a column:** `DelegationService.create` rebuilds `scope` as exactly `{pool_ids, category}`
+  and silently drops every other key, so `DelegationScope` and that normaliser must both be
+  extended or a ratified mandate would be stripped before it persisted and the token would be
+  minted from a gutted object.
+- `ai_runs.task` is a PostgreSQL enum, `ai_task`, whose values are fixed in migration `0001`. A
+  new `MANDATE` value therefore needs a numbered migration doing `ALTER TYPE ai_task ADD VALUE`.
+  Because Postgres will not let a new enum value be used inside the transaction that adds it,
+  the statement runs outside a transaction block. `tools/check_migrations.py` replays
+  0001-to-head and so does **not** catch a missing one; the test that catches it writes a real
+  MANDATE run row.
+- `product-spec.md` adds FR-AI-06 and FR-AG-03; `implementation-plan.md` adds T09B06 and
+  T09A06 to PH9 under gate IG-9.
+
+What does not change, stated because it is the point: rule 22 and I1/I2 stand; no AI-callable
+surface gains a payment verb; `reserved` is stamped by the server and is not model output;
+the payment approval stays the human's (FR-AG-02); INT-1 to INT-9 stand; a condition is
+evaluated by deterministic code from stored rows only, so no condition can require a provider
+or model call to resolve.
+
+The FR-AG-03 run uses a pool whose payments go through the fake router (I12), labels
+everything simulated (FR-AI-03) and never reaches PayPal. It is evidence about the boundary,
+not a payment path.
+
+The owner also records here what this CR declines: the vault permission is **not** enabled.
+DEP-5 stands, `VAULT_REAL_SAVE_ENABLED` stays `false`, and the real `POST
+/v3/vault/setup-tokens` path — never live-proven, and with VC-01 to VC-06 not yet written as
+runnable Sandbox tests — is not attempted in PH9. The mandate's second half is described as
+architecture and evidenced by the existing adapter code, never shown as a live charge.
+
+Abandonment rule, recorded so a partial landing cannot survive: acceptance bullet 1 of each
+new task is its gate — a live model must produce a schema-valid mandate (T09B06) and a bid the
+Merchant Agent API accepts and seals, with its own receipt (T09A06). R1 to R9 are evaluated at
+award time, not bid time, so the bid gate proves acceptance and sealing and the rule tally comes
+from running the auction afterwards. If either gate fails, the owner cancels both tasks and
+withdraws CR-14 whole: section 9, the three scope keys, the enum migration, FR-AI-06, FR-AG-03
+and both task rows are removed together. Neither task ships alone, because a harness
+with no mandate is a script, and a mandate no agent ever used is a form.
+
+Independent review is required before IG-9 acceptance, as for every CR.
+
+### CR-13: The inbox exists in the database and has no way in (owner authorized 2026-11-07)
+
+FR-UI-09 asks for an in-app inbox of seat, waitlist, loss, hold, capture and refund
+events, newest first, with an unread count, and says nothing is emailed, texted or
+pushed. The notifications themselves are already written: `notifications` is frozen in
+migration `0001`, `modules/notify/service.py` writes one row inside the transaction that
+produced the event (I10), and `GET /api/v1/me` already returns `unread_notifications`
+from a count of the same rows. What is missing is a read. A signed-in buyer or merchant
+has no route that lists their own rows, and no route that marks them read, so the count
+`/me` reports can only ever grow.
+
+This change adds two owner-scoped session routes and no data:
+
+- `GET /api/v1/me/notifications` lists the caller's rows only, newest first by
+  `created_at` then `id` as a stable tie-break, capped at 50 items. Each item is
+  `{id, kind, payload, created_at, read_at}`; the envelope also carries `unread`, the
+  same count `GET /api/v1/me` reports, computed over all of the caller's rows rather
+  than the returned page. `payload` is the stored application payload, returned as
+  data, not interpreted by the route.
+- `POST /api/v1/me/notifications/read` marks every unread row of the caller as read with
+  the database clock (I15) and returns `{marked, unread}` with `unread` always `0`.
+  It is idempotent: a second call marks nothing and answers `marked: 0`, `unread: 0`.
+  The CSRF check that every session POST already carries applies unchanged.
+
+Both routes are owner-scoped by the session principal, never by a request parameter, so
+another user's notifications are neither listed nor marked; the read sets no status,
+writes no audit row and calls no provider. No new notification kind is introduced, no
+delivery channel is added, and no AI or agent surface reaches either route. The inbox
+remains retrieval: it never changes a bid, an entry, an order or a payment (I1, I2).
+
+Affected task: **T09B05**. `notifications` already exists, so there is no migration.
+**No new contract tag and no phase-gate claim is made by this change request.**
+
 ### CR-12: A date the buyer wrote is read, and a date they did not write is asked for (owner authorized 2026-11-06)
 
 A live INTAKE run against the hosted demo failed every message that stated a date.

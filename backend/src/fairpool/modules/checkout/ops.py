@@ -237,6 +237,47 @@ async def alerts(
             }
         )
 
+    # T09A05 / audit F5: the money two independent records agree on. A lot's completed
+    # captures less its completed refunds, from the PayPal rows, must equal the same
+    # figure as the ledger's CAPTURE_COMPLETED less REFUND_COMPLETED. Every ledger amount
+    # is positive -- ``to_paypal_string`` refuses a negative -- so direction comes from
+    # the kind, not the sign. Only ended lots are compared: a lot mid-flight legitimately
+    # has captures the ledger has not been told about yet.
+    imbalanced = (
+        await session.execute(
+            text(
+                "SELECT l.id AS lot_id, l.pool_id, l.status::text AS status, "
+                "captured.net AS captured_net, ledger.net AS ledger_net FROM lots l "
+                "CROSS JOIN LATERAL (SELECT "
+                "COALESCE((SELECT SUM(pc.amount_cents) FROM paypal_captures pc "
+                "JOIN buyer_orders bo ON bo.id = pc.buyer_order_id "
+                "WHERE bo.lot_id = l.id AND pc.status = 'COMPLETED'), 0) "
+                "- COALESCE((SELECT SUM(pr.amount_cents) FROM paypal_refunds pr "
+                "JOIN buyer_orders bo ON bo.id = pr.buyer_order_id "
+                "WHERE bo.lot_id = l.id AND pr.status = 'COMPLETED'), 0) AS net) captured "
+                "CROSS JOIN LATERAL (SELECT "
+                "COALESCE((SELECT SUM(le.amount_cents) FROM ledger_entries le "
+                "WHERE le.lot_id = l.id AND le.kind = 'CAPTURE_COMPLETED'), 0) "
+                "- COALESCE((SELECT SUM(le.amount_cents) FROM ledger_entries le "
+                "WHERE le.lot_id = l.id AND le.kind = 'REFUND_COMPLETED'), 0) AS net) ledger "
+                "WHERE l.status IN ('FUNDED','CLOSED','FAILED_CLOSED') "
+                "AND captured.net <> ledger.net ORDER BY l.id LIMIT 200"
+            )
+        )
+    ).all()
+    for lot_id, pool_id, status, captured_net, ledger_net in imbalanced:
+        rows.append(
+            {
+                "kind": "ledger_imbalance",
+                "lot_id": str(lot_id),
+                "pool_id": str(pool_id),
+                "status": str(status),
+                "captured_net_cents": int(captured_net),
+                "ledger_net_cents": int(ledger_net),
+                "difference_cents": int(captured_net) - int(ledger_net),
+            }
+        )
+
     # The age guard is a timeline value (72 h at most); a MISSING authorization GET
     # is not required to raise this: the row's own age past the guard is the fact.
     aged = (

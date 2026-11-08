@@ -27,6 +27,7 @@ FairPool is built for the PayPal AI Hackathon and runs entirely in the PayPal **
 - [Tests](#tests)
 - [Deployment](#deployment)
 - [Documentation](#documentation)
+- [Roadmap](#roadmap)
 - [License](#license)
 
 ---
@@ -49,7 +50,7 @@ Last updated: **3 November 2026.**
 | Phase 7, live end to end and the agent and merchant lanes | **Complete — IG-7 closed on evidence; tagged `ig-7`.** The PayPal JS SDK v6 popup approval (C-17) with its redirect fallback, labelled payment routers, the ops console (lot state, alerts, dead letters, reconciler runs, MOCK toggles, audit export), the buyer's My Pools and Orders, the Agent API with hashed, scoped, revocable delegations, the FairPool MCP endpoint with exactly four tools and no payment tool, the Merchant Agent API's lot/bid operations, and the advisory LOW_SIMILARITY flag after a confirmed bid. IT-7 ran live against PayPal Sandbox: one lot funded on a completed capture, a second lot voided to a zero ledger, one refill wave, and the agent, MCP and merchant-key lanes. The evidence records one owner waiver: the in-run lot-2 refund, because the refill approval missed its offer window and IT-6 already proved capture-to-refund-at-zero live on this code. See [docs/evidence/phase7/](docs/evidence/phase7/). |
 | Phase 8, fulfilment, verification, merchant console and simulation | **Complete — IG-8 closed on evidence; tagged `ig-8`.** The merchant journey end to end — Demand Board with SSE and sealed-bid submission, Active Bids with the holds-then-captures tracker, Developer keys and Profile — and the fulfilment journey: the funded shipping list in JSON and CSV, shipment marks and tracking, the no-PII verification manifest and the read-only verification that compares each capture with PayPal. The operator gets metrics, four alert rules, security headers and rate limits; the simulation allocates 10,000 entries in 5.4 seconds and is labelled and isolated from public lists. Roles are enforced server-side: a merchant cannot join a pool it will bid on. S9 (the Zapier trial) is recorded in [docs/evidence/phase8/s9.json](docs/evidence/phase8/s9.json) with its limit stated: managed mode served a locked, read-only GET tool live, while both write tools could not send a schema-valid body, so `ZAPIER_BRIDGE` stays off and FairPool's `/mcp` endpoint remains the agent path. |
 
-**What works now:** `make setup` and `make verify`; a 37-table Postgres schema plus `alembic_version` (22 enum types, 12 triggers) through migration 0006; the full backend suite (1202 offline tests, plus the **18 fault tests** the gate also runs on their own), with one skip that names itself; **219 frontend tests**; the API contract and its OpenAPI documents; the local Docker stack; the Phase 2 to Phase 8 engines, the agent and merchant lanes and the twenty-three registered worker handlers; a PayPal-first signup and a saved-address book, both proven end to end against the deterministic fake identity provider (a fresh live Sandbox consent round trip is still outstanding); a demo seeder that builds a live, purchasable pool in the local and hosted databases; and the hosted app at <https://fairpool-api.onrender.com> (page and API on one origin, which is what keeps the session cookie first-party) backed by Supabase. The separate static preview is suspended, so this is the only app URL. The tags that exist are `ig-0` to `ig-8` and `contracts-v1` to `contracts-v1.6`.
+**What works now:** `make setup` and `make verify`; a 37-table Postgres schema plus `alembic_version` (22 enum types, 12 triggers) through migration 0007; the full backend suite (1,376 tests on a clean schema, including the F1–F30 fault matrix, the property suite and the concurrency races), with one skip that names itself; **312 frontend tests**; the API contract and its OpenAPI documents; the local Docker stack; the Phase 2 to Phase 8 engines, the agent and merchant lanes and the twenty-three registered worker handlers; a notifications inbox that lists and clears the events each role already receives; a PayPal-first signup and a saved-address book, both proven end to end against the deterministic fake identity provider (a fresh live Sandbox consent round trip is still outstanding); a demo seeder that builds a live, purchasable pool in the local and hosted databases; and the hosted app at <https://fairpool-api.onrender.com> (page and API on one origin, which is what keeps the session cookie first-party) backed by Supabase. The separate static preview is suspended, so this is the only app URL. The tags that exist are `ig-0` to `ig-8` and `contracts-v1` to `contracts-v1.6`.
 
 **What works from Phase 6 (merged to `main`, CI green, deployed; the gate is closed and tagged `ig-6`):** the lot handlers that open a bid window, close it, award a lot from real sealed bids through the `ranking_v1` rules with its database loader, and hand the award to checkout; AI quote parsing into a bid the merchant confirms, with reconciliation flags that can only withhold an offer; PayPal webhook verification and processing with a dead letter and a retry route; the authorization age guard that settles a hung hold by what PayPal says about it; merchant API keys (shown once, stored as an HMAC) with `MerchantAuth` for both a session and a key; and the buyer's Discover screen, pool lobby and entry receipt, which can be copied, downloaded or printed.
 
@@ -58,7 +59,7 @@ Last updated: **3 November 2026.**
 
 **Demo data (2026-11-05).** `make demo-seed` builds a coherent five-pool scenario on the development database (`DEMO_SEED_HOSTED=1` with `APP_ENV=local` is the explicit opt-in that seeds the hosted database; the seeding process runs in local mode only so the admin demo helper stays gated on the live app): a Demand Board with two lots in bidding, an awarded checkout with two live offers, a funded lot with two captured orders, sealed addresses and shipments, a failed lot at a zero ledger, and a labelled 10,000-entry simulation. The accounts are `demo-merchant@fairpool.test` and `demo-merchant-2@fairpool.test` (merchant role, profiles and the three attestations), `demo-buyer-1` to `demo-buyer-6`, and `demo-admin`. Every account uses `DEMO_SEED_PASSWORD` from `.env`, which is never printed or committed; `tools/demo_seed_check.py` re-reads the database and asserts the state. The demo provider references are shaped `DEMO-…` and no PayPal call is made while seeding, so the fulfilment verification shows those rows as unverifiable rather than pretending they are live captures.
 
-**What does not work yet:** live vault save is deferred (`VAULT_CHARGE` remains unavailable and `VAULT_REAL_SAVE_ENABLED=false`), `WEBHOOKS_ENABLED` is false, so seven real deliveries from the live run were stored and one was verified by the C-15 test but none was processed, the buyer cannot release their own hold before payment (the order screen says so; withdrawing an *entry* while the pool is open does work), the audit page recomputes the rules hash, the Merkle root, the chain checkpoint signature and each buyer's rank in the browser, but it still cannot prove that the published commitment list is complete, and the beacon round's BLS signature is not verified (CR-11 records why), live shipment tracking (C-18) is an owner run, the Zapier bridge (S9) is recorded read-only because its managed-mode write tools could not send a schema-valid body (FairPool's `/mcp` endpoint is the agent path), and the auction and money work has been run live end to end: a two-lot pool, four real sealed bids, the award, a buyer approval, a real authorization captured to COMPLETED and refunded to COMPLETED, and a second lot voided to a zero ledger. The real-money path *has* been exercised: one Sandbox buyer through offer, approval and server-side authorize, then void to a closed lot at zero ledger, and a second run through capture, funding and refund to zero ledger (C-08, C-09, IT-5). The hosted service runs the Phase 8 build since 5 November 2026; `https://fairpool-api.onrender.com` is the app URL.
+**What does not work yet:** live vault save is deferred (`VAULT_CHARGE` remains unavailable and `VAULT_REAL_SAVE_ENABLED=false`), `WEBHOOKS_ENABLED` is false, so seven real deliveries from the live run were stored and one was verified by the C-15 test but none was processed, the buyer cannot release their own hold before payment (the order screen says so; withdrawing an *entry* while the pool is open does work), the audit page recomputes the rules hash, the Merkle root, the chain checkpoint signature and each buyer's rank in the browser, but it still cannot prove that the published commitment list is complete, and the beacon round's BLS signature is not verified (CR-11 records why), a ratified mandate's conditions are stored, validated and returned but no agent surface evaluates them yet, so they advise rather than enforce (the cap, scope and expiry are enforced), live shipment tracking (C-18) is an owner run, the Zapier bridge (S9) is recorded read-only because its managed-mode write tools could not send a schema-valid body (FairPool's `/mcp` endpoint is the agent path), and the auction and money work has been run live end to end: a two-lot pool, four real sealed bids, the award, a buyer approval, a real authorization captured to COMPLETED and refunded to COMPLETED, and a second lot voided to a zero ledger. The real-money path *has* been exercised: one Sandbox buyer through offer, approval and server-side authorize, then void to a closed lot at zero ledger, and a second run through capture, funding and refund to zero ledger (C-08, C-09, IT-5). The hosted service runs the Phase 8 build since 5 November 2026; `https://fairpool-api.onrender.com` is the app URL.
 
 **Vault charge is the default, not authorization.** `PAYMENT_MODE` defaults to `vault_charge`: the buyer saves a PayPal permission and the server charges the exact awarded amount after the award. The `authorize_capture` path, where the buyer approves an AUTHORIZE order per lot, is the fallback and does not run unless the mode is changed. In vault mode a live-sandbox buyer still cannot become eligible at close, because saving a permission for real is `T05A01` (`DEP-5`); today that path is fake-only and every screen that depends on it must say so.
 
@@ -117,6 +118,56 @@ AI is used only at the edges:
 - writes varied simulation text.
 
 The buyer or merchant confirms what the AI proposed. Deterministic rules check every field and make every decision. AI can never create, authorize, capture, void or refund a payment, and no AI-callable tool of ours can move money. Buyer requests, caps and personal data are never indexed by search.
+
+### A mandate, not a blank cheque
+
+A buyer can hand an AI client permission to act for them without handing it money. The model reads what the buyer wrote together with the request they already confirmed, and proposes a **delegation mandate**: which pools the agent may see, a maximum it may commit, when that permission expires, and a short list of stop-and-ask conditions. The conditions are drawn from a closed vocabulary — a price ceiling, a funding threshold, a blocking flag on the winning bid, a delivery date, an award deadline — with typed parameters, so the model selects a predicate rather than composing logic.
+
+The buyer reads the proposal as plain text, may edit every field, and confirms it before a token exists. Three properties are enforced in code, not in the prompt:
+
+- the mandate may **narrow** a ceiling but never raise the one the buyer stated;
+- the reserved acts are stamped by the server and are absent from the model's output schema, so an invented `reserved` field fails validation instead of being ignored;
+- the conditions survive to the stored token only together with a hash of the canonical mandate fields (scope, cap, expiry and the ordered conditions), and the server recomputes that hash when it mints, so neither a condition nor a higher cap can ride on a permission the buyer did not ratify.
+
+### An agent-populated market, measured
+
+`tools/agent_market.py` runs the buyer and merchant surfaces with agent participants and an adaptive adversary, over a pool whose payments use the fake router. It reports what was attempted and what refused, and the four MCP tools it exposes are exactly four: list pools, enter a pool, list entries, withdraw.
+
+Measured in the self-check run recorded under `docs/evidence/phase9/`:
+
+| Check | Result |
+|---|---|
+| Forged delegation token | refused 401 `DELEGATION_INVALID` |
+| Entry above the delegation's ceiling | refused 403 `DELEGATION_CAP_EXCEEDED` |
+| Read-only merchant key submitting a bid | refused 403 `API_KEY_SCOPE` |
+| Another merchant's sealed bid | 404 `NOT_FOUND`, never a 403 |
+| MCP body over 64 KiB | refused 413 before dispatch |
+| Institutional text inside merchant notes | stored and flagged for review, not treated as an instruction |
+| PayPal writes originating from an AI-callable surface | **0**, derived by joining buyer orders to entries and counting delegated ones |
+
+That zero is a measured result, not a guarantee: the run states how many attempts it made, and absence of an observed breach across those attempts is not a claim of security.
+
+### How the extraction itself is measured
+
+Model output is scored on labelled corpora — intake messages, merchant quotes, reconciliation cases and simulation cases — and the numbers are kept under `docs/evidence/` with the model, prompt and dataset fingerprint attached. The corpus is a fixed set, so a prompt or model change requires a fresh measured run before the figures are quoted again; a change without one is rejected by the gate tool rather than silently accepted.
+
+### What the labelled corpus measured
+
+<!-- eval-table-start -->
+| Task | Runs | Clean | Field accuracy | Notes |
+|---|---|---|---|---|
+| INTAKE | 100 | 100/100 (100.0%) | 100.0% | 0 left for review |
+| QUOTE | 60 | 60/60 (100.0%) | 100.0% | 0 left for review |
+| RECONCILE | 120 | 120/120 (100.0%) | 100.0% | 23 left for review |
+| SIM_TEXT | 40 | 40/40 (100.0%) | 100.0% | 0 left for review |
+
+Injection and quoted-instruction cases: **32/32 clean** across the two runs.
+Model `gemini-3.5-flash-lite`, prompt `phase2-gemini-v10`, dataset `02acc35721fe…`, 320 results in `docs/evidence/phase9/gemini.json`.
+<!-- eval-table-end -->
+
+### Development-time PayPal context
+
+Coding agents on this project used the **APIMatic ContextMatic** plugin for version-aware PayPal API context while building the adapter, alongside the PayPal AI Toolkit skills. Verified Sandbox facts and recorded spike results override anything a plugin says, and the adapter calls raw REST rather than the Server SDK. The Merchant Agent API publishes a committed OpenAPI document and that document is the intended input to APIMatic's generator; the generated SDKs themselves are not committed yet, so nothing here claims they exist.
 
 ---
 
@@ -384,7 +435,7 @@ Never commit `.env`. The PayPal host guard accepts only `https://api-m.sandbox.p
 | AI evaluation | `backend/tests/ai_eval/` | on demand |
 | Frontend | `frontend/tests/` | yes |
 
-Current local count: **1202** offline backend tests plus the **18** fault tests that `make test-faults` runs separately, and **219 frontend tests** in 25 files. The fairness vectors, state machines, schema contract, triggers, platform services, route table, Merchant OpenAPI, port fakes, intake rules, allocation and funding engines, and frontend boundaries are covered.
+Current local count: **1,376** backend tests (the fault matrices included) and **312 frontend tests** in 31 files. The fairness vectors, state machines, schema contract, triggers, platform services, route table, Merchant OpenAPI, port fakes, intake rules, allocation and funding engines, and frontend boundaries are covered.
 
 ---
 
@@ -423,6 +474,10 @@ Free-tier limits: the Render API sleeps after 15 minutes idle and there is no fr
 The contracts in `docs/contracts/` are tagged through `contracts-v1.6` on `main`. That tag is the first to carry CR-8's guard widening and CR-9's receipt read-back: CR-9's own change-log entry deliberately claimed no tag of its own, so it rides on the gate tag.
 
 ---
+
+## Roadmap
+
+Beyond this submission: platform approval and multi-seller settlement so each winning merchant is paid directly; partial capture for price tiers as more buyers join; emergent pools proposed by buyers rather than only published templates; and India-domestic checkout with local providers once a merchant there can receive a domestic PayPal payment. The walkthrough video is added at submission time (T10B02); this draft does not link one yet.
 
 ## License
 

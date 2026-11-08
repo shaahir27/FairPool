@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -204,6 +206,7 @@ it("creates a scoped delegation, shows the token once and lists it", async () =>
 
   const checkbox = await screen.findByRole("checkbox", { name: /Demo monitor pool/ });
   fireEvent.click(checkbox);
+  fireEvent.click(screen.getByRole("checkbox", { name: /I ratify this mandate/ }));
   fireEvent.click(screen.getByRole("button", { name: "Create delegation" }));
 
   await waitFor(() => expect(transport.post).toHaveBeenCalledWith("/api/v1/me/delegations", {
@@ -231,7 +234,8 @@ it("lists every open pool instead of silently cutting the list", async () => {
   render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
 
   expect(await screen.findByRole("checkbox", { name: "Pool 8" })).toBeInTheDocument();
-  expect(screen.getAllByRole("checkbox")).toHaveLength(9);
+  const poolChoices = within(screen.getByRole("group", { name: "Pools this delegation may use" }));
+  expect(poolChoices.getAllByRole("checkbox")).toHaveLength(9);
 });
 
 it("shows a real error and a retry when the open pools cannot be loaded", async () => {
@@ -294,10 +298,70 @@ it("refuses scientific notation for a delegation's USD cap", async () => {
   transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: "pool-one", title: "Test pool"}] : {items: []}}));
   render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
   fireEvent.click(await screen.findByRole("checkbox", {name: "Test pool"}));
-  fireEvent.change(screen.getByLabelText("Maximum total per entry (USD)"), {target: {value: "1e3"}});
+  fireEvent.change(screen.getByLabelText("Maximum per entry (USD)"), {target: {value: "1e3"}});
   fireEvent.click(screen.getByRole("button", {name: "Create delegation"}));
   expect(transport.post).not.toHaveBeenCalled();
   expect(screen.getByRole("alert")).toHaveTextContent("VALIDATION_ERROR");
+});
+
+it("requires an explicit ratification before any delegation token is requested", async () => {
+  transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: "pool-one", title: "Test pool"}] : {items: []}}));
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+
+  fireEvent.click(await screen.findByRole("checkbox", {name: "Test pool"}));
+  fireEvent.click(screen.getByRole("button", {name: "Create delegation"}));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/ratify the mandate/);
+  expect(transport.post).not.toHaveBeenCalled();
+  expect(screen.getByText(/not available in this build/)).toBeInTheDocument();
+});
+
+it("renders the mandate for reading and hashes the canonical mandate fields with the token", async () => {
+  const pool = { pool_id: "11111111-1111-4111-8111-111111111111", title: "Demo monitor pool" };
+  transport.get.mockImplementation((path: string) => {
+    if (path === "/api/v1/me/delegations") return Promise.resolve({ data: { items: [] } });
+    if (path === "/api/v1/pools") return Promise.resolve({ data: [{ ...pool, status: "OPEN" }] });
+    return Promise.resolve({ data: {} });
+  });
+  transport.post.mockResolvedValue({ data: { token: "fpd_abc_secret", id: "33333333-3333-4333-8333-333333333333" } });
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+
+  fireEvent.click(await screen.findByRole("checkbox", { name: /Demo monitor pool/ }));
+  fireEvent.change(screen.getByLabelText("Expires (UTC)"), { target: { value: "2026-12-01T00:00" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add condition" }));
+  fireEvent.change(screen.getByLabelText("Condition 1 amount (USD)"), { target: { value: "520" } });
+
+  const rendered = screen.getByTestId("mandate-text").textContent ?? "";
+  expect(rendered).toContain("If the price is above USD 520");
+  expect(rendered).toContain("This mandate approves no payment.");
+
+  fireEvent.click(screen.getByRole("checkbox", { name: /I ratify this mandate/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Create delegation" }));
+
+  // The canonical payload: sorted keys, compact JSON, the UTC millisecond expiry and
+  // sorted lowercase pool ids. This is what the server recomputes and hashes.
+  const canonical = JSON.stringify({
+    category: null,
+    conditions: [{ action: "REASK", params: { amount: "520" }, predicate: "PRICE_ABOVE" }],
+    expires_at: "2026-12-01T00:00:00.000Z",
+    max_cap_cents: 60000,
+    pool_ids: [pool.pool_id],
+  });
+  const expectedHash = createHash("sha256").update(canonical).digest("hex");
+  await waitFor(() => expect(transport.post).toHaveBeenCalledWith("/api/v1/me/delegations", {
+    body: expect.objectContaining({
+      max_cap_cents: 60000,
+      expires_at: "2026-12-01T00:00:00.000Z",
+      scope: expect.objectContaining({
+        pool_ids: [pool.pool_id],
+        mandate_version: "1",
+        ratification_sha256: expectedHash,
+        conditions: [{ predicate: "PRICE_ABOVE", params: { amount: "520" }, action: "REASK" }],
+      }),
+    }),
+  }));
+  expect(await screen.findByText("Copy this token now. It is shown once.")).toBeInTheDocument();
+  expect(screen.getByText("fpd_abc_secret")).toBeInTheDocument();
 });
 
 it("updates the sidebar's connection state only after the server confirms revocation", async () => {

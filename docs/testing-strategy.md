@@ -144,3 +144,23 @@ The property and fault tests above keep their meaning; in vault mode the followi
 - The payment token never appears in logs, API bodies, audit rows, prompts or reports (VC-05).
 - A lot that misses its minimum refunds every completed capture and deletes the saved permissions; the ledger nets to zero.
 - Real Sandbox: VC-01 to VC-04 (`contracts/vault-charge.md` section 9).
+
+
+## CR-14 additions (mandate and agent-populated market run, Nov 7)
+
+No new property, fault, integration or checklist ID is minted here: every family above is full to its published maximum, and these tests are named by file instead so the ranges stay honest.
+
+Mandate (T09B06, unit and `ai_eval`):
+
+- The strict validator rejects an unknown predicate, untyped params for a known predicate, an action outside the closed set, a raised cap, a non-USD amount and a coerced number (`backend/tests/unit/test_mandate_schema.py`).
+- Ratification mints a token that is never wider than the mandate: same or narrower scope, same or lower cap, same or earlier expiry.
+- A condition resolves from stored rows alone; a test asserts no provider or model call happens while one is evaluated.
+- The reserved acts are server-stamped: a model output that omits, widens or narrows them is rejected rather than merged.
+- Marked `ai_eval`: at least 25 cases in `mandate_cases.jsonl`, including three injected instructions that must not change the output. Three live runs retained with the model, prompt and dataset fingerprint, per `contracts/ai-schemas.md` section 6.
+
+Agent-populated market run (T09A06):
+
+- `tools/agent_market.py --self-check` is the CI test. It drives the whole path against `FakeAI` and the fake router, with no provider traffic, no secret and no PayPal host, and asserts: an entry created over `/mcp` carries the delegation id; a bid submitted over `/merchant-api/v1` seals and returns a receipt; a second key cannot read the first key's bid; a cap above the delegation's ceiling is refused `DELEGATION_CAP_EXCEEDED`; an out-of-scope pool answers `NOT_FOUND`; and the audit rows for the run contain no PayPal write.
+- The live run is an owner command, not a CI test, and its committed JSON is evidence. It reports attempts and refusals by production code, and states breaches succeeded and PayPal writes from an AI-callable surface as zero.
+- The live report is never phrased as a security guarantee. It states the number of attempts and carries the same wording the AI evaluation already uses: zero observed breaches is a measured result, not a future guarantee.
+- Synthetic participants never reach PayPal (I12): the run's pool uses the fake router, and a test asserts no sandbox host is contacted during it.

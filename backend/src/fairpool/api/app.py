@@ -34,6 +34,7 @@ from fairpool.api.routers import (
     merchant,
     merchant_fulfillment,
     merchant_keys,
+    notifications,
     paypal_login,
     pools,
     public,
@@ -106,6 +107,7 @@ ROUTERS = (
     webhooks,
     admin_ops,
     merchant_fulfillment,
+    notifications,
 )
 
 

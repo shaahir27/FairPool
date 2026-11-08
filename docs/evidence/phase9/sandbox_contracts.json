@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "suite": "backend/tests/contract_sandbox",
+  "collected": 18,
+  "default_run": "pytest backend/tests/contract_sandbox against the loopback test database: 9 passed, 9 skipped. Every C id is collected exactly once: c01_token ... c18_tracker_submitted_and_read_back.",
+  "implemented": {
+    "c01_to_c10": "Carried from the Phase 2 to Phase 7 records; unchanged.",
+    "c11_c12_c13_c17_c18": "Added in test_phase9_contracts.py, module-marked sandbox_interactive, real adapter calls, USD 1.00, no mocks. C-11 asserts the raw void replay is terminal (PREVIOUSLY_VOIDED or UNPROCESSABLE_ENTITY) and that capture after void is AUTHORIZATION_VOIDED; C-12 compares payer fields and the payee shown on GET; C-13 asserts an INR or India-domestic request is rejected; C-17 documents the popup as the owner step and executes the server-side checks it can reach before approval; C-18 submits a tracker for a captured order and asserts one read-back tracker.",
+    "c16": "test_router_contract.py: the payee-email router raises NotEnabled. Unmarked, so it runs in the default suite and CI."
+  },
+  "live_checks_this_phase": "C-13 ran against the real Sandbox: the INR create was rejected with a CURRENCY issue and the INR read was refused with CURRENCY_MISMATCH. C-17 was exercised twice up to the approval wait (order created, Sandbox approve_url asserted, order id printed only). C-18 keeps its Phase 8 live record: tracker 67454261HL110735P-FP-DEMO-TRACK-01 accepted and read back as SHIPPED (docs/evidence/phase8/sandbox_contracts.json).",
+  "owner_steps": "The post-approval bodies of C-11, C-12, C-17 and C-18, and C-08..C-10, need a human approval with FAIRPOOL_SANDBOX_APPROVAL=1; C-15 needs the captured-delivery evidence files. Exact commands and environment variable names are in backend/tests/contract_sandbox/README.md; no secret values are recorded.",
+  "no_mocks": "No respx, unittest.mock or MagicMock appears under contract_sandbox; rule 18 holds.",
+  "skipped_are_labelled": "Each skip prints the reason (needs a human approval, or needs the captured-delivery evidence files), so a skipped contract is visible rather than silently green."
+}

@@ -141,7 +141,7 @@ it("computes a buyer's rank from their own receipt fields", async () => {
 
   // The recompute is async, so wait on its text rather than on the empty live region.
   const result = await screen.findByText(/listed at position/, {
-    selector: '[aria-label="Recomputed place"]',
+    selector: '[data-testid="audit-place"]',
   });
   expect(result).toHaveTextContent(`listed at position ${list.indexOf(mine) + 1} of ${list.length}`);
   // The vector's rank order is the draw, so the page's rank must match it exactly.
@@ -165,7 +165,7 @@ it("says so when a receipt is not in the published list", async () => {
   // A string matcher means "whole element text", so the sentence is matched as a regex.
   expect(
     await screen.findByText(/is not in the published list of \d+/, {
-      selector: '[aria-label="Recomputed place"]',
+      selector: '[data-testid="audit-place"]',
     }),
   ).toHaveTextContent(`published list of ${vectors.sorted_commitments.length}`);
 });

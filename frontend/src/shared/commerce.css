@@ -604,3 +604,210 @@
 .purchase-order-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .purchase-order-status > span { text-transform: none; letter-spacing: 0; font-size: 12px; }
 @media (max-width: 640px) { .order-list-controls { align-items: stretch; flex-direction: column; gap: 18px; } .order-list-controls .catalogue-search { width: 100%; } .purchase-record { padding: 22px; } }
+
+
+/* ==========================================================================
+   ENHANCED TERMINAL LAYOUT STYLES
+   ========================================================================== */
+.pool-terminal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(340px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .pool-terminal-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+.pool-dossier-column {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.pool-action-column {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  position: sticky;
+  top: 24px;
+}
+
+@media (max-width: 960px) {
+  .pool-action-column {
+    position: static;
+  }
+}
+
+.receipt-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  background-color: rgb(var(--color-ink) / 0.45);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 180ms ease forwards;
+}
+
+.receipt-drawer-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 780px;
+  height: 100%;
+  background: rgb(var(--color-surface));
+  box-shadow: -8px 0 32px rgb(var(--color-ink) / 0.2);
+  overflow-y: auto;
+  border-left: 1px solid rgb(var(--color-line));
+  animation: slideDrawerIn 240ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDrawerIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.allocation-card {
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-card));
+}
+
+.allocation-card.is-seated {
+  border-color: rgb(var(--color-accent));
+  background: rgb(var(--color-accent-soft) / 0.4);
+}
+
+.allocation-card.is-waitlisted {
+  border-color: rgb(var(--color-warn));
+  background: rgb(var(--color-warn-soft) / 0.5);
+}
+
+.offer-ready-card {
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 2px solid rgb(var(--color-action));
+  background: rgb(var(--color-card));
+  box-shadow: 0 4px 16px rgb(var(--color-action) / 0.12);
+}
+
+
+/* ==========================================================================
+   BUYER EXPERIENCE LAYOUT OVERHAUL: CATALOGUE, MY-POOLS, AND CHECKOUT
+   ========================================================================== */
+
+/* Category Filter Bar in Discover */
+.catalogue-category-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.category-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgb(var(--color-line) / 0.8);
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-muted));
+  cursor: pointer;
+  transition: all var(--dur-press) var(--ease-out);
+}
+
+.category-pill-btn:hover {
+  border-color: rgb(var(--color-ink) / 0.4);
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-surface));
+}
+
+.category-pill-btn.is-active {
+  background: rgb(var(--color-action));
+  color: rgb(var(--color-on-accent));
+  border-color: rgb(var(--color-action));
+  font-weight: 600;
+}
+
+/* Enhanced Pool Card */
+.enhanced-pool-card {
+  transition: transform var(--dur-enter) var(--ease-out), box-shadow var(--dur-enter) var(--ease-out), border-color var(--dur-enter) var(--ease-out);
+}
+
+.enhanced-pool-card:hover {
+  transform: translateY(-3px);
+  border-color: rgb(var(--color-ink) / 0.25);
+  box-shadow: 0 10px 24px -4px rgb(var(--color-ink) / 0.08);
+}
+
+.catalogue-card-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgb(var(--color-canvas) / 0.5);
+  border-bottom: 1px solid rgb(var(--color-line) / 0.5);
+}
+
+.pool-condition-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-muted));
+  border: 1px solid rgb(var(--color-line) / 0.6);
+}
+
+/* Ready Offer Banner on My-Pools Card */
+.ready-offer-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: rgb(var(--color-accent-soft) / 0.7);
+  border: 1px solid rgb(var(--color-accent));
+  color: rgb(var(--color-ink));
+  font-size: 13px;
+  animation: fadeIn 200ms ease;
+}
+
+.ready-offer-banner .icon {
+  width: 16px;
+  height: 16px;
+  color: rgb(var(--color-action));
+}
+
+.pool-entry-card {
+  transition: transform var(--dur-enter) var(--ease-out), box-shadow var(--dur-enter) var(--ease-out);
+}
+
+.pool-entry-card:hover {
+  box-shadow: 0 6px 20px -2px rgb(var(--color-ink) / 0.06);
+}
+
+.pool-entry-card.has-ready-offer {
+  border-width: 2px;
+  border-color: rgb(var(--color-action));
+  background: rgb(var(--color-surface));
+}
+

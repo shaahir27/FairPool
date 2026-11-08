@@ -58,6 +58,7 @@ export function DiscoverPage() {
   const poolsLoading = catalogue.isPending;
   const poolsError = catalogue.error ? "We couldn’t load the open pools. Try again." : "";
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<string>("ALL");
 
   async function ask(event: FormEvent) {
     event.preventDefault();
@@ -108,9 +109,25 @@ export function DiscoverPage() {
 
   const card = turn?.status === "READY_TO_CONFIRM" ? (turn.confirmation_card ?? null) : null;
   const search = query.trim().toLocaleLowerCase();
-  const visiblePools = pools.filter((pool) =>
-    [pool.title, pool.variant, pool.condition].some((value) => value?.toLocaleLowerCase().includes(search)),
-  );
+  const categories = Array.from(
+    new Map(
+      pools.flatMap((pool) => {
+        const key = pool.product_key?.split("-")[0]?.trim().toLowerCase();
+        return key ? [[key, key.charAt(0).toUpperCase() + key.slice(1)] as const] : [];
+      }),
+    ).entries(),
+  ).sort((a, b) => a[1].localeCompare(b[1]));
+  // A refetch can remove the last pool of the selected category; fall back to all.
+  const effectiveCategory =
+    category === "ALL" || categories.some(([id]) => id === category) ? category : "ALL";
+  const visiblePools = pools.filter((pool) => {
+    const matchesSearch = [pool.title, pool.variant, pool.condition].some((value) =>
+      value?.toLocaleLowerCase().includes(search),
+    );
+    if (!matchesSearch) return false;
+    if (effectiveCategory === "ALL") return true;
+    return pool.product_key?.toLocaleLowerCase().split("-")[0] === effectiveCategory;
+  });
 
   return (
     <section aria-labelledby="discover-title" className="discover-page">
@@ -131,6 +148,29 @@ export function DiscoverPage() {
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search open pools" />
           </label>
         </div>
+        {categories.length > 1 ? (
+          <div className="catalogue-category-bar" role="group" aria-label="Filter by category">
+            <button
+              type="button"
+              className={`category-pill-btn ${effectiveCategory === "ALL" ? "is-active" : ""}`}
+              aria-pressed={effectiveCategory === "ALL"}
+              onClick={() => setCategory("ALL")}
+            >
+              All pools
+            </button>
+            {categories.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`category-pill-btn ${effectiveCategory === id ? "is-active" : ""}`}
+                aria-pressed={effectiveCategory === id}
+                onClick={() => setCategory(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {poolsError ? (
           <div className="mt-4">
             <Notice kind="error">
@@ -161,7 +201,7 @@ export function DiscoverPage() {
         ) : pools.length === 0 ? (
           <p className="shop-copy mt-5">No open pools to join right now.</p>
         ) : visiblePools.length === 0 ? (
-          <div className="catalogue-empty"><Icon name="search" /><p>No pools match your search.</p><button type="button" className="button-secondary" onClick={() => setQuery("")}>Clear search</button></div>
+          <div className="catalogue-empty"><Icon name="search" /><p>No pools match your search.</p><button type="button" className="button-secondary" onClick={() => { setQuery(""); setCategory("ALL"); }}>Clear search</button></div>
         ) : (
           <ul className="catalogue-grid">
             {visiblePools.map((pool) => (
@@ -354,7 +394,17 @@ function ConfirmationCardPanel({
 function PoolCard({ pool }: { pool: PoolSummary }) {
   const style = statusStyle(pool.status);
   return (
-    <article className="catalogue-card">
+    <article className="catalogue-card enhanced-pool-card">
+      <div className="catalogue-card-badge-row">
+        {pool.condition ? (
+          <span className="pool-condition-badge">
+            {pool.condition.replaceAll("_", " ")}
+          </span>
+        ) : <span />}
+        <StatusPill status={pool.status} tone={style.tone}>
+          {style.label}
+        </StatusPill>
+      </div>
       <Link className="catalogue-art" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)} aria-label={`View ${pool.title}`}>
         <ProductArt title={pool.title} />
         <span className="catalogue-art-caption">Category illustration</span>
@@ -364,9 +414,6 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
           <h2 className="min-w-0 text-[17px] font-semibold leading-snug tracking-[-.025em]">
             {pool.title}
           </h2>
-          <StatusPill status={pool.status} tone={style.tone}>
-            {style.label}
-          </StatusPill>
         </div>
         <p className="shop-copy mt-2">
           {[pool.condition?.replaceAll("_", " "), pool.variant]

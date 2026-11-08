@@ -120,6 +120,46 @@ Search is **retrieval**, not AI judgement, and never a gate for requirements (R3
 
 `FakeAI` returns scripted outputs keyed by the SHA-256 of the canonical input, can return invalid JSON or time out on demand, and never makes a network call. Unit and integration tests use it; the evaluation and a few smoke tests use the real model.
 
+## 9. Task MANDATE (buyer intent to a proposed delegation mandate)
+
+Added by CR-14 (owner authorized 2026-11-07, FR-AI-06). Numbered last so sections 2 to 8 keep their existing numbers and every cross-reference to them stays valid.
+
+Input: `message`, the accepted INTAKE proposal from section 2, `candidates` (the same at most 5 open pools, each with its template bounds and `timeline`), and `history`.
+
+```json
+{
+  "pool_scope": {"pool_ids": ["uuid from candidates"], "category": "string or null"},
+  "max_total": {"amount": "600.00 or null", "currency": "USD or null"},
+  "expires": "YYYY-MM-DD or null",
+  "conditions": [
+    {"predicate": "PRICE_ABOVE | FUNDING_BELOW | BLOCKING_FLAG_ON_AWARD | DELIVERY_AFTER | NO_AWARD_BY",
+     "params": {},
+     "action": "PROCEED | REASK | HALT"}
+  ],
+  "ambiguities": [{"field": "string", "question": "string"}],
+  "clarifying_question": "string or null"
+}
+```
+
+`params` is typed per predicate and closed: `PRICE_ABOVE` takes `{"amount": "520.00"}`; `FUNDING_BELOW` takes `{"percent": 60, "hours_before_close": 24}`; `BLOCKING_FLAG_ON_AWARD` takes `{}`; `DELIVERY_AFTER` and `NO_AWARD_BY` take `{"date": "YYYY-MM-DD"}`. Any other predicate name or parameter set is invalid output.
+
+The `reserved` acts are **not** model output. The server stamps `["payment_approval"]` on every mandate, because no AI-callable surface has a payment verb to reserve against (section 4.5 of `api.md`, rule 22). The model cannot widen, narrow or omit it.
+
+Server validation after the model (deterministic; the same retry-once-then-fall-back rule as section 1, falling back to the plain delegation form rather than the intake form):
+
+1. `pool_scope.pool_ids` is a subset of the supplied candidates and every named pool is OPEN; `category` matches a candidate's template category. A scope with neither is refused, never widened, exactly as `delegations` already refuses it (`db-schema.md`).
+2. `max_total.amount` converts to cents under the section 1 regex and is at or below both the INTAKE proposal's cap and the delegation's own ceiling; `currency` is USD or the field is an ambiguity. The model never raises a cap the buyer stated. The ceiling is enforced **per entry**, exactly as `agentapi/service.py` does today: a delegation that can see several pools may hold one entry in each, each at or below the cap, and nothing sums them. The card must not present the cap as a total across pools.
+3. `expires` is not later than the latest candidate's close plus its `delivery_sla_days`, and not earlier than the database clock's date.
+4. Every condition names a predicate in the closed vocabulary with matching typed params and an action in the closed set. An unknown predicate is dropped and reported as an ambiguity, never guessed at.
+5. Conditions are evaluated by deterministic code against stored state only. A condition the server cannot evaluate from its own rows is rejected, so no condition can require a provider call or a model call to resolve.
+6. At most one clarifying question per turn, at most three turns, then the plain delegation form.
+
+Ratification (never skipped, and the reason this task is not a join path): the buyer sees the mandate as rendered text, may edit every field, and confirms. The server stores `mandate_version`, the SHA-256 of the canonical mandate fields and the conditions inside `delegations.scope` (`db-schema.md`), alongside the `ai_runs` row that produced the proposal. The canonical fields are `category`, `conditions` in order, `expires_at` in UTC with milliseconds and a `Z` suffix, `max_cap_cents`, and `pool_ids` sorted and lowercased, serialised as compact JSON with sorted keys in UTF-8; the rendered card is a readability view derived from those same fields. The minting path recomputes that hash and refuses unless the stored hash matches, so a token cannot carry a cap, scope, expiry or condition set the buyer did not ratify. Those keys needed code in `DelegationScope` and `DelegationService.create` (which rebuilt `scope` as exactly `{pool_ids, category}` and silently dropped any other key), and `ai_task` needed `MANDATE` through migration `0007` because it is a PostgreSQL enum fixed in `0001`. Editing the wording requires a new `mandate_version`. A delegation token is minted only from a ratified mandate, and minting still runs every existing delegation rule — the mandate narrows what the token may do and can never widen it.
+
+The mandate is authority, not payment. It authorizes no charge, holds no funds and creates no reservation at PayPal, and an entry created under it still needs a human approval exactly as FR-AG-02 requires.
+
+Evaluation: `backend/tests/ai_eval/data/mandate_cases.jsonl`, at least 25 cases covering a plain cap, a cap with a price ceiling below it, a funding condition, a delivery-date condition, an out-of-scope pool request, a non-USD amount, a relative date phrase that must become an ambiguity, and at least three injected instructions that must not alter the output. Metrics: per-field exact match, predicate-vocabulary adherence, cap-never-raised violations (must be zero), and injected instructions that changed the outcome (must be zero). Reported with the section 6 numbers and subject to the same three-live-run discipline.
+
 ## Phase 2 acceptance amendment
 
 Strict JSON rejects duplicate keys, non-finite numbers, trailing prose, unknown
