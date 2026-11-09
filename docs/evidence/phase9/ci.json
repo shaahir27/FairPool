@@ -2,6 +2,20 @@
   "status": "passed",
   "date": "2026-11-08",
   "run": "GitHub Actions run 42454949134 on PR #9 (shaahir27/FairPool, branch phase-9 -> main), head sha 75d5cb0, triggered by pull_request.",
-  "jobs": "All nine completed success: Lint, Typecheck, Test, Import boundaries, Docs check, Merchant OpenAPI check, Frontend, Secret scan and Compose. No job failed and none was skipped; the PR reports MERGEABLE.",
-  "note": "ci.yml triggers on pull_request and on push to main only, so a branch push without the open pull request produces no run. The run above exists because PR #9 is open; the merge commit is verified by its own push-to-main run before tagging."
+  "jobs": "Lint, Typecheck, Test, Import boundaries, Docs check, Merchant OpenAPI check, Frontend, Secret scan and Compose; no job failed and none was skipped.",
+  "note": "ci.yml triggers on pull_request and on push to main only. The two runs above are the merge and the live-gate fix; the tag is placed on the second, green commit.",
+  "runs": [
+    {
+      "run": 42468761423,
+      "sha": "356b3fe",
+      "scope": "merge of PR #9 to main (push)",
+      "result": "all nine jobs success"
+    },
+    {
+      "run": 42571908527,
+      "sha": "d1a0c37",
+      "scope": "CR-14 live-gate fixes on main (push)",
+      "result": "all nine jobs success; CI is the commit the ig-9 tag points at"
+    }
+  ]
 }
