@@ -129,6 +129,8 @@ The buyer reads the proposal as plain text, may edit every field, and confirms i
 - the reserved acts are stamped by the server and are absent from the model's output schema, so an invented `reserved` field fails validation instead of being ignored;
 - the conditions survive to the stored token only together with a hash of the canonical mandate fields (scope, cap, expiry and the ordered conditions), and the server recomputes that hash when it mints, so neither a condition nor a higher cap can ride on a permission the buyer did not ratify.
 
+A live-model mandate run on 8 November 2026 produced schema-valid proposals for a plain cap, a lower ceiling and a message carrying an injected instruction; none raised the stated cap, invented a reserved act or stepped outside the candidate pools (`docs/evidence/phase9/live_mandate.json`).
+
 ### An agent-populated market, measured
 
 `tools/agent_market.py` runs the buyer and merchant surfaces with agent participants and an adaptive adversary, over a pool whose payments use the fake router. It reports what was attempted and what refused, and the four MCP tools it exposes are exactly four: list pools, enter a pool, list entries, withdraw.
@@ -146,6 +148,8 @@ Measured in the self-check run recorded under `docs/evidence/phase9/`:
 | PayPal writes originating from an AI-callable surface | **0**, derived by joining buyer orders to entries and counting delegated ones |
 
 That zero is a measured result, not a guarantee: the run states how many attempts it made, and absence of an observed breach across those attempts is not a claim of security.
+
+A live model then parsed a merchant quote and the Merchant Agent API accepted and sealed that bid (HTTP 200, a sealed revision and a 64-hex receipt; `docs/evidence/phase9/live_bid.json`). That run found a real defect: a parsed quote always carried an empty tax-rate map, which the bid validator refuses, so the gate could never pass until the shapes were aligned.
 
 ### How the extraction itself is measured
 

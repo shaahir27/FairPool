@@ -2,7 +2,12 @@
   "status": "passed",
   "date": "2026-11-08",
   "scope": "T09A06 boundary report, run as `tools/agent_market.py --self-check` against the loopback fairpool_market_test database with the fake payment router and FakeAI. Everything here is labelled SIMULATED; no provider call and no PayPal host were contacted.",
-  "tools": ["enter_pool", "list_entries", "list_pools", "withdraw_entry"],
+  "tools": [
+    "enter_pool",
+    "list_entries",
+    "list_pools",
+    "withdraw_entry"
+  ],
   "sealed_bid": "A merchant agent submitted a bid that the Merchant Agent API accepted (HTTP 200), sealed at revision 1 with a valid 64-hex receipt hash.",
   "adversary": {
     "attempts": 6,
@@ -23,5 +28,5 @@
     "entries_by_surface": "Two ELIGIBLE entries, both submitted by a human (`via: human`); no delegated entry exists in this run."
   },
   "cleanup": "The harness deletes the pool, entries, receipts, confirmed requests, bids, revisions, flags and awards it created, plus the two seeded delegation users. Its bot merchant account, profile and API key stay in the disposable test database by design; the report makes no claim of a full wipe.",
-  "live_run": "The live model bid (T09A06 acceptance bullet 1) is recorded separately by `tools/live_gates.py bid`; the run below states its status. The boundary report stays a self-check because every participant except the bid is a fixture."
+  "live_run": "PASSED: tools/live_gates.py bid had a live model parse a merchant quote, then the Merchant Agent API accepted and sealed the bid (HTTP 200, bid_id, revision 2 from the quote proposal, valid 64-hex receipt). Record: docs/evidence/phase9/live_bid.json. The boundary report above stays a self-check because its other participants are fixtures."
 }

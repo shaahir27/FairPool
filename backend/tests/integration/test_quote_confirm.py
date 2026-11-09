@@ -220,7 +220,9 @@ async def test_a_quote_proposes_and_the_merchant_confirms(
     fields = body["proposed_fields"]
     # "470.00" becomes 47000 cents and nothing downstream sees the string (BD-14, I3).
     assert fields["tiers"] == [{"min_qty": 2, "item_price_cents": 47_000}]
-    assert fields["tax"] == {"mode": "INCLUDED", "rate_bps_by_region": {}}
+    # INCLUDED tax carries no rate map: validate_structured refuses one, so a quote
+    # that emitted it could never be submitted as a bid.
+    assert fields["tax"] == {"mode": "INCLUDED"}
     # The quote did not state a target quantity, so the merchant fills it (section 3).
     assert fields["target_quantity"] is None
     # The product key is the server's, prefilled from the lot (ai-schemas.md section 3).

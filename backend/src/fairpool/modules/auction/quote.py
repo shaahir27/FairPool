@@ -190,10 +190,18 @@ class QuoteService:
             "moq": _positive(proposal.get("moq")),
             "tiers": self._tiers(proposal.get("tiers")),
             "shipping_cents_by_zone": self._shipping(proposal.get("shipping_by_zone")),
-            "tax": {
-                "mode": mode if mode in ("INCLUDED", "RATE_TABLE") else None,
-                "rate_bps_by_region": {str(region): int(rate) for region, rate in rates.items()},
-            },
+            # validate_structured refuses a rate map under INCLUDED tax, so the shape a
+            # quote produces must not carry one; RATE_TABLE is the only mode that does.
+            "tax": (
+                {
+                    "mode": "RATE_TABLE",
+                    "rate_bps_by_region": {
+                        str(region): int(rate) for region, rate in rates.items()
+                    },
+                }
+                if mode == "RATE_TABLE"
+                else {"mode": mode if mode == "INCLUDED" else None}
+            ),
             "delivery": {"sla_days": _positive(proposal.get("delivery_sla_days"))},
             "returns": {"days": _nonnegative(proposal.get("returns_days"))},
             "valid_until": _text_or(proposal.get("valid_until"), None),

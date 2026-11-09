@@ -128,9 +128,15 @@ async def mandate_gate(out: Path) -> int:
     return 0 if not failures else 1
 
 
+#: Written in the quote grammar the grounders read (ai-schemas section 3), the same
+#: shape the labelled QUOTE corpus uses: every count carries its field label and every
+#: amount is grounded. A gate that fed unlabelled prose would measure the grounder's
+#: refusals, not whether a live model can produce a bid the API accepts.
 QUOTE_TEXT = (
-    "Monitor, black, new. 2 units for this lot, minimum 2. $470 each delivered, "
-    "shipping included, no tax. Ships in 7 days, 14-day returns. Valid until 2026-12-31."
+    "Item price USD 470.00 delivered to US-EAST; shipping and tax included. "
+    "Condition is new. Bundle includes monitor, stand, power cable. Capacity 2; "
+    "target quantity 2; MOQ 2; total capacity 2; delivery is 7 days; returns is 14 "
+    "days. Valid until 2026-12-31T23:59:00Z. Reference LIVE-BID."
 )
 
 
@@ -189,6 +195,7 @@ async def bid_gate(out: Path) -> int:
     app.dependency_overrides[database_session] = session
     merchant_api_app.dependency_overrides[database_session] = session
     report: dict[str, Any] = {"gate": "live sealed bid (T09A06 acceptance bullet 1)"}
+    created: dict[str, Any] = {}
     try:
         market = Market(setting=settings, factory=factory, http=None, db=engine)
         async with factory() as db_session:
@@ -269,13 +276,67 @@ async def bid_gate(out: Path) -> int:
                 )
                 report["status"] = "passed" if ok else "failed"
                 report["merchant_profile_status"] = profile.status_code
+            created = {
+                "pool_id": world.pool_id,
+                "lot_id": market.lot_id,
+                "email": email,
+            }
     finally:
         merchant_api_app.dependency_overrides.clear()
+        if created:
+            await _cleanup(engine, created)
         await engine.dispose()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps({"status": report.get("status"), "report": str(out)}, indent=2))
     return 0 if report.get("status") == "passed" else 1
+
+
+async def _cleanup(engine: Any, created: dict[str, Any]) -> None:
+    """Remove this run's rows; a gate that leaves a BIDDING lot breaks later suites."""
+    from sqlalchemy import text
+
+    statements = (
+        ("DELETE FROM awards WHERE lot_id = :lot", {"lot": created["lot_id"]}),
+        (
+            "DELETE FROM bid_flags WHERE bid_revision_id IN (SELECT id FROM bid_revisions "
+            "WHERE bid_id IN (SELECT id FROM bids WHERE lot_id = :lot))",
+            {"lot": created["lot_id"]},
+        ),
+        (
+            "DELETE FROM bid_revisions WHERE bid_id IN (SELECT id FROM bids WHERE lot_id = :lot)",
+            {"lot": created["lot_id"]},
+        ),
+        ("DELETE FROM bids WHERE lot_id = :lot", {"lot": created["lot_id"]}),
+        ("DELETE FROM allocations WHERE pool_id = :pool", {"pool": created["pool_id"]}),
+        (
+            "DELETE FROM entry_receipts WHERE entry_id IN "
+            "(SELECT id FROM pool_entries WHERE pool_id = :pool)",
+            {"pool": created["pool_id"]},
+        ),
+        ("DELETE FROM pool_entries WHERE pool_id = :pool", {"pool": created["pool_id"]}),
+        ("DELETE FROM confirmed_requests WHERE pool_id = :pool", {"pool": created["pool_id"]}),
+        ("DELETE FROM lots WHERE id = :lot", {"lot": created["lot_id"]}),
+        ("DELETE FROM pools WHERE id = :pool", {"pool": created["pool_id"]}),
+        (
+            "DELETE FROM merchant_api_keys WHERE merchant_id IN "
+            "(SELECT id FROM merchants WHERE user_id IN "
+            "(SELECT id FROM users WHERE email = :email))",
+            {"email": created["email"]},
+        ),
+        (
+            "DELETE FROM merchants WHERE user_id IN (SELECT id FROM users WHERE email = :email)",
+            {"email": created["email"]},
+        ),
+        (
+            "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = :email)",
+            {"email": created["email"]},
+        ),
+        ("DELETE FROM users WHERE email = :email", {"email": created["email"]}),
+    )
+    async with engine.begin() as connection:
+        for sql, params in statements:
+            await connection.execute(text(sql), params)
 
 
 def main() -> int:

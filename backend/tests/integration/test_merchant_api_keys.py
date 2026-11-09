@@ -171,8 +171,14 @@ async def test_a_key_acts_as_its_own_merchant_and_stops_being_one_when_revoked(
         await key_auth().from_api_key(db_session, body["key"])
     assert caught.value.code == "API_KEY_INVALID"
 
+    # Scope to this key: the audit log is append-only, so an unscoped read counts rows
+    # left by any earlier run on the same database.
     actions = await db_session.scalars(
-        text("SELECT action FROM audit_log WHERE subject_type = 'merchant_api_key'")
+        text(
+            "SELECT action FROM audit_log WHERE subject_type = 'merchant_api_key' "
+            "AND subject_id = :id"
+        ),
+        {"id": str(key_id)},
     )
     assert sorted(str(action) for action in actions) == [
         "merchant_api_key.created",

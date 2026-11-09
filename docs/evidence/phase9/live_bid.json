@@ -1,0 +1,55 @@
+{
+  "status": "passed",
+  "date": "2026-11-08",
+  "gate": "T09A06 acceptance bullet 1: a live model produces a bid the Merchant Agent API accepts and sealing keeps.",
+  "model": "gemini-3.5-flash-lite",
+  "quote_route": {
+    "status": 200,
+    "proposed_fields": {
+      "v": 1,
+      "product_key": "monitor-27-4k",
+      "condition": "NEW",
+      "bundle_contents": [
+        "monitor",
+        "stand",
+        "power cable"
+      ],
+      "capacity": 2,
+      "target_quantity": 2,
+      "moq": 2,
+      "tiers": [
+        {
+          "min_qty": 1,
+          "item_price_cents": 47000
+        }
+      ],
+      "shipping_cents_by_zone": {},
+      "tax": {
+        "mode": "INCLUDED"
+      },
+      "delivery": {
+        "sla_days": 7
+      },
+      "returns": {
+        "days": 14
+      },
+      "valid_until": "2026-12-31T23:59:00Z",
+      "total_capacity": 2,
+      "evidence": {
+        "note": null,
+        "url": null
+      }
+    },
+    "ambiguities": []
+  },
+  "submit": {
+    "status": 200,
+    "bid_id": "1edf2ebe-746e-4ce8-a6e7-3004d44b2b10",
+    "revision": 2,
+    "receipt_hex64": true,
+    "refusal": null
+  },
+  "quote_text": "Item price USD 470.00 delivered to US-EAST; shipping and tax included. Condition is new. Bundle includes monitor, stand, power cable. Capacity 2; target quantity 2; MOQ 2; total capacity 2; delivery is 7 days; returns is 14 days. Valid until 2026-12-31T23:59:00Z. Reference LIVE-BID.",
+  "fix_found": "The gate first failed because QuoteService._structured always emitted an empty rate_bps_by_region, which validate_structured refuses for INCLUDED tax; no parsed quote could be submitted as a bid. Fixed in modules/auction/quote.py with a failing-then-passing test (tests/unit/test_quote_structured_shape.py). A complete quote must also state the bundle and target quantity, which the harness text now does.",
+  "runs": "Recorded from a loopback run with the fake payment router; no PayPal host was called and no secret is stored here."
+}
