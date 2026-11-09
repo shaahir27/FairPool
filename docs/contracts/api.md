@@ -123,6 +123,25 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 
 ## 3. Payload shapes (key endpoints)
 
+### Public pool comparison (CR-15, owner requested 2026-11-09)
+
+`GET /api/v1/pools` remains a bare array of PoolSummary; pool detail extends the
+same summary. Both add these backwards-compatible fields:
+
+| Field | Shape and source | Meaning |
+|---|---|---|
+| `entry_count` | nullable integer, at least zero; the public routes populate it by counting pool_entries whose status is not WITHDRAWN | Recorded demand at read time, not paid buyers, remaining seats, unique humans or selection odds. Null means unavailable, never zero. |
+| `delivery_regions` | string array, default empty; deduplicated sorted region codes from the published template zones | Delivery regions accepted by this pool, without buyer addresses. |
+| `delivery_sla_days` | nullable integer; published template value | The delivery requirement for merchant bids, not a dispatch date or an invented ETA. |
+| `min_return_days` | nullable integer; published template value | Minimum return period required of a merchant. Zero remains zero. |
+| `bundle_contents` | string array, default empty; published template value | Required included items; not a particular merchant's unconfirmed offer. |
+
+No response contains entry identities, caps or requests. Draft and simulation
+pools stay excluded from these public routes. The list has one SQL read for its
+rows and counts, not one count query per card. Existing limits, search behavior,
+trending order and nullable `close_at` remain unchanged. Clients must tolerate
+these fields being absent in older responses and avoid inventing missing facts.
+
 ### PayPal-first signup (CR-6 draft, owner request 2026-11-02)
 
 `POST /api/v1/auth/paypal/start` accepts no body, requires the configured frontend

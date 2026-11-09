@@ -254,6 +254,28 @@ write permissions or exposing buyer information.
 
 ## Change log
 
+### CR-15: Public pool comparison fields (owner authorized 2026-11-09)
+
+The owner requested backend read changes where they improve the buyer experience
+during the T09B04 redesign. Pool cards currently require opening each detail page
+to inspect published delivery and returns, and their trending order has no visible
+entry-count evidence. This additive change exposes only existing public template
+facts and the aggregate already used by trending; no buyer data or price is added.
+
+`PoolSummary` and its `PoolDetail` extension add `entry_count`, `delivery_regions`,
+`delivery_sla_days`, `min_return_days` and `bundle_contents` as defined in api.md.
+Counted entries exclude WITHDRAWN; the count is demand, never stock remaining,
+paid buyers or the probability of selection. The public list keeps its array shape,
+limits, ordering and simulation/draft exclusion. Affected tasks: T06B05 and the
+owner-requested T09B04 follow-up. No new endpoint, table, migration, dependency,
+payment action, eligibility rule or public search index field is introduced.
+
+Acceptance: list/detail publish the same template facts and actual count, including
+zero; withdrawals do not count; list query count stays constant as rows increase;
+existing search/trending/privacy tests pass; generated OpenAPI and frontend types
+are regenerated. This contract-only record precedes its implementation commit.
+No merged contract tag, independent approval or phase-gate closure is claimed here.
+
 ### CR-9: The entry read returns the receipt it issued (owner authorized 2026-11-03)
 
 The owner authorized this change request inside the Phase 6 branch while asking for the
