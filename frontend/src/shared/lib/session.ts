@@ -29,9 +29,9 @@ export function workspaceRole(path: string): string | null {
 }
 
 /**
- * Announced on the window when a session ends, so per-session caches held by
- * another area (the buyer entry prefetch) can forget whose data they hold.
- * A plain event keeps `shared` free of imports from the areas it serves.
+ * Announced on the window when a session ends, so the route guard can react to a
+ * 401 from any call without polling. A plain event keeps `shared` free of imports
+ * from the areas it serves.
  */
 export const SESSION_ENDED_EVENT = "fairpool:session-ended";
 

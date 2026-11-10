@@ -148,6 +148,10 @@ def test_ig10_and_ig11_require_their_evidence_sets(tmp_path):
         for name in required:
             (evidence / f"{name}.json").write_text('{"status":"passed"}', encoding="utf-8")
         assert gate.evidence_errors(root=tmp_path, gate=gate_name) == []
+        # A file that exists but did not pass must keep the gate red and name itself.
+        (evidence / f"{required[0]}.json").write_text('{"status":"pending"}', encoding="utf-8")
+        errors = gate.evidence_errors(root=tmp_path, gate=gate_name)
+        assert errors == [f"{required[0]}: required evidence pending"]
 
 
 def test_gate_rejects_unsupported_name_without_running_checks():

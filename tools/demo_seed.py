@@ -1025,6 +1025,12 @@ async def main() -> int:
     os.environ["APP_ENV"] = "local"
     if os.environ.get("DEMO_SEED_HOSTED") != "1":
         os.environ["DATABASE_URL"] = loopback_database_url()
+    from sqlalchemy.engine import make_url
+
+    target = make_url(os.environ["DATABASE_URL"])
+    mode = "HOSTED" if os.environ.get("DEMO_SEED_HOSTED") == "1" else "loopback"
+    # Name the target so a stale DEMO_SEED_HOSTED=1 export is visible before rows land.
+    print(f"target: {mode} database {target.host}/{target.database}")
     os.environ["PAYMENT_ROUTER"] = "fake"
     os.environ["PAYMENT_MODE"] = "authorize_capture"
     os.environ["DEDUPE_MODE"] = "two_keys"

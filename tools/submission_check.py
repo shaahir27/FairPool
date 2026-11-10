@@ -12,6 +12,7 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -130,17 +131,29 @@ def deployed_switches() -> dict[str, str]:
 
 
 def evidence_statuses() -> list[tuple[str, str, str]]:
+    """Every file the release gates require, including the ones that do not exist.
+
+    Globbing the directory would report only present files, so a gate missing most of its
+    evidence would read as passed (independent review, finding 1). The gate's own list is
+    the source of truth.
+    """
+    sys.path.insert(0, str(ROOT / "tools"))
+    from gate_check import GATE_EVIDENCE
+
     rows: list[tuple[str, str, str]] = []
-    for gate, directory in (("ig-10", "phase10"), ("ig-11", "phase11")):
+    for gate in ("ig-10", "ig-11"):
+        directory, required = GATE_EVIDENCE[gate]
         base = ROOT / "docs" / "evidence" / directory
-        if not base.exists():
-            continue
-        for path in sorted(base.glob("*.json")):
+        for name in required:
+            path = base / f"{name}.json"
+            if not path.exists():
+                rows.append((gate, name, "missing"))
+                continue
             try:
                 status = str(json.loads(path.read_text(encoding="utf-8")).get("status", "?"))
             except json.JSONDecodeError:
                 status = "unreadable"
-            rows.append((gate, path.stem, status))
+            rows.append((gate, name, status))
     return rows
 
 
@@ -195,14 +208,7 @@ def main() -> int:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     report.check(APP_URL in readme, "README names the hosted app")
     report.check("github.com/shaahir27/FairPool" in readme, "README names the repository")
-    leaked: list[str] = []
-    for shape in SECRET_SHAPES:
-        for match in shape.finditer(readme):
-            value = match.group(0)
-            if "127.0.0.1" in value or "localhost" in value:
-                continue  # the documented disposable test database
-            leaked.append(shape.pattern)
-            break
+    leaked = [shape.pattern for shape in SECRET_SHAPES if shape.search(readme)]
     report.check(
         not leaked, "README contains no token or connection-string shape", ",".join(leaked)
     )
@@ -231,9 +237,7 @@ def main() -> int:
         for key, want in EXPECTED_SWITCHES.items()
         if switches.get(key) != want
     ]
-    report.check(
-        not mismatched, "deployed switches match the recorded demo values", ",".join(mismatched)
-    )
+    report.check(not mismatched, "render.yaml records the demo switch values", ",".join(mismatched))
 
     statuses = evidence_statuses()
     not_passed = [
@@ -241,11 +245,6 @@ def main() -> int:
     ]
     report.pending_owner(
         not not_passed, "every phase 10/11 evidence file passed", ",".join(not_passed[:8])
-    )
-    report.pending_owner(
-        len({gate for gate, _, _ in statuses}) == 2,
-        "both evidence directories exist",
-        str(sorted({gate for gate, _, _ in statuses})),
     )
 
     summary = {

@@ -8,7 +8,7 @@
   "run_instructions": {
     "python": "make setup refuses anything but Python 3.12 and the README now shows how to pass the interpreter when the default differs.",
     "test_database": "make setup provisions the loopback fairpool_test database through tools/ensure_test_db.py; the README documents the compose test-db profile and the TEST_DATABASE_URL.",
-    "demo": "make demo-reset now passes the confirmation flag, so the IT-10 command actually resets; make demo-seed then tools/demo_seed_check.py printed ALL CHECKS PASSED (23 checks) on 2026-11-10."
+    "demo": "make demo-reset now passes the confirmation flag, so the IT-10 command actually resets; make demo-seed then tools/demo_seed_check.py printed ALL CHECKS PASSED on 2026-11-10."
   },
   "documentation_corrections": [
     "README: the deployed demo runs authorize_capture (the vault path is the unshipped code default, DEP-5), the architecture diagram and the sponsor/tool-use section exist, judging access is described, and the per-process rate limit is disclosed.",

@@ -5,7 +5,8 @@ services:
   # on another site than the API, and a *.onrender.com cross-site cookie is dropped
   # (DEP: the page and the API share one origin). Free web services sleep after 15
   # minutes and there is no free background worker. Restore the worker and paid
-  # instances before 2026-11-20 (BD-05).
+  # instances before 2026-11-20 (BD-05); superseded for this submission, which runs the
+  # free plan with the keep-warm schedule (see docs/decisions.md BD-05).
   - type: web
     name: fairpool-api
     runtime: docker
