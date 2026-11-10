@@ -1,5 +1,7 @@
 <p align="center">
   <picture>
+    <source media="(prefers-color-scheme: dark) and (prefers-reduced-motion: no-preference)" srcset="docs/assets/readme/fairpool-logo-dark.gif">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/fairpool-logo-dark.svg">
     <source media="(prefers-reduced-motion: no-preference)" srcset="docs/assets/readme/fairpool-logo.gif">
     <img src="docs/assets/readme/fairpool-logo.svg" alt="FairPool" width="520" height="136">
   </picture>

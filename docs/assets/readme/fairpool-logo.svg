@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="272" viewBox="0 0 520 136" fill="none" role="img" aria-labelledby="title desc">
   <title id="title">FairPool</title>
-  <desc id="desc">The FairPool pool mark and wordmark on a pale blue field.</desc>
+  <desc id="desc">The FairPool pool mark and wordmark on a transparent background.</desc>
   <!-- PoolMark geometry matches frontend/src/shared/components/Brand.tsx.
        Colors match frontend/src/index.css. Static source for the README GIF;
        the GIF plays one quiet gold-ring accent, then rests on this complete mark. -->
-  <rect width="520" height="136" rx="20" fill="#DEEEF7"/>
   <g transform="translate(24 20) scale(1.5)">
     <rect width="64" height="64" rx="17" fill="#17364C"/>
     <circle cx="32" cy="29" r="21" stroke="#B4DEF4" stroke-opacity=".25" stroke-width="2"/>

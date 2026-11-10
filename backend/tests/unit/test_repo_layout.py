@@ -27,7 +27,6 @@ def test_required_paths_exist():
         "frontend/src/shared/api/schema.d.ts",
         "deploy/Dockerfile.frontend",
         "sdk/merchant-openapi.json",
-        ".codex/skills/graphify/SKILL.md",
     ]
     missing = [p for p in required if not (ROOT / p).exists()]
     assert not missing, f"missing: {missing}"
@@ -49,6 +48,7 @@ def test_codex_agent_file_and_no_claude_file():
     assert not (ROOT / ".claude").exists()
     ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert "graphify-out/" in ignore
+    assert ".codex/" in ignore
 
 
 def test_json_files_are_not_ignored():

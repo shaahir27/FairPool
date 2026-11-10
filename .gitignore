@@ -33,7 +33,7 @@ build/
 tools/sandbox_tests/*.json
 graphify-out/
 spike_out/
-.codex/hooks.json
+.codex/
 .agents
 *.pdf
 

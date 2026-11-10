@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="272" viewBox="0 0 520 136" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">FairPool</title>
+  <desc id="desc">The FairPool pool mark and wordmark in the light-on-dark brand palette on a transparent background.</desc>
+  <!-- PoolMark geometry matches frontend/src/shared/components/Brand.tsx.
+       Colors match frontend/src/index.css. Static source for the README GIF;
+       the GIF plays one quiet gold-ring accent, then rests on this complete mark. -->
+  <g transform="translate(24 20) scale(1.5)">
+    <rect width="64" height="64" rx="17" fill="#086FA5"/>
+    <circle cx="32" cy="29" r="21" stroke="#B4DEF4" stroke-opacity=".25" stroke-width="2"/>
+    <path d="M18 51V29a14 14 0 1 1 14 14H18" stroke="#B4DEF4" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="32" cy="29" r="5.5" fill="#FFC34F"/>
+    <circle id="accent" cx="32" cy="29" r="10" stroke="#FFC34F" stroke-width="1.5" opacity="0"/>
+  </g>
+  <text x="145" y="93" fill="#EFF7FC" font-family="Georgia, 'Times New Roman', serif" font-size="71" letter-spacing="-2">Fair<tspan font-style="italic">Pool</tspan></text>
+</svg>
