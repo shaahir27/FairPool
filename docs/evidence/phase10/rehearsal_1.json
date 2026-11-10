@@ -1,7 +1,7 @@
 {
   "status": "pending",
   "date": "2026-11-10",
-  "scope": "T10X01 rehearsal 1: reset, seed, mechanical preflight, AI preflight, and the live storyboard with owner PayPal approvals.",
+  "scope": "T10X01 rehearsal 1: reset, seed, mechanical preflight, AI preflight, and the live storyboard. The live payment slice passed on the local rehearsal stack; the full storyboard run and the recorded video remain.",
   "mechanical": {
     "status": "passed",
     "commands": [
@@ -9,8 +9,8 @@
       "make demo-seed -> 5 demo lots across 4 pools, sim=10000",
       "python tools/demo_seed_check.py -> ALL CHECKS PASSED",
       "python tools/agent_market.py --self-check -> adversary_attempts=6, breaches_succeeded=0, paypal_writes_from_ai_surface=0, one bid with a 64-hex receipt",
-      "public audit: every LIVE_SANDBOX pool recomputes its rules hash (10/10); 3 closed pools publish a commitment root beside the checkpoint",
-      "browser audit page: rules Match, entry list Match (2 entries), seal 75 verifies with FairPool's published key"
+      "public audit: every LIVE_SANDBOX pool recomputes its rules hash; 3 closed pools publish a commitment root beside the checkpoint",
+      "browser audit page: rules Match, entry list Match, seal 75 verifies with FairPool's published key"
     ]
   },
   "ai": {
@@ -19,37 +19,56 @@
     "model": "gemini-3.5-flash-lite",
     "cases": 3,
     "failures": [],
-    "note": "Ran against GEMINI_API_KEY in .env. A stale Windows User environment variable of the same name still exists and shadows .env for inherited processes, so this run used env -u plus load_dotenv(override=True). The owner chose to leave the variable; any app process started from that environment would need the same treatment.",
+    "note": "Ran against GEMINI_API_KEY in .env. A stale Windows User environment variable shadows .env for inherited processes, so the run used env -u plus load_dotenv(override=True); the rehearsal API and worker start the same way.",
     "report": ".tmp/live_mandate_recheck.json"
   },
   "local_stack": {
-    "status": "ready",
+    "status": "passed",
     "frontend": "http://localhost:5180 (Vite dev server, proxy target http://localhost:8001)",
     "api": "http://127.0.0.1:8001 against the loopback demo database, real PayPal Sandbox router, PAYMENT_MODE=authorize_capture, PAYPAL_APPROVAL_UI=sdk_popup, AI on",
+    "worker": "fairpool.worker draining Postgres jobs (order.authorize, order.capture, reconciler.sweep)",
     "checkout_config": "approval_ui=sdk_popup, sdk_auth=client_id, currency=USD, client_id present",
     "session_note": "the __Host-session cookie is Secure; a real browser accepts it on http://localhost (verified), while non-browser clients over http do not"
   },
+  "live_payments": {
+    "status": "passed",
+    "lot": "e048ab99-39da-4731-af92-31e2ac659c38 (Wireless over-ear headphones), FUNDED, 2/2 seats, authorize_capture",
+    "offers": [
+      {
+        "buyer_order_id": "27257a1e-b737-4b3a-962a-8a1f28ecc849",
+        "buyer": "demo-buyer-1@fairpool.test",
+        "total_cents": 47000,
+        "authorization": "90J81076FB297354A",
+        "capture": "5T79668634169843N"
+      },
+      {
+        "buyer_order_id": "28955856-407a-4354-8801-cac13fd50dfa",
+        "buyer": "demo-buyer-2@fairpool.test",
+        "total_cents": 47000,
+        "authorization": "3NB2595432453083G",
+        "capture": "4UE61080TN188942N"
+      }
+    ],
+    "payer_keys": "two distinct payer_key hashes, so the one-account-one-entry rule accepted both",
+    "captures": "both COMPLETED, 47000 cents each, 94000 total",
+    "ledger": "AUTH_CREATED x2 and CAPTURE_COMPLETED x2, net 94000 cents",
+    "order_audit": "each order: order_created -> approved -> authorizing -> authorized -> capturing -> captured",
+    "lot_audit": "bidding -> awarded -> checkout_open -> funding -> funded",
+    "duplicate_guard": "an earlier run with the same PayPal buyer for both offers was rejected DUPLICATE_PAYER, which is the intended rule; the run then needed a reseed because the reset voids prior approvals and changes offer ids",
+    "approval_channel": "the approved run recorded channel=redirect (the popup was blocked in the browser); the redirect is the verified, labelled fallback"
+  },
   "seeded_live_data": {
-    "offer_1": {
-      "buyer_order_id": "82743461-c38a-403a-aeed-0a103c549918",
-      "buyer": "demo-buyer-1@fairpool.test",
-      "total_cents": 47000,
-      "expires_utc": "2026-11-10T13:59:26Z"
-    },
-    "offer_2": {
-      "buyer_order_id": "c03daafb-4d70-4518-835e-437feda21f0c",
-      "buyer": "demo-buyer-2@fairpool.test",
-      "total_cents": 47000,
-      "expires_utc": "2026-11-10T13:59:26Z"
-    },
     "bidding_lots": [
-      "f6cc17d0-87f5-4799-b37a-4cbcd4b45d9e (27-inch 4K monitor, 3 seats, closes 2026-11-10T17:58Z)",
-      "f08cb9c3-3774-4af7-bbcb-349aecb4e297 (27-inch 4K monitor, 2 seats, closes 2026-11-10T17:58Z)"
-    ]
+      "a209753d-e19a-4417-882d-fb866ca82f1b (27-inch 4K monitor, 2 seats, min 2, closes 2026-11-10T18:07Z)",
+      "d15be0ff-4b24-46ed-afb0-68ea5972498d (27-inch 4K monitor, 3 seats, min 1, closes 2026-11-10T18:07Z)"
+    ],
+    "failed_lot": "Ergonomic chair pool FAILED_CLOSED with a VOIDED and a REFUNDED order at a zero ledger (seed)",
+    "funded_demo_lot": "Walnut standing desk pool FUNDED with two seeded captures and two unsubmitted shipments (seed)"
   },
   "live_storyboard": {
     "status": "pending",
-    "requires": "the owner signs in as demo-buyer-1 at http://localhost:5180/login (password in .tmp/demo_credentials.txt) and approves the PayPal popup on http://localhost:5180/offers/82743461-c38a-403a-aeed-0a103c549918"
+    "done": "audit page, offer approvals, authorizations, captures, lot funding",
+    "remaining": "the live merchant bid beat, the terminal beats (agent market, 10k simulation), the fulfillment/tracker walk, and two consecutive recorded runs from reset"
   },
-  "gate_rule": "Stays pending until the live storyboard runs and both clean runs are recorded. Never marked passed on mechanical evidence alone."
+  "gate_rule": "Stays pending until the full storyboard runs twice from reset and the video is recorded. Never marked passed on the payment slice alone."
 }
