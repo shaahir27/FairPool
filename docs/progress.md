@@ -4,6 +4,10 @@ Living file, updated by both members. Each member edits only their own rows and 
 
 Status values: `TODO`, `IN PROGRESS`, `IN REVIEW`, `DONE`, `BLOCKED`, `DEFERRED (owner decision)`.
 
+## README and repository cleanup follow-up (T09X01 / T10A02)
+
+**IN PROGRESS ? 2026-11-10.** Owner-requested rewrite for first-time readers and judges, based on the current code, local tooling, recorded evidence and official hackathon requirements. Branch: `a/T09X01-readme-and-repository-cleanup`. Scope: root README and redundant empty directory markers only; no application behavior, generated SDK code, credentials, repository visibility or deployment settings change. Verification will check the shipped-copy regressions, relative links, commands, documentation and secret scan. Final video/project links and public repository visibility remain owner submission actions.
+
 ## Project facts
 
 ### Owner authentication follow-up — IN REVIEW (2026-11-02)
