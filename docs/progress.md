@@ -263,7 +263,7 @@ of them silently.
 |---|---|---|---|---|
 | Q-2026-11-09-40 | T09B04 buyer design follow-up | Saved PayPal permission is the approved primary journey, but buyer joining has no consent/save control and PoolDetail/MeEntry expose no payment-mode capability. Reading (a): build the saved-permission journey after a contract read-model extension; reading (b): improve the existing offer-approval journey first and document that gap. Neither a SUBMITTED entry nor linked identity proves ACTIVE permission. | DEP-4/DEP-5 and contracts/vault-charge.md versus buyer/lobby/PoolPage.tsx and api/schemas.py | Owner chose (b) in this session. Saved-permission integration and mode/capability fields remain a separate A+B contract task; this pass changes no payment behavior. See buyer-ui-ux-plan.md. |
 
-Buyer design follow-up (9 November 2026): **IN PROGRESS**, Member B, T09B04,
+Buyer design follow-up (9 November 2026): **DONE (2026-11-10)**, Member B, T09B04,
 branch `b/T09B04-buyer-experience` created directly from main at `05f89eb`.
 Plan: [buyer-ui-ux-plan.md](buyer-ui-ux-plan.md). The historical T09B04 delivery
 and IG-9 gate below remain recorded; this is an owner-requested follow-up.
@@ -284,13 +284,23 @@ product/merchant, total and terms before the address and approval, removes devic
 expiry guesses, and protects address edits from late prefill/failed refresh. Actual
 expired and fixture active/missing-clock layouts were inspected; independent review
 cleared the offer slice. All 341 frontend tests, build/lint/types,
-import/docs/OpenAPI and secret checks pass. Full make verify remains red: the clean
-run had 1,346 passes, a 10k timing failure (10,364ms / 10,000ms), and a first-page
-test assumption. The pagination assertion is corrected and its targeted test passes;
-production simulation and timing limits are unchanged. This follow-up remains
-IN PROGRESS; no push, PR or green gate is claimed. The latest AI configuration recheck
-still rejects the key. Full evidence, delivered changes and remaining limits are
-in the buyer plan.
+import/docs/OpenAPI and secret checks pass.
+
+Closing note (10 November 2026): **DONE**. Full `make verify` exits 0 on a freshly
+rebuilt `fairpool_test` schema: 1,348 backend tests passed (50 deselected), 94.59%
+domain coverage against the 90% floor, 341 frontend tests across 33 files, ruff and
+`mypy --strict` clean, docs/imports/OpenAPI checks green, and gitleaks clean across
+158 commits. The earlier red run was host load, not the engine: the 10k test passed
+three isolated runs, and its outer wall-clock assertion was replaced with a 60-second
+hang guard because FR-SM-01 is `result.duration_ms < 10_000`, which is unchanged and
+passed. The fresh-schema run did expose a real clean-clone defect (D-P3-01): the two
+concurrency modules built their own engines without depending on `migrated_db`, so
+`make test` failed with `relation "users" does not exist` on an empty database; both
+fixtures now depend on migrations and the three affected tests pass from a dropped
+schema. CI is green on the WIP commit (run 42786022989). The local Gemini key remains
+rejected; that is an owner action carried to Phase 10, and no gate depends on it
+because the AI evaluation baseline is already recorded. Full evidence, delivered
+changes and remaining limits are in the buyer plan.
 
 | ID | Raised by | Question and the two readings | Source of each reading | Status |
 |---|---|---|---|---|

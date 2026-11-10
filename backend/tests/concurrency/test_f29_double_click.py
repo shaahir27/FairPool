@@ -38,7 +38,7 @@ pytestmark = pytest.mark.concurrency
 
 
 @pytest.fixture
-async def engine() -> AsyncEngine:
+async def engine(migrated_db: None) -> AsyncEngine:
     parsed, connect_args = normalize_database_url(database_url())
     created = create_async_engine(
         parsed, connect_args=connect_args, pool_size=5, max_overflow=5, pool_timeout=60

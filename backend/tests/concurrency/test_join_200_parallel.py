@@ -45,9 +45,11 @@ JOINS = 200  # every buyer submits twice, concurrently
 
 
 @pytest.fixture
-async def engine() -> AsyncEngine:
+async def engine(migrated_db: None) -> AsyncEngine:
     # The same loopback *_test resolution the rest of the suite uses, so this file
     # runs from a plain shell instead of demanding an exported DATABASE_URL (D-P3-05).
+    # migrated_db is explicit: CI migrates before pytest, but a fresh clone runs
+    # `make test` against an empty database, where these committed joins need tables.
     url = database_url()
     parsed, connect_args = normalize_database_url(url)
     # A bounded pool: 200 concurrent joins queue for connections instead of
