@@ -1,0 +1,55 @@
+{
+  "status": "pending",
+  "date": "2026-11-10",
+  "scope": "T10X01 rehearsal 1: reset, seed, mechanical preflight, AI preflight, and the live storyboard with owner PayPal approvals.",
+  "mechanical": {
+    "status": "passed",
+    "commands": [
+      "make demo-reset -> after: 0 rows across counted tables",
+      "make demo-seed -> 5 demo lots across 4 pools, sim=10000",
+      "python tools/demo_seed_check.py -> ALL CHECKS PASSED",
+      "python tools/agent_market.py --self-check -> adversary_attempts=6, breaches_succeeded=0, paypal_writes_from_ai_surface=0, one bid with a 64-hex receipt",
+      "public audit: every LIVE_SANDBOX pool recomputes its rules hash (10/10); 3 closed pools publish a commitment root beside the checkpoint",
+      "browser audit page: rules Match, entry list Match (2 entries), seal 75 verifies with FairPool's published key"
+    ]
+  },
+  "ai": {
+    "status": "passed",
+    "gate": "tools/live_gates.py mandate",
+    "model": "gemini-3.5-flash-lite",
+    "cases": 3,
+    "failures": [],
+    "note": "Ran against GEMINI_API_KEY in .env. A stale Windows User environment variable of the same name still exists and shadows .env for inherited processes, so this run used env -u plus load_dotenv(override=True). The owner chose to leave the variable; any app process started from that environment would need the same treatment.",
+    "report": ".tmp/live_mandate_recheck.json"
+  },
+  "local_stack": {
+    "status": "ready",
+    "frontend": "http://localhost:5180 (Vite dev server, proxy target http://localhost:8001)",
+    "api": "http://127.0.0.1:8001 against the loopback demo database, real PayPal Sandbox router, PAYMENT_MODE=authorize_capture, PAYPAL_APPROVAL_UI=sdk_popup, AI on",
+    "checkout_config": "approval_ui=sdk_popup, sdk_auth=client_id, currency=USD, client_id present",
+    "session_note": "the __Host-session cookie is Secure; a real browser accepts it on http://localhost (verified), while non-browser clients over http do not"
+  },
+  "seeded_live_data": {
+    "offer_1": {
+      "buyer_order_id": "82743461-c38a-403a-aeed-0a103c549918",
+      "buyer": "demo-buyer-1@fairpool.test",
+      "total_cents": 47000,
+      "expires_utc": "2026-11-10T13:59:26Z"
+    },
+    "offer_2": {
+      "buyer_order_id": "c03daafb-4d70-4518-835e-437feda21f0c",
+      "buyer": "demo-buyer-2@fairpool.test",
+      "total_cents": 47000,
+      "expires_utc": "2026-11-10T13:59:26Z"
+    },
+    "bidding_lots": [
+      "f6cc17d0-87f5-4799-b37a-4cbcd4b45d9e (27-inch 4K monitor, 3 seats, closes 2026-11-10T17:58Z)",
+      "f08cb9c3-3774-4af7-bbcb-349aecb4e297 (27-inch 4K monitor, 2 seats, closes 2026-11-10T17:58Z)"
+    ]
+  },
+  "live_storyboard": {
+    "status": "pending",
+    "requires": "the owner signs in as demo-buyer-1 at http://localhost:5180/login (password in .tmp/demo_credentials.txt) and approves the PayPal popup on http://localhost:5180/offers/82743461-c38a-403a-aeed-0a103c549918"
+  },
+  "gate_rule": "Stays pending until the live storyboard runs and both clean runs are recorded. Never marked passed on mechanical evidence alone."
+}

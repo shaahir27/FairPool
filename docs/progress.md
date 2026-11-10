@@ -214,7 +214,7 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 | T10A04 | A | M | IN PROGRESS | | Merchant SDKs generated (Python + TypeScript) and smoked; the portal is blocked by an APIMatic service error that also hits APIMatic's own sample, recorded in `docs/evidence/phase10/sdk.json` |
 | T10B01 | B | M | TODO | | Fixes from rehearsal 1 (product, UI, agent lane) |
 | T10B02 | B | L | IN PROGRESS | | Demo video; runbook complete, recording pending |
-| T10X01 | AB | M | IN PROGRESS | | Rehearsal 1; local preflight (reset/seed/23 seed checks, agent market 0 breaches/0 PayPal writes, 10/10 audit rules hashes, audit page seal 75 verified in a browser) done; live storyboard pending the owner's PayPal clicks |
+| T10X01 | AB | M | IN PROGRESS | | Rehearsal 1; mechanical preflight done (reset/seed/seed checks, agent market 0 breaches/0 PayPal writes, 10/10 audit rules hashes, audit page seal 75 in a browser) and the live mandate gate passed 3/3 on the `.env` Gemini key; a local rehearsal stack is ready at `http://localhost:5180` with two $470 offers and two bidding lots; live storyboard pending the owner's PayPal clicks (`docs/evidence/phase10/rehearsal_1.json`) |
 | T10X02 | AB | M | TODO | | Rehearsal 2 clean run |
 
 ### PH11: Submission
