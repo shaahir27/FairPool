@@ -26,6 +26,8 @@ Also remember: projects built with financial or preferential support from PayPal
 
 ## 3. Three-minute storyboard (hard limit 3:00; target 2:50)
 
+**Recording update, November 10:** the owner's current screen/account-specific filming plan and read-aloud script are in [video-recording-guide.md](video-recording-guide.md). Use that guide for the proposed 2:50 cut, Codex setup and actual local readiness checks. The broader table below remains a rehearsal/coverage outline; it is not proof that every beat is currently live or must be squeezed into one take. In particular, seeded fake-router orders are not real PayPal footage, the current UI writes mandates manually, and public rank evidence may wait until bidding closes. Planning this cut does not complete T10X01, T10X02 or T10B02, or waive their execution requirements.
+
 Each beat names the screen and the proof it gives. Beats marked optional are cut first if the recording runs long; none of them changes the product.
 
 | Time | Beat | Shows | Requirement |

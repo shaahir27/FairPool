@@ -26,6 +26,12 @@ Found and reproduced a rehearsal false-positive: `Market.buyers` omitted the req
 
 `.codex/` is now ignored and its 11 files are removed from the Git index only, preserving the local config and skill files. No other tracked files match ignore rules. A clean tracked-file copy reproduced the obsolete required-Codex-path assertion before the test was updated; all three layout checks then passed without that folder, while the local folder remained intact. Existing README/disclosure/blueprint/layout tests pass (9 tests); application behavior and environment credentials are unchanged. Full application suites are not repeated for asset/index-only changes. The owner's request overrides the earlier requirement to ship the project-local skill folder; no skills are deleted locally.
 
+## Video recording plan follow-up (T10B02 preparation)
+
+**PLAN WRITTEN - 2026-11-10; video not recorded.** Owner requested a rules-grounded timestamped script, frontend-aware click path and exact logins, and selected Codex for MCP. Added `docs/video-recording-guide.md`, linked from the docs index and the earlier submission storyboard. Target is 2:50 with 283 spoken words. All 89 frontend source files were inventoried by AST (21,003 lines); routes, role/session gates and critical buyer/bid/checkout/audit controls were inspected directly. Live read-only browser checks covered Buyer 6's Discover/My Pools/Agent settings and Merchant A's Demand Board/Active Bids/Developer API on the recording stack.
+
+Read-only local database checks identify Buyers 2 and 5 as the current two-seat monitor lot's participants, while Buyer 6 can make a fresh discovery entry. The guide distinguishes the separate discovery/bidding pools and marks headphones/desk/chair seed outcomes as fake-router examples. Monitor lots are still bidding: a real award under single_seller/authorize_capture and valid offers are required before capturing a real PayPal segment. Codex 0.164.0 help and official OpenAI documentation confirm the suggested private bearer-env setup; no authenticated Codex connection, new delegation, bid, reset or payment was run. Official Devpost requirements and rules were checked November 10. No T10X01/T10X02/T10B02 gate is marked complete by this plan.
+
 ## Project facts
 
 ### Owner authentication follow-up — IN REVIEW (2026-11-02)
