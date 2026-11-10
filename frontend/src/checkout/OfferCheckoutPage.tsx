@@ -8,12 +8,12 @@ import { OfferCheckout } from "./OfferCheckout";
 export function OfferCheckoutPage() {
   const { buyerOrderId } = useParams<{ buyerOrderId: string }>();
   return (
-    <AreaLayout workspace="Checkout" tabs={[]}>
+    <div className="buyer-workspace"><AreaLayout workspace="Checkout" tabs={[]}>
       {buyerOrderId ? (
         <OfferCheckout buyerOrderId={buyerOrderId} />
       ) : (
         <p className="p-8 text-sm text-muted">This offer link is incomplete.</p>
       )}
-    </AreaLayout>
+    </AreaLayout></div>
   );
 }

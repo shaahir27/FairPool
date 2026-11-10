@@ -24,12 +24,15 @@ function formatRemaining(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
+  const hours = Math.floor(minutes / 60);
+  if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 export function useCountdown(
   expiresAt: string,
-  serverNow: string,
+  serverNow: string | null | undefined,
   startedAt?: string | null,
 ): Countdown {
   const expires = Date.parse(expiresAt);
@@ -40,15 +43,17 @@ export function useCountdown(
     sample.current = { serverNow, sampledAt: performance.now() };
   }
   const sampledAt = sample.current.sampledAt;
-  const serverTime = Date.parse(serverNow);
+  const serverTime = serverNow ? Date.parse(serverNow) : Number.NaN;
+  const clockAvailable = Number.isFinite(serverTime) && Number.isFinite(expires);
   const windowMs = Number.isFinite(started) && expires > started ? expires - started : 0;
 
   const [remainingMs, setRemainingMs] = useState(() =>
-    Math.max(0, expires - (serverTime + performance.now() - sampledAt)),
+    clockAvailable ? Math.max(0, expires - (serverTime + performance.now() - sampledAt)) : 0,
   );
   const ringRef = useRef<SVGCircleElement>(null);
 
   useEffect(() => {
+    if (!clockAvailable) { setRemainingMs(0); return; }
     const tick = () => {
       const next = Math.max(0, expires - (serverTime + performance.now() - sampledAt));
       setRemainingMs(next);
@@ -60,16 +65,16 @@ export function useCountdown(
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [expires, serverTime, sampledAt, windowMs]);
+  }, [expires, serverTime, sampledAt, windowMs, clockAvailable]);
 
   const fractionElapsed =
-    windowMs > 0 ? Math.min(1, Math.max(0, 1 - remainingMs / windowMs)) : 0;
+    clockAvailable && windowMs > 0 ? Math.min(1, Math.max(0, 1 - remainingMs / windowMs)) : 0;
 
   return {
-    label: formatRemaining(remainingMs),
+    label: clockAvailable ? formatRemaining(remainingMs) : "",
     remainingMs,
     fractionElapsed,
-    expired: remainingMs <= 0,
+    expired: clockAvailable && remainingMs <= 0,
     urgent: remainingMs > 0 && remainingMs <= 60_000,
     ringRef,
   };

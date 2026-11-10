@@ -14,6 +14,7 @@ from fairpool.api.deps import database_session
 from fairpool.db.models.catalog import Pool, PoolEntry
 from fairpool.db.models.enums import EntryStatus, PoolMode, PoolStatus
 from fairpool.db.session import create_engine
+from fairpool.modules.intake.pipeline import latest_delivery
 from fairpool.modules.pools.events import stream_pool_events
 from fairpool.modules.pools.service import rules_document, summary
 
@@ -64,7 +65,10 @@ async def pools_list(
     db: AsyncSession = Depends(database_session),
 ):
     # FR-SM-01: a SIMULATION pool is isolated by mode and never a public pool.
-    query = select(Pool).where(Pool.status != PoolStatus.DRAFT, Pool.mode == PoolMode.LIVE_SANDBOX)
+    entry_count = _entry_count().label("entry_count")
+    query = select(Pool, entry_count).where(
+        Pool.status != PoolStatus.DRAFT, Pool.mode == PoolMode.LIVE_SANDBOX
+    )
     if status:
         if status not in PoolStatus.__members__ or status == "DRAFT":
             raise HTTPException(422, "VALIDATION_ERROR")
@@ -91,7 +95,7 @@ async def pools_list(
         # closing-then-id order the other sorts use, because a list that changes order
         # between two identical refreshes cannot be scanned.
         query = query.order_by(
-            _entry_count().desc(),
+            entry_count.desc(),
             Pool.timeline["close_at"].astext,
             Pool.id,
         )
@@ -99,13 +103,13 @@ async def pools_list(
         query = query.order_by(
             Pool.title if sort == "title" else Pool.timeline["close_at"].astext, Pool.id
         )
-    pools = list((await db.scalars(query.limit(limit or 20))).all())
+    rows = list((await db.execute(query.limit(limit or 20))).all())
     if hits is not None:
         # Keep the retrieval ranking the service produced; the SQL order above exists
         # to make the unranked paths deterministic.
-        by_id = {pool.id: pool for pool in pools}
-        pools = [by_id[UUID(hit.doc_id)] for hit in hits if UUID(hit.doc_id) in by_id]
-    return [summary(p) for p in pools]
+        by_id = {row[0].id: row for row in rows}
+        rows = [by_id[UUID(hit.doc_id)] for hit in hits if UUID(hit.doc_id) in by_id]
+    return [summary(pool, entry_count=int(count)) for pool, count in rows]
 
 
 @router.get(
@@ -115,12 +119,18 @@ async def pools_list(
 )
 async def pools_get(pool_id: UUID, db: AsyncSession = Depends(database_session)):
     pool = await public_pool(db, pool_id)
+    entry_count = await db.scalar(
+        select(func.count())
+        .select_from(PoolEntry)
+        .where(PoolEntry.pool_id == pool_id, PoolEntry.status != EntryStatus.WITHDRAWN)
+    )
     return {
-        **summary(pool),
+        **summary(pool, entry_count=entry_count),
         "template": pool.template,
         "lot_plan": pool.lot_plan,
         "timeline": pool.timeline,
         "rules_hash": pool.rules_hash,
+        "latest_delivery": latest_delivery(pool.template),
     }
 
 

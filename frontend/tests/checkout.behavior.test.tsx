@@ -46,6 +46,40 @@ it("uses the account already checked by the guard instead of fetching it again f
 });
 
 describe("checkout actions", () => {
+  it("presents the offer before requesting a delivery address in reading order", async () => {
+    show(<OfferCheckout buyerOrderId="order-one" />);
+    const summary = await screen.findByLabelText("Order summary");
+    const delivery = screen.getByRole("heading", { name: "Delivery details" });
+    expect(summary.compareDocumentPosition(delivery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the absolute deadline without guessing expiry when the server clock is absent", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2099-01-01T00:00:00Z"));
+    transport.get.mockResolvedValue({ data: { ...offer, server_now: null } });
+    show(<OfferCheckout buyerOrderId="order-one" />);
+    expect(await screen.findByRole("button", { name: /Continue to PayPal/ })).toBeEnabled();
+    expect(screen.getByText("Review deadline")).toBeInTheDocument();
+    expect(screen.queryByText("Offer expires in")).toBeNull();
+  });
+
+  it("provides a contextual retry when the offer read fails", async () => {
+    transport.get.mockResolvedValue({ error: { error: { code: "REQUEST_FAILED", message: "Could not read this offer." } } });
+    show(<OfferCheckout buyerOrderId="order-one" />);
+    expect(await screen.findByRole("heading", { name: "Review your offer" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry offer" }));
+    await waitFor(() => expect(transport.get).toHaveBeenCalledTimes(2));
+  });
+
+  it("preserves a manually entered optional line when the default saved address arrives late", async () => {
+    let finish!: (value: unknown) => void;
+    transport.get.mockImplementation((path: string) => path === "/api/v1/me/addresses" ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve({ data: offer }));
+    show(<OfferCheckout buyerOrderId="order-one" />);
+    await screen.findByRole("heading", { name: "27-inch 4K monitor" });
+    fireEvent.change(screen.getByLabelText("Address line 2 (optional)"), { target: { value: "Unit 8" } });
+    await act(async () => finish({ data: { addresses: [{ id: "default", is_default: true, address: { name: "Buyer", line1: "12 Test Lane", line2: "Unit 2", city: "Test City", region: "NY", postal_code: "10001", country_code: "US" } }] } }));
+    expect(screen.getByLabelText("Address line 2 (optional)")).toHaveValue("Unit 8");
+  });
   it("loads the default saved delivery address and allows a different destination", async () => {
     const address = { name: "Pool Buyer", line1: "12 Test Lane", line2: "", city: "Test City", region: "CA", postal_code: "90210", country_code: "US" };
     transport.get.mockImplementation((path) => Promise.resolve({ data: path === "/api/v1/me/addresses" ? { addresses: [{ id: "saved-one", address, is_default: true }] } : offer }));

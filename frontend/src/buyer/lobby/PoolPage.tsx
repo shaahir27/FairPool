@@ -66,9 +66,9 @@ function deliveryRegions(template: PoolDetail["template"]): string[] {
 }
 
 function windowLabel(seconds: number): string {
-  if (seconds < 60) return `${seconds} seconds`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} minutes`;
-  return `${Math.round(seconds / 3600)} hours`;
+  const count = seconds < 60 ? seconds : Math.round(seconds / (seconds < 3600 ? 60 : 3600));
+  const unit = seconds < 60 ? "second" : seconds < 3600 ? "minute" : "hour";
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }
 
 /**
@@ -121,15 +121,21 @@ export function PoolPage() {
   const [liveLots, setLiveLots] = useState<Record<string, string>>({});
 
   const [showReceipt, setShowReceipt] = useState(false);
-  const receiptSheet = useRef<HTMLDivElement>(null);
+  const receiptSheet = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (!showReceipt) return;
-    receiptSheet.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowReceipt(false);
+    const dialog = receiptSheet.current;
+    if (!dialog) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflow = document.body.style.overflow;
+    dialog.showModal();
+    dialog.focus();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = overflow;
+      opener?.focus();
     };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
   }, [showReceipt]);
   const [pending, setPending] = useState<string | null>(null);
 
@@ -273,7 +279,7 @@ export function PoolPage() {
     !!detail.close_at && !!serverNow && Date.parse(serverNow) >= Date.parse(detail.close_at);
 
   return (
-    <section aria-labelledby="lobby-title" className="enter-rise">
+    <section aria-labelledby="lobby-title" className="buyer-pool-page">
       <div className="shop-heading flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <Link className="shop-back" to="/discover">
@@ -287,16 +293,16 @@ export function PoolPage() {
             {[
               detail.condition,
               detail.variant,
-              `${detail.seats} seats`,
-              `minimum ${detail.min_seats}`,
             ]
               .filter(Boolean)
               .join(" · ")}
           </p>
         </div>
-        <StatusPill status={status} tone={style.tone}>
-          {style.label}
-        </StatusPill>
+        <div className="pool-heading-actions">
+          <StatusPill status={status} tone={style.tone}>{style.label}</StatusPill>
+          <a className="button-secondary" href="#pool-entry">Your entry<Icon name="down" /></a>
+          <Link className="button-secondary" to={`/audit/${detail.pool_id}`}><Icon name="shield" />Public audit</Link>
+        </div>
       </div>
 
       {detail.mode === "SIMULATION" ? (
@@ -307,71 +313,15 @@ export function PoolPage() {
 
       <div className="pool-page-sections">
         <div className="pool-terminal-grid">
-          <div className="pool-dossier-column">
-            <section className="shop-panel lobby-product" aria-label="Product overview">
-              <ProductArt title={detail.title} />
-              <div>
-                <h2>Know what you’re joining</h2>
-                <p className="shop-copy">{[detail.condition?.replaceAll("_", " "), detail.variant].filter(Boolean).join(" · ")}. The pool’s published requirements apply to every merchant bid.</p>
-                <ul>
-                  <li>{detail.seats} places across the published lot plan</li>
-                  <li>Set your maximum before joining</li>
-                  <li>Approve your own offer at the final price</li>
-                </ul>
-                <p className="shop-copy text-xs">Category illustration; exact appearance depends on the merchant’s offer.</p>
-              </div>
-            </section>
-
-            <StageStrip status={status} />
-
-            <section className="shop-panel" aria-labelledby="lobby-timeline">
-              <div className="shop-panel-pad">
-                <h2>How this pool runs</h2>
-                <p className="shop-copy mt-1">
-                  One published window. Every entry received before it closes is considered under the
-                  same rules, and arriving earlier earns no priority.
-                </p>
-                <dl className="price-rows mt-4">
-                  <div>
-                    <dt>Entry window closes</dt>
-                    <dd>
-                      {detail.close_at ? (
-                        <time dateTime={detail.close_at}>{formatDateTime(detail.close_at)}</time>
-                      ) : (
-                        "Not published"
-                      )}
-                    </dd>
-                  </div>
-                  <TimelineRow label="Bidding window per lot" seconds={number(timeline.bid_window_s)} />
-                  <TimelineRow
-                    label="Your approval window"
-                    seconds={number(timeline.offer_window_s)}
-                  />
-                  <TimelineRow
-                    label="Funding deadline after approval"
-                    seconds={number(timeline.fund_deadline_s)}
-                  />
-                  <div>
-                    <dt>Delivery zones</dt>
-                    <dd>{detail.zone_ids.join(", ") || "Not published"}</dd>
-                  </div>
-                </dl>
-              </div>
-            </section>
-
-            <LotPlanPanel plan={detail.lot_plan} liveLots={liveLots} />
-
-            <RulesPanel poolId={detail.pool_id} rulesHash={detail.rules_hash ?? null} />
-          </div>
 
           <div className="pool-action-column">
-            <CloseCountdown
+            {["PUBLISHED", "OPEN"].includes(status) ? <CloseCountdown
               closeAt={detail.close_at ?? null}
               openAt={text(timeline.open_at)}
               serverNow={serverNow}
-            />
+            /> : null}
 
-            <section className="pool-entry-section" aria-label="Your place in this pool">
+            <section id="pool-entry" className="pool-entry-section" aria-label="Your place in this pool" tabIndex={-1}>
               {entryPoolId !== poolId ? (
                 <section className="shop-panel shop-panel-pad" role="status" aria-label="Checking your entry" aria-busy="true">
                   <p>Checking your entry…</p>
@@ -407,24 +357,82 @@ export function PoolPage() {
               )}
               <TrustRow />
             </section>
+            <StageStrip status={status} />
           </div>
+            <section className="shop-panel lobby-product" aria-label="Product overview">
+              <header className="lobby-product-heading">
+                <ProductArt title={detail.title} />
+                <div><h2>Product and delivery</h2><p className="shop-copy">Illustration; exact model confirmed in your offer.</p></div>
+              </header>
+                <dl className="pool-participation" aria-label="Pool participation">
+                  {detail.entry_count != null ? <div><dt>Recorded demand</dt><dd>{detail.entry_count.toLocaleString("en-US")} entries</dd></div> : null}
+                  <div><dt>Pool capacity</dt><dd>{detail.seats} places</dd></div>
+                  <div><dt>Pool minimum</dt><dd>{detail.min_seats} buyers</dd></div>
+                </dl>
+                <dl className="lobby-product-facts">
+                  {Array.isArray(detail.template.bundle_contents) && detail.template.bundle_contents.length > 0 ? <div className="lobby-included"><dt>Includes</dt><dd>{detail.template.bundle_contents.filter((item): item is string => typeof item === "string").join(", ")}</dd></div> : null}
+                  {number(detail.template.delivery_sla_days) !== null ? <div><dt>Delivery</dt><dd>Within {number(detail.template.delivery_sla_days)} days</dd></div> : null}
+                  {number(detail.template.min_return_days) !== null ? <div><dt>Returns</dt><dd>At least {number(detail.template.min_return_days)} days</dd></div> : null}
+                  <div className="lobby-included"><dt>{detail.delivery_regions?.length ? "Delivery areas" : "Delivery zones"}</dt><dd>{detail.delivery_regions?.length ? detail.delivery_regions.join(", ") : detail.zone_ids.join(", ") || "Not published"}</dd></div>
+                </dl>
+            </section>
+
+          <div className="pool-dossier-column">
+            <details className="shop-panel shop-disclosure pool-timeline">
+              <summary>How this pool runs<Icon name="down" /></summary>
+              <div className="shop-panel-pad">
+                <p className="shop-copy mt-1">
+                  One published window. Every entry received before it closes is considered under the
+                  same rules, and arriving earlier earns no priority.
+                </p>
+                <dl className="price-rows mt-4">
+                  <div>
+                    <dt>Entry window closes</dt>
+                    <dd>
+                      {detail.close_at ? (
+                        <time dateTime={detail.close_at}>{formatDateTime(detail.close_at)}</time>
+                      ) : (
+                        "Not published"
+                      )}
+                    </dd>
+                  </div>
+                  <TimelineRow label="Bidding window per lot" seconds={number(timeline.bid_window_s)} />
+                  <TimelineRow
+                    label="Your approval window"
+                    seconds={number(timeline.offer_window_s)}
+                  />
+                  <TimelineRow
+                    label="Funding window per lot"
+                    seconds={number(timeline.fund_deadline_s)}
+                  />
+                  <div>
+                    <dt>Delivery zones</dt>
+                    <dd>{detail.zone_ids.join(", ") || "Not published"}</dd>
+                  </div>
+                </dl>
+              </div>
+            </details>
+
+            <LotPlanPanel plan={detail.lot_plan} liveLots={liveLots} />
+
+            <RulesPanel poolId={detail.pool_id} rulesHash={detail.rules_hash ?? null} />
+          </div>
+
+
         </div>
       </div>
 
       {showReceipt && receipt ? (
-        <div
-          className="receipt-drawer-overlay"
-          role="dialog"
+        <dialog
+          ref={receiptSheet}
+          tabIndex={-1}
+          className="buyer-receipt-dialog"
           aria-modal="true"
           aria-label="Entry receipt modal"
-          onClick={() => setShowReceipt(false)}
+          onCancel={(event) => { event.preventDefault(); setShowReceipt(false); }}
+          onClick={(event) => { if (event.target === event.currentTarget) setShowReceipt(false); }}
         >
-          <div
-            ref={receiptSheet}
-            tabIndex={-1}
-            className="receipt-drawer-sheet"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="buyer-receipt-content">
             <EntryReceiptPage
               receipt={receipt}
               poolTitle={detail.title}
@@ -432,7 +440,7 @@ export function PoolPage() {
               onBack={() => setShowReceipt(false)}
             />
           </div>
-        </div>
+        </dialog>
       ) : null}
     </section>
   );
@@ -455,7 +463,8 @@ function StageStrip({ status }: { status: string }) {
   return (
     <section className="shop-panel pool-stage-panel" aria-labelledby="lobby-stages">
       <div className="shop-panel-pad">
-        <h2 id="lobby-stages">What happens next</h2>
+        <h2 id="lobby-stages">Pool progress</h2>
+        <p className="shop-copy mt-2">{STAGES[current]?.note}</p>
       </div>
       <ol className="order-milestones" aria-label="Pool stages">
         {STAGES.map((stage, index) => (
@@ -468,7 +477,7 @@ function StageStrip({ status }: { status: string }) {
               {index < current ? <Icon name="check" /> : index + 1}
             </span>
             <strong>{stage.label}</strong>
-            <small>{index === current ? stage.note : index < current ? "Done" : "Later"}</small>
+
           </li>
         ))}
       </ol>
@@ -550,7 +559,7 @@ function LiveCountdown({
         <Icon name="clock" />
         {countdown.expired ? "Entry window closed" : "Entry window closes in"}
       </span>
-      <time dateTime={closeAt}>{countdown.expired ? "Closed" : countdown.label}</time>
+      <time dateTime={closeAt} title={formatDateTime(closeAt)}>{countdown.expired ? "Closed" : countdown.label}</time>
     </div>
   );
 }
@@ -564,7 +573,8 @@ function LotPlanPanel({
 }) {
   const reported = Object.entries(liveLots);
   return (
-    <section className="shop-panel" aria-labelledby="lobby-lots">
+    <details className="shop-panel shop-disclosure pool-lot-plan">
+      <summary>Published lot plan<Icon name="down" /></summary>
       <div className="shop-panel-pad">
         <h2 id="lobby-lots">Lot plan</h2>
         <p className="shop-copy mt-1">
@@ -574,38 +584,27 @@ function LotPlanPanel({
         {plan.length === 0 ? (
           <p className="shop-copy mt-4">No lots are planned for this pool yet.</p>
         ) : (
-          <ul className="item-terms mt-2">
+          <ul className="pool-lot-list">
             {plan.map((zone, index) => {
               const zoneId = text(zone.zone_id) ?? `Zone ${index + 1}`;
               const lots = Array.isArray(zone.lots) ? (zone.lots as unknown[]) : [];
               return (
                 <li key={`${zoneId}-${index}`}>
-                  <Icon name="layers" />
-                  <span className="min-w-0">
-                    <strong>{zoneId}</strong>{" "}
-                    <span className="shop-copy">
-                      {lots.length === 0
-                        ? "lots not published"
-                        : lots
-                            .map((lot) => {
-                              const row = record(lot) ?? {};
-                              const seats = number(row.seats);
-                              const minimum = number(row.min_seats);
-                              return seats === null
-                                ? "a lot"
-                                : `${seats} seats${minimum === null ? "" : `, minimum ${minimum}`}`;
-                            })
-                            .join(" · ")}
-                    </span>
-                  </span>
+                  <h3><Icon name="layers" />{zoneId}</h3>
+                  {lots.length === 0 ? <p className="shop-copy">Lots not published.</p> : <ul>{lots.map((lot, lotIndex) => {
+                    const row = record(lot) ?? {};
+                    const seats = number(row.seats);
+                    const minimum = number(row.min_seats);
+                    return <li key={lotIndex}><strong>{seats === null ? "Capacity not published" : `${seats} places`}</strong><span>{minimum === null ? "Minimum not published" : `Minimum ${minimum} buyers`}</span></li>;
+                  })}</ul>}
                 </li>
               );
             })}
           </ul>
         )}
         {reported.length > 0 ? (
-          <div className="mt-5">
-            <p className="meta-label">Live lot status</p>
+          <details className="pool-live-references">
+            <summary>Live lot references</summary>
             <div className="provider-rows">
               {reported.map(([lotId, value]) => {
                 const style = statusStyle(value);
@@ -619,10 +618,10 @@ function LotPlanPanel({
                 );
               })}
             </div>
-          </div>
+          </details>
         ) : null}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -740,7 +739,6 @@ function JoinPanel({
   const [problem, setProblem] = useState<{ code: string; message: string } | null>(null);
 
   const regions = deliveryRegions(detail.template);
-  const fundBy = text(detail.template.fund_by);
   // ES-03 admits and withdraws only while the pool is OPEN and before `close_at`; the
   // server is still the one that decides, this only stops the screen offering a dead end.
   const open = status === "OPEN" && !windowPassed;
@@ -838,21 +836,15 @@ function JoinPanel({
     const withdrawn = entry.entry_status === "WITHDRAWN";
     return (
       <section className="shop-panel" aria-labelledby="lobby-entry">
-        <div className="panel-band">
+        <div className="pool-entry-heading">
           <h2 id="lobby-entry">Your entry</h2>
-          <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="shop-copy">{withdrawn ? "No place held." : "Recorded with this pool."}</p>
-            <StatusPill status={entry.entry_status} tone={style.tone}>
-              {style.label}
-            </StatusPill>
-          </div>
+          <StatusPill status={entry.entry_status} tone={style.tone}>{style.label}</StatusPill>
         </div>
         <div className="shop-panel-pad">
-          <p className="font-mono break-all text-xs text-muted">{entry.entry_id}</p>
           {entry.offer && ["OFFERED", "ORDER_CREATED"].includes(entry.offer.status) ? (
             <div className="offer-ready-card mt-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted">Offer ready</span>
+                <span className="text-sm font-semibold text-muted">Offer ready</span>
                 <StatusPill status={entry.offer.status} tone="active">Action required</StatusPill>
               </div>
               <p className="text-sm font-semibold mt-2">A winning merchant was selected for your seat.</p>
@@ -876,7 +868,7 @@ function JoinPanel({
                   </span>
                 </div>
                 <p className="shop-copy mt-1.5 text-xs">
-                  You have been awarded a seat in this pool. Merchants are submitting sealed bids in a reverse auction.
+                  Your place was allocated under the pool&apos;s published rules. Review any offer here before approving the merchant&apos;s terms and exact total.
                 </p>
               </div>
             ) : entry.allocation.status === "WAITLISTED" ? (
@@ -888,7 +880,7 @@ function JoinPanel({
                   </span>
                 </div>
                 <p className="shop-copy mt-1.5 text-xs">
-                  If any seated buyer declines or fails to authorize their offer, the seat transfers automatically to you.
+                  If a place becomes available, it may be offered in published waitlist order to a buyer who still meets the requirements.
                 </p>
               </div>
             ) : entry.allocation.status === "PRICED_OUT" ? (
@@ -907,10 +899,7 @@ function JoinPanel({
           ) : null}
           {receipt ? (
             <>
-              <p className="shop-copy mt-3">
-                Your receipt is kept by the pool, not by this browser. It comes back any time you
-                open this page.
-              </p>
+              <p className="shop-copy mt-4">Your signed receipt is saved with this entry.</p>
               <button type="button" className="shop-quiet-button mt-4" onClick={onViewReceipt}>
                 <Icon name="receipt" />
                 View entry receipt
@@ -965,12 +954,7 @@ function JoinPanel({
             <p className="shop-copy mt-4">
               The entry window has closed, so this entry can no longer be withdrawn.
             </p>
-          ) : (
-            <p className="shop-copy mt-4">
-              The pool decides seats after it closes. Your place and your outcome are stated here
-              as the server reports them.
-            </p>
-          )}
+          ) : null}
           {problem ? (
             <div className="mt-4">
               <Notice kind="error" code={problem.code}>
@@ -1026,6 +1010,7 @@ function JoinPanel({
               </label>
               <input
                 id={`region-${detail.pool_id}`}
+                aria-describedby={`region-help-${detail.pool_id}`}
                 className="form-input"
                 value={region}
                 list={`regions-${detail.pool_id}`}
@@ -1040,37 +1025,37 @@ function JoinPanel({
               </datalist>
               {/* The help text sits outside the label so the field's accessible name stays
                   the field's own. */}
-              <span className="signup-help">
+              <span id={`region-help-${detail.pool_id}`} className="signup-help">
                 {regions.length > 0
                   ? `This pool delivers to ${regions.join(", ")}.`
                   : "This pool has not published a delivery region."}
               </span>
             </div>
-            <label className="block">
-              <span className="text-sm font-medium">Needed by</span>
+            <div className="block">
+              <label htmlFor={`needed-${detail.pool_id}`} className="text-sm font-medium">Needed by</label>
               <input
+                id={`needed-${detail.pool_id}`}
                 className="form-input"
                 type="date"
+                min={detail.latest_delivery ?? undefined}
+                aria-describedby={`date-help-${detail.pool_id}`}
                 value={requiredBy}
                 onChange={(event) => setRequiredBy(event.target.value)}
                 required
               />
-              {/* Stated, not computed: the date the pool itself publishes. The server owns
-                  the rule that a request must leave the merchant time to deliver, and its
-                  refusal is what the buyer sees if the date cannot work. */}
-              {fundBy !== null ? (
-                <span className="signup-help">
-                  This pool is funded by {fundBy}, and a merchant must be able to deliver inside
-                  that window.
-                </span>
-              ) : null}
-            </label>
+              <span id={`date-help-${detail.pool_id}`} className="signup-help">
+                {detail.latest_delivery
+                  ? `Choose ${new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${detail.latest_delivery}T00:00:00Z`))} or later. The pool cannot meet an earlier deadline.`
+                  : "Choose the date you need it by. We will check whether this pool can meet it."}
+              </span>
+            </div>
             <div className="block">
               <label className="block text-sm font-medium" htmlFor={`cap-${detail.pool_id}`}>
                 Your maximum total, in USD
               </label>
               <input
                 id={`cap-${detail.pool_id}`}
+                aria-describedby={`cap-help-${detail.pool_id}`}
                 className="form-input"
                 inputMode="decimal"
                 value={maxTotal}
@@ -1078,11 +1063,11 @@ function JoinPanel({
                 onChange={(event) => setMaxTotal(event.target.value)}
                 required
               />
-              <span className="signup-help">
+              <span id={`cap-help-${detail.pool_id}`} className="signup-help">
                 {maxTotal && capCents === null
                   ? "Use digits, with up to two decimals: 600 or 600.00."
                   : capCents !== null
-                    ? `Your cap is recorded as ${capCents} cents.`
+                    ? `Your maximum is ${formatCents(capCents)} USD, including delivery and tax.`
                     : "The most you would pay for everything, delivered."}
               </span>
             </div>

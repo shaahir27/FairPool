@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -89,6 +89,9 @@ function show() {
 }
 
 beforeEach(() => {
+  // jsdom has no top layer; native focus containment is checked in the browser.
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value() { this.setAttribute("open", ""); } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value() { this.removeAttribute("open"); } });
   sessionStorage.clear();
   FakeSource.instances = [];
   vi.stubGlobal("EventSource", FakeSource);
@@ -102,6 +105,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
   vi.unstubAllGlobals();
 });
 
@@ -119,6 +125,76 @@ describe("the money rule at the browser edge", () => {
 });
 
 describe("the pool lobby", () => {
+  it("puts the recorded outcome before product details and removes obsolete entry-window emphasis", async () => {
+    transport.get.mockImplementation((path: string) => Promise.resolve(path.endsWith("/entries/me")
+      ? { data: { entry_id: "entry-one", entry_status: "ELIGIBLE", receipt, allocation: { status: "SEATED", rank: 4, zone_id: "US-EAST", lot_id: "lot-one" } } }
+      : { data: { ...detail, status: "RUNNING" } }));
+    show();
+    const outcome = await screen.findByText("Seat allocated");
+    const product = screen.getByRole("region", { name: "Product overview" });
+    expect(outcome.compareDocumentPosition(product) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("Entry window")).toBeNull();
+    expect(screen.queryByText("entry-one")).toBeNull();
+    expect(screen.queryByText(/Merchants are submitting sealed bids/)).toBeNull();
+    expect(screen.queryByText(/The pool decides seats after it closes/)).toBeNull();
+    expect(screen.getByRole("button", { name: "View entry receipt" })).toBeInTheDocument();
+  });
+  it("provides direct entry and public audit shortcuts", async () => {
+    show();
+    expect(await screen.findByRole("link", { name: "Your entry" })).toHaveAttribute("href", "#pool-entry");
+    expect(screen.getByRole("link", { name: "Public audit" })).toHaveAttribute("href", "/audit/pool-one");
+    expect(document.getElementById("pool-entry")).toHaveAccessibleName("Your place in this pool");
+  });
+  it("places the entry action before the supporting timeline in reading order", async () => {
+    show();
+    const join = await screen.findByRole("heading", { name: "State your request" });
+    const timeline = screen.getByText("How this pool runs", { selector: "summary" });
+    expect(join.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  it("describes the cap in delivered dollars and associates the help with the field", async () => {
+    show();
+    const cap = await screen.findByLabelText("Your maximum total, in USD");
+    fireEvent.change(cap, { target: { value: "600.25" } });
+    expect(cap).toHaveAccessibleDescription(/\$600\.25 USD.*delivery/i);
+    expect(screen.queryByText(/60025 cents/)).toBeNull();
+  });
+
+  it("uses the server's delivery date to guide manual entry without choosing a buyer deadline", async () => {
+    transport.get.mockImplementation((path: string) => Promise.resolve(path.endsWith("/entries/me")
+      ? { error: { error: { code: "NOT_FOUND" } } }
+      : { data: { ...detail, latest_delivery: "2026-12-07" } }));
+    show();
+    const needed = await screen.findByLabelText("Needed by");
+    expect(needed).toHaveAttribute("min", "2026-12-07");
+    expect(needed).toHaveValue("");
+    expect(needed).toHaveAccessibleDescription(/December 7, 2026 or later/);
+  });
+
+  it("does not promise every waitlisted buyer the next vacant seat", async () => {
+    transport.get.mockImplementation((path: string) => Promise.resolve(path.endsWith("/entries/me")
+      ? { data: { entry_id: "waiting", entry_status: "ELIGIBLE", allocation: { status: "WAITLISTED", rank: 20, waitlist_position: 8, zone_id: "US-EAST", lot_id: null } } }
+      : { data: detail }));
+    show();
+    expect(await screen.findByText("Position #8")).toBeInTheDocument();
+    expect(screen.getByText(/published waitlist order/i)).toBeInTheDocument();
+    expect(screen.queryByText(/transfers automatically to you/i)).toBeNull();
+  });
+
+  it("opens the receipt as a native modal and restores focus after Escape", async () => {
+    transport.get.mockImplementation((path: string) => Promise.resolve(path.endsWith("/entries/me")
+      ? { data: { entry_id: "entry-one", entry_status: "SUBMITTED", receipt } }
+      : { data: detail }));
+    show();
+    const opener = await screen.findByRole("button", { name: "View entry receipt" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = await screen.findByRole("dialog", { name: "Entry receipt modal" });
+    expect(dialog.tagName).toBe("DIALOG");
+    expect(dialog).toHaveAttribute("open");
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
+  });
   it("never offers Join while the buyer entry is still being checked", async () => {
     let finish!: (value: unknown) => void;
     transport.get.mockImplementation((path: string) => path.endsWith("/entries/me")
@@ -153,14 +229,17 @@ describe("the pool lobby", () => {
   it("follows the pool's own status and reports a lot status only when the feed says so", async () => {
     show();
     await screen.findByRole("heading", { level: 1, name: "27-inch 4K monitor" });
-    expect(screen.queryByText("Live lot status")).not.toBeInTheDocument();
-    expect(screen.getByText("8 seats, minimum 4 · 4 seats, minimum 2")).toBeInTheDocument();
+    expect(screen.queryByText("Live lot references")).not.toBeInTheDocument();
+    expect(screen.getByText("8 places")).toBeInTheDocument();
+    expect(screen.getByText("Minimum 4 buyers")).toBeInTheDocument();
+    expect(screen.getByText("4 places")).toBeInTheDocument();
+    expect(screen.getByText("Minimum 2 buyers")).toBeInTheDocument();
 
     const source = FakeSource.instances[0];
     act(() => source?.emit("pool_status", { pool_id: "pool-one", status: "ALLOCATED" }));
     expect(await screen.findByText("ALLOCATED")).toBeInTheDocument();
     act(() => source?.emit("lot_status", { pool_id: "pool-one", lot_id: "lot-one", status: "BIDDING" }));
-    expect(await screen.findByText("Live lot status")).toBeInTheDocument();
+    fireEvent.click(await screen.findByText("Live lot references"));
     expect(screen.getByText("Bidding")).toBeInTheDocument();
   });
 
@@ -196,7 +275,7 @@ describe("the pool lobby", () => {
     fireEvent.change(screen.getByLabelText("Your maximum total, in USD"), {
       target: { value: "600" },
     });
-    expect(screen.getByText("Your cap is recorded as 60000 cents.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your maximum total, in USD")).toHaveAccessibleDescription(/\$600\.00 USD/);
     fireEvent.click(screen.getByRole("button", { name: "Confirm and join" }));
 
     expect(await screen.findByRole("heading", { name: "Your entry" })).toBeInTheDocument();
@@ -321,7 +400,7 @@ describe("the pool lobby", () => {
     });
     transport.del.mockResolvedValue({ data: { entry_id: "entry-one", entry_status: "WITHDRAWN" } });
     show();
-    expect(await screen.findByText("Recorded with this pool.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Your entry" })).toBeInTheDocument();
     expect(screen.getByText("Entry received")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View entry receipt" })).toBeInTheDocument();
 
@@ -349,8 +428,7 @@ describe("the pool lobby", () => {
       await screen.findByText("This pool is closed, so no new entry can be recorded."),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm and join" })).toBeDisabled();
-    const strip = screen.getByText("Entry window").closest(".reservation-note");
-    expect(strip?.textContent).toContain("Not published");
+    expect(screen.queryByText("Entry window")).toBeNull();
   });
 
   it("stops offering a join once the entry window has passed its close time", async () => {

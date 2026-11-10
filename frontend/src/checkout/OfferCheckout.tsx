@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type ApiComponents, formatCents, Icon, Notice, ProductArt, StatusPill, startRouteTransition, useCountdown } from "../shared";
+import { api, type ApiComponents, formatCents, formatDateTime, Icon, Notice, ProductArt, StatusPill, startRouteTransition, useCountdown } from "../shared";
 
 import { PayPalButton } from "./PayPalButton";
 
@@ -45,9 +45,9 @@ export function OfferCheckout({
       }).catch(() => { if (live) setError({ code: "REQUEST_FAILED", message: "Check your connection and reload this offer." }); });
     return () => { live = false; };
   }, [buyerOrderId, reload]);
-  if (error) return <Notice kind="error" code={error.code}>{error.message}</Notice>;
-  if (!offer) return <section className="panel" role="status" aria-label="Loading offer" aria-busy="true"><p className="meta-label">Loading offer</p><div className="skeleton mt-5 h-10 w-2/3" /><div className="skeleton mt-4 h-40" /><div className="skeleton mt-4 h-12" /></section>;
-  return <OfferDetails key={buyerOrderId} offer={offer} onRefresh={() => setReload((count) => count + 1)} onChanged={onChanged} />;
+  const failure = error ? <Notice kind="error" code={error.code}>{error.message}{" "}<button type="button" className="signup-back" onClick={() => setReload((count) => count + 1)}>Retry offer</button></Notice> : null;
+  if (!offer || shownFor.current !== buyerOrderId) return <section className="shop-panel shop-panel-pad" role={error ? undefined : "status"} aria-label={error ? undefined : "Loading offer"} aria-busy={error ? undefined : true}><h1 className="shop-title">Review your offer</h1>{failure ?? <><p className="shop-copy mt-2">Loading the merchant and your exact total...</p><div className="skeleton mt-5 h-10 w-2/3" /><div className="skeleton mt-4 h-40" /></>}</section>;
+  return <>{failure}<OfferDetails key={buyerOrderId} offer={offer} onRefresh={() => setReload((count) => count + 1)} onChanged={onChanged} /></>;
 }
 
 function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh: () => void; onChanged?: (() => void) | undefined }) {
@@ -83,9 +83,7 @@ function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh
   const sdkPopup = checkoutConfig?.approval_ui === "sdk_popup" && sdkFallback === null;
   const [busy, setBusy] = useState<"continue" | "decline" | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
-  // Older responses lack server_now. Capture a stable display-only sample once.
-  const [clockSample] = useState(() => offer.server_now ?? new Date().toISOString());
-  const countdown = useCountdown(offer.offer_expires_at, clockSample, offer.offer_started_at);
+  const countdown = useCountdown(offer.offer_expires_at, offer.server_now, offer.offer_started_at);
   const orderPath = `/orders/${offer.buyer_order_id}`;
   const goToOrder = () => startRouteTransition(() => navigate(orderPath), `/offers/${offer.buyer_order_id}`, orderPath);
   const decline = async () => {
@@ -126,28 +124,39 @@ function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh
   const terminal = offer.status !== "OFFERED" && offer.status !== "ORDER_CREATED";
   if (terminal || countdown.expired) {
     const expired = offer.status === "EXPIRED" || (!terminal && countdown.expired);
-    return <section className="panel terminal-offer">
+    return <section className="shop-panel shop-panel-pad terminal-offer">
+      <Link className="shop-back" to={offer.pool_id ? `/pools/${offer.pool_id}` : "/my-pools"}><Icon name="arrow" />Back to your pool</Link>
       <Icon name={expired ? "clock" : "receipt"} />
       <StatusPill status={expired ? "EXPIRED" : offer.status} />
       <h1>{expired ? "This offer can no longer be approved." : offer.status === "DECLINED" ? "Offer declined" : "Your offer has moved on"}</h1>
+      <p className="shop-copy mt-3">{offer.product.title} from {offer.merchant.display_name}</p>
       <p className="secondary-copy mt-3">{expired ? "Your approval window has ended. Check your order for the latest status." : "Check your order for the latest payment and lot status."}</p>
-      <Link to={orderPath} className="button-secondary mt-6">View order status for {offer.buyer_order_id} <Icon name="arrow" /></Link>
+      <Link to={orderPath} className="button-secondary mt-6">View order status <Icon name="arrow" /></Link>
     </section>;
   }
-  const unused = offer.totals.cap_cents - offer.totals.total_cents;
   return <div className="shop-checkout">
     <Link className="shop-back" to={offer.pool_id ? `/pools/${offer.pool_id}` : "/my-pools"}><Icon name="arrow" />Back to your pool</Link>
     <div className="shop-heading">
-      <h1 className="shop-title">Checkout</h1>
-      <p className="shop-copy">Your group price is ready. Add your delivery details, then continue to PayPal.</p>
-      <ol className="checkout-steps" aria-label="Checkout progress">
-        <li aria-current="step"><span className="step-number">1</span>Delivery</li><li aria-hidden="true"><Icon name="chevron" /></li>
-        <li><span className="step-number">2</span>PayPal</li><li aria-hidden="true"><Icon name="chevron" /></li>
-        <li><span className="step-number">3</span>Confirmation</li>
-      </ol>
+      <h1 className="shop-title">Review your offer</h1>
+      <p className="shop-copy">Check the merchant, exact total and terms, then choose your delivery address.</p>
     </div>
     {offer.notices.fallback ? <p className="preview-disclosure"><Icon name="info" /><span><strong>Sandbox fallback. </strong>{offer.notices.fallback}</span></p> : null}
     {error ? <div className="mb-4"><Notice kind="error" code={error.code}>{error.message}</Notice></div> : null}
+    <section className="shop-panel shop-panel-pad offer-overview" aria-label="Order summary">
+      <div className="offer-review-grid">
+        <div>
+          <div className="shop-product-row"><ProductArt title={offer.product.title} small /><div><h2>{offer.product.title}</h2><p>{[offer.product.variant, offer.product.condition].filter(Boolean).join(" - ")}</p><p>Sold by {offer.merchant.display_name} - 1 item</p><p className="offer-art-note">Category illustration; see the merchant's exact terms below.</p></div></div>
+
+        </div>
+        <div className="offer-price-summary">
+          <p className="offer-total-label">Delivered total <span>USD</span></p>
+          <p className="offer-total-amount">{formatCents(offer.totals.total_cents)}</p>
+          <p className="shop-copy">Your confirmed maximum: <strong>{formatCents(offer.totals.cap_cents)}</strong></p>
+          <dl className="price-rows"><Price label="Item" cents={offer.totals.item_cents} /><Price label="Shipping" cents={offer.totals.shipping_cents} /><Price label="Tax" cents={offer.totals.tax_cents} /></dl>
+        </div>
+          <dl className="offer-awarded-terms"><div><dt>Delivery</dt><dd>Within {offer.terms.delivery_sla_days} days</dd></div><div><dt>Returns</dt><dd>{offer.terms.returns_days}-day return terms</dd></div><div className="offer-included"><dt>Included items</dt><dd>{offer.product.bundle_contents.join(", ")}</dd></div></dl>
+      </div>
+    </section>
     <form id="checkout-form" className="shop-checkout-grid" onSubmit={(event) => void submit(event)}>
       <div className="shop-checkout-main">
         <section className="shop-panel shop-panel-pad" aria-labelledby="delivery-heading">
@@ -160,17 +169,21 @@ function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh
           }}><option value="">Use a different address</option>{savedAddresses.map((item) => <option key={item.id} value={item.id}>{item.address.name} — {item.address.line1}{item.is_default ? " (default)" : ""}</option>)}</select></label> : null}
           {addressLoadFailed ? <p className="signup-help">Saved addresses couldn’t be loaded. You can enter your delivery details below.</p> : null}
           <div className="shop-address-fields">
-            {ADDRESS_FIELDS.map((field) => field.name === "line2" ? <details key={field.name} className="optional-address"><summary><span aria-hidden="true">+</span> Add apartment, suite or floor</summary><label>Address line 2 (optional)<input name="line2" autoComplete="address-line2" className="form-input" value={address.line2} maxLength={200} onChange={(event) => setAddress((previous) => ({ ...previous, line2: event.target.value }))} /></label></details> : <label key={field.name} className={["name", "line1"].includes(field.name) ? "address-full" : field.name === "country_code" ? "country-field" : ""}>
+            {ADDRESS_FIELDS.map((field) => field.name === "line2" ? <details key={field.name} className="optional-address"><summary><span aria-hidden="true">+</span> Add apartment, suite or floor</summary><label>Address line 2 (optional)<input name="line2" autoComplete="address-line2" className="form-input" value={address.line2} maxLength={200} onChange={(event) => { addressEdited.current = true; setSelectedAddress(""); setAddress((previous) => ({ ...previous, line2: event.target.value })); }} /></label></details> : <label key={field.name} className={["name", "line1"].includes(field.name) ? "address-full" : field.name === "country_code" ? "country-field" : ""}>
               {field.label}<input name={field.name} autoComplete={field.autoComplete} className="form-input" value={address[field.name]} required={field.required}
                 maxLength={field.name === "country_code" ? 2 : field.name === "postal_code" ? 20 : 200}
                 pattern={field.name === "country_code" ? "[A-Za-z]{2}" : undefined}
-                onChange={(event) => { addressEdited.current = true; setAddress((previous) => ({ ...previous, [field.name]: event.target.value })); }} />
+                onChange={(event) => { addressEdited.current = true; setSelectedAddress(""); setAddress((previous) => ({ ...previous, [field.name]: event.target.value })); }} />
             </label>)}
           </div>
           <Link className="signup-back" to="/settings/addresses">Manage saved addresses</Link>
         </section>
-        <section className="shop-panel shop-panel-pad" aria-labelledby="payment-heading">
-          <div className="shop-section-heading"><Icon name="wallet" /><h2 id="payment-heading">Payment</h2></div>
+
+      </div>
+        <section className="shop-panel shop-panel-pad offer-payment" aria-labelledby="payment-heading">
+          <div className="shop-section-heading"><Icon name="wallet" /><h2 id="payment-heading">Approve this offer</h2></div>
+          <div className={`reservation-note ${countdown.urgent ? "is-urgent" : ""}`}><span><Icon name="clock" />{offer.server_now ? "Offer expires in" : "Review deadline"}</span><time dateTime={offer.offer_expires_at}>{offer.server_now ? countdown.label : formatDateTime(offer.offer_expires_at)}</time></div>
+          {offer.server_now ? <p className="signup-help">Review by {formatDateTime(offer.offer_expires_at)}.</p> : null}
           <div className="payment-choice"><span className="paypal-word">PayPal</span><p className="shop-copy">Continue on PayPal to review your payment.</p><Icon name="lock" /></div>
           <p className="payment-description">{offer.notices.hold}</p>
           {sdkFallback ? <div className="mb-4"><Notice kind="info">{sdkFallback}</Notice></div> : null}
@@ -190,22 +203,10 @@ function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh
               <button type="submit" disabled={busy !== null || countdown.expired} className="button-primary w-full">{busy === "continue" ? "Opening PayPal…" : <>Continue to PayPal <Icon name="arrow" /></>}</button>
             )}
           </div>
+          <details className="shop-disclosure offer-rules"><summary>How this offer was chosen<Icon name="down" /></summary><p>Qualifying merchant bids are ranked under this pool's published rules. The exact total is checked against your confirmed maximum.</p><p>{offer.notices.lots_may_differ}</p>{offer.pool_id ? <Link to={`/audit/${offer.pool_id}`}>View this pool's published rules</Link> : null}</details>
           <p className="checkout-fineprint"><Icon name="lock" />Your address is stored encrypted.</p>
           <button type="button" disabled={busy !== null} onClick={() => void decline()} className="decline-link">{busy === "decline" ? "Declining…" : "Decline this offer"}</button>
         </section>
-      </div>
-      <aside className="shop-panel shop-summary" aria-label="Order summary">
-        <div className="shop-summary-header"><h2>Order summary</h2><span className="item-count">1 item</span></div>
-        <div className={`reservation-note ${countdown.urgent ? "is-urgent" : ""}`}><span><Icon name="clock" />Offer expires in</span><time>{countdown.label}</time></div>
-        <div className="shop-summary-body">
-          <div className="shop-product-row"><ProductArt title={offer.product.title} small /><div><h2>{offer.product.title}</h2><p>{[offer.product.variant, offer.product.condition].filter(Boolean).join(" · ")}</p><p>Sold by {offer.merchant.display_name}</p><p>Quantity: 1</p></div></div>
-          <dl className="price-rows"><Price label="Item" cents={offer.totals.item_cents} /><Price label="Shipping" cents={offer.totals.shipping_cents} /><Price label="Tax" cents={offer.totals.tax_cents} /></dl>
-          <div className="shop-summary-total"><strong>Total <span className="text-xs font-normal text-muted">USD</span></strong><strong>{formatCents(offer.totals.total_cents)}</strong></div>
-          <div className="budget-note"><Icon name="check" /><span>Your maximum is <strong>{formatCents(offer.totals.cap_cents)}</strong>. {unused >= 0 ? `This total is ${formatCents(unused)} within your limit.` : "Review the final total before continuing."}</span></div>
-        </div>
-        <div className="summary-terms"><div><Icon name="truck" /><span>Delivery within {offer.terms.delivery_sla_days} days</span></div><div><Icon name="returns" /><span>{offer.terms.returns_days}-day return terms</span></div><div><Icon name="box" /><span>{offer.product.bundle_contents.join(", ")}</span></div></div>
-        <details className="shop-disclosure"><summary>How your group price works <Icon name="down" /></summary><p>FairPool ranks the qualifying offers for a lot by the delivered price each buyer actually pays, and the lowest one that meets the lot's rules sets your price. Your total is always checked against the limit you confirmed.</p><p>{offer.notices.lots_may_differ}</p>{offer.pool_id ? <Link to={`/audit/${offer.pool_id}`}>View this pool’s published rules</Link> : null}</details>
-      </aside>
     </form>
   </div>;
 }

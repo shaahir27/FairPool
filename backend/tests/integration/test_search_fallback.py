@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.adapters.search.elastic import ElasticSearchBackend
@@ -847,5 +847,66 @@ async def test_pools_list_sort_trending_orders_by_the_public_entry_count(
     mine = {str(pool) for pool in (quiet, first_tied, second_tied, busy)}
     order = [row["pool_id"] for row in trending if row["pool_id"] in mine]
     assert order == [str(busy), str(first_tied), str(second_tied), str(quiet)]
+    counts = {row["pool_id"]: row["entry_count"] for row in trending if row["pool_id"] in mine}
+    assert counts == {str(busy): 3, str(first_tied): 2, str(second_tied): 2, str(quiet): 0}
     assert bad.status_code == 422
     assert bad.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+async def test_public_pool_comparison_uses_published_terms_and_one_list_read(
+    db_session: AsyncSession,
+) -> None:
+    from tests.integration.test_join_receipts import open_pool
+
+    pool_id = await open_pool(db_session)
+    await db_session.execute(
+        text("UPDATE pools SET title = '000 Buyer comparison pool' WHERE id = :id"),
+        {"id": pool_id},
+    )
+    await _seed_entries(db_session, pool_id, entered=3, withdrawn=2)
+    app = create_app(make_settings())
+
+    async def db() -> Any:
+        yield db_session
+
+    app.dependency_overrides[database_session] = db
+    bind = db_session.get_bind()
+    target = getattr(bind, "sync_engine", getattr(bind, "engine", bind))
+    statements: list[str] = []
+
+    def record(conn: Any, cursor: Any, statement: str, *args: Any) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://example.test"
+    ) as client:
+        event.listen(target, "before_cursor_execute", record)
+        try:
+            listed = await client.get("/api/v1/pools", params={"sort": "title", "limit": 100})
+        finally:
+            event.remove(target, "before_cursor_execute", record)
+        detail = await client.get(f"/api/v1/pools/{pool_id}")
+
+    assert listed.status_code == 200, listed.text
+    assert len(statements) == 1
+    row = next(item for item in listed.json() if item["pool_id"] == str(pool_id))
+    expected = {
+        "entry_count": 3,
+        "delivery_regions": ["NJ", "NY", "PA"],
+        "delivery_sla_days": 7,
+        "min_return_days": 14,
+        "bundle_contents": ["monitor", "stand", "power cable"],
+    }
+    assert {key: row[key] for key in expected} == expected
+    assert detail.status_code == 200, detail.text
+    assert {key: detail.json()[key] for key in expected} == expected
+    from fairpool.db.models.catalog import Pool
+    from fairpool.modules.intake.pipeline import latest_delivery
+
+    pool = await db_session.get(Pool, pool_id)
+    assert pool is not None
+    delivery_date = latest_delivery(pool.template)
+    assert delivery_date is not None
+    assert detail.json()["latest_delivery"] == delivery_date.isoformat()
+    assert not {"canonical_request", "cap_cents", "user_id"} & row.keys()

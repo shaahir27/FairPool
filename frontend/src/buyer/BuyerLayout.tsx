@@ -18,13 +18,15 @@ const BUYER_UTILITY_LINKS: readonly AreaUtilityLink[] = [
 
 export function BuyerLayout({ children }: { children?: ReactNode }) {
   return (
-    <AreaLayout
-      workspace="Buyer workspace"
-      tabs={BUYER_TABS}
-      utilityLinks={BUYER_UTILITY_LINKS}
-      onPrefetch={prefetchBuyer}
-    >
-      {children}
-    </AreaLayout>
+    <div className="buyer-workspace">
+      <AreaLayout
+        workspace="Buyer workspace"
+        tabs={BUYER_TABS}
+        utilityLinks={BUYER_UTILITY_LINKS}
+        onPrefetch={prefetchBuyer}
+      >
+        {children}
+      </AreaLayout>
+    </div>
   );
 }

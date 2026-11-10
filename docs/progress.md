@@ -268,6 +268,30 @@ branch `b/T09B04-buyer-experience` created directly from main at `05f89eb`.
 Plan: [buyer-ui-ux-plan.md](buyer-ui-ux-plan.md). The historical T09B04 delivery
 and IG-9 gate below remain recorded; this is an owner-requested follow-up.
 
+The owner also requested rich data for `demo-buyer-1@fairpool.test` on 9 November.
+The T09A03 demo-tooling lane is included under the same solo operator: extend the
+existing seed with six open pools and signed entries, retain existing scenarios,
+and verify the configured app without resetting its database or calling PayPal.
+Seed readiness and final verification are recorded in the buyer plan delivery log.
+
+10 November follow-up: the rejected pool composition was inspected with the actual
+demo buyer, redesigned entry-first and independently reviewed. Matching now preserves
+failed requests and links directly to manual entry; CR-16 adds server delivery-date
+guidance. Audit is checker-first, loads an owner receipt only on request, and guards
+against cached cross-pool autofill. The configured Gemini key is rejected as invalid;
+the owner was asked to correct it locally. The offer continuation now presents the
+product/merchant, total and terms before the address and approval, removes device-clock
+expiry guesses, and protects address edits from late prefill/failed refresh. Actual
+expired and fixture active/missing-clock layouts were inspected; independent review
+cleared the offer slice. All 341 frontend tests, build/lint/types,
+import/docs/OpenAPI and secret checks pass. Full make verify remains red: the clean
+run had 1,346 passes, a 10k timing failure (10,364ms / 10,000ms), and a first-page
+test assumption. The pagination assertion is corrected and its targeted test passes;
+production simulation and timing limits are unchanged. This follow-up remains
+IN PROGRESS; no push, PR or green gate is claimed. The latest AI configuration recheck
+still rejects the key. Full evidence, delivered changes and remaining limits are
+in the buyer plan.
+
 | ID | Raised by | Question and the two readings | Source of each reading | Status |
 |---|---|---|---|---|
 | Q-2026-11-06-38 | agent (hosted verification after F2) | On the deployed app the signed `checkpoint` verifies against the served public key for all four pools tested, but `rules_hash(served rules_document) == stored rules_hash` is FALSE for all four. No plausible beacon shape reproduces the stored hash, so the document the route rebuilds at read time is not the one publish hashed. Reading (a): the live columns (`template`, `lot_plan`, `timeline`) were written after publish by a later build or seeder, so the rows are stale and a re-seed turns the verdict green; reading (b): `rules_document(pool)` is not a stable function of the row, and the only correct fix is to freeze the document itself at publish into its own JSONB column (numbered migration plus a CR to `api.md` and `fairness-and-hashing.md` section 7). Either way the new audit page shows a red verdict on existing hosted demo pools, so the audit beat cannot be recorded until this is settled | `api/routers/public.py` (rules_document at read time), `modules/pools/service.py` (hash at publish), `docs/contracts/fairness-and-hashing.md` section 7, live `GET /api/v1/public/pools/{id}/audit` on `fairpool-api.onrender.com` | RESOLVED 2026-11-06. Neither reading was right: the demo **seeder** moves each pool's `open_at`/`close_at` after publish (`tools/demo_seed.py` calls `move_timeline`), and `timeline` is an input to `rules_document`, so the frozen hash no longer described the row. Freshly seeded pools mismatched too, which is how it was isolated from stale data. Fixed in the shared helper: a pre-close shift re-freezes `rules_hash`, a post-close shift is refused, and the read uses `populate_existing` so a stale identity map cannot bypass the guard. Two tests added (`test_public_audit_rules_hash.py`), plus the live check that the hosted audit page now recomputes clean. The audit-page beat is unblocked once the hosted demo database is re-seeded. |

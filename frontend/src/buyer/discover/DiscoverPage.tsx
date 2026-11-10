@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
@@ -44,6 +44,7 @@ const EXAMPLE_ASKS = [
 ];
 
 export function DiscoverPage() {
+  const requestInput = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function DiscoverPage() {
   const [asking, setAsking] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState<{ code: string; message: string } | null>(null);
+  const [manualPool, setManualPool] = useState("");
 
   const catalogue = useApiRead("/api/v1/pools?status=OPEN&sort=trending",
     (signal) => api.GET("/api/v1/pools", {signal, params: { query: { status: "OPEN", sort: "trending" } }}), {staleTime: 60_000});
@@ -76,7 +78,7 @@ export function DiscoverPage() {
       }
       setSessionId(data.session_id);
       setTurn(data);
-      setMessage("");
+      if (data.status !== "NO_MATCH") setMessage("");
     } catch {
       setNotice({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
     } finally {
@@ -138,16 +140,20 @@ export function DiscoverPage() {
             <p className="shop-copy mt-1" role="status" aria-label="Pool search results" aria-live="polite" aria-atomic="true">
               {poolsLoading
                 ? "Loading what is open."
-                : search
+                : poolsError && !catalogue.data
+                  ? "Pool availability is unavailable. Reload to try again."
+                : search || effectiveCategory !== "ALL"
                   ? `${visiblePools.length} of ${pools.length} pools ${visiblePools.length === 1 ? "matches" : "match"} your search.`
-                  : `${pools.length} ${pools.length === 1 ? "pool is" : "pools are"} open, most joined first.`}
+                  : `${pools.length} open ${pools.length === 1 ? "pool" : "pools"} shown, most joined first.`}
             </p>
           </div>
-          <label className="catalogue-search"><Icon name="search" />
+          <div className="discovery-tools"><label className="catalogue-search"><Icon name="search" />
             <span className="sr-only">Search open pools</span>
-            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search open pools" />
+            <input type="search" value={query} aria-describedby="catalogue-scope" onChange={(event) => setQuery(event.target.value)} placeholder="Search open pools" />
           </label>
+          <button type="button" className="button-secondary" onClick={() => requestInput.current?.focus()}>Make a request<Icon name="arrow" /></button></div>
         </div>
+        <p id="catalogue-scope" className="catalogue-scope">Search and categories filter the pools shown. Set your delivered-price limit when you join.</p>
         {categories.length > 1 ? (
           <div className="catalogue-category-bar" role="group" aria-label="Filter by category">
             <button
@@ -198,7 +204,7 @@ export function DiscoverPage() {
               ))}
             </ul>
           </div>
-        ) : pools.length === 0 ? (
+        ) : poolsError && !catalogue.data ? null : pools.length === 0 ? (
           <p className="shop-copy mt-5">No open pools to join right now.</p>
         ) : visiblePools.length === 0 ? (
           <div className="catalogue-empty"><Icon name="search" /><p>No pools match your search.</p><button type="button" className="button-secondary" onClick={() => { setQuery(""); setCategory("ALL"); }}>Clear search</button></div>
@@ -224,6 +230,7 @@ export function DiscoverPage() {
             <label className="block min-w-0 flex-1 basis-64">
               <span className="text-sm font-semibold">{PROMPT_LABEL}</span>
               <textarea
+                ref={requestInput}
                 id="intake-prompt"
                 className="form-input prompt-input"
                 value={message}
@@ -231,12 +238,6 @@ export function DiscoverPage() {
                 rows={2}
                 placeholder="For example, a 4K monitor under $600, delivered to New York…"
                 onChange={(event) => setMessage(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
               />
             </label>
             <button type="submit" className="button-primary" disabled={asking || !message.trim()}>
@@ -251,7 +252,7 @@ export function DiscoverPage() {
                 type="button"
                 className="shop-quiet-button"
                 disabled={asking}
-                onClick={() => setMessage(example)}
+                onClick={() => { setMessage(example); requestInput.current?.focus(); }}
               >
                 {index === 0 ? "Monitor under $600" : "Kettle under $80"}
               </button>
@@ -277,13 +278,15 @@ export function DiscoverPage() {
                   {turn.clarifying_question}
                 </Notice>
                 {NAMES_MANUAL_FORM.test(turn.clarifying_question) ? (
-                  <a
-                    className="signup-back mt-2 inline-flex min-h-[44px] items-center gap-2 font-semibold"
-                    href="#open-pools"
-                  >
-                    Browse the open pools to use the manual form
-                    <Icon name="arrow" />
-                  </a>
+                  <div className="manual-entry-choice mt-4">
+                    <label htmlFor="manual-pool">Choose a pool for manual entry
+                      <select id="manual-pool" className="form-input" value={manualPool} onChange={(event) => setManualPool(event.target.value)}>
+                        <option value="">Choose an open pool</option>
+                        {pools.map((pool) => <option key={pool.pool_id} value={pool.pool_id}>{pool.title}{pool.variant ? ` · ${pool.variant}` : ""}</option>)}
+                      </select>
+                    </label>
+                    {pools.some((pool) => pool.pool_id === manualPool) ? <Link className="button-secondary" to={`/pools/${manualPool}#pool-entry`}>Fill in my request<Icon name="arrow" /></Link> : null}
+                  </div>
                 ) : null}
               </>
             ) : (
@@ -394,38 +397,47 @@ function ConfirmationCardPanel({
 function PoolCard({ pool }: { pool: PoolSummary }) {
   const style = statusStyle(pool.status);
   return (
-    <article className="catalogue-card enhanced-pool-card">
-      <div className="catalogue-card-badge-row">
-        {pool.condition ? (
-          <span className="pool-condition-badge">
-            {pool.condition.replaceAll("_", " ")}
-          </span>
-        ) : <span />}
-        <StatusPill status={pool.status} tone={style.tone}>
-          {style.label}
-        </StatusPill>
-      </div>
-      <Link className="catalogue-art" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)} aria-label={`View ${pool.title}`}>
-        <ProductArt title={pool.title} />
-        <span className="catalogue-art-caption">Category illustration</span>
-      </Link>
-      <div className="catalogue-card-body">
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="min-w-0 text-[17px] font-semibold leading-snug tracking-[-.025em]">
-            {pool.title}
+    <article className="catalogue-card" aria-labelledby={`product-${pool.pool_id}`}>
+      <div className="catalogue-product">
+        <Link className="catalogue-art" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)} aria-label={`View ${pool.title}`}>
+          <ProductArt title={pool.title} />
+          <span className="catalogue-art-caption" aria-label="Category illustration">Illustration</span>
+        </Link>
+        <div className="catalogue-product-name">
+          <h2 id={`product-${pool.pool_id}`}>
+            <Link to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)}>{pool.title}</Link>
           </h2>
+          {pool.variant ? <p className="catalogue-variant">{pool.variant}</p> : null}
+          <div className="catalogue-card-badge-row">
+            <StatusPill status={pool.status} tone={style.tone}>
+              {style.label === pool.status ? pool.status.charAt(0) + pool.status.slice(1).toLowerCase() : style.label}
+            </StatusPill>
+            {pool.condition ? <span className="pool-condition-badge">{pool.condition.toLowerCase().replaceAll("_", " ")}</span> : null}
+          </div>
         </div>
-        <p className="shop-copy mt-2">
-          {[pool.condition?.replaceAll("_", " "), pool.variant]
-            .filter(Boolean)
-            .join(" · ")}
+      </div>
+      <div className="catalogue-card-body">
+        <p className="catalogue-price">Price set after bidding
+          <span>You choose your maximum before joining.</span>
         </p>
-        <div className="catalogue-facts"><span><Icon name="layers" />{pool.seats} seats · minimum {pool.min_seats}</span></div>
+        <dl className="pool-participation" aria-label="Pool participation">
+          {pool.entry_count != null ? <div><dt>Recorded demand</dt><dd>{pool.entry_count.toLocaleString("en-US")} {pool.entry_count === 1 ? "entry" : "entries"}</dd></div> : null}
+          <div><dt>Pool capacity</dt><dd>{pool.seats} places</dd></div>
+          <div><dt>Pool minimum</dt><dd>{pool.min_seats} buyers</dd></div>
+        </dl>
+        <dl className="catalogue-terms" aria-label="Delivery and returns">
+          <div className="catalogue-delivery-area"><dt>{pool.delivery_regions?.length ? "Delivery areas" : "Delivery zones"}</dt><dd>{pool.delivery_regions?.length ? pool.delivery_regions.join(", ") : pool.zone_ids.join(", ") || "Not published"}</dd></div>
+          {typeof pool.delivery_sla_days === "number" ? <div><dt>Delivery requirement</dt><dd>Within {pool.delivery_sla_days} days</dd></div> : null}
+          {typeof pool.min_return_days === "number" ? <div><dt>Minimum returns</dt><dd>{pool.min_return_days} days</dd></div> : null}
+        </dl>
+        {pool.bundle_contents?.length ? <details className="catalogue-included"><summary>Included items</summary><p>{pool.bundle_contents.join(", ")}</p></details> : null}
+      </div>
+      <div className="catalogue-card-footer">
         <p className="catalogue-deadline">
           {pool.close_at ? (
             <>
-              Entries close{" "}
-              <time dateTime={pool.close_at} className="font-medium text-ink">
+              <span>Entries close</span>
+              <time dateTime={pool.close_at}>
                 {formatDateTime(pool.close_at)}
               </time>
             </>
@@ -433,18 +445,11 @@ function PoolCard({ pool }: { pool: PoolSummary }) {
             "Closing time not published"
           )}
         </p>
-        <p className="catalogue-price">Price set after bidding<span>You choose your maximum before joining.</span></p>
-        <p className="catalogue-promise">
-          <Icon name="shield" className="mt-px" />
-          <span>{JOIN_BADGE}</span>
-        </p>
-      </div>
-      <div className="catalogue-card-footer">
-        <Link className="catalogue-link" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)}>
-          Open the pool
-          <Icon name="arrow" />
+        <Link className="button-primary" to={`/pools/${pool.pool_id}`} onMouseEnter={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onFocus={() => prefetchBuyer(`/pools/${pool.pool_id}`)} onPointerDown={() => prefetchBuyer(`/pools/${pool.pool_id}`)}>
+          View pool<Icon name="arrow" />
         </Link>
       </div>
+      <p className="catalogue-promise"><Icon name="shield" /><span>{JOIN_BADGE}</span></p>
     </article>
   );
 }

@@ -39,7 +39,7 @@ def rules_document(pool: Pool) -> dict[str, Any]:
     )
 
 
-def summary(pool: Pool) -> dict[str, Any]:
+def summary(pool: Pool, *, entry_count: int | None = None) -> dict[str, Any]:
     lots = [lot for zone in pool.lot_plan for lot in zone["lots"]]
     return dict(
         pool_id=pool.id,
@@ -53,6 +53,17 @@ def summary(pool: Pool) -> dict[str, Any]:
         seats=sum(x["seats"] for x in lots),
         min_seats=sum(x["min_seats"] for x in lots),
         close_at=pool.timeline["close_at"],
+        entry_count=entry_count,
+        delivery_regions=sorted(
+            {
+                region
+                for zone in pool.template.get("zones", [])
+                for region in zone.get("regions", [])
+            }
+        ),
+        delivery_sla_days=pool.template.get("delivery_sla_days"),
+        min_return_days=pool.template.get("min_return_days"),
+        bundle_contents=pool.template.get("bundle_contents", []),
     )
 
 

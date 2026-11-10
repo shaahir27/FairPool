@@ -2724,14 +2724,26 @@ export interface components {
         };
         /** PoolDetail */
         PoolDetail: {
+            /** Bundle Contents */
+            bundle_contents?: string[];
             /** Close At */
             close_at?: string | null;
             /** Condition */
             condition: string;
+            /** Delivery Regions */
+            delivery_regions?: string[];
+            /** Delivery Sla Days */
+            delivery_sla_days?: number | null;
+            /** Entry Count */
+            entry_count?: number | null;
+            /** Latest Delivery */
+            latest_delivery?: string | null;
             /** Lot Plan */
             lot_plan: {
                 [key: string]: unknown;
             }[];
+            /** Min Return Days */
+            min_return_days?: number | null;
             /** Min Seats */
             min_seats: number;
             /** Mode */
@@ -2766,10 +2778,20 @@ export interface components {
         };
         /** PoolSummary */
         PoolSummary: {
+            /** Bundle Contents */
+            bundle_contents?: string[];
             /** Close At */
             close_at?: string | null;
             /** Condition */
             condition: string;
+            /** Delivery Regions */
+            delivery_regions?: string[];
+            /** Delivery Sla Days */
+            delivery_sla_days?: number | null;
+            /** Entry Count */
+            entry_count?: number | null;
+            /** Min Return Days */
+            min_return_days?: number | null;
             /** Min Seats */
             min_seats: number;
             /** Mode */

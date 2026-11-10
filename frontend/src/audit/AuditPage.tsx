@@ -93,7 +93,7 @@ async function verdicts(audit: Audit, publicKey: string | null): Promise<Verdict
       label: "Tamper seal",
       detail:
         proof === null
-          ? "No seal yet: it appears once bidding closes."
+          ? "No signed checkpoint has been published yet."
           : publicKey === null
             ? "The seal could not be checked here: FairPool's public key has not loaded."
             : signatureOk
@@ -154,8 +154,7 @@ function useSessionAccount(): Account | null {
   return account;
 }
 
-function Shell({ children }: { children: ReactNode }) {
-  const account = useSessionAccount();
+function Shell({ children, account }: { children: ReactNode; account: Account | null }) {
   if (account?.role === "buyer") {
     return <BuyerLayout>{children}</BuyerLayout>;
   }
@@ -190,6 +189,7 @@ function rulesShape(document: Record<string, unknown>): {
 
 export function AuditPage() {
   const {poolId} = useParams<{poolId: string}>();
+  const account = useSessionAccount();
   const read = useApiRead(`/api/v1/public/pools/${poolId}/audit`, (signal) =>
     api.GET("/api/v1/public/pools/{pool_id}/audit", {signal, params: {path: {pool_id: poolId!}}}),
   );
@@ -225,12 +225,27 @@ export function AuditPage() {
 
   useEffect(() => {
     setPlace("");
+    setEntryId(""); setRequestHash(""); setSaltHex(""); setReceiptPoolId(null);
   }, [poolId]);
 
   const [entryId, setEntryId] = useState("");
   const [requestHash, setRequestHash] = useState("");
   const [saltHex, setSaltHex] = useState("");
   const [place, setPlace] = useState<string>("");
+  const [receiptPoolId, setReceiptPoolId] = useState<string | null>(null);
+  const receiptRequested = poolId !== undefined && receiptPoolId === poolId;
+  const ownEntry = useApiRead(`/api/v1/pools/${poolId}/entries/me`, (signal) =>
+    api.GET("/api/v1/pools/{pool_id}/entries/me", {signal, params: {path: {pool_id: poolId!}}}),
+    {enabled: receiptRequested && account?.role === "buyer" && Boolean(poolId)},
+  );
+  useEffect(() => {
+    const receipt = ownEntry.data?.receipt;
+    if (!receiptRequested || !receipt || receipt.payload.pool_id !== poolId) return;
+    setEntryId(receipt.payload.entry_id);
+    setRequestHash(receipt.request_hash);
+    setSaltHex(receipt.salt_hex);
+    setPlace("");
+  }, [ownEntry.data, poolId, receiptRequested]);
 
   const lotRows = useMemo(() => audit?.lots ?? [], [audit]);
   const shape = useMemo(
@@ -245,7 +260,7 @@ export function AuditPage() {
     // before it reaches a hash function.
     const seed = audit?.seed_hex;
     if (audit === null || seed === null || seed === undefined || poolId === undefined) {
-      setPlace("The seed is published after entries close and after bidding has ended.");
+      setPlace("Your rank can be checked when the seed is public, after entry and bidding windows have closed.");
       return;
     }
     try {
@@ -272,13 +287,15 @@ export function AuditPage() {
   if (read.error) {
     const problem = envelope(read.error);
     return (
-      <Shell>
+      <Shell account={account}>
         <Link className="shop-back" to={`/pools/${poolId}`}>
           <Icon name="arrow" />
           Back to the pool
         </Link>
+        <header className="audit-head"><h1 className="audit-title">Public audit</h1><p className="audit-lede">The published record is unavailable. You can retry without leaving this page.</p></header>
         <Notice kind="error" code={problem.code}>
           This pool's audit record could not be read. {problem.message}
+          <button type="button" className="button-secondary" onClick={() => void read.refetch()}>Retry audit</button>
         </Notice>
       </Shell>
     );
@@ -286,7 +303,7 @@ export function AuditPage() {
 
   if (audit === null) {
     return (
-      <Shell>
+      <Shell account={account}>
         <Link className="shop-back" to={`/pools/${poolId}`}>
           <Icon name="arrow" />
           Back to the pool
@@ -315,14 +332,14 @@ export function AuditPage() {
   const seedLine =
     audit.seed_is_demo
       ? "Seed chosen by FairPool for this demo — not a public draw."
-      : audit.seed_hex === null
-        ? "Seed published when entries close."
+      : audit.seed_hex === null || audit.seed_hex === undefined
+        ? "Seed not yet public. It stays private while lots can still receive bids."
         : beaconRound === null
           ? "Seed taken from the announced public beacon round."
           : `Seed from public beacon round ${beaconRound}.`;
 
   return (
-    <Shell>
+    <Shell account={account}>
       <Link className="shop-back" to={`/pools/${poolId}`}>
         <Icon name="arrow" />
         Back to the pool
@@ -334,9 +351,8 @@ export function AuditPage() {
             {shape.title ?? "This pool"} <span>· Sandbox</span>
           </p>
           <p className="audit-lede">
-            Every check on this page is recalculated in your browser from what FairPool
-            published. A green line means your own arithmetic agrees with ours — you do not
-            have to take our word for it.
+            Compare the published rules, entry list and tamper seal. These checks
+            are recalculated in your browser from the published record.
           </p>
           <div className="audit-meta">
             <span>
@@ -347,116 +363,29 @@ export function AuditPage() {
           </div>
         </header>
 
-        <section className="audit-section" aria-labelledby="audit-checks-title">
-          <h2 id="audit-checks-title">The three checks</h2>
-          <div className="audit-panel">
-            <div className="audit-checks">
-              {checks.map((verdict) => (
-                <article key={verdict.label} className="audit-check">
-                  <span
-                    className={`audit-mark ${verdict.ok === true ? "is-ok" : verdict.ok === false ? "is-bad" : "is-wait"}`}
-                    aria-label={verdict.ok === true ? "Check passed" : verdict.ok === false ? "Check failed" : undefined}
-                    aria-hidden={verdict.ok === null ? true : undefined}
-                  >
-                    <span aria-hidden="true">{verdict.ok === true ? "✓" : verdict.ok === false ? "✗" : "·"}</span>
-                  </span>
-                  <div>
-                    <h3>{verdict.label}</h3>
-                    <p>{verdict.detail}</p>
-                    {verdict.ok === null ? null : (
-                      <details className="audit-more">
-                        <summary>Show the exact values</summary>
-                        <dl className="audit-values">
-                          {verdict.facts.map((fact) => (
-                            <div key={fact.term}>
-                              <dt>{fact.term}</dt>
-                              <dd>{fact.value}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                        {verdict.list !== undefined && verdict.list.length > 0 ? (
-                          <>
-                            <p className="audit-list-label">Published commitments, in order</p>
-                            <ol className="audit-list">
-                              {verdict.list.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ol>
-                          </>
-                        ) : null}
-                      </details>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {lotRows.length > 0 ? (
-          <section className="audit-section" aria-labelledby="audit-draw-title">
-            <h2 id="audit-draw-title">The draw</h2>
-            <p>
-              Entries were ordered by the published seed and cut into lots in rank order.
-              Each price is the winning bid as the merchant sealed it.
-            </p>
-            <div className="audit-panel audit-table-wrap">
-              <table className="audit-table">
-                <caption className="audit-caption">
-                  Lots, the ranks each one took, and what it won at.
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Lot</th>
-                    <th scope="col">Area</th>
-                    <th scope="col">Seats</th>
-                    <th scope="col">Ranks</th>
-                    <th scope="col">Bids</th>
-                    <th scope="col">Winning price</th>
-                    <th scope="col">Bid seal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lotRows.map((lot) => (
-                    <tr key={String(lot.lot_id)}>
-                      <th scope="row">{lot.lot_order}</th>
-                      <td>{areaOf(lot.zone_id)}</td>
-                      <td className="audit-num">{lot.seats}</td>
-                      <td className="audit-num">
-                        {lot.rank_range.length === 2 ? `${lot.rank_range[0]}–${lot.rank_range[1]}` : "—"}
-                      </td>
-                      <td className="audit-num">{lot.bids_count ?? "—"}</td>
-                      <td className="audit-num audit-price">
-                        {lot.award ? formatCents(lot.award.item_cents) : "No award"}
-                      </td>
-                      <td>
-                        {lot.bids_root === null || lot.bids_root === undefined ? (
-                          <span className="audit-seal">
-                            {lot.status === "PLANNED" || lot.status === "BIDDING"
-                              ? "sealed at bid close"
-                              : "not recorded"}
-                          </span>
-                        ) : (
-                          <span className="audit-seal" title={lot.bids_root}>
-                            {short(lot.bids_root)}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
-
-        <section className="audit-section" aria-labelledby="audit-place-title">
+        <nav className="audit-navigation" aria-label="Audit sections">
+          <a href="#audit-checks-title">Overview</a>
+          <a href="#audit-place-title">Check your place</a>
+          {lotRows.length > 0 ? <a href="#audit-draw-title">Draw and lots</a> : null}
+          <a href="#audit-limits-title">Limits</a>
+          <a href="#audit-evidence">Published evidence</a>
+        </nav>
+        <div className="audit-workbench">
+        <section className="audit-section audit-tool" aria-labelledby="audit-place-title">
           <h2 id="audit-place-title">Check your own place</h2>
           <p>
-            Your entry receipt holds three values. Paste them here — nothing is sent
-            anywhere: the commitment, its position and your rank are computed in this tab.
+            Check that your entry appears in the published list and recompute its rank.
+            The calculation runs in this tab; your receipt values are not submitted.
           </p>
-          <form className="audit-panel audit-form" onSubmit={(event) => void verifyPlace(event)}>
+          {account?.role === "buyer" ? <>
+            <button type="button" className="button-primary" disabled={ownEntry.isFetching} onClick={() => { if (receiptRequested) void ownEntry.refetch(); else setReceiptPoolId(poolId ?? null); }}>
+              {ownEntry.isFetching ? "Loading your receipt…" : "Use my saved receipt"}
+            </button>
+            {ownEntry.error || (receiptRequested && ownEntry.data && !ownEntry.data.receipt) ? <Notice kind="warn">We couldn’t load a saved receipt for this pool. Try again or enter your receipt below.</Notice> : null}
+          </> : null}
+          <details className="audit-more audit-manual" open={account?.role !== "buyer" || receiptRequested}>
+            <summary>{receiptRequested && ownEntry.data?.receipt ? "Review your receipt values" : "Enter receipt values manually"}</summary>
+          <form className="audit-form" onSubmit={(event) => void verifyPlace(event)}>
             <div className="audit-fields">
               <label htmlFor="audit-entry-id">
                 Entry id
@@ -514,7 +443,113 @@ export function AuditPage() {
               {place}
             </p>
           </form>
+          </details>
         </section>
+        <section className="audit-section audit-summary" aria-labelledby="audit-checks-title">
+          <h2 id="audit-checks-title">The three checks</h2>
+          <div>
+            <div className="audit-checks">
+              {checks.map((verdict) => (
+                <article key={verdict.label} className="audit-check">
+                  <span
+                    className={`audit-mark ${verdict.ok === true ? "is-ok" : verdict.ok === false ? "is-bad" : "is-wait"}`}
+                    aria-label={verdict.ok === true ? "Check passed" : verdict.ok === false ? "Check failed" : undefined}
+                    aria-hidden={verdict.ok === null ? true : undefined}
+                  >
+                    <Icon name={verdict.ok === true ? "check" : verdict.ok === false ? "close" : "info"} />
+                  </span>
+                  <div>
+                    <div className="audit-check-heading"><h3>{verdict.label}</h3><span className="audit-check-state">{verdict.ok === true ? "Match" : verdict.ok === false ? "Mismatch" : "Not checked"}</span></div>
+                    <p>{verdict.detail}</p>
+                    {verdict.ok === null ? null : (
+                      <details className="audit-more">
+                        <summary>Show the exact values</summary>
+                        <dl className="audit-values">
+                          {verdict.facts.map((fact) => (
+                            <div key={fact.term}>
+                              <dt>{fact.term}</dt>
+                              <dd>{fact.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        {verdict.list !== undefined && verdict.list.length > 0 ? (
+                          <>
+                            <p className="audit-list-label">Published commitments, in order</p>
+                            <ol className="audit-list" tabIndex={0} aria-label="Published commitments">
+                              {verdict.list.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ol>
+                          </>
+                        ) : null}
+                      </details>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+
+        </div>
+
+        {lotRows.length > 0 ? (
+          <section className="audit-section" aria-labelledby="audit-draw-title">
+            <h2 id="audit-draw-title">The draw</h2>
+            <p>
+              Entries were ordered by the published seed and cut into lots in rank order.
+              Each winning bid is shown as recorded. Your individual offer shows the full total you would approve.
+            </p>
+            <div className="audit-panel audit-table-wrap">
+              <table className="audit-table" role="table">
+                <caption className="audit-caption">
+                  Lots, the ranks each one took, and what it won at.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Lot</th>
+                    <th scope="col">Area</th>
+                    <th scope="col">Seats</th>
+                    <th scope="col">Ranks</th>
+                    <th scope="col">Bids</th>
+                    <th scope="col">Winning bid</th>
+                    <th scope="col">Bid seal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lotRows.map((lot) => (
+                    <tr key={String(lot.lot_id)}>
+                      <th scope="row" data-label="Lot">{lot.lot_order}</th>
+                      <td data-label="Area">{areaOf(lot.zone_id)}</td>
+                      <td className="audit-num" data-label="Seats">{lot.seats}</td>
+                      <td className="audit-num" data-label="Ranks">
+                        {lot.rank_range.length === 2 ? `${lot.rank_range[0]}–${lot.rank_range[1]}` : "—"}
+                      </td>
+                      <td className="audit-num" data-label="Bids">{lot.bids_count ?? "—"}</td>
+                      <td className="audit-num audit-price" data-label="Winning bid">
+                        {lot.award ? formatCents(lot.award.item_cents) : "No award"}
+                      </td>
+                      <td data-label="Bid seal">
+                        {lot.bids_root === null || lot.bids_root === undefined ? (
+                          <span className="audit-seal">
+                            {lot.status === "PLANNED" || lot.status === "BIDDING"
+                              ? "sealed at bid close"
+                              : "not recorded"}
+                          </span>
+                        ) : (
+                          <span className="audit-seal" title={lot.bids_root}>
+                            {short(lot.bids_root)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
 
         <section className="audit-section" aria-labelledby="audit-limits-title">
           <h2 id="audit-limits-title">What this page cannot prove</h2>
@@ -536,9 +571,9 @@ export function AuditPage() {
           </ul>
         </section>
 
-        <details className="audit-section audit-more audit-raw">
+        <details id="audit-evidence" className="audit-section audit-more audit-raw">
           <summary>Published values, for auditors</summary>
-          <dl className="audit-values">
+          <dl className="audit-values" aria-label="Published evidence">
             <div>
               <dt>Rules hash</dt>
               <dd>{audit.rules_hash}</dd>
@@ -549,7 +584,7 @@ export function AuditPage() {
             </div>
             <div>
               <dt>Entries published</dt>
-              <dd>{audit.entries_count ?? 0}</dd>
+              <dd>{audit.entries_count ?? "not yet published"}</dd>
             </div>
             <div>
               <dt>Seed</dt>

@@ -7,7 +7,7 @@ these models are the contract the later handlers and the frontend share.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -192,6 +192,11 @@ class PoolSummary(ResponseModel):
     seats: int
     min_seats: int
     close_at: datetime | None = None
+    entry_count: int | None = Field(default=None, ge=0)
+    delivery_regions: list[str] = Field(default_factory=list)
+    delivery_sla_days: int | None = None
+    min_return_days: int | None = None
+    bundle_contents: list[str] = Field(default_factory=list)
 
 
 class PoolDetail(PoolSummary):
@@ -199,6 +204,7 @@ class PoolDetail(PoolSummary):
     lot_plan: list[dict[str, Any]]
     timeline: dict[str, Any]
     rules_hash: str | None = None
+    latest_delivery: date | None = None
 
 
 class RulesDocument(ResponseModel):

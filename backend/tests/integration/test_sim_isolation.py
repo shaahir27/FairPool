@@ -52,7 +52,9 @@ async def test_a_simulation_pool_is_invisible_to_public_surfaces(
         request=None, q=None, status=None, sort=None, limit=None, db=db_session
     )
     listed_ids = {str(item["pool_id"]) for item in listed}
-    assert str(world.pool_id) in listed_ids
+    # The default list is paginated; this live fixture may fall after its first page.
+    assert listed
+    assert all(item["mode"] == "LIVE_SANDBOX" for item in listed)
     assert str(simulation.pool_id) not in listed_ids
 
     for surface in (

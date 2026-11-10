@@ -83,6 +83,75 @@ beforeEach(() => {
 });
 
 describe("Discover and Join", () => {
+  it("prefills an example and focuses the request so the buyer can finish it", async () => {
+    show();
+    fireEvent.click(await screen.findByRole("button", { name: "Monitor under $600" }));
+    expect(screen.getByLabelText(PLACEHOLDER)).toHaveValue("A 27-inch 4K monitor, matte screen, under $600, delivered to New York");
+    expect(screen.getByLabelText(PLACEHOLDER)).toHaveFocus();
+    expect(transport.post).not.toHaveBeenCalled();
+  });
+  it("groups each product's participation and delivery facts for comparison", async () => {
+    transport.get.mockResolvedValue({ data: [pool({ entry_count: 18, delivery_regions: ["NY", "NJ"], delivery_sla_days: 7, min_return_days: 30 })] });
+    show();
+    const card = await screen.findByRole("article", { name: "27-inch 4K monitor" });
+    const participation = within(card).getByLabelText("Pool participation");
+    expect(participation).toHaveTextContent("18 entries");
+    expect(participation).toHaveTextContent("Pool capacity");
+    expect(participation).toHaveTextContent("Pool minimum");
+    expect(within(card).getByLabelText("Delivery and returns")).toHaveTextContent("NY, NJ");
+    expect(within(card).getByRole("link", { name: "View pool" })).toHaveAttribute("href", "/pools/pool-one");
+    expect(within(card).getByText(BADGE)).toBeInTheDocument();
+  });
+
+  it("shows actual entry demand and published delivery requirements without implying a sale price", async () => {
+    transport.get.mockResolvedValue({ data: [pool({ entry_count: 18, delivery_regions: ["NY", "NJ"], delivery_sla_days: 7, min_return_days: 30, bundle_contents: ["Monitor", "Stand"] })] });
+    show();
+    expect(await screen.findByText("18 entries")).toBeInTheDocument();
+    expect(screen.getByText(/NY, NJ/)).toBeInTheDocument();
+    expect(screen.getByText(/Within 7 days/)).toBeInTheDocument();
+    expect(screen.getByText("Minimum returns")).toBeInTheDocument();
+    expect(screen.getByText("30 days")).toBeInTheDocument();
+    expect(screen.getByText("Price set after bidding")).toBeInTheDocument();
+  });
+
+  it("shows a reported zero entry count without inventing one for older responses", async () => {
+    transport.get.mockResolvedValue({ data: [pool({ entry_count: 0 }), pool({ pool_id: "pool-two", title: "Desk lamp", entry_count: null })] });
+    show();
+    expect(await screen.findAllByText("0 entries")).toHaveLength(1);
+  });
+
+  it("does not report empty availability when the catalogue read fails", async () => {
+    transport.get.mockResolvedValue({ error: { error: { code: "INTERNAL_ERROR" } } });
+    show();
+    await screen.findByRole("alert");
+    expect(screen.queryByText("No open pools to join right now.")).toBeNull();
+    expect(screen.getByRole("status", { name: "Pool search results" })).not.toHaveTextContent(/0 pools/);
+  });
+
+  it("makes the product name a destination and states its published delivery zone", async () => {
+    show();
+    const heading = await screen.findByRole("heading", { name: "27-inch 4K monitor" });
+    expect(within(heading).getByRole("link")).toHaveAttribute("href", "/pools/pool-one");
+    expect(screen.getByText(/US-EAST/)).toBeInTheDocument();
+  });
+
+  it("takes the request shortcut to the existing field without leaving discovery", async () => {
+    show();
+    await screen.findByRole("heading", { name: "27-inch 4K monitor" });
+    fireEvent.click(screen.getByRole("button", { name: "Make a request" }));
+    expect(screen.getByLabelText(PLACEHOLDER)).toHaveFocus();
+    expect(transport.post).not.toHaveBeenCalled();
+  });
+
+  it("keeps Enter available for a multiline request instead of submitting it", async () => {
+    show();
+    await screen.findByRole("heading", { name: "27-inch 4K monitor" });
+    const input = screen.getByLabelText(PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "A monitor\nunder $600" } });
+    expect(fireEvent.keyDown(input, { key: "Enter" })).toBe(true);
+    expect(transport.post).not.toHaveBeenCalled();
+  });
+
   it("filters the loaded catalogue without losing pools when the search is cleared", async () => {
     transport.get.mockResolvedValue({
       data: [pool(), pool({ pool_id: "pool-two", title: "Ceramic kettle", product_key: "kettle" })],
@@ -244,9 +313,9 @@ describe("Discover and Join", () => {
     ask("a submarine");
     expect(await screen.findByText(instruction)).toBeInTheDocument();
     expect(screen.queryByText(/No open pool matches that yet/)).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /Browse the open pools to use the manual form/ }),
-    ).toHaveAttribute("href", "#open-pools");
+    expect(screen.getByLabelText(PLACEHOLDER)).toHaveValue("a submarine");
+    fireEvent.change(screen.getByLabelText("Choose a pool for manual entry"), { target: { value: "pool-one" } });
+    expect(screen.getByRole("link", { name: "Fill in my request" })).toHaveAttribute("href", "/pools/pool-one#pool-entry");
   });
 
   it("shows the API's own error when intake refuses", async () => {

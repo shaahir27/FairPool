@@ -129,17 +129,29 @@ function OrderRow({
   const hasReceipt = Boolean(order.receipt);
   return (
     <li className="purchase-record">
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0">
+      <div className="purchase-heading">
           <div className="order-purchase-product">
             {order.product ? <ProductArt title={order.product.title} /> : null}
-            <div><h3>{order.product?.title ?? order.pool_title ?? "Order details"}</h3>
+            <div><h2>{order.product?.title ?? order.pool_title ?? "Order details"}</h2>
               {order.merchant ? <p className="purchase-merchant">{order.merchant.display_name}</p> : null}
               {order.product ? <p className="entry-product-variant">{[order.product.variant, order.product.condition].filter(Boolean).join(", ")}</p> : null}
               {order.placed_at ? <p className="purchase-date">Ordered {formatDateTime(order.placed_at)}</p> : null}
             </div>
           </div>
-
+        <div className="text-left sm:text-right">
+          <p className="text-xl font-semibold tracking-tight tabular-nums">
+            {formatCents(order.total_cents)} <span className="text-xs font-normal text-muted">USD</span>
+          </p>
+          <Link
+            className="signup-back mt-1 inline-flex min-h-[44px] items-center gap-2"
+            to={`/orders/${order.buyer_order_id}`}
+            aria-label={`${hasReceipt ? "Open order and receipt for" : "Open order for"} ${order.buyer_order_id}`}
+          >
+            View order
+            <Icon name="arrow" />
+          </Link>
+        </div>
+      </div>
           <div className="purchase-order-status">
             <StatusPill status={order.status} tone={style.tone}>
               {style.label}
@@ -180,21 +192,6 @@ function OrderRow({
             </p>
           ) : null}
           </details>
-        </div>
-        <div className="text-left sm:text-right">
-          <p className="text-xl font-semibold tracking-tight tabular-nums">
-            {formatCents(order.total_cents)} <span className="text-xs font-normal text-muted">USD</span>
-          </p>
-          <Link
-            className="signup-back mt-1 inline-flex min-h-[44px] items-center gap-2"
-            to={`/orders/${order.buyer_order_id}`}
-            aria-label={`${hasReceipt ? "Open order and receipt for" : "Open order for"} ${order.buyer_order_id}`}
-          >
-            View order
-            <Icon name="arrow" />
-          </Link>
-        </div>
-      </div>
     </li>
   );
 }

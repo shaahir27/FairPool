@@ -3294,6 +3294,13 @@
       },
       "PoolDetail": {
         "properties": {
+          "bundle_contents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bundle Contents",
+            "type": "array"
+          },
           "close_at": {
             "anyOf": [
               {
@@ -3310,6 +3317,48 @@
             "title": "Condition",
             "type": "string"
           },
+          "delivery_regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delivery Regions",
+            "type": "array"
+          },
+          "delivery_sla_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Sla Days"
+          },
+          "entry_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Count"
+          },
+          "latest_delivery": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Delivery"
+          },
           "lot_plan": {
             "items": {
               "additionalProperties": true,
@@ -3317,6 +3366,17 @@
             },
             "title": "Lot Plan",
             "type": "array"
+          },
+          "min_return_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Return Days"
           },
           "min_seats": {
             "title": "Min Seats",
@@ -3406,6 +3466,13 @@
       },
       "PoolSummary": {
         "properties": {
+          "bundle_contents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bundle Contents",
+            "type": "array"
+          },
           "close_at": {
             "anyOf": [
               {
@@ -3421,6 +3488,47 @@
           "condition": {
             "title": "Condition",
             "type": "string"
+          },
+          "delivery_regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Delivery Regions",
+            "type": "array"
+          },
+          "delivery_sla_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Sla Days"
+          },
+          "entry_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Count"
+          },
+          "min_return_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Return Days"
           },
           "min_seats": {
             "title": "Min Seats",

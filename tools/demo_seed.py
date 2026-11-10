@@ -1,13 +1,13 @@
 """Seed the local demo database with one coherent story per role.
 
-Run against the loopback ``fairpool`` database, never the hosted one:
+Run against the loopback ``fairpool`` database by default:
 
     .venv/Scripts/python.exe tools/demo_seed.py
     .venv/Scripts/python.exe tools/demo_seed_check.py    # read-only proof
 
-The database URL is derived from ``TEST_DATABASE_URL`` (host, port, user and
-password) with the database name ``fairpool``; a hosted ``DATABASE_URL`` in
-``.env`` is ignored on purpose. ``DEMO_SEED_PASSWORD`` is the one demo password:
+The local database URL is derived from ``TEST_DATABASE_URL`` with database name
+``fairpool``. ``DEMO_SEED_HOSTED=1`` explicitly selects the configured app database
+without resetting it. ``DEMO_SEED_PASSWORD`` is the one demo password:
 it is read from the environment, never printed and never accepted on the command
 line (I14).
 
@@ -18,6 +18,8 @@ What the demo shows:
   failed lot that ended at net zero;
 * the buyer console -- an action-required offer, a captured order and a refunded
   order, plus the same six buyers behind every entry receipt;
+* discovery -- six open products, varied participation, published terms and signed
+  entries; existing published windows are never extended by a repeat run;
 * the simulation -- one SIMULATION pool with 10,000 allocated entries that never
   appears in the public lists.
 
@@ -45,7 +47,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from sqlalchemy import select, text
+from sqlalchemy import DateTime, cast, select, text
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -121,6 +123,57 @@ POOL_SPECS: list[dict[str, Any]] = [
         "offer_window_s": 2 * 3600,
         "fund_deadline_s": 6 * 3600,
     },
+]
+
+DISCOVERY_SPECS = [
+    (
+        "27-inch 4K monitor with adjustable stand",
+        "monitor-27-4k",
+        "Matte black",
+        ["monitor", "adjustable stand", "power cable"],
+        4,
+        60_000,
+    ),
+    (
+        "Ceramic electric kettle",
+        "kettle-ceramic",
+        "Chalk white · 1.5 L",
+        ["kettle", "power base"],
+        2,
+        8_000,
+    ),
+    (
+        "Wireless noise-cancelling headphones",
+        "headphones-wireless",
+        "Graphite · over ear",
+        ["headphones", "carry case", "charging cable"],
+        5,
+        18_000,
+    ),
+    (
+        "Compact mechanical keyboard",
+        "keyboard-compact",
+        "75% layout · graphite",
+        ["keyboard", "usb-c cable", "keycap puller"],
+        3,
+        12_000,
+    ),
+    (
+        "Adjustable desk lamp",
+        "lamp-adjustable",
+        "Sand · warm white",
+        ["lamp", "power adapter"],
+        1,
+        7_000,
+    ),
+    (
+        "USB-C desktop dock",
+        "dock-usbc",
+        "Space grey · 8 ports",
+        ["dock", "usb-c cable", "power adapter"],
+        0,
+        14_000,
+    ),
 ]
 
 
@@ -213,7 +266,7 @@ async def sync_account(
     return user_id
 
 
-def pool_input(spec: dict[str, Any]) -> Any:
+def pool_input(spec: dict[str, Any], *, now: datetime | None = None) -> Any:
     """One closed ``PoolInput``; the demo closes immediately and runs in one zone."""
     from fairpool.domain.pool_config import (
         LotSize,
@@ -224,7 +277,7 @@ def pool_input(spec: dict[str, Any]) -> Any:
         ZonePlan,
     )
 
-    now = datetime.now(UTC)
+    now = now if now is not None else datetime.now(UTC)
     return PoolInput(
         title=spec["title"],
         template=Template(
@@ -280,6 +333,85 @@ async def create_pool(session: Any, pools: Any, admin_id: UUID, spec: dict[str, 
     pool = await pools.create(session, actor_id=admin_id, payload=pool_input(spec))
     await pools.publish(session, pool.id, actor_id=admin_id)
     return pool
+
+
+async def seed_discovery(session: Any, *, pools: Any, joins: Any, admin_id: UUID) -> list[UUID]:
+    """T09A03: leave six joinable pools; never extend an existing published window."""
+    from fairpool.db.models.catalog import Pool, PoolEntry
+    from fairpool.modules.intake.manual import ManualIntakeService
+
+    now = await pools.clock.db_now(session)
+    manual = ManualIntakeService(pools.audit)
+    result: list[UUID] = []
+    for index, (title, key, variant, bundle, buyers, cap) in enumerate(DISCOVERY_SPECS):
+        pool = await session.scalar(
+            select(Pool)
+            .where(
+                Pool.created_by == admin_id,
+                Pool.title == title,
+                Pool.status == "OPEN",
+                cast(Pool.timeline["close_at"].astext, DateTime(timezone=True)) > now,
+            )
+            .order_by(Pool.created_at.desc())
+            .limit(1)
+        )
+        if pool is None:
+            payload = pool_input(
+                {
+                    "title": title,
+                    "product_key": key,
+                    "bundle": bundle,
+                    "lots": [{"seats": 12, "min_seats": 6}, {"seats": 12, "min_seats": 6}],
+                    "bid_window_s": 3600,
+                    "offer_window_s": 1800,
+                    "fund_deadline_s": 21600,
+                },
+                now=now,
+            )
+            payload.template.variant = variant
+            payload.template.fund_by = (now + timedelta(days=21)).date().isoformat()
+            payload.timeline.open_at = now + timedelta(seconds=1)
+            payload.timeline.close_at = now + timedelta(days=2 + index)
+            pool = await pools.create(session, actor_id=admin_id, payload=payload)
+            pool_id = pool.id
+            await pools.publish(session, pool_id, actor_id=admin_id)
+            # I15: wait for the published DB deadline; open rechecks it under lock.
+            wall_now = await pools.clock.db_wall_now(session)
+            if wall_now < payload.timeline.open_at:
+                await asyncio.sleep((payload.timeline.open_at - wall_now).total_seconds())
+            await pools.open(session, {"pool_id": str(pool_id)})
+        pool_id = pool.id
+        result.append(pool_id)
+        for email in BUYER_EMAILS[:buyers]:
+            buyer_id = await user_id_of(session, email)
+            if await session.scalar(
+                select(PoolEntry.id).where(
+                    PoolEntry.pool_id == pool_id, PoolEntry.user_id == buyer_id
+                )
+            ):
+                continue
+            request = await manual.confirm(
+                session,
+                user_id=buyer_id,
+                pool_id=pool_id,
+                payload={
+                    "delivery": {"region": "NY"},
+                    "required_by": (now + timedelta(days=30)).date().isoformat(),
+                    "max_total_cents": cap,
+                    "firm": [],
+                    "preferences": [],
+                },
+            )
+            outcome = await joins.join(
+                session,
+                pool_id=pool_id,
+                user_id=buyer_id,
+                confirmed_request_id=request.id,
+                idempotency_key=f"demo:discover:{pool_id}:{buyer_id}",
+            )
+            if outcome.status_code != 201:
+                raise SystemExit("discovery demo join refused")
+    return result
 
 
 async def settle_pool(session: Any, handlers: dict[str, Any], pool_id: UUID) -> None:
@@ -1037,6 +1169,9 @@ async def main() -> int:
                     pools=pool_service(config),
                     config=config,
                 )
+                discovery = await seed_discovery(
+                    session, pools=pool_service(config), joins=joins, admin_id=admin_id
+                )
             except ApplicationError as error:
                 raise SystemExit(f"demo seed refused a transition: {error.code}") from None
             await session.commit()
@@ -1057,7 +1192,8 @@ async def main() -> int:
     await engine.dispose()
 
     base = config.frontend_base_url.rstrip("/")
-    print("FairPool demo data (loopback, offline payments)")
+    target = "configured app database" if os.environ.get("DEMO_SEED_HOSTED") == "1" else "loopback"
+    print(f"FairPool demo data ({target}, offline payments)")
     print("logins (password: DEMO_SEED_PASSWORD from .env):")
     for email in BUYER_EMAILS:
         print(f"  buyer      {email}")
@@ -1076,6 +1212,7 @@ async def main() -> int:
     for label, url in links:
         print(f"  {label:<12} {url}")
     print("state:")
+    print(f"  discovery: {len(discovery)} open pools with published terms and signed entries")
     for row in rows:
         net = int(row["net"])
         print(

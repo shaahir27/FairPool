@@ -6,7 +6,7 @@
  * supply real hex values; nothing here trusts the served number it is checking.
  */
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -19,7 +19,8 @@ vi.mock("../src/shared/api/client", () => ({
 
 import { AuditPage } from "../src/audit/AuditPage";
 import { commitment, merkleRoot, rulesHash } from "../src/audit/verify";
-import { resetReadCache } from "../src/shared/api/reads";
+import { readClient, resetReadCache } from "../src/shared/api/reads";
+import { resetSessionCache, setAccount } from "../src/shared/lib/session";
 
 const vectors = JSON.parse(
   readFileSync(path.resolve(__dirname, "../../docs/contracts/vectors/fairness_v1.json"), "utf8"),
@@ -86,9 +87,78 @@ function serve(payloads: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  resetSessionCache("out");
   resetReadCache();
   transport.get.mockReset();
   transport.post.mockReset();
+});
+
+it("loads only the signed-in buyer's saved receipt on request and prefills the local checker", async () => {
+  resetSessionCache("in");
+  setAccount({ role: "buyer", display_name: "Demo Buyer", paypal_linked: true });
+  const payload = await auditPayload();
+  const entry = vectors.entries[0]!;
+  transport.get.mockImplementation(async (url: string) => {
+    if (url.endsWith("/entries/me")) return { data: { receipt: { payload: { pool_id: POOL_ID, entry_id: entry.entry_id }, request_hash: entry.request_hash, salt_hex: entry.salt_hex } } };
+    if (url.endsWith("/keys")) return { data: { public_key: PUBLIC_KEY } };
+    if (url.endsWith("/notifications")) return { data: { items: [], unread: 0 } };
+    return { data: payload };
+  });
+  show();
+  const useReceipt = await screen.findByRole("button", { name: "Use my saved receipt" });
+  expect(transport.get.mock.calls.some(([url]) => String(url).endsWith("/entries/me"))).toBe(false);
+  fireEvent.click(useReceipt);
+  expect(await screen.findByDisplayValue(entry.entry_id)).toBeInTheDocument();
+  expect(screen.getByLabelText("Request hash")).toHaveValue(entry.request_hash);
+  expect(screen.getByLabelText("Salt")).toHaveValue(entry.salt_hex);
+  expect(transport.post).not.toHaveBeenCalled();
+});
+
+it("requires a new receipt request after navigating to another pool even when its receipt is cached", async () => {
+  resetSessionCache("in");
+  setAccount({ role: "buyer", display_name: "Demo Buyer", paypal_linked: true });
+  const payload = await auditPayload();
+  const entry = vectors.entries[0]!;
+  const otherPool = "33333333-3333-4333-8333-333333333333";
+  readClient.setQueryData([`/api/v1/pools/${otherPool}/entries/me`], { receipt: { payload: { pool_id: otherPool, entry_id: "cached-other-entry" }, request_hash: entry.request_hash, salt_hex: entry.salt_hex } });
+  transport.get.mockImplementation(async (url: string) => {
+    if (url.endsWith("/entries/me")) return { data: { receipt: { payload: { pool_id: POOL_ID, entry_id: entry.entry_id }, request_hash: entry.request_hash, salt_hex: entry.salt_hex } } };
+    if (url.endsWith("/keys")) return { data: { public_key: PUBLIC_KEY } };
+    if (url.endsWith("/notifications")) return { data: { items: [], unread: 0 } };
+    return { data: payload };
+  });
+  render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/audit/${POOL_ID}`]}>
+    <Link to={`/audit/${otherPool}`}>Another pool</Link>
+    <Routes><Route path="/audit/:poolId" element={<AuditPage />} /></Routes>
+  </MemoryRouter>);
+  fireEvent.click(await screen.findByRole("button", { name: "Use my saved receipt" }));
+  await screen.findByDisplayValue(entry.entry_id);
+  fireEvent.click(screen.getByRole("link", { name: "Another pool" }));
+  expect(await screen.findByLabelText("Entry id")).toHaveValue("");
+  expect(screen.queryByDisplayValue("cached-other-entry")).toBeNull();
+});
+
+it("puts the private receipt check before the supporting draw and exposes page navigation", async () => {
+  serve(await auditPayload());
+  show();
+  const checker = await screen.findByRole("heading", { name: "Check your own place" });
+  const draw = screen.getByRole("heading", { name: "The draw" });
+  expect(checker.compareDocumentPosition(draw) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole("navigation", { name: "Audit sections" })).toBeInTheDocument();
+});
+
+it("keeps unpublished counts unknown and waits for the seed after entry close", async () => {
+  serve(await auditPayload({ seed_hex: null, entries_count: null, entries_root: null, commitments: [], lots: [] }));
+  show();
+  expect(await screen.findByText("Seed not yet public. It stays private while lots can still receive bids.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Published evidence")).toHaveTextContent(/Entries published.*not yet published/);
+  const entry = vectors.entries[0]!;
+  fireEvent.change(screen.getByLabelText("Entry id"), {target: {value: entry.entry_id}});
+  fireEvent.change(screen.getByLabelText("Request hash"), {target: {value: entry.request_hash}});
+  fireEvent.change(screen.getByLabelText("Salt"), {target: {value: entry.salt_hex}});
+  fireEvent.click(screen.getByRole("button", {name: "Recompute my place"}));
+  expect(screen.getByTestId("audit-place")).toHaveTextContent("when the seed is public, after entry and bidding windows have closed");
+  expect(transport.post).not.toHaveBeenCalled();
 });
 
 it("reports that the published rules document hashes to the served hash", async () => {
@@ -175,4 +245,11 @@ it("states what the page cannot prove", async () => {
   show();
   expect(await screen.findByText(/not provably fair/)).toBeInTheDocument();
   expect(screen.getByText(/does not verify that signature/)).toBeInTheDocument();
+});
+
+it("keeps the audit context and offers recovery when its read fails", async () => {
+  transport.get.mockResolvedValue({ error: { error: { code: "INTERNAL_ERROR" } } });
+  show();
+  expect(await screen.findByRole("heading", { name: "Public audit" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Retry audit" })).toBeInTheDocument();
 });
