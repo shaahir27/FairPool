@@ -1,0 +1,13 @@
+{
+  "status": "blocked",
+  "date": "2026-11-10",
+  "scope": "T10A04: APIMatic generates the Python and TypeScript Merchant SDKs and the developer portal from sdk/merchant-openapi.json, then a smoke script exercises the generated client against the local Merchant Agent API.",
+  "blocked_on": "The APIMatic trial was waived at IG-3 (OD-P3-2) and has never been started. Generation needs an APIMatic account, an active trial or plan, and an API key that only the owner can create.",
+  "what_exists_now": "sdk/merchant-openapi.json (OpenAPI 3.1, exactly ten operations) is generated and checked by tools/export_merchant_openapi.py --check, CI and gate_check. make sdk is documented as the generation entry point and is still a stub.",
+  "not_run_here": [
+    "No SDK was generated, committed or smoke-tested.",
+    "No portal was generated or published.",
+    "No licensing note exists yet."
+  ],
+  "gate_rule": "This file stays blocked until a real generation run happens. The README, Devpost text and video must not claim generated SDKs while this file is blocked."
+}

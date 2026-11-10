@@ -1,0 +1,18 @@
+{
+  "status": "pending",
+  "date": "2026-11-10",
+  "scope": "T10A03: the Devpost fields are drafted in docs/progress.md under Submission notes, using only claims from docs/product-spec.md section 3.",
+  "fields": [
+    "project name and tagline",
+    "description: features, who it is for, why it matters",
+    "built with: languages, frameworks, PayPal APIs, Gemini, Elastic, Zapier MCP, APIMatic, Render, Supabase, GitHub Actions",
+    "try-it links: hosted app and repository",
+    "video: pending T10B02",
+    "images: four named screens, captured during rehearsal 1",
+    "tools-used statement",
+    "honest limits"
+  ],
+  "claim_review": "Every claim is mapped to a requirement and a passing test or a recorded live evidence file. The generated-SDK sentence is conditional on docs/evidence/phase10/sdk.json passing and is not part of the submitted text while that file is blocked.",
+  "owner_review": "pending: the owner reviews the draft in T11X01 before pasting it into Devpost",
+  "gate_rule": "Stays pending until the owner reviews it; never marked passed on the agent's own review."
+}
