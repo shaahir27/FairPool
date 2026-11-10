@@ -67,7 +67,7 @@ describe("checkout actions", () => {
     transport.get.mockResolvedValue({ error: { error: { code: "REQUEST_FAILED", message: "Could not read this offer." } } });
     show(<OfferCheckout buyerOrderId="order-one" />);
     expect(await screen.findByRole("heading", { name: "Review your offer" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Retry offer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry offer" }));
     await waitFor(() => expect(transport.get).toHaveBeenCalledTimes(2));
   });
 
