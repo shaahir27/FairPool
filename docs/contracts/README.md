@@ -254,6 +254,20 @@ write permissions or exposing buyer information.
 
 ## Change log
 
+### CR-16: Manual entry delivery-date guidance (owner authorized 2026-11-10)
+
+The owner asked to repair manual matching and allowed needed API improvements.
+The form currently describes the funding date as the delivery window, while the
+validator requires a needed-by date at least funding date plus delivery SLA. Add
+only nullable `latest_delivery` to PoolDetail, computed from those frozen public
+values using the existing intake calculation. The client displays that date and
+uses it as date-input guidance; the server still validates every submission.
+No new endpoint, migration, eligibility rule, AI authority or payment change.
+Acceptance: a published funding date plus SLA yields the same date as the intake
+card; absent values yield null; generated types and the date/help regression pass.
+Affected tasks: T04B01, T06B05, owner-requested T09B04 follow-up. This contract-only
+commit precedes implementation. No tag, merge or phase-gate approval is claimed.
+
 ### CR-15: Public pool comparison fields (owner authorized 2026-11-09)
 
 The owner requested backend read changes where they improve the buyer experience

@@ -142,7 +142,15 @@ rows and counts, not one count query per card. Existing limits, search behavior,
 trending order and nullable `close_at` remain unchanged. Clients must tolerate
 these fields being absent in older responses and avoid inventing missing facts.
 
+Pool detail also adds `latest_delivery` (CR-16, owner requested 2026-11-10): a
+nullable ISO date computed server-side from the published `fund_by` plus
+`delivery_sla_days`, using the same date as the intake confirmation card. It is
+the earliest needed-by date this pool can accommodate, not a shipment ETA or a
+delivery guarantee. Null/absent means no date guidance is available; clients must
+not invent one. The manual request validator remains authoritative.
+
 ### PayPal-first signup (CR-6 draft, owner request 2026-11-02)
+
 
 `POST /api/v1/auth/paypal/start` accepts no body, requires the configured frontend
 Origin, returns `{authorize_url}` and sets an HttpOnly, SameSite=Lax browser cookie.
