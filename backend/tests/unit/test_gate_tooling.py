@@ -127,6 +127,29 @@ def test_v6_conflict_spots_reject_missing_or_definite_capacity(monkeypatch):
     assert v6_conflict_spot_errors(report, model)
 
 
+def test_ig10_and_ig11_require_their_evidence_sets(tmp_path):
+    """The release gates read phase10/phase11 evidence; a missing file keeps them red."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "release_gate_under_test", ROOT / "tools" / "gate_check.py"
+    )
+    gate = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(gate)
+
+    for gate_name, directory in (("ig-10", "phase10"), ("ig-11", "phase11")):
+        directory_name, required = gate.GATE_EVIDENCE[gate_name]
+        assert directory_name == directory
+        errors = gate.evidence_errors(root=tmp_path, gate=gate_name)
+        assert len(errors) == len(required), errors
+        evidence = tmp_path / "docs" / "evidence" / directory
+        evidence.mkdir(parents=True, exist_ok=True)
+        for name in required:
+            (evidence / f"{name}.json").write_text('{"status":"passed"}', encoding="utf-8")
+        assert gate.evidence_errors(root=tmp_path, gate=gate_name) == []
+
+
 def test_gate_rejects_unsupported_name_without_running_checks():
     result = subprocess.run(
         [sys.executable, str(ROOT / "tools/gate_check.py"), "ig-99"], capture_output=True, text=True

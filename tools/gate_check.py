@@ -112,6 +112,26 @@ GATE_EVIDENCE: dict[str, tuple[str, tuple[str, ...]]] = {
             "ci",
         ),
     ),
+    "ig-10": (
+        "phase10",
+        (
+            "migrations",
+            "local_checks",
+            "repository",
+            "fixes",
+            "rehearsal_1",
+            "rehearsal_2",
+            "sdk",
+            "devpost_text",
+            "video",
+            "independent_review",
+            "ci",
+        ),
+    ),
+    "ig-11": (
+        "phase11",
+        ("final_checks", "submission", "post_submit", "ci"),
+    ),
 }
 REQUIRED_EVIDENCE = GATE_EVIDENCE["ig-2"][1]
 
@@ -348,8 +368,20 @@ def main() -> int:
                 ]
             )
         if args.gate in ("ig-2", "ig-3", "ig-4", "ig-5", "ig-6", "ig-7", "ig-8"):
+            # ig-9 onward skips this replay: `downgrade base` aborts on force-awarded
+            # rows, so phase9/migrations.json records the direct proof instead.
             commands.append([py, "tools/check_migrations.py"])
-        if args.gate in ("ig-3", "ig-4", "ig-5", "ig-6", "ig-7", "ig-8", "ig-9"):
+        if args.gate in (
+            "ig-3",
+            "ig-4",
+            "ig-5",
+            "ig-6",
+            "ig-7",
+            "ig-8",
+            "ig-9",
+            "ig-10",
+            "ig-11",
+        ):
             # testing-strategy.md section 1: the fault suite is run by gate-check,
             # not by CI. IG-3 owns F5 and F16; IG-4 adds F7 and F8; IG-5 adds F9
             # and F24; IG-6 adds F2, F3, F4 and F10; IG-9 completes F1 to F30.
