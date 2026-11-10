@@ -1,10 +1,19 @@
-# FairPool
+<p align="center">
+  <picture>
+    <source media="(prefers-reduced-motion: no-preference)" srcset="docs/assets/readme/fairpool-logo.gif">
+    <img src="docs/assets/readme/fairpool-logo.svg" alt="FairPool" width="520" height="136">
+  </picture>
+</p>
+
+# A guide to FairPool
+
+Hi! Welcome to FairPool. This guide explains what we're building, takes you through the app, and helps you run it yourself. If you're new here, start with the idea below; the setup commands are a little further down.
 
 **Group buying where merchants compete for the group.**
 
 FairPool brings together people who want the same product, gives merchants a way to bid for that demand, and lets each selected buyer approve their own PayPal payment. Joining a pool is free. Buyers set their maximum delivered price before joining; they see the merchant, exact total and terms before approving a payment.
 
-An individual buyer usually cannot promise the volume that makes a bulk offer worthwhile. A merchant cannot tell whether a collection of interested people will actually buy. FairPool connects those two sides through a published entry window, an auditable allocation rule, sealed merchant bids and a minimum funding threshold.
+The idea starts with a familiar problem: you want one item, but the better offer depends on buying several. Other people may want the same thing, yet organizing the group, including everyone's payments, is another job entirely. Merchants face the other side of that problem: interest is easy to count, but actual orders are harder to count on. FairPool gives both sides a shared process, from a published entry window through to a funded order.
 
 Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). This is a **Sandbox prototype**: PayPal uses test accounts and test funds. No real money moves.
 
@@ -14,12 +23,14 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Thi
 
 ## Start here
 
-- **Trying the app?** Read [the walkthrough](#try-the-demo) and [the current limits](#current-limits).
-- **Running it yourself?** Start with [local setup](#local-setup), then [demo data](#demo-data).
-- **Reviewing the implementation?** See [PayPal](#how-paypal-is-used), [AI](#how-ai-is-used), [architecture](#architecture) and [verification](#tests-and-verification).
-- **Building an agent integration?** See [APIs and generated SDKs](#apis-and-generated-sdks).
+- **Take a tour.** Read [the walkthrough](#try-the-demo) and [the current limits](#current-limits).
+- **Run it locally.** Start with [local setup](#local-setup), then [demo data](#demo-data).
+- **Read the code.** See [PayPal](#how-paypal-is-used), [AI](#how-ai-is-used), [architecture](#architecture) and [verification](#tests-and-verification).
+- **Connect an agent.** See [APIs and generated SDKs](#apis-and-generated-sdks).
 
 ## How it works
+
+Let's follow a purchase from the first request to the final outcome. You'll see two terms throughout the app: a **pool** is the group of people interested in a product; a **lot** is a fulfilment group within that pool. Each lot has its own bid, minimum and outcome.
 
 1. **Find a pool.** Browse published products or describe what you want. AI proposes a matching pool and structured requirements; you review them. A manual form is available too.
 2. **Join for free.** Confirm one unit, your maximum total including shipping and tax, and your delivery requirements. You receive a signed entry receipt. Joining creates no PayPal payment or hold.
@@ -32,6 +43,8 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Thi
 For example, several buyers may want the same monitor but set different price limits. A merchant can offer a delivered price for a minimum number of buyers. A winning bid does not oblige every entrant to buy: the allocation, each buyer's cap, their approval and the lot's completed payments still matter. Different lots in one pool can finish with different merchants, prices or outcomes.
 
 ## Try the demo
+
+Start with the buyer journey. You can explore the other workspaces once the pool, offer and order screens make sense.
 
 Open **[fairpool-api.onrender.com](https://fairpool-api.onrender.com/)**. The frontend and API share this origin so sign-in works with first-party cookies. The old separate static preview is not the app URL. A free Render instance may need time to wake after inactivity.
 
@@ -104,6 +117,8 @@ This is **auditable under published rules**. It does **not** prove that no eligi
 Duplicate control is **account-level**: one entry per linked PayPal account per pool where the PayPal Login account ID works, and account-level checks at checkout otherwise. It does not prove one human per account and does not eliminate bots or account farms.
 
 ## Local setup
+
+This section takes you from a fresh clone to a running app. There are a few credentials to configure, but you can also choose the offline profile to explore without calling PayPal or Gemini.
 
 Run commands from the repository root unless a step says otherwise. Use a **separate local database** for development and a disposable database for tests; a normal checkout does not need access to our hosted database.
 
@@ -249,21 +264,63 @@ A repeat run reuses its own records and refreshes interactive windows; it does n
 
 ## Architecture
 
+Once you've tried the app, this is where to look under the hood.
+
 FairPool is a modular Python backend, a React/TypeScript frontend and a PostgreSQL-backed job worker. The database holds deadlines, state, idempotency records, audit facts and queued work. Pure domain rules are separated from orchestration and external adapters.
+
+### Runtime and persistence
+
+```mermaid
+flowchart TB
+    subgraph Clients["People and agent clients"]
+        Web["React + TypeScript UI<br/>Buyer, merchant, operator, public audit"]
+        BuyerAgent["Buyer assistant<br/>Agent API / Streamable HTTP MCP"]
+        MerchantAgent["Merchant client<br/>Generated Python / TypeScript SDK"]
+    end
+
+    HTTP["FastAPI entry points<br/>/api/v1 - /mcp - /merchant-api/v1<br/>Session + CSRF or scoped token/key"]
+    Modules["Application workflows<br/>Identity, intake, pools, allocation, bids<br/>Checkout, fulfilment, agents and audit"]
+    Rules["Pure domain rules - no I/O<br/>Published ranking, bid eligibility, caps<br/>Legal transitions and integer-cent money"]
+    DB[("PostgreSQL<br/>Application state + database clock<br/>Durable jobs, ledger, audit and idempotency")]
+    Worker["Separate worker process<br/>Claims due jobs and runs handlers<br/>Reconciliation scheduler enqueues sweeps"]
+
+    Web -->|"Same-origin requests / SSE"| HTTP
+    BuyerAgent -->|"Revocable buyer delegation"| HTTP
+    MerchantAgent -->|"Scoped merchant API key"| HTTP
+    HTTP --> Modules
+    Worker -->|"Run registered application handlers"| Modules
+    Modules --> Rules
+    Modules <-->|"Reads; locked transactional writes"| DB
+    Worker -->|"Claim / retry queued work"| DB
+```
+
+### Provider boundaries
+
+The workflows call providers through adapters. These paths have different permissions and purposes:
 
 ```mermaid
 flowchart LR
-    Browser[Buyer / merchant / operator UI] --> API[FastAPI]
-    Agents[Buyer Agent API and MCP clients] --> API
-    Merchants[Merchant API / generated SDKs] --> API
-    API --> DB[(PostgreSQL)]
-    API --> AI[Gemini proposals]
-    API --> Search[Elastic / Postgres retrieval]
-    Worker[Job worker and reconciler] --> DB
-    API --> Adapter[Payment adapter]
-    Worker --> Adapter
-    Adapter --> Sandbox[PayPal Sandbox]
+    Modules["Application workflows<br/>Called by the API or worker"]
+    Payment["PayPal adapters<br/>Payment lifecycle, identity<br/>Tracking and read-only verification"]
+    AI["Gemini adapter<br/>Closed schemas, validation, retry<br/>Proposals require confirmation"]
+    Search["Public demand retrieval / indexing<br/>Pool and lot documents only<br/>Postgres fallback"]
+    Beacon["Seed adapter<br/>Labelled demo seed<br/>or announced drand round"]
+    Fake["Isolated fake payment router<br/>Simulation, demo seeding<br/>and offline use"]
+
+    Modules --> Payment --> Sandbox["PayPal Sandbox<br/>Individual buyer orders"]
+    Modules --> AI --> Gemini["Google Gemini"]
+    Modules --> Search --> Elastic["Elasticsearch<br/>Public demand index"]
+    Modules --> Beacon --> Drand["drand beacon<br/>When configured"]
+    Modules --> Fake
 ```
+
+Read the first view from the clients down to the workflows, then use the second to follow an external call. Both the HTTP handlers and worker use the application modules; neither the UI nor an agent gets a direct route to the payment adapter. The domain layer has no I/O. A state transition records its audit facts and next job in the same transaction, while external calls are handled through adapters and their idempotency/recovery rules.
+
+There is also a browser-to-PayPal approval step outside the server diagram: the SDK opens a popup (or uses the redirect fallback) for the buyer to approve. That does not move authorization or capture logic into the browser. Server-side code verifies the approved order and performs authorization, capture, void or refund through the adapter. Verified webhook hints, when enabled, return through the API and prompt a server-side GET. AI proposes fields; it has no payment tools. Search retrieves public demand and never decides whether a buyer or bid qualifies.
+
+**What actually runs where:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL, but has **no worker**. Its current profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
+
+The wiring lives in [wiring.py](backend/src/fairpool/wiring.py); [worker.py](backend/src/fairpool/worker.py) owns job execution and the reconciliation schedule. [The app factory](backend/src/fairpool/api/app.py) mounts the application API, merchant sub-app, MCP endpoint and built frontend.
 
 | Path | What lives there |
 |---|---|
@@ -344,6 +401,8 @@ The [Render blueprint](deploy/render.yaml) builds the frontend into the API imag
 | `make` cannot find Bash on Windows | Pass the full Git Bash path as shown in prerequisites; a bare `SHELL=bash` can be interpreted by the wrong shell |
 
 ## Current limits
+
+Before you rely on a demo result, here's what this build can and cannot show. The labels in the app matter: a seeded example, a simulation and a real Sandbox call are different kinds of evidence.
 
 - **Sandbox, US payers, USD, one unit per entry.** No production checkout, platform fee, multi-seller settlement or India-domestic payment support.
 - **Individual approval is the demonstrated payment flow.** Real PayPal saved-permission setup is not shipped (`VAULT_REAL_SAVE_ENABLED=false`). Fake vault tests do not establish a live save-and-charge experience.
