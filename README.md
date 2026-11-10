@@ -291,6 +291,8 @@ flowchart LR
 
 The project path used in the examples is `D:\Desktop\project\FairPool`. Replace it with your clone path.
 
+`make setup` refuses to run on anything but Python 3.12. If your default `python` is another version, name the interpreter explicitly, for example `make setup PYTHON="C:/Users/you/miniconda3/envs/fairpool/python.exe"` (the project was built in a conda environment named `fairpool`); the venv it creates is used by every later target.
+
 ### First run (PowerShell)
 
 ```powershell
