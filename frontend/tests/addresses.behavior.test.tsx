@@ -44,6 +44,7 @@ it("opens a focused address form from Add address without crowding the saved lis
 
 
 it("ignores an old account's saved address after switching accounts", async () => {
+  resetSessionCache("in");
   let finish!: (value: unknown) => void;
   transport.put.mockReturnValue(new Promise((resolve) => {finish = resolve;}));
   const first = render(<AddressesPage />);

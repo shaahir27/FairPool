@@ -12,9 +12,12 @@ if (globalThis.crypto === undefined || globalThis.crypto.subtle === undefined) {
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
+import { readClient } from "../src/shared/api/reads";
 import { resetSessionCache } from "../src/shared/lib/session";
 
 afterEach(() => {
   cleanup();
   resetSessionCache();
+  // A public page no longer clears the cache on a 401, so isolation is explicit here.
+  readClient.clear();
 });

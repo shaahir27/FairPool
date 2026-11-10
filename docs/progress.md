@@ -210,11 +210,11 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 |---|---|---|---|---|---|
 | T10A01 | A | M | TODO | | Fixes from rehearsal 1 (payments, ops, fulfillment) |
 | T10A02 | A | M | IN PROGRESS | | Repository cleanup and compliance |
-| T10A03 | A | M | TODO | | Devpost text |
-| T10A04 | A | M | TODO | | Merchant SDKs and developer portal |
+| T10A03 | A | M | IN PROGRESS | | Devpost text; draft complete, owner review pending |
+| T10A04 | A | M | BLOCKED | | Merchant SDKs and developer portal; needs the owner's APIMatic trial |
 | T10B01 | B | M | TODO | | Fixes from rehearsal 1 (product, UI, agent lane) |
-| T10B02 | B | L | TODO | | Demo video |
-| T10X01 | AB | M | TODO | | Rehearsal 1 |
+| T10B02 | B | L | IN PROGRESS | | Demo video; runbook complete, recording pending |
+| T10X01 | AB | M | IN PROGRESS | | Rehearsal 1; local preflight and the audit beat verified, live storyboard pending |
 | T10X02 | AB | M | TODO | | Rehearsal 2 clean run |
 
 ### PH11: Submission
@@ -446,6 +446,9 @@ T05A02 batch-one pass (2026-11-02): the owner explicitly requested authenticatio
 | D-P3-07 | PH3 | `/api/v1/pools?q=` reached the search service only after the review pass: T03B02 shipped the service, indexer and reindex route while the public listing still ran a keyword `ilike`. Now routed through `SearchService` with one route-level test. | B | CLOSED |
 | D-P4-01 | PH4 | The Render deploy of the Phase 4 image timed out with "no open ports detected" even though uvicorn logged `0.0.0.0:10000`: the Dockerfile declared `EXPOSE 8000` while Render injects `PORT=10000`, and Render's port scan trusts the declaration. Fixed by declaring 10000 and defaulting the command to it, with compose pinning `PORT=8000` for the port it actually maps. | A | CLOSED |
 | D-P2-01 | PH2 | Quote-capacity parsing can return a definite capacity from conflicting values; regression coverage still owed before unqualified AI demo acceptance. | B | CLOSED 2026-11-10: `backend/tests/unit/test_gemini.py` covers it — `test_conflicting_quote_capacity_cannot_be_accepted_as_definite` and the ambiguity variants route every "4 or 9" form to review, never to a definite capacity. |
+| D-P10-01 | PH10 rehearsal (10 Nov) | The public audit page stayed on "Loading the published audit record…" forever for a logged-out visitor: the client's global 401 handler called `resetSessionCache("out")`, which cleared the read cache and cancelled the page's own in-flight public audit and public-key reads. Found by loading the page in a real browser against seeded data, not by a test. Fix: only a signed-in session clears the read cache; the session-ended signal still fires on any 401 so the route guard works. Regression test: `frontend/tests/session.cache.test.ts`, plus the full 343-test suite. | B | CLOSED 2026-11-10 |
+| D-P10-02 | PH10 clean-clone check (10 Nov) | `make setup` failed in a fresh clone: the hashed lock pins `pip` itself, and the `pip` launcher refuses to modify the tool it is running from. Fixed by installing the lock through `python -m pip`. | A | CLOSED 2026-11-10 |
+| D-P10-03 | PH10 clean-clone check (10 Nov) | The machine's default `python` is 3.14, so `make setup` refused before creating the venv; the README named Python 3.12 as a prerequisite but not how to select it when the default differs. The run steps now show `make setup PYTHON=<path to 3.12>`. | A | CLOSED 2026-11-10 |
 
 ## Submission notes
 

@@ -65,6 +65,7 @@ it("does not cache a failed response as data or hide it behind automatic retries
 
 it("clears private records on session change and ignores a late response from the old session", async () => {
   let finish!: (value: {data: Item}) => void;
+  resetSessionCache("in");
   const warm = prefetchRead<Item>("private", () => new Promise((resolve) => {finish = resolve;}));
   resetSessionCache("out");
   const load = vi.fn<Load>().mockResolvedValue({data: {title: "New account"}});

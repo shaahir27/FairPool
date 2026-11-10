@@ -58,11 +58,18 @@ export function setAccount(next: Account | null): void {
 }
 
 export function resetSessionCache(next: SessionState = null): void {
+  const hadSession = sessionKnown === "in";
   sessionKnown = next;
-  // A session that is no longer known is no longer evidence about who it belongs to.
-  if (next !== "in") { setAccount(null); resetReadCache(); }
+  // Only a signed-in session leaves data behind worth clearing. On a public page the
+  // first /me probe answers 401 for every visitor, and clearing then aborts that page's
+  // own in-flight public reads, which left the audit page on "Loading" forever.
+  if (next !== "in") {
+    setAccount(null);
+    if (hadSession) resetReadCache();
+  }
   if (next === "out" && typeof window !== "undefined") {
-    // Sign-out, or a 401 from any call: whatever was cached belonged to that session.
+    // The guard on a cold visit learns "signed out" only from this signal, so it
+    // fires on the first 401 as well; the cache clear above is what needs a session.
     window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
   }
 }
