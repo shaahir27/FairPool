@@ -77,7 +77,7 @@ Project name and tagline; description (features, who it is for, why it matters);
 6. All switches in `docs/decisions.md` section 4 are filled and match the deployed environment.
 7. Sponsor trials were active during recording; the README states which parts depend on a trial or plan.
 8. Submission saved in PH11; a screenshot of the submission page is stored by the owner.
-9. Hosting stays up through judging: `api`, `worker` and Postgres are on paid Render plans (BD-05), not free ones, and the hosted URL is re-opened logged out once a week until the winners are announced.
+9. Hosting stays up through judging on the recorded $0 plan: the free Render web service and the free Supabase project are kept awake by `.github/workflows/keep-warm.yml` (10-minute cadence, 03:00-22:00 UTC, inside the 750 free instance hours and ahead of the 7-day Supabase pause), and the hosted URL is re-opened logged out once a week until the winners are announced. Residual risks are stated in the README: a cold start after up to 15 idle minutes outside the window, and no worker, so the reconciler sweep is admin-triggered. BD-05's paid-plan rule is recorded as superseded for this submission.
 10. Judge access: the README says how a judge approves a payment (a Sandbox personal buyer account they create, or a dedicated demo buyer whose login is given only through Devpost's private testing-instructions field if it offers one). Sandbox buyer passwords never appear in the repository, README or video; change any password that was ever shown on screen.
 
 ## 8. After submission (task T11X02)

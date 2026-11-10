@@ -134,4 +134,4 @@ demo-seed:
 	@$(PY) tools/demo_seed.py
 
 demo-reset:
-	@$(PY) tools/demo_reset.py
+	@$(PY) tools/demo_reset.py --yes

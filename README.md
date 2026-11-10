@@ -61,9 +61,9 @@ Last updated: **3 November 2026.**
 
 **What does not work yet:** live vault save is deferred (`VAULT_CHARGE` remains unavailable and `VAULT_REAL_SAVE_ENABLED=false`), `WEBHOOKS_ENABLED` is false, so seven real deliveries from the live run were stored and one was verified by the C-15 test but none was processed, the buyer cannot release their own hold before payment (the order screen says so; withdrawing an *entry* while the pool is open does work), the audit page recomputes the rules hash, the Merkle root, the chain checkpoint signature and each buyer's rank in the browser, but it still cannot prove that the published commitment list is complete, and the beacon round's BLS signature is not verified (CR-11 records why), a ratified mandate's conditions are stored, validated and returned but no agent surface evaluates them yet, so they advise rather than enforce (the cap, scope and expiry are enforced), live shipment tracking (C-18) is an owner run, the Zapier bridge (S9) is recorded read-only because its managed-mode write tools could not send a schema-valid body (FairPool's `/mcp` endpoint is the agent path), and the auction and money work has been run live end to end: a two-lot pool, four real sealed bids, the award, a buyer approval, a real authorization captured to COMPLETED and refunded to COMPLETED, and a second lot voided to a zero ledger. The real-money path *has* been exercised: one Sandbox buyer through offer, approval and server-side authorize, then void to a closed lot at zero ledger, and a second run through capture, funding and refund to zero ledger (C-08, C-09, IT-5). The hosted service runs the Phase 9 build since 8 November 2026; `https://fairpool-api.onrender.com` is the app URL.
 
-**Vault charge is the default, not authorization.** `PAYMENT_MODE` defaults to `vault_charge`: the buyer saves a PayPal permission and the server charges the exact awarded amount after the award. The `authorize_capture` path, where the buyer approves an AUTHORIZE order per lot, is the fallback and does not run unless the mode is changed. In vault mode a live-sandbox buyer still cannot become eligible at close, because saving a permission for real is `T05A01` (`DEP-5`); today that path is fake-only and every screen that depends on it must say so.
+**The deployment runs authorization; vault charge is the code default.** `PAYMENT_MODE` defaults to `vault_charge`: the buyer saves a PayPal permission and the server charges the exact awarded amount after the award. Saving a permission for real is unshipped (`VAULT_REAL_SAVE_ENABLED=false`, `DEP-5`), so a live buyer in that mode is rejected with `VAULT_MISSING`; the hosted demo therefore runs `authorize_capture`, where each buyer approves one AUTHORIZE order per lot for the exact final amount and the server authorizes it after its own checks. `deploy/render.yaml` pins the deployed value, and every lot stamps the mode it was awarded under, so a mode change needs a reset and re-seed.
 
-The honest summary: this repository now runs the Phase 4 pipeline against fakes, not against PayPal. No money has moved through the application.
+The honest summary: the money path has moved real Sandbox money end to end — authorizations, captures, voids and refunds, each ending at a zero FairPool ledger after compensation — while the AI path is measured against a labelled corpus, and every fallback and simulated element is labelled on screen.
 
 ---
 
@@ -192,6 +192,21 @@ Demonstration limits:
 
 ---
 
+## Sponsor and tool use, honestly
+
+| Tool | What it does here | Stated limit |
+|---|---|---|
+| PayPal Orders v2, JavaScript SDK v6, webhooks, shipment tracking | Server-created AUTHORIZE orders, popup approval, server-side authorization and capture after the checks, webhook hints confirmed by a GET, tracker after shipment | Sandbox only; one stand-in seller (`PAYMENT_ROUTER=single_seller`, DEP-4); webhooks are stored but not enabled (`WEBHOOKS_ENABLED=false`) |
+| PayPal MCP server | A merchant's own AI client reads orders and trackers to check a funded lot | Read-tool subset only; FairPool's verification endpoint is the primary path |
+| Google Gemini | Intake, quote parsing, offer reconciliation, simulation text and the buyer mandate | Proposes structured fields only; deterministic rules decide and a human approves; measured results above |
+| Elastic | Retrieval for pool and lot search, and an advisory wrong-product warning on quotes | Never gates eligibility; PostgreSQL search is the fallback |
+| Zapier MCP | The managed-mode buyer interface during its trial | The trial is recorded read-only and the bridge is off; FairPool's `/mcp` is the agent path |
+| APIMatic | The ContextMatic plugin gives coding agents version-aware PayPal context; merchant SDK generation is recorded in `sdk/README.md` when generated | Verified PayPal facts and recorded spikes override any plugin output |
+| Render and Supabase | Hosted API that also serves the built frontend, and the hosted Postgres | Free tiers with a keep-warm schedule; see Deployment for the residual cold-start risk |
+| GitHub Actions | Nine CI jobs, the gate scripts and the keep-warm schedule | — |
+
+---
+
 ## What we claim and do not claim
 
 **We claim:**
@@ -212,6 +227,7 @@ Demonstration limits:
 - MAP compliance, which sealing does not provide;
 - production readiness, marketplace approval or merchant settlement;
 - that the AI verifies or approves payments;
+- that the join rate limit is global: it is enforced per API process (ten joins per minute per user per process), so a multi-process deployment could see a multiple of the limit — the hosted demo runs one API process;
 - that a simulation proves buyer conversion, merchant participation or price reductions;
 - anything about products, brands or prices that the demonstration does not use.
 
@@ -244,7 +260,21 @@ FairPool/
   tools/                    docs validator, import-boundary check, OpenAPI exporter, spike harness
 ```
 
-The only committed SDK artifact today is the Merchant Agent API OpenAPI document. Generated SDKs arrive in a later phase.
+The only committed SDK artifact today is the Merchant Agent API OpenAPI document. Generated SDKs are added in Phase 10 (T10A04); until they are committed, this README makes no generated-SDK claim.
+
+```mermaid
+flowchart LR
+  browser["Browser: buyer and merchant"] --> api["FastAPI API"]
+  agent["Buyer's AI client: /mcp or Agent API"] --> api
+  api --> db[("PostgreSQL")]
+  api --> jobs[["jobs table"]]
+  worker["worker process"] --> jobs
+  worker --> db
+  api -->|"Orders v2, JS SDK v6, trackers"| paypal["PayPal Sandbox"]
+  api -->|"closed JSON schemas"| gemini["Google Gemini"]
+  api -->|"retrieval only"| elastic["Elastic"]
+  merchant["Merchant's Claude"] -.->|"read-only"| paypal_mcp["PayPal MCP"]
+```
 
 ---
 
@@ -458,7 +488,9 @@ The API image also builds the frontend and serves it from its own origin (`/app/
 
 **IT-1 evidence (2026-10-31):** migration `0001` applied (32 application tables plus `alembic_version`, 21 enums); `/health` 200; `/ready` 200 (`database` and `migrations` ok); `POST /webhooks/paypal` 200 with the raw body stored and duplicate events suppressed; frontend `/` and `/settings` serve the SPA. Recorded in [docs/progress.md](docs/progress.md).
 
-Free-tier limits: the Render API sleeps after 15 minutes idle and there is no free worker; free Supabase pauses after about 7 days without database activity. [`.github/workflows/keep-warm.yml`](.github/workflows/keep-warm.yml) requests `/health` and `/ready` every 10 minutes between 03:00 and 22:00 UTC, which keeps both awake while staying inside the 750 free instance hours a month; it stays disabled while this repository is private (a scheduled job on a private repository burns the free Actions minutes and would block CI) and is enabled by the same change that makes the repository public. The cadence, the hour arithmetic and the manual wake button are recorded in [docs/navigation-performance.md](docs/navigation-performance.md). That is enough to verify the hosted skeleton, but not for the live demo. Restore the worker and paid Render web service before **2026-11-20** per [docs/decisions.md](docs/decisions.md) BD-05. The final QA checklist currently calls for a paid Postgres for judging; that database decision is still open.
+Free-tier limits: the Render API sleeps after 15 minutes idle and there is no free worker; free Supabase pauses after about 7 days without database activity. [`.github/workflows/keep-warm.yml`](.github/workflows/keep-warm.yml) requests `/health` and `/ready` every 10 minutes between 03:00 and 22:00 UTC, which keeps both awake while staying inside the 750 free instance hours a month; it stays disabled while this repository is private (a scheduled job on a private repository burns the free Actions minutes and would block CI) and is enabled by the same change that makes the repository public. The cadence, the hour arithmetic and the manual wake button are recorded in [docs/navigation-performance.md](docs/navigation-performance.md). That covers the judging window on the recorded $0 plan — the free Render web service and the free Supabase project, kept awake by the schedule — with two stated residual risks: a cold start after up to 15 idle minutes outside the 03:00-22:00 UTC window, and no worker, so the reconciler sweep is admin-triggered. [`docs/decisions.md`](docs/decisions.md) records that decision and supersedes BD-05's paid-plan rule for this submission.
+
+**Judging access.** `https://fairpool-api.onrender.com` serves the built frontend from the same origin, so the hosted URL is the whole app. A judge can create a Sandbox personal buyer and approve a payment themselves. The seeded demo accounts exist in the demo database; their passwords are never in this repository, the README or the video, and are given only through Devpost's private testing-instructions field if it offers one. Any password that was ever shown on screen is changed.
 
 ---
 
