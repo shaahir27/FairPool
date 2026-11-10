@@ -50,6 +50,21 @@ If S9 (Zapier) did not pass, the second beat uses the FairPool MCP server and sa
 3. Run the storyboard end to end twice (task T10X01 then T10X02). The second run must complete with no manual database intervention.
 4. Record screens at 1080p, speak over the capture, no music. Upload to YouTube as public. Open the link while logged out.
 
+### Recording runbook (T10B02)
+
+Pre-flight, in order, from the repository root. Every command must succeed before recording starts:
+
+1. `make demo-reset` prints the before counts and `after: 0 rows across counted tables`.
+2. `make demo-seed` rebuilds the five-lot scenario; `python tools/demo_seed_check.py` prints `ALL CHECKS PASSED`.
+3. `python tools/agent_market.py --self-check --out .tmp/agent_market_report.json` prints `breaches_succeeded: 0` and `paypal_writes_from_ai_surface: 0`.
+4. `GET /api/v1/checkout/config` and the ops lot panel agree on the stamped `payment_mode`.
+
+On-screen labels, by beat: `SANDBOX` where a PayPal approval or capture is shown; `FALLBACK: single stand-in seller` on the checkout offer and the hold notice; `SIMULATED` on the agent-market report and the 10,000-entry simulation; `DEMO SEED` on the audit beacon; `MOCK` only if a mock toggle is armed. The narration says once that one test seller stands in for the winning merchant, and that the CR-14 market is simulated.
+
+Wording for the two labelled beats: "Every participant here is an agent; nothing in this market can reach PayPal." and "This is a labelled simulation; refusal counts are measured results, not a security guarantee."
+
+Do not show: `.env`, any token, key or cookie, a full PayPal approval URL, buyer passwords, or the database connection string. Blur or cut any address field.
+
 ## 5. README outline (task T09X01; Member A writes the PayPal, operations and run sections, Member B the product, fairness, AI, search and agent sections)
 
 1. What FairPool is and who it is for, in plain language, with the three-minute video link.
