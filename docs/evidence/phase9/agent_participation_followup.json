@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "date": "2026-11-10",
+  "scope": "T09X01/T09A06: buyer API, four-tool FairPool MCP, merchant API and delegation/mandate verification; simulated rehearsal-checker corrections.",
+  "verification": {
+    "focused_tests": 97,
+    "mcp_and_reporting_tests": 18,
+    "tests": "test_agent_entries, test_agent_delegations, test_merchant_api_keys, test_merchant_agent_api, test_mandate_persistence, test_mcp_contract, test_delegations, test_mandate_conditions, test_mandate_schema, test_mandate_grounding",
+    "regression_method": "Observed failing tests before fixing missing persisted entry, isError/empty/null tool result handling, CLI failure gate and report scope; reran with the corrections.",
+    "cli": "The isolated fake-provider market CLI is exercised by test_market_cli_runs_actual_buyer_and_merchant_paths. Both buyer actions and merchant actions succeed; breaches_succeeded=0 and paypal_writes_from_ai_surface=0."
+  },
+  "corrections": [
+    "A buyer now supplies required_by and joins an OPEN fixture pool.",
+    "HTTP 200 / JSON-RPC success alone does not count as a successful MCP tool result.",
+    "The CLI fails if either participant lane fails or the measured boundary counters are nonzero.",
+    "Entry and order counters are restricted to the current pool, excluding unrelated database history."
+  ],
+  "historical_evidence": "The older agent_market.json did not prove its buyer joined successfully: it accepted a tool-level error as success. This follow-up does not rewrite that historical file.",
+  "open_contract_questions": {
+    "Q-2026-11-04-35": "Custom MCP transport shim instead of the contracted official SDK; compatibility with every MCP client is not established.",
+    "Q-2026-11-10-41": "MCP advertises required_by as optional while the shared API requires it. Examples supply a date; contract/schema policy remains unresolved."
+  },
+  "limits": [
+    "The market run is SIMULATED with fake providers, not a real payment or live-model run.",
+    "The harness uses seeded market fixtures; it does not prove the complete timed allocation/auction/payment lifecycle.",
+    "Zero observed boundary violations is a measured result, not a security guarantee.",
+    "No production API, protocol contract, payment adapter, frontend behavior or dependency changed."
+  ]
+}

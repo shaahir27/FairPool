@@ -73,6 +73,29 @@ def tool_names(outcome: dict[str, Any]) -> set[str]:
     return {tool["name"] for tool in outcome["result"]["tools"]}
 
 
+def tool_succeeded(body: dict[str, Any]) -> bool:
+    """An HTTP/JSON-RPC success can still carry a refused or missing tool result."""
+    result = body.get("result")
+    return (
+        body.get("error") is None
+        and isinstance(result, dict)
+        and bool(result.get("content"))
+        and not result.get("isError")
+    )
+
+
+def report_succeeded(report: dict[str, Any]) -> bool:
+    """T09A06: a clean boundary count cannot hide failed participant actions."""
+    buyers = report.get("buyer_agents", [])
+    merchants = report.get("merchant_agents", [])
+    return (
+        bool(buyers and merchants)
+        and all(step.get("ok") is True for step in buyers + merchants)
+        and report.get("breaches_succeeded") == 0
+        and report.get("paypal_writes_from_ai_surface") == 0
+    )
+
+
 class Market:
     """One run: fixtures, participants, an adversary, and the numbers they produce."""
 
@@ -114,6 +137,7 @@ class Market:
                 waitlisted=0,
                 lot_status="BIDDING",
                 with_award=False,
+                pool_status="OPEN",
             )
             self.pool_id = world.pool_id
             self.lot_id = await lot_with_deadline(session, world, offset_s=3600)
@@ -190,6 +214,7 @@ class Market:
                         "pool_id": str(self.pool_id),
                         "delivery_region": "NY",
                         "max_total_usd": "520.00",
+                        "required_by": "2026-12-01",
                         "idempotency_key": f"agent-{uuid4()}",
                     },
                 },
@@ -199,7 +224,7 @@ class Market:
         self.report["buyer_agents"].append(
             {
                 "step": "enter_pool",
-                "ok": body.get("error") is None,
+                "ok": tool_succeeded(body),
                 "hint": self._hint(body),
                 "refusal": (body.get("error") or {}).get("message"),
             }
@@ -211,7 +236,10 @@ class Market:
             json=rpc(3, "tools/call", {"name": "list_entries", "arguments": {}}),
         )
         self.report["buyer_agents"].append(
-            {"step": "list_entries", "ok": entries.json().get("error") is None}
+            {
+                "step": "list_entries",
+                "ok": tool_succeeded(entries.json()),
+            }
         )
 
     def _hint(self, body: dict[str, Any]) -> str | None:
@@ -403,19 +431,21 @@ class Market:
                         "SELECT submitted_via::text AS via, "
                         "delegation_id IS NOT NULL AS via_agent, "
                         "status::text AS status, count(*) AS n "
-                        "FROM pool_entries GROUP BY 1, 2, 3"
-                    )
+                        "FROM pool_entries WHERE pool_id = :pool GROUP BY 1, 2, 3"
+                    ),
+                    {"pool": self.pool_id},
                 )
             ).all()
             orders = await session.scalar(
                 text(
                     "SELECT count(*) FROM buyer_orders o "
                     "JOIN pool_entries e ON e.id = o.entry_id "
-                    "WHERE e.delegation_id IS NOT NULL "
+                    "WHERE e.pool_id = :pool AND e.delegation_id IS NOT NULL "
                     "AND o.status::text IN ('AUTHORIZING','AUTHORIZED','CAPTURING',"
                     "'CAPTURE_PENDING','CAPTURED','REFUNDING','VOIDED','AUTH_FAILED',"
                     "'CAPTURE_FAILED')"
-                )
+                ),
+                {"pool": self.pool_id},
             )
         self.report["money"] = {
             "entries_by_surface": [
@@ -429,7 +459,8 @@ class Market:
             ],
             "buyer_orders_for_agent_entries": int(orders or 0),
             "derivation": (
-                "buyer_orders joined to pool_entries on entry_id where delegation_id is not "
+                "buyer_orders joined to pool_entries on entry_id for this run's pool "
+                "where delegation_id is not "
                 "null, restricted to the provider-write statuses (AUTHORIZING..VOIDED, "
                 "AUTH_FAILED, CAPTURE_FAILED); an OFFERED or ORDER_CREATED row is not counted "
                 "because no payment call happened yet"
@@ -556,7 +587,7 @@ async def run(*, out: Path) -> int:
                 sort_keys=True,
             )
         )
-        return 0
+        return 0 if report_succeeded(report) else 1
     finally:
         merchant_api_app.dependency_overrides.clear()
         try:

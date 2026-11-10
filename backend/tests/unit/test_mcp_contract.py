@@ -292,3 +292,117 @@ async def test_the_transport_reuses_the_apps_session_factory(
     finally:
         await forget(db_engine, user_id)
         await app.state.engine.dispose()
+
+
+async def test_market_buyer_really_enters_through_mcp(
+    client: httpx.AsyncClient, db_session: AsyncSession, db_engine: AsyncEngine
+) -> None:
+    from tools.agent_market import Market
+
+    token, user_id = await committed_delegation(db_engine)
+    pool_id = await open_pool(db_session)
+    market = Market(setting=SETTINGS, factory=None, http=client, db=None)
+    market.delegations = [(token, user_id)]
+    market.pool_id = pool_id
+    try:
+        await market.buyers()
+        count = await db_session.scalar(
+            text("SELECT count(*) FROM pool_entries WHERE pool_id = :pool AND user_id = :user"),
+            {"pool": pool_id, "user": user_id},
+        )
+        assert count == 1, "a successful market report must represent a persisted buyer entry"
+        assert all(step["ok"] for step in market.report["buyer_agents"])
+        assert market.report["buyer_agents"][0]["hint"] is not None
+        other_pool = await open_pool(db_session)
+        other = await client.post(
+            "/agent/v1/entries",
+            headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "other-market"},
+            json={
+                "pool_id": str(other_pool),
+                "request": {
+                    "delivery": {"region": "NY"},
+                    "required_by": "2026-12-01",
+                    "max_total_cents": 52000,
+                    "firm": [],
+                    "preferences": [],
+                },
+            },
+        )
+        assert other.status_code == 201
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def factory() -> AsyncIterator[AsyncSession]:
+            yield db_session
+
+        market.factory = factory
+        await market.money()
+        assert sum(row["count"] for row in market.report["money"]["entries_by_surface"]) == 1
+    finally:
+        await db_session.rollback()
+        await forget(db_engine, user_id)
+
+
+@pytest.mark.parametrize(
+    "tool_result",
+    [
+        {"isError": True, "content": [{"type": "text", "text": "refused"}]},
+        {},
+        None,
+    ],
+)
+async def test_market_reports_mocked_mcp_tool_errors_as_failure(
+    tool_result: dict[str, Any] | None,
+) -> None:
+    from tools.agent_market import Market
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        message = json.loads(request.content)
+        result: dict[str, Any] | None
+        if message["method"] == "tools/list":
+            result = {"tools": TOOL_SPECS}
+        else:
+            result = tool_result
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": message["id"], "result": result})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(reply), base_url="https://api.test"
+    ) as http:
+        market = Market(setting=SETTINGS, factory=None, http=http, db=None)
+        market.delegations = [("unit-test-placeholder", UUID(int=1))]
+        market.pool_id = UUID(int=2)
+        await market.buyers()
+    assert not any(step["ok"] for step in market.report["buyer_agents"])
+
+
+@pytest.mark.parametrize("failure", [None, "buyer", "merchant", "breach", "payment"])
+def test_market_exit_gate_refuses_failed_participation(failure: str | None) -> None:
+    from tools import agent_market
+
+    report: dict[str, Any] = {
+        "buyer_agents": [{"ok": failure != "buyer"}],
+        "merchant_agents": [{"ok": failure != "merchant"}],
+        "breaches_succeeded": int(failure == "breach"),
+        "paypal_writes_from_ai_surface": int(failure == "payment"),
+    }
+    assert agent_market.report_succeeded(report) is (failure is None)
+
+
+def test_market_cli_runs_actual_buyer_and_merchant_paths(migrated_db: None, tmp_path: Any) -> None:
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    output = tmp_path / "market.json"
+    result = subprocess.run(
+        [sys.executable, "tools/agent_market.py", "--self-check", "--out", str(output)],
+        cwd=Path(__file__).resolve().parents[3],
+        capture_output=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, "the actual market CLI must complete every participant action"
+    report = json.loads(output.read_text())
+    assert all(step["ok"] for step in report["buyer_agents"] + report["merchant_agents"])
+    assert report["buyer_agents"][0]["hint"] is not None
+    assert report["breaches_succeeded"] == report["paypal_writes_from_ai_surface"] == 0

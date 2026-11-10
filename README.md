@@ -26,7 +26,7 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Thi
 - **Take a tour.** Read [the walkthrough](#try-the-demo) and [the current limits](#current-limits).
 - **Run it locally.** Start with [local setup](#local-setup), then [demo data](#demo-data).
 - **Read the code.** See [PayPal](#how-paypal-is-used), [AI](#how-ai-is-used), [architecture](#architecture) and [verification](#tests-and-verification).
-- **Connect an agent.** See [APIs and generated SDKs](#apis-and-generated-sdks).
+- **Connect an agent or API client.** Start with [ways to participate](#ways-to-participate-browser-api-or-mcp), then [APIs and generated SDKs](#apis-and-generated-sdks).
 
 ## How it works
 
@@ -60,6 +60,104 @@ A useful first tour is **Discover → View pool → Your entry / product require
 Existing demo users sign in with their FairPool credentials. The seeded buyer is `demo-buyer-1@fairpool.test`; its password is supplied privately by the operator, never in this repository. New-buyer registration goes through PayPal connection and depends on the configured Sandbox login app. A PayPal connection identifies an account; it does not grant payment permission.
 
 To approve a payment, use a **US PayPal Sandbox personal buyer account**, not your real PayPal login. Create test accounts through the [PayPal developer dashboard](https://developer.paypal.com/dashboard/). Seeded historical orders illustrate states; they are not evidence that those particular orders reached PayPal. Follow an available live offer for an actual Sandbox approval.
+
+## Ways to participate: browser, API or MCP
+
+You can use FairPool yourself in the browser, write a client against the HTTP API, or let an AI assistant use the MCP tools. These are ways into the same pool and entry rules. An agent acts for your buyer account; it is not another buyer and gets no extra place.
+
+| Route | Who it suits | Connection and credentials |
+|---|---|---|
+| Browser | Someone browsing, joining, approving an offer or managing orders | Sign in to the app; session cookie and CSRF protection |
+| Buyer HTTP API | A script, custom integration or agent that can make HTTP calls | `/agent/v1` with a buyer delegation token |
+| Buyer MCP | An AI assistant with Streamable HTTP and private bearer-header support | `/mcp` with that same buyer delegation token |
+| Merchant HTTP API / SDK | A merchant's own client or pricing bot | `/merchant-api/v1` with a scoped merchant API key |
+
+### First, give a buyer client limited permission
+
+Sign in as a buyer and open **Agent settings** (`/settings/agents`). Select the pools the client may use, set its maximum price and expiry, review any stop-and-ask conditions, and ratify the mandate before creating access. Copy the token when it is shown: FairPool stores its HMAC, so it cannot show you the original again. You can revoke it from the same screen.
+
+A buyer token is different from your FairPool password, a merchant API key and a PayPal credential. Put it in your client's private connection settings or secret store, never in a prompt, repository, screenshot or shared transcript. Both buyer interfaces enforce the token's owner, pool/category scope, cap, expiry and revocation. A scoped token cannot read or withdraw an entry outside its allowed pools.
+
+### Participate directly through the buyer API
+
+Use `Authorization: Bearer` with the delegation token. Store it privately as `FAIRPOOL_AGENT_TOKEN` in the environment used by your client; the example deliberately contains no token value.
+
+```bash
+FAIRPOOL_BASE_URL=https://fairpool-api.onrender.com
+curl --fail-with-body --silent --show-error \
+  --header "Authorization: Bearer ${FAIRPOOL_AGENT_TOKEN}" \
+  "${FAIRPOOL_BASE_URL}/agent/v1/pools?limit=5"
+```
+
+| Action | HTTP request |
+|---|---|
+| Find open pools within your scope | `GET /agent/v1/pools?q=monitor&limit=5` |
+| Join a pool | `POST /agent/v1/entries` |
+| Read your entries and available offer links | `GET /agent/v1/entries` |
+| Read one of your entries | `GET /agent/v1/entries/{entry_id}` |
+| Withdraw an eligible entry | `POST /agent/v1/entries/withdraw` with `entry_id` |
+
+For a join, send a stable `Idempotency-Key` header and this body, replacing the placeholders with a real open pool and your chosen delivery date:
+
+```json
+{
+  "pool_id": "REPLACE_WITH_POOL_UUID",
+  "request": {
+    "delivery": {"region": "NY"},
+    "required_by": "YYYY-MM-DD",
+    "max_total_usd": "600.00",
+    "firm": [],
+    "preferences": []
+  }
+}
+```
+
+The amount is your maximum delivered price, not a quoted pool price. Supply exactly one of `max_total_usd` (a decimal string) or `max_total_cents` (an integer). Pick a delivery date consistent with the pool's published requirements. Reuse the same idempotency key only when retrying the same request; reusing it with changed terms is a conflict. A first join returns 201; a replay or existing entry returns 200. The response includes the entry/allocation state and, when an offer exists, a `checkout_url` for you to open in the browser.
+
+### Participate through an MCP-connected assistant
+
+Configure a **Streamable HTTP** MCP connection to `https://fairpool-api.onrender.com/mcp` (or your local API origin plus `/mcp`). Set its private `Authorization` header to `Bearer` followed by your buyer delegation token. Let the MCP client perform initialization and tool discovery. Client configuration formats differ; an assistant that cannot send a private custom bearer header cannot use this connection as documented. FairPool does not provide an OAuth sign-in flow for MCP clients.
+
+This is **FairPool's MCP server**, which manages buyer participation. It is separate from the optional read-only PayPal MCP used for merchant payment inspection.
+
+The server exposes four tools:
+
+| MCP tool | What it does | Important input |
+|---|---|---|
+| `list_pools` | Finds open pools within the delegation's scope | Optional `q` and `limit` (1-20) |
+| `enter_pool` | Submits a buyer entry through the same HTTP API validation | `pool_id`, `delivery_region`, your price limit, `required_by`, `idempotency_key` |
+| `list_entries` | Reads the buyer's entries, allocation and human checkout link | Optional `pool_id` or `entry_id` |
+| `withdraw_entry` | Withdraws the buyer's eligible entry before closing | `entry_id` |
+
+An assistant's `enter_pool` arguments look like this. They are flat tool arguments, unlike the nested HTTP join body above:
+
+```json
+{
+  "pool_id": "REPLACE_WITH_POOL_UUID",
+  "delivery_region": "NY",
+  "required_by": "YYYY-MM-DD",
+  "max_total_usd": "600.00",
+  "idempotency_key": "REPLACE_WITH_STABLE_REQUEST_ID"
+}
+```
+
+A useful instruction is: "Find an open monitor pool within my approved scope. Show me its delivery and return requirements before entering, keep my price limit, and bring me the offer link when one is available." The token belongs in connection settings, not in that instruction. Check the tool result: an HTTP 200 JSON-RPC response can still carry `result.isError=true` and an application error. That is a refused action, not a successful join.
+
+**Payment remains yours to approve.** Neither the direct buyer API nor the MCP tools creates a PayPal order or approves, authorizes, captures, voids or refunds a payment. When an offer is ready, the assistant hands you its `checkout_url`; sign in and review it yourself. The server's normal payment workflow takes over after your approval. Agents cannot turn an entry into a payment by asking another MCP tool.
+
+### Merchants participate through a separate API
+
+A merchant creates scoped keys in **Developer API** in the merchant workspace. Use those keys with `/merchant-api/v1`, directly or through the [generated Python and TypeScript clients](sdk/README.md). A buyer delegation token is not a merchant key, and the four buyer MCP tools do not submit merchant bids.
+
+The ten merchant operations cover finding lots, submitting/reading bids, funding progress, fulfilment, shipments and read-only verification. Bid submission is `PUT /merchant-api/v1/lots/{lot_id}/bid`, requires an `Idempotency-Key`, and requires `confirmed: true`: the bot's structured submission is its confirmation. Merchant ownership, scopes and the same sealed-bid rules still apply. See the [operation and scope table](docs/contracts/api.md#43-merchant-agent-api-int-9-fr-ig-04) and [SDK quickstart](sdk/README.md).
+
+### What has been checked, and what remains open
+
+Focused tests exercise delegation ownership/revocation/expiry, scope and cap enforcement, exact money parsing, idempotent joins/withdrawals, merchant-key permissions, sealed bid access and the mounted MCP handshake/tool calls. They use an isolated database and fake providers; they do not establish compatibility with every AI client or demonstrate a real payment.
+
+One implementation gap remains documented as **Q-2026-11-04-35** in [progress](docs/progress.md): the contract calls for the official MCP Python SDK, while the current endpoint uses a custom JSON-RPC/SSE transport shim because of the recorded mount/lifespan issue. Its four-tool path is tested, but this is not a claim of complete MCP protocol/client compatibility. Use a Streamable HTTP client with private bearer headers and verify its connection before relying on it. The Zapier managed write bridge remains off; it is not an alternative working payment or join route.
+
+A second contract mismatch is tracked as **Q-2026-11-10-41**: the MCP tool advertises `required_by` as optional, but the shared API currently requires a delivery date. Always include it, as the examples above do. No delivery date is invented on your behalf.
 
 ## How PayPal is used
 
@@ -104,7 +202,7 @@ These are results on a fixed labelled corpus, **not a promise of accuracy on new
 Injection and quoted-instruction cases: **32/32 clean** across the two runs. Recorded model: `gemini-3.5-flash-lite`; prompt: `phase2-gemini-v10`; dataset fingerprint begins `02acc35721fe`. [Full results and outputs](docs/evidence/phase9/gemini.json).
 <!-- eval-table-end -->
 
-The [agent-market boundary report](docs/evidence/phase9/agent_market.json) is a **SIMULATED** run using FakeAI and the fake payment router. Its refusal counts describe observed attempts, not a security guarantee. They are separate from the live-model and live-payment evidence.
+The [agent-market boundary report](docs/evidence/phase9/agent_market.json) is a **SIMULATED** run using FakeAI and the fake payment router. Its refusal counts describe observed attempts, not a security guarantee. They are separate from the live-model and live-payment evidence. A [November 10 participation check](docs/evidence/phase9/agent_participation_followup.json) corrects a false-positive in the rehearsal checker: the older report does not establish that its buyer successfully joined. The corrected checker verifies actual tool results and fails its exit status when participation fails.
 
 ## Allocation and public audit
 
