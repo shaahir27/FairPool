@@ -67,8 +67,23 @@
   },
   "live_storyboard": {
     "status": "pending",
-    "done": "audit page, offer approvals, authorizations, captures, lot funding",
-    "remaining": "the live merchant bid beat, the terminal beats (agent market, 10k simulation), the fulfillment/tracker walk, and two consecutive recorded runs from reset"
+    "done": "audit page, offer approvals, authorizations, captures, lot funding, live merchant bid",
+    "remaining": "the terminal beats (agent market, 10k simulation), the fulfillment/tracker walk, and two consecutive recorded runs from reset"
   },
-  "gate_rule": "Stays pending until the full storyboard runs twice from reset and the video is recorded. Never marked passed on the payment slice alone."
+  "gate_rule": "Stays pending until the full storyboard runs twice from reset and the video is recorded. Never marked passed on the payment slice alone.",
+  "live_merchant_bid": {
+    "status": "passed",
+    "bid_id": "673d1a8b-5a08-4634-bfce-94f16b58e13d",
+    "lot": "a209753d-e19a-4417-882d-fb866ca82f1b (27-inch 4K monitor, 2 seats)",
+    "revision": 2,
+    "bid_status": "CONFIRMED",
+    "receipt_hash_prefix": "46f732c2fc5f4395",
+    "quote_parse": "the live QUOTE call succeeded on the natural quote (supply 12 units, minimum order 3, tiers $470/$450, delivery 7, returns 30, valid until 2026-12-01)",
+    "reconciliation": "one provider attempt failed, the retry was consistent, no flags were written",
+    "audit": "bid.draft -> bid.proposed -> bid.confirmed",
+    "defects_found": [
+      "D-P10-06",
+      "D-P10-07"
+    ]
+  }
 }
