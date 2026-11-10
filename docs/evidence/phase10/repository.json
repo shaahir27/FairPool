@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "date": "2026-11-10",
+  "scope": "T10A02: repository cleanup and compliance. LICENSE, full-history secret scan, dependency pinning, README run instructions on a clean clone, and the documentation corrections that a release candidate needs.",
+  "license": "MIT, LICENSE at the repository root (Copyright (c) 2026 FairPool contributors). Detected by GitHub from the tracked file; the About badge is an owner action on the public flip.",
+  "secret_scan": "gitleaks 8.30.1 runs in CI with fetch-depth 0 and in pre-commit. The local full-history run on 2026-11-10 scanned 158 commits and found no leaks.",
+  "pinning": "backend/requirements.lock and backend/requirements-dev.lock are pip-compile outputs with hashes and are installed with --require-hashes; frontend/package-lock.json is installed with npm ci. Python and Node versions are enforced by make setup and the frontend engines check.",
+  "run_instructions": {
+    "python": "make setup refuses anything but Python 3.12 and the README now shows how to pass the interpreter when the default differs.",
+    "test_database": "make setup provisions the loopback fairpool_test database through tools/ensure_test_db.py; the README documents the compose test-db profile and the TEST_DATABASE_URL.",
+    "demo": "make demo-reset now passes the confirmation flag, so the IT-10 command actually resets; make demo-seed then tools/demo_seed_check.py printed ALL CHECKS PASSED (23 checks) on 2026-11-10."
+  },
+  "documentation_corrections": [
+    "README: the deployed demo runs authorize_capture (the vault path is the unshipped code default, DEP-5), the architecture diagram and the sponsor/tool-use section exist, judging access is described, and the per-process rate limit is disclosed.",
+    "docs/decisions.md: a dated deployed-demo values note makes final checklist item 6 true; BD-05's paid-plan rule is recorded as superseded for this submission with the residual risks stated.",
+    "docs/demo-and-submission.md section 7 item 9 now records the $0 hosting plan and its risks."
+  ],
+  "clean_clone": {
+    "status": "passed",
+    "commit": "f5d0852 (the repository at the time of the check; the audit-page fix landed after it and is covered by CI)",
+    "command": "git clone <repo> <temp>; rewrite TEST_DATABASE_URL to an isolated loopback fairpool_clean_test; drop that schema; make setup PYTHON=<3.12 interpreter>; make verify",
+    "result": "setup exit 0; verify exit 0. 1,349 backend tests passed (50 deselected), 94.59% domain coverage, 33 frontend test files / 341 tests, ruff and mypy --strict clean, docs/imports/OpenAPI checks green, the frontend built, and gitleaks scanned 157 commits with no leaks in 566.9 s.",
+    "host_note": "The 10,000-entry allocation test is host-sensitive at the ten-second product bound: under concurrent load it measured 10,957 and 11,315 ms and failed, then passed on a quiet rerun and in the full quiet verify. CI is green on the same commit. The bound itself was not relaxed."
+  },
+  "proves": "the repository can be understood, installed and verified from the committed tree and the README, with no secret in history and reproducible dependency resolution.",
+  "does_not_prove": "that the hosted service equals HEAD, that the public About badge shows the license (owner action), or that the app behaves as the README says beyond the automated suites."
+}

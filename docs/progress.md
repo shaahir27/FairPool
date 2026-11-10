@@ -209,12 +209,12 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
 | T10A01 | A | M | TODO | | Fixes from rehearsal 1 (payments, ops, fulfillment) |
-| T10A02 | A | M | IN PROGRESS | | Repository cleanup and compliance |
+| T10A02 | A | M | DONE | | Repository cleanup and compliance; clean-clone `make setup` + `make verify` green at `f5d0852` (1,349 backend, 341 frontend, gitleaks 157 commits), evidence in `docs/evidence/phase10/repository.json` |
 | T10A03 | A | M | IN PROGRESS | | Devpost text; draft complete, owner review pending |
 | T10A04 | A | M | BLOCKED | | Merchant SDKs and developer portal; needs the owner's APIMatic trial |
 | T10B01 | B | M | TODO | | Fixes from rehearsal 1 (product, UI, agent lane) |
 | T10B02 | B | L | IN PROGRESS | | Demo video; runbook complete, recording pending |
-| T10X01 | AB | M | IN PROGRESS | | Rehearsal 1; local preflight and the audit beat verified, live storyboard pending |
+| T10X01 | AB | M | IN PROGRESS | | Rehearsal 1; local preflight (reset/seed/23 seed checks, agent market 0 breaches/0 PayPal writes, 10/10 audit rules hashes, audit page seal 75 verified in a browser) done; live storyboard pending the owner's PayPal clicks |
 | T10X02 | AB | M | TODO | | Rehearsal 2 clean run |
 
 ### PH11: Submission
