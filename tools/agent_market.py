@@ -101,16 +101,24 @@ class Market:
     async def seed(self) -> None:
         from sqlalchemy import text
         from tests.integration.test_bid_sealing import lot_with_deadline
-        from tests.integration.test_join_receipts import open_pool
         from tests.integration.test_open_checkout import build_world
 
         async with self.factory() as session, session.begin():
-            self.pool_id = await open_pool(session)
+            # One world, one pool: the agents join the same pool whose lot the merchant
+            # bids on. Two pools made the report describe a market nobody shared, and
+            # left allocations behind that blocked the cleanup.
             world = await build_world(
-                session, seats=2, seated=2, waitlisted=0, lot_status="BIDDING", with_award=False
+                session,
+                seats=2,
+                seated=0,
+                waitlisted=0,
+                lot_status="BIDDING",
+                with_award=False,
             )
+            self.pool_id = world.pool_id
             self.lot_id = await lot_with_deadline(session, world, offset_s=3600)
             self.merchant_id = world.merchant_id
+            self.merchant_user_id = world.merchant_user_id
 
         # A delegation carries a ratified mandate: the three keys must survive create, or
         # the token a buyer ratifies is not the token the agent acts under.
@@ -223,6 +231,7 @@ class Market:
         from tests.integration.test_merchant_api_keys import ATTESTED, create_key
 
         email = f"bot-{uuid4()}@example.test"
+        self.bot_email = email
         await login(self.http, email)
         # Committed on its own connection: the profile route reads the role from a
         # different session, so an uncommitted UPDATE is invisible to it.
@@ -444,16 +453,26 @@ class Market:
             "WHERE bid_id IN (SELECT id FROM bids WHERE lot_id = :lot))",
             "DELETE FROM bid_revisions WHERE bid_id IN (SELECT id FROM bids WHERE lot_id = :lot)",
             "DELETE FROM bids WHERE lot_id = :lot",
-            "DELETE FROM allocations WHERE pool_id = :pool",
+            "DELETE FROM shipments WHERE lot_id = :lot",
+            "DELETE FROM buyer_orders WHERE lot_id = :lot",
+            "DELETE FROM allocations WHERE pool_id = :pool OR lot_id = :lot",
             "DELETE FROM entry_receipts WHERE entry_id IN "
             "(SELECT id FROM pool_entries WHERE pool_id = :pool)",
             "DELETE FROM pool_entries WHERE pool_id = :pool",
             "DELETE FROM confirmed_requests WHERE pool_id = :pool",
             "DELETE FROM lots WHERE id = :lot",
             "DELETE FROM pools WHERE id = :pool",
+            "DELETE FROM notifications WHERE user_id IN (SELECT id FROM users "
+            "WHERE id IN (:one, :two, :merchant_user) OR email = :bot)",
+            "DELETE FROM merchant_api_keys WHERE merchant_id IN (SELECT id FROM merchants "
+            "WHERE id = :merchant OR user_id IN (SELECT id FROM users "
+            "WHERE id = :merchant_user OR email = :bot))",
+            "DELETE FROM merchants WHERE id = :merchant OR user_id IN (SELECT id FROM users "
+            "WHERE id = :merchant_user OR email = :bot)",
             "DELETE FROM delegations WHERE user_id IN (:one, :two)",
-            "DELETE FROM sessions WHERE user_id IN (:one, :two)",
-            "DELETE FROM users WHERE id IN (:one, :two)",
+            "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users "
+            "WHERE id IN (:one, :two, :merchant_user) OR email = :bot)",
+            "DELETE FROM users WHERE id IN (:one, :two, :merchant_user) OR email = :bot",
         )
         async with self.db.begin() as connection:
             for statement in statements:
@@ -462,6 +481,9 @@ class Market:
                     {
                         "lot": getattr(self, "lot_id", uuid4()),
                         "pool": getattr(self, "pool_id", uuid4()),
+                        "merchant": getattr(self, "merchant_id", uuid4()),
+                        "merchant_user": getattr(self, "merchant_user_id", uuid4()),
+                        "bot": getattr(self, "bot_email", "none@example.test"),
                         "one": self.delegations[0][1] if self.delegations else uuid4(),
                         "two": self.delegations[1][1] if len(self.delegations) > 1 else uuid4(),
                     },
@@ -540,7 +562,7 @@ async def run(*, out: Path) -> int:
         try:
             await market.cleanup()
         except Exception as exc:  # cleanup must never hide the real failure
-            print(f"cleanup warning: {type(exc).__name__}", file=sys.stderr)
+            print(f"cleanup warning: {type(exc).__name__}: {exc}", file=sys.stderr)
         await engine.dispose()
 
 

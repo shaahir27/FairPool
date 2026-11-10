@@ -34,12 +34,14 @@ setup:
 	@$(PYTHON) -c "import sys; assert sys.version_info[:2] == (3, 12), f'Python 3.12 required, got {sys.version.split()[0]}'"
 	@test -d .venv || $(PYTHON) -m venv .venv
 	@$(PY) -m pip install --upgrade pip
+	# python -m pip, not the pip launcher: the lock pins pip itself and the
+	# launcher refuses to modify the tool it is running from.
 	@if [ -f backend/requirements-dev.lock ]; then \
-		$(PIP) install --require-hashes -r backend/requirements-dev.lock; \
+		$(PY) -m pip install --require-hashes -r backend/requirements-dev.lock; \
 	else \
-		$(PIP) install -e "backend[dev]"; \
+		$(PY) -m pip install -e "backend[dev]"; \
 	fi
-	@$(PIP) install --no-deps -e backend
+	@$(PY) -m pip install --no-deps -e backend
 	@$(PY) -m pre_commit install
 	@$(PY) tools/ensure_test_db.py
 	@if [ -f frontend/package.json ]; then \
