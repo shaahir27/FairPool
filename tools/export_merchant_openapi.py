@@ -14,6 +14,7 @@ Usage (from the repository root)::
 from __future__ import annotations
 
 import argparse
+import copy
 import importlib
 import importlib.util
 import json
@@ -98,6 +99,31 @@ def _generated_operations(schema: dict[str, object]) -> list[tuple[str, str, str
     return operations
 
 
+def _normalise_boolean_consts(document: dict[str, object]) -> dict[str, object]:
+    """State a boolean ``const`` as a plain boolean for the SDK generator.
+
+    APIMatic reads ``{"const": true, "type": "boolean"}`` as the string "True", so the
+    generated SDK sent ``confirmed: "True"`` and the server's strict boolean rejected it
+    (T10A04). The server still accepts only ``true``; this only changes the document.
+    """
+    components = document.get("components")
+    if not isinstance(components, dict):
+        return document
+    schemas = components.get("schemas")
+    if not isinstance(schemas, dict):
+        return document
+    for schema in schemas.values():
+        if not isinstance(schema, dict):
+            continue
+        properties = schema.get("properties")
+        if not isinstance(properties, dict):
+            continue
+        for prop in properties.values():
+            if isinstance(prop, dict) and prop.get("const") is True:
+                prop.pop("const")
+    return document
+
+
 def _with_full_paths(schema: dict[str, object]) -> dict[str, object]:
     """Prefix relative sub-app paths for the APIMatic document."""
     paths = schema.get("paths")
@@ -108,7 +134,7 @@ def _with_full_paths(schema: dict[str, object]) -> dict[str, object]:
         (path if path.startswith(PREFIX) else PREFIX + path): item for path, item in paths.items()
     }
     document["servers"] = [{"url": "/"}]
-    return document
+    return _normalise_boolean_consts(document)
 
 
 def _check(schema: dict[str, object]) -> int:
@@ -166,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        schema = app.openapi()
+        schema = copy.deepcopy(app.openapi())
     except Exception as exc:  # report a clean CLI error, not a traceback
         print(f"ERROR: could not build the merchant OpenAPI document: {exc}", file=sys.stderr)
         return 1

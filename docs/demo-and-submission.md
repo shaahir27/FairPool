@@ -41,7 +41,7 @@ Each beat names the screen and the proof it gives. Beats marked optional are cut
 | 2:37 to 2:50 | Labelled simulation at 10,000 entries; limits we state (not provably fair, one account per linked PayPal account, sandbox only); roadmap | **A terminal, not a screen:** `POST /api/v1/admin/sim/run` and the `sim_runs` result rows. There is no simulation page in `frontend/src`, so do not narrate one | FR-AI-03, FR-SM-01, FR-SL-06 |
 | 2:50 to 3:00 | Close with the repository link | Title card | FR-HK-01 |
 
-If S9 (Zapier) did not pass, the second beat uses the FairPool MCP server and says so. If S13 did not pass, the approval beat uses the redirect and says so. If S12 did not pass, tracking is shown inside FairPool and labelled.
+If S9 (Zapier) did not pass, the second beat uses the FairPool MCP server and says so. If S13 did not pass, the approval beat uses the redirect and says so. If S12 did not pass, tracking is shown inside FairPool and labelled. If T10A04 does not pass, the second bid in beat 4 uses the documented Merchant Agent API call and the narration does not say "generated SDK"; no SDK claim appears in the README, the Devpost text or the video.
 
 ## 4. Rehearsal procedure
 

@@ -1,13 +1,34 @@
 {
   "status": "blocked",
   "date": "2026-11-10",
-  "scope": "T10A04: APIMatic generates the Python and TypeScript Merchant SDKs and the developer portal from sdk/merchant-openapi.json, then a smoke script exercises the generated client against the local Merchant Agent API.",
-  "blocked_on": "The APIMatic trial was waived at IG-3 (OD-P3-2) and has never been started. Generation needs an APIMatic account, an active trial or plan, and an API key that only the owner can create.",
-  "what_exists_now": "sdk/merchant-openapi.json (OpenAPI 3.1, exactly ten operations) is generated and checked by tools/export_merchant_openapi.py --check, CI and gate_check. make sdk is documented as the generation entry point and is still a stub.",
-  "not_run_here": [
-    "No SDK was generated, committed or smoke-tested.",
-    "No portal was generated or published.",
-    "No licensing note exists yet."
-  ],
-  "gate_rule": "This file stays blocked until a real generation run happens. The README, Devpost text and video must not claim generated SDKs while this file is blocked."
+  "scope": "T10A04: APIMatic generates the Python and TypeScript Merchant SDKs and the developer portal from sdk/merchant-openapi.json, then a smoke script exercises the generated client.",
+  "sdk_generation": {
+    "status": "passed",
+    "generator": "@apimatic/cli 1.5.0 (official package), authenticated with the owner's APIMatic account; the account reported all seven languages allowed",
+    "input": "sdk/merchant-openapi.json (OpenAPI 3.1, exactly ten operations) plus APIMatic's official APIMATIC-META.json",
+    "outputs": ["sdk/python (fairpoolmerchantagentapi)", "sdk/typescript"],
+    "provenance_commands": [
+      "apimatic sdk generate -i .tmp/apimatic-input -l python -d sdk -f",
+      "apimatic sdk generate -i .tmp/apimatic-input -l typescript -d sdk -f"
+    ],
+    "document_fix": "APIMatic read the bid body's boolean const as the string \"True\"; tools/export_merchant_openapi.py now states confirmed as type boolean and sdk/merchant-openapi.json was regenerated. backend/tests/unit/test_merchant_openapi_contract.py pins it. The server still accepts only true.",
+    "licensing": "the generator writes an MIT LICENSE into each SDK; the repository is MIT"
+  },
+  "smoke": {
+    "status": "passed",
+    "command": "python sdk/smoke.py",
+    "result": "the generated client exposes the ten operations; a MerchantApiBidRequest serializes confirmed as a JSON boolean; the contracted structured body round-trips. ALL SMOKE CHECKS PASSED.",
+    "live_bid": "skipped in this run; the script supports one real bid through the generated client when FAIRPOOL_SMOKE_BASE_URL, FAIRPOOL_SMOKE_API_KEY and FAIRPOOL_SMOKE_LOT_ID are set"
+  },
+  "portal": {
+    "status": "failed",
+    "attempts": [
+      "apimatic portal generate with the FairPool document and a minimal APIMATIC-BUILD.json -> server error: An unexpected error occurred",
+      "apimatic portal generate with APIMatic's own unchanged sample input (build file, spec, metadata, content, images) -> the same server error"
+    ],
+    "isolation": "the official sample fails identically, so the cause is the APIMatic account/service entitlement, not this repository's document or configuration",
+    "claim_rule": "no portal is committed and no portal claim appears in the README, the Devpost text or the video"
+  },
+  "blocked_on": "APIMatic portal generation (account entitlement or service error). The SDKs, smoke and provenance are complete.",
+  "gate_rule": "Stays blocked until a portal is generated. The owner may explicitly waive the portal item with a dated decision, as OD-P3-2 did at IG-3; the file then records the waiver and the gap, never a fabricated portal."
 }

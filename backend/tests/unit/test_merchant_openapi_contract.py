@@ -63,6 +63,15 @@ def test_committed_spec_matches_the_live_sub_app():
     assert document["servers"] == [{"url": "/"}]
 
 
+def test_committed_spec_states_confirmed_as_a_boolean():
+    """APIMatic reads a boolean ``const`` as the string "True"; the export drops it."""
+    document = json.loads(SPEC.read_text(encoding="utf-8"))
+    request = document["components"]["schemas"]["MerchantApiBidRequest"]
+    confirmed = request["properties"]["confirmed"]
+    assert confirmed["type"] == "boolean"
+    assert "const" not in confirmed
+
+
 def test_sub_app_advertises_bearer_auth():
     schema = merchant_app.openapi()
     first = next(iter(schema["paths"].values()))
