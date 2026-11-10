@@ -29,19 +29,26 @@ def test_broken_fixture_fails_with_nonzero_exit(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "broken.md").write_text(
-        "# Broken fixture\n\n| ID | Value |\n|---|---|\n| TBD | placeholder |\n",
+        "# Broken fixture\n\n| ID | Value |\n|---|---|\n| TBD | placeholder |\n"
+        "\n[Missing source](../frontend/src/missing.tsx)\n",
         encoding="utf-8",
     )
 
     result = _run(docs)
     assert result.returncode != 0
     assert "forbidden text: TBD" in result.stdout
+    assert "broken link ../frontend/src/missing.tsx" in result.stdout
     assert "errors: 0" not in result.stdout
 
 
 def test_agent_api_merges_before_same_phase_mcp(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     shutil.copytree(REPO_ROOT / "docs", docs)
+    # Keep valid repository links intact while testing the plan dependency rule.
+    shutil.copytree(REPO_ROOT / "frontend/src", tmp_path / "frontend/src")
+    shutil.copytree(
+        REPO_ROOT / "tools", tmp_path / "tools", ignore=shutil.ignore_patterns("__pycache__")
+    )
     result = _run(docs)
     assert result.returncode == 0, result.stdout + result.stderr
     plan = docs / "implementation-plan.md"
