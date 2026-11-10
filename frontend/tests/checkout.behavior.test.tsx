@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,10 +29,17 @@ function show(component: React.ReactNode) {
 
 beforeEach(() => {
   setAccount(null);
-  transport.get.mockReset().mockResolvedValue({ data: offer });
-  transport.post.mockReset();
+  // mockClear keeps a promise-returning implementation in place at all times; a late
+  // effect must never meet a reset mock that returns undefined.
+  transport.get.mockClear().mockResolvedValue({ data: offer });
+  transport.post.mockClear();
 });
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+afterEach(() => {
+  // Unmount before restoring mocks: the global cleanup runs after this hook.
+  cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 it("uses the account already checked by the guard instead of fetching it again for an order", async () => {
   setAccount({ display_name: "Pool Buyer", role: "buyer", paypal_linked: true });
