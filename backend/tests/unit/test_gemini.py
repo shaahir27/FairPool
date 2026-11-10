@@ -484,6 +484,24 @@ async def test_ordinary_quotes_with_a_time_span_or_a_range_are_not_sent_to_revie
     assert parsed[field] == value
 
 
+async def test_supply_and_minimum_order_wording_grounds_the_counts():
+    """Merchants write "supply 12 units" and "minimum order 3", not the field names."""
+    quote_text = (
+        "I can supply 12 units, minimum order 3. Delivered price $470 each. "
+        "Delivery within 7 days, returns 30 days."
+    )
+    payload = _quote_payload(
+        capacity=12,
+        moq=3,
+        tiers=[{"min_qty": 1, "item_price": "470.00"}],
+        delivery_sla_days=7,
+        returns_days=30,
+    )
+    parsed = await _parse_with(quote_text, payload)
+    assert parsed["capacity"] == 12
+    assert parsed["moq"] == 3
+
+
 @pytest.mark.parametrize(
     "text, expected",
     [

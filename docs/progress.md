@@ -208,11 +208,11 @@ restored. The mobile story swipe and the ghost-letter removal the owner asked fo
 
 | ID | Owner | Size | Status | PR | Notes |
 |---|---|---|---|---|---|
-| T10A01 | A | M | TODO | | Fixes from rehearsal 1 (payments, ops, fulfillment) |
+| T10A01 | A | M | IN PROGRESS | | Fixes from rehearsal 1 (payments, ops, fulfillment); the A-lane defects so far are closed with tests in `docs/evidence/phase10/fixes.json` |
 | T10A02 | A | M | DONE | | Repository cleanup and compliance; clean-clone `make setup` + `make verify` green at `f5d0852` (1,349 backend, 341 frontend, gitleaks 157 commits), evidence in `docs/evidence/phase10/repository.json` |
 | T10A03 | A | M | IN PROGRESS | | Devpost text; draft complete, owner review pending |
 | T10A04 | A | M | IN PROGRESS | | Merchant SDKs generated (Python + TypeScript) and smoked; the portal is blocked by an APIMatic service error that also hits APIMatic's own sample, recorded in `docs/evidence/phase10/sdk.json` |
-| T10B01 | B | M | TODO | | Fixes from rehearsal 1 (product, UI, agent lane) |
+| T10B01 | B | M | IN PROGRESS | | Fixes from rehearsal 1 (product, UI, agent lane); the B-lane defects so far (audit page, CI test races) are closed with tests in `docs/evidence/phase10/fixes.json` |
 | T10B02 | B | L | IN PROGRESS | | Demo video; runbook complete, recording pending |
 | T10X01 | AB | M | IN PROGRESS | | Rehearsal 1; mechanical preflight green (reset/seed/seed checks, agent market 0 breaches/0 PayPal writes, 10/10 audit rules hashes, audit page seal 75), the live mandate gate passed 3/3 on the `.env` key, and the live payment slice passed on the local stack: two distinct PayPal buyers authorized and captured ($470 each, captures `5T79668634169843N` and `4UE61080TN188942N`), lot `e048ab99` FUNDED at a $940 ledger, audit transitions complete. Remaining: the live merchant bid, terminal beats and two recorded runs; details in `docs/evidence/phase10/rehearsal_1.json` |
 | T10X02 | AB | M | TODO | | Rehearsal 2 clean run |
@@ -454,6 +454,8 @@ T05A02 batch-one pass (2026-11-02): the owner explicitly requested authenticatio
 | D-P10-03 | PH10 clean-clone check (10 Nov) | The machine's default `python` is 3.14, so `make setup` refused before creating the venv; the README named Python 3.12 as a prerequisite but not how to select it when the default differs. The run steps now show `make setup PYTHON=<path to 3.12>`. | A | CLOSED 2026-11-10 |
 | D-P10-04 | T10A04 (10 Nov) | The exported Merchant document states the bid body's `confirmed` as `const: true`; APIMatic generated the SDKs with the string `"True"`, which the server's strict boolean rejects. Found by reading the generated model before the smoke ran. Fixed in `tools/export_merchant_openapi.py` (state a plain boolean) and pinned by `test_committed_spec_states_confirmed_as_a_boolean`; the server still accepts only `true`. | A | CLOSED 2026-11-10 |
 | D-P10-05 | CI runs 42804253119 and 42806110500 (10 Nov) | The Frontend job failed on two different checkout tests while the same file passed locally (17/17). Two races in the test file: the retry button was asserted with `getByRole` before the failed read's error state settled, and the file's `afterEach` restored mocks before the global cleanup unmounted components, so a late effect could call a reset mock that returned undefined (`Cannot read properties of undefined (reading 'then')`). Fixed by awaiting the retry button, unmounting first, and keeping a promise-returning implementation (`mockClear`, not `mockReset`). Eight consecutive local runs pass. No product change. | B | CLOSED 2026-11-10 |
+| D-P10-06 | Rehearsal 1 (10 Nov) | The live merchant quote parse discarded the whole proposal because Gemini returned `valid_until: "2026-12-01"` (a date, no time) and `Quote` required a timezone. The merchant form therefore stayed empty. Fixed with a before-validator that reads a date-only value as through that day UTC; `backend/tests/unit/test_quote_schema.py` pins date-only, explicit timestamp, and naive timestamp cases. | A | CLOSED 2026-11-10 |
+| D-P10-07 | Rehearsal 1 (10 Nov) | The QUOTE grounding accepted only the literal words "capacity" and "minimum order quantity"; the natural quote "I can supply 12 units, minimum order 3" was rejected as `Ungrounded field-specific quantity` after two attempts. Fixed by accepting "supply" and "minimum order" as capacity/MOQ labels; `test_supply_and_minimum_order_wording_grounds_the_counts` pins it. | A | CLOSED 2026-11-10 |
 
 ## Submission notes
 

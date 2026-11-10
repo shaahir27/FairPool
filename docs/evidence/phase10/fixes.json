@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "date": "2026-11-10",
+  "scope": "T10A01/T10B01: every defect found by the clean-clone check and rehearsal 1 so far is closed with a named test. None is deferred; the rehearsal continues and any new defect gets its own row and test.",
+  "defects": [
+    {
+      "id": "D-P10-01",
+      "defect": "the public audit page stayed on Loading forever for a logged-out visitor because the global 401 handler cleared the read cache and cancelled the page's own public reads",
+      "fix": "frontend/src/shared/lib/session.ts clears cached reads only when a signed-in session ends; the session-ended signal still fires for the route guard",
+      "test": "frontend/tests/session.cache.test.ts and the unmodified session.guard.test.tsx; verified in a browser against a closed pool (rules, entry list and seal 75 all verify)"
+    },
+    {
+      "id": "D-P10-02",
+      "defect": "make setup failed in a fresh clone because the hashed lock pins pip itself and the pip launcher refuses to modify it",
+      "fix": "the Makefile installs the lock through python -m pip",
+      "test": "clean clone at f5d0852: make setup exit 0, make verify exit 0"
+    },
+    {
+      "id": "D-P10-03",
+      "defect": "the machine default python is 3.14, so make setup refused before creating the venv; the README did not say how to select 3.12",
+      "fix": "the README run steps show make setup PYTHON=<path to a 3.12 interpreter>",
+      "test": "clean clone with PYTHON set to the 3.12 environment"
+    },
+    {
+      "id": "D-P10-04",
+      "defect": "the exported Merchant document stated the bid body's confirmed as const:true; APIMatic generated the SDKs with the string \"True\", which the server rejects",
+      "fix": "tools/export_merchant_openapi.py states it as type boolean and the spec/SDKs were regenerated",
+      "test": "test_committed_spec_states_confirmed_as_a_boolean; sdk/smoke.py asserts a JSON boolean"
+    },
+    {
+      "id": "D-P10-05",
+      "defect": "two checkout tests failed only in CI: the retry button was asserted with getByRole before the error state settled, and the file's afterEach restored mocks before the global cleanup unmounted components",
+      "fix": "await the retry button; unmount first and use mockClear so a promise-returning default stays in place",
+      "test": "frontend/tests/checkout.behavior.test.tsx, eight consecutive local runs and CI green on f0d4c20"
+    },
+    {
+      "id": "D-P10-06",
+      "defect": "the live quote parse discarded the whole proposal when Gemini returned a date-only valid_until",
+      "fix": "Quote normalises a date-only valid_until to the end of that day UTC; explicit timestamps pass unchanged and a naive timestamp is still refused",
+      "test": "backend/tests/unit/test_quote_schema.py (three cases)"
+    },
+    {
+      "id": "D-P10-07",
+      "defect": "the quote grounding accepted only the literal words capacity and minimum order quantity, rejecting a natural quote that said supply 12 units and minimum order 3",
+      "fix": "the capacity and MOQ labels also read supply and minimum order",
+      "test": "test_supply_and_minimum_order_wording_grounds_the_counts in backend/tests/unit/test_gemini.py"
+    }
+  ],
+  "open": [],
+  "proves": "each closed row names a regression test or a recorded run that would fail again if the fix were removed",
+  "does_not_prove": "that the full live storyboard and the recorded video are complete; that remains in rehearsal_1.json and video.json"
+}

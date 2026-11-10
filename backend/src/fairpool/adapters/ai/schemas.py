@@ -154,6 +154,19 @@ class Quote(Closed):
     evidence_note: Text | None
     ambiguities: list[Ambiguity] = Field(max_length=30)
 
+    @field_validator("valid_until", mode="before")
+    @classmethod
+    def date_only_until_end_of_day(cls, value: object) -> object:
+        """A model that answers "valid until 2026-12-01" means through that day (UTC).
+
+        The contract asks for a timestamp; Gemini commonly omits the time. Normalising
+        here keeps the stored value timezone-aware instead of discarding the whole
+        proposal, which a live merchant quote hit on 2026-11-10.
+        """
+        if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value.strip()):
+            return f"{value.strip()}T23:59:59Z"
+        return value
+
     @model_validator(mode="after")
     def relationships(self) -> Quote:
         if self.moq and self.capacity and self.moq > self.capacity:

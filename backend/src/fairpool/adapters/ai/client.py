@@ -476,9 +476,11 @@ class GeminiAI:
             if any(cents(x) not in monetary_values(source) for x in money):
                 raise ValueError("Ungrounded quote amount")
             labels = {
-                "capacity": r"(?<!total )capacity",
+                # Merchant wording, not only the field names: "I can supply 12 units"
+                # and "minimum order 3" are the natural forms a live quote used.
+                "capacity": r"(?<!total )capacity|(?:can\s+)?supply|available quantity",
                 "target_quantity": r"target(?: quantity)?",
-                "moq": r"MOQ|minimum order quantity",
+                "moq": r"MOQ|minimum order(?: quantity)?",
                 "delivery_sla_days": r"delivery(?: within)?",
                 "returns_days": r"returns?",
                 "total_capacity": r"total capacity",
