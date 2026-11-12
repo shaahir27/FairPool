@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import {
   accountState,
+  API_BASE_URL,
+  StatusPill,
   api,
   useApiRead,
   type ApiComponents,
@@ -24,6 +26,8 @@ import { resetBuyerPrefetch } from "./prefetch";
 import { ConfirmAction } from "./ConfirmAction";
 import { usdToCents } from "./lobby/money";
 import "./settings.css";
+import "./agents.css";
+import { decideAuthorization, type Authorization } from "./agentOAuth";
 export { MyPoolsPage } from "./my-pools/MyPoolsPage";
 export { OrdersPage } from "./orders/OrdersPage";
 export { RegisterPage } from "./signup";
@@ -85,7 +89,7 @@ export function LoginPage() {
         <label className="block">
           <span className="text-sm font-medium">Email</span>
           <input
-            placeholder="you@example.com"
+            placeholder="Your email address"
             type="email"
             required
             autoComplete="email"
@@ -377,10 +381,10 @@ function canonicalJson(value: unknown): string {
 }
 
 /** The mandate fields the server recomputes; the preview above is only a reading view. */
-function canonicalMandate(poolIds: string[], capCents: number, expiresAt: string, conditions: MandateRequestCondition[]): string {
+function canonicalMandate(poolIds: string[], capCents: number, expiresAt: string, conditions: MandateRequestCondition[], category: string | null = null): string {
   return canonicalJson({
     pool_ids: poolIds.map((id) => id.toLowerCase()).sort(),
-    category: null,
+    category,
     conditions,
     max_cap_cents: capCents,
     expires_at: expiresAt,
@@ -394,16 +398,30 @@ async function sha256Hex(text: string): Promise<string> {
 }
 
 /** Buyer delegations: scoped, capped, expiring tokens shown exactly once. */
-export function AgentSettingsPage() {
+export function AgentSettingsPage({authorization}: {authorization?: Authorization} = {}) {
+  const intentField = useRef<HTMLTextAreaElement>(null);
+  const [scopeEdited, setScopeEdited] = useState(false);
+  const [capEdited, setCapEdited] = useState(false);
+  const [manualSetup, setManualSetup] = useState(false);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
+  const [reviewReady, setReviewReady] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
+  const [matchedPools, setMatchedPools] = useState<ApiComponents["schemas"]["PoolSummary"][]>([]);
+  const [connectionName, setConnectionName] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [intent, setIntent] = useState("");
+  const [proposalBusy, setProposalBusy] = useState(false);
+  const [proposalNote, setProposalNote] = useState("");
+  const [mandateCategory, setMandateCategory] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [revokeBusy, setRevokeBusy] = useState(false);
   const [tokenMessage, setTokenMessage] = useState("");
-  const accessRead = useApiRead("/api/v1/me/delegations", (signal) => api.GET("/api/v1/me/delegations", {signal}));
+  const accessRead = useApiRead("/api/v1/me/delegations", (signal) => api.GET("/api/v1/me/delegations", {signal}), {enabled: !authorization});
   const poolsRead = useApiRead("/api/v1/pools?status=OPEN&limit=100", (signal) => api.GET("/api/v1/pools", {signal, params: {query: {status: "OPEN", limit: 100}}}), {staleTime: 60_000});
   const items: Delegation[] | null = accessRead.data?.items ?? null;
   const pools = useMemo(
-    () => (Array.isArray(poolsRead.data) ? poolsRead.data : []),
-    [poolsRead.data],
+    () => [...new Map([...(Array.isArray(poolsRead.data) ? poolsRead.data : []), ...matchedPools].map((pool) => [pool.pool_id, pool])).values()],
+    [poolsRead.data, matchedPools],
   );
   const poolsProblem = poolsRead.error ? envelope(poolsRead.error) : null;
   const [selected, setSelected] = useState<string[]>([]);
@@ -421,7 +439,10 @@ export function AgentSettingsPage() {
     cap,
     expires,
     conditions,
-  );
+  ) + (mandateCategory ? `\nCategory: ${mandateCategory}` : "");
+  useEffect(() => {
+    if (manualSetup) intentField.current?.focus();
+  }, [manualSetup]);
   // A refetch can drop a closed pool, and its id is part of the mandate hash: a
   // ratification given for the old set must not mint a token over the new one.
   useEffect(() => {
@@ -456,6 +477,39 @@ export function AgentSettingsPage() {
     setRatified(false);
   }
 
+  async function propose() {
+    if (!intent.trim() || selected.length > 5) return;
+    setProposalBusy(true); setProposalNote(""); setRatified(false);
+    try {
+      const {data, error: failure} = await api.POST("/api/v1/me/mandate-proposal", {
+        body: {message: intent.trim(), pool_ids: scopeEdited ? selected : [], max_cap_cents: capEdited || fieldsOpen ? usdToCents(cap) : null},
+      });
+      if (failure || !data || data.source === "manual") {
+        setProposalNote("Write or edit the mandate below. AI could not prepare a proposal.");
+        setFieldsOpen(true); setReviewReady(true);
+        return;
+      }
+      const missing = data.pool_ids.filter((id) => !pools.some((pool) => pool.pool_id === id));
+      const details = await Promise.all(missing.map(async (pool_id) => {
+        const result = await api.GET("/api/v1/pools/{pool_id}", {params: {path: {pool_id}}});
+        if (!result.data || result.error) throw new Error("Pool unavailable");
+        return result.data;
+      }));
+      setMatchedPools(details);
+      setSelected(data.pool_ids);
+      setFieldsOpen(data.max_cap_cents == null || data.expires_at == null); setReviewReady(true);
+      setMandateCategory(data.category ?? null);
+      setCap(data.max_cap_cents == null ? "" : `${Math.floor(data.max_cap_cents / 100)}.${String(data.max_cap_cents % 100).padStart(2, "0")}`);
+      setExpires(data.expires_at ? new Date(data.expires_at).toISOString().slice(0, 16) : "");
+      setConditions((data.conditions ?? []).map((condition) => ({
+        predicate: condition.predicate as MandatePredicate, action: condition.action as MandateAction,
+        params: Object.fromEntries(Object.entries((condition.params ?? {}) as Record<string, unknown>).map(([key, value]) => [key, String(value)])),
+      })));
+      setProposalNote(data.clarifying_question || "AI proposed the mandate below. Edit its fields, then review and ratify it.");
+    } catch { setProposalNote("Write or edit the mandate below. AI is unavailable."); setFieldsOpen(true); setReviewReady(true); }
+    finally { setProposalBusy(false); }
+  }
+
   async function create(event: FormEvent) {
     event.preventDefault();
     const capCents = usdToCents(cap);
@@ -476,22 +530,20 @@ export function AgentSettingsPage() {
     const conditionsPayload = serializeConditions(conditions);
     setBusy(true); setError(null); setToken(null);
     try {
-      const { data, error: failure } = await api.POST("/api/v1/me/delegations", {
-        body: {
-          scope: {
-            pool_ids: selected,
-            category: null,
-            mandate_version: "1",
-            ratification_sha256: await sha256Hex(canonicalMandate(selected, capCents, expiresAt, conditionsPayload)),
-            conditions: conditionsPayload,
-          },
-          max_cap_cents: capCents,
-          expires_at: expiresAt,
-        },
-      });
+      const body = {
+        name: connectionName.trim() || null,
+        scope: {
+          pool_ids: selected, category: mandateCategory, mandate_version: "1",
+          ratification_sha256: await sha256Hex(canonicalMandate(selected, capCents, expiresAt, conditionsPayload, mandateCategory)),
+          conditions: conditionsPayload,
+        }, max_cap_cents: capCents, expires_at: expiresAt,
+      };
+      if (authorization) { await decideAuthorization(authorization, body); return; }
+      const { data, error: failure } = await api.POST("/api/v1/me/delegations", {body});
       if (failure || !data) setError(envelope(failure));
       else {
         setToken(data.token);
+        setManualSetup(false); setReviewReady(false); setFieldsOpen(false);
         setSelected([]);
         setConditions([]);
         setRatified(false);
@@ -520,55 +572,38 @@ export function AgentSettingsPage() {
   }
 
   return (
-    <section aria-labelledby="agent-settings-title" className="buyer-settings">
-      <header className="settings-heading">
-      <h1 id="agent-settings-title" className="shop-title">Agent settings</h1>
-      <p className="shop-copy mt-2">
-        A delegation lets your AI client join, list and withdraw entries inside the pools you choose,
-        up to the cap you set. It cannot pay: only you approve payments on PayPal.
-      </p>
-      </header>
-      {error ? <div className="mt-5"><Notice kind="error" code={error.code}>{error.message}</Notice></div> : null}
-      {token ? (
-        <div className="settings-surface settings-token">
-          <p className="text-sm font-semibold text-ink">Copy this token now. It is shown once.</p>
-          <code className="mt-2 block break-all rounded-lg bg-canvas p-3 text-xs">{token}</code>
-          <p className="shop-copy">Store this token securely. You can revoke its access below.</p>
-          <div className="settings-actions"><button type="button" className="button-secondary" onClick={() => void copyToken()}><Icon name="copy" />Copy token</button><button type="button" className="shop-quiet-button" onClick={() => {setToken(null); setTokenMessage("");}}>Hide token</button></div>
-          {tokenMessage ? <p role="status" className="shop-copy">{tokenMessage}</p> : null}
-        </div>
-      ) : null}
-
-      <div className="settings-surface settings-delegations">
-        <h2 className="text-base font-semibold text-ink">Your delegations</h2>
-        {items === null ? error ? <button type="button" className="button-secondary" onClick={() => void load()}>Try again</button> : <p role="status" className="mt-3 text-sm text-muted">Loading delegations…</p> : items.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">No delegations yet. An AI client needs one before it can act for you.</p>
-        ) : (
-          <ul className="mt-3 grid gap-3">
-            {items.map((item) => {
-              const scope = item.scope as { pool_ids?: string[] };
-              return (
-                <li key={item.id} className="delegation-record">
-                  <span>
-                    {scope.pool_ids?.length ?? 0} pool{scope.pool_ids?.length === 1 ? "" : "s"} · cap {formatCents(item.max_cap_cents)} · expires {formatDateTime(item.expires_at)}
-                    {item.revoked_at ? " · revoked" : ""}
-                  </span>
-                  {item.revoked_at ? null : (
-                    <button type="button" className="shop-quiet-button" id={`agent-revoke-${item.id}`} onClick={() => setRevoking(item.id)}>Revoke</button>
-                  )}
-                  <ul className="delegation-pool-list" aria-label="Authorized pools">{(scope.pool_ids ?? []).map((id) => <li key={id}><Icon name="layers" /><span>{pools.find((pool) => pool.pool_id === id)?.title ?? "Previously selected pool"}</span></li>)}</ul>
-                  {revoking === item.id ? <ConfirmAction returnFocusId={`agent-revoke-${item.id}`} title="Revoke this delegation?" message="The agent's token will stop working immediately. Existing pool entries are kept." confirmLabel="Confirm revoke delegation" cancelLabel="Keep delegation" busy={revokeBusy} onConfirm={() => void revoke(item.id)} onCancel={() => setRevoking(null)} /> : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <details className="settings-integration"><summary>Connect your agent</summary><p className="shop-copy">Use the delegation token with a compatible client. It can list pools, join, list entries and withdraw entries within your scope. It has no payment tool.</p><a className="signup-back" href="/openapi.json">Open agent API reference</a></details>
-      </div>
-      <form onSubmit={(event) => void create(event)} className="settings-surface settings-delegation-form">
-        <h2>Create agent access</h2>
-        <p className="shop-copy">Write the mandate this agent must follow. It authorizes no payment: a human approves every charge, and the agent has no payment tool.</p>
-        <p className="shop-copy">AI-proposed mandates are not available in this build, so you write the mandate yourself.</p>
+    <section aria-label={authorization ? "Agent mandate" : undefined} aria-labelledby={authorization ? undefined : "agent-settings-title"} className="buyer-settings agent-page">
+      {!authorization ? <>
+        <header className="agent-heading"><div><h1 id="agent-settings-title" className="shop-title">Agent connections</h1><p className="shop-copy">Let an agent find pools and manage entries. You approve every payment.</p></div><button type="button" className="button-primary" aria-expanded={connecting} onClick={() => setConnecting((value) => !value)}>Connect an agent<Icon name="arrow" /></button></header>
+        {connecting ? <section className="settings-surface agent-connect-guide" aria-labelledby="connect-guide-title"><div className="agent-section-heading"><div><h2 id="connect-guide-title">Connect in your agent’s app</h2><p className="shop-copy">Add this server once. FairPool takes care of the secure connection.</p></div><button type="button" className="shop-quiet-button" onClick={() => setConnecting(false)}>Close guide</button></div>
+          <label className="agent-url">MCP server URL<div><input className="form-input" readOnly value={`${API_BASE_URL}/mcp`} aria-label="MCP server URL" /><button type="button" className="button-secondary" onClick={() => void navigator.clipboard.writeText(`${API_BASE_URL}/mcp`).then(() => setUrlCopied(true)).catch(() => setUrlCopied(false))}><Icon name="copy" />{urlCopied ? "Copied" : "Copy URL"}</button></div></label>
+          <ol className="agent-steps"><li><strong>Add the server</strong><span>Open your agent’s MCP or integrations settings and paste the URL.</span></li><li><strong>Choose Connect</strong><span>Your agent opens FairPool in your browser. No access token to copy.</span></li><li><strong>Review and approve</strong><span>Describe what you need. Check the proposed limits, then approve.</span></li></ol>
+          <p className="agent-reassurance"><Icon name="shield" />Only connect a client you recognize. You can revoke it here at any time.</p>
+        </section> : null}
+        <div className="agent-connections-layout"><section className="settings-surface settings-delegations" aria-labelledby="connections-title"><div className="agent-section-heading"><h2 id="connections-title">Connections</h2>{items ? <span className="shop-copy">{items.length} connection{items.length === 1 ? "" : "s"}</span> : null}</div>
+          {items === null ? error ? <button type="button" className="button-secondary" onClick={() => void load()}>Try again</button> : <p role="status" className="shop-copy">Loading connections…</p> : items.length === 0 ? <div className="agent-empty"><h3>No agents connected yet</h3><p className="shop-copy">Connect a compatible MCP client to get started. You choose what it can do before access is granted.</p><a href="#agent-help" className="signup-back">How access works</a></div> : <ul className="agent-connection-list">{items.map((item) => {
+            const scope = item.scope as {pool_ids?: string[]};
+            const state = item.revoked_at ? "Revoked" : Date.parse(item.expires_at) <= Date.now() ? "Expired" : "Active";
+            return <li key={item.id} className="agent-connection"><div className="agent-connection-heading"><div><h3>{item.name || "Unnamed connection"}</h3><p className="shop-copy">Public prefix <code>{item.key_prefix || "Legacy connection"}</code></p></div><StatusPill status={state.toUpperCase()} tone={state === "Revoked" ? "bad" : state === "Active" ? "good" : "neutral"}>{state}</StatusPill></div>
+              <p className="agent-connection-usage">Last used: {item.last_used_at ? formatDateTime(item.last_used_at) : "Never"}</p>
+              <div className="agent-connection-footer"><details><summary>Access details</summary><p className="shop-copy">{scope.pool_ids?.length ?? 0} pool{scope.pool_ids?.length === 1 ? "" : "s"} · cap {formatCents(item.max_cap_cents)} · expires {formatDateTime(item.expires_at)}</p><ul className="delegation-pool-list" aria-label="Authorized pools">{(scope.pool_ids ?? []).map((id) => <li key={id}>{pools.find((pool) => pool.pool_id === id)?.title ?? "Previously selected pool"}</li>)}</ul></details>{!item.revoked_at ? <button type="button" className="shop-quiet-button" id={`agent-revoke-${item.id}`} onClick={() => setRevoking(item.id)}>Revoke</button> : null}</div>
+              {revoking === item.id ? <ConfirmAction returnFocusId={`agent-revoke-${item.id}`} title="Revoke this connection?" message="The agent’s access stops immediately. Your existing pool entries are kept." confirmLabel="Confirm revoke delegation" cancelLabel="Keep delegation" busy={revokeBusy} onConfirm={() => void revoke(item.id)} onCancel={() => setRevoking(null)} /> : null}
+            </li>;
+          })}</ul>}
+        </section><aside className="agent-control-note" id="agent-help"><h2>You stay in control</h2><dl><div><dt>Your pools</dt><dd>The agent can only act in the pools you approve.</dd></div><div><dt>Your limits</dt><dd>A per-entry cap and expiry bound its access.</dd></div><div><dt>Your payment</dt><dd>Every charge still needs human approval. No agent payment tool exists.</dd></div></dl><Link to="/my-pools" className="signup-back">See your pool entries<Icon name="arrow" /></Link></aside></div>
+        {!manualSetup ? <div className="agent-manual-option"><div><h2>Client without OAuth?</h2><p className="shop-copy">The manual token fallback is available for clients that need it.</p></div><button type="button" className="button-secondary" onClick={() => setManualSetup(true)}>Set up manually</button></div> : null}
+      </> : null}
+      {error ? <Notice kind="error" code={error.code}>{error.message}</Notice> : null}
+      {token ? <div className="settings-surface settings-token"><h2>Copy this token now. It is shown once.</h2><code className="mt-3 block break-all rounded-lg bg-canvas p-3 text-xs">{token}</code><p className="shop-copy">Store it in your client’s secure configuration. You can revoke access above.</p><div className="settings-actions"><button type="button" className="button-secondary" onClick={() => void copyToken()}><Icon name="copy" />Copy token</button><button type="button" className="shop-quiet-button" onClick={() => {setToken(null); setTokenMessage("");}}>Hide token</button></div>{tokenMessage ? <p role="status" className="shop-copy">{tokenMessage}</p> : null}</div> : null}
+      {authorization || manualSetup ? <form onSubmit={(event) => void create(event)} className="settings-surface settings-delegation-form agent-editor">
+        <div className="agent-section-heading"><div><h2>{authorization ? "What should your agent do?" : "Set up agent access"}</h2><p className="shop-copy">Describe the product, budget and time limit. We’ll find matching pools and prepare the details for you to review.</p></div>{!authorization ? <button type="button" className="shop-quiet-button" onClick={() => setManualSetup(false)}>Close setup</button> : null}</div>
+        <label className="text-sm font-semibold">Describe your mandate<textarea ref={intentField} className="form-input mt-2 agent-intent" maxLength={2000} rows={3} value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="Find a 4K monitor under $520 per entry, ask me above $500, and stop on 30 November 2026." /></label>
+        <div className="agent-editor-actions"><button type="button" className="button-primary" disabled={proposalBusy || !intent.trim() || selected.length > 5} onClick={() => void propose()}>{proposalBusy ? "Finding pools and preparing…" : "Propose with AI"}<Icon name="arrow" /></button>{!fieldsOpen ? <button type="button" className="shop-quiet-button" onClick={() => {setFieldsOpen(true); setReviewReady(true);}}>Choose fields myself</button> : null}</div>
+        {selected.length > 5 ? <p className="shop-copy">AI proposals support up to five selected pools.</p> : null}
+        {proposalNote ? <p role="status" className="agent-proposal-note">{proposalNote}</p> : null}
+        {fieldsOpen ? <div className="agent-fields"><div className="agent-section-heading"><h3 className="font-semibold">Edit access details</h3><button type="button" className="shop-quiet-button" onClick={() => setFieldsOpen(false)}>Done editing</button></div>
+          {!authorization ? <label className="text-sm">Connection name<input className="form-input mt-1" maxLength={120} value={connectionName} onChange={(event) => setConnectionName(event.target.value)} placeholder="For example, my research assistant" /></label> : null}
+        {mandateCategory ? <label className="text-sm">Category<input className="form-input mt-1" value={mandateCategory} onChange={(event) => {setMandateCategory(event.target.value || null); setRatified(false);}} /></label> : null}
         <fieldset>
           <legend className="text-sm font-semibold text-ink">Pools this delegation may use</legend>
           {poolsProblem ? (
@@ -592,6 +627,7 @@ export function AgentSettingsPage() {
                     type="checkbox"
                     checked={selected.includes(pool.pool_id)}
                     onChange={(event) => {
+                      setScopeEdited(true);
                       setSelected((current) =>
                         event.target.checked ? [...current, pool.pool_id] : current.filter((id) => id !== pool.pool_id));
                       setRatified(false);
@@ -605,7 +641,7 @@ export function AgentSettingsPage() {
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm">Maximum per entry (USD)
-            <input className="form-input mt-1" inputMode="decimal" value={cap} onChange={(event) => { setCap(event.target.value); setRatified(false); }} />
+            <input className="form-input mt-1" inputMode="decimal" value={cap} onChange={(event) => { setCap(event.target.value); setCapEdited(true); setRatified(false); }} />
           </label>
           <label className="text-sm">Expires (UTC)
             <input className="form-input mt-1" type="datetime-local" value={expires} onChange={(event) => { setExpires(event.target.value); setRatified(false); }} />
@@ -613,7 +649,7 @@ export function AgentSettingsPage() {
         </div>
         <fieldset>
           <legend className="text-sm font-semibold text-ink">Conditions this agent must honour</legend>
-          <p className="shop-copy">Optional. FairPool checks each condition against its own records, so no rule is left to the agent's judgement. The cap is per entry, not a total across pools.</p>
+          <p className="shop-copy">Optional. These conditions guide your agent and are advisory in this build; FairPool enforces the pool scope, per-entry cap, expiry and revocation. The cap is not a total across pools.</p>
           <div className="mt-3 grid gap-3">
             {conditions.map((condition, index) => (
               <div key={index} className="grid gap-3 sm:grid-cols-2">
@@ -660,19 +696,16 @@ export function AgentSettingsPage() {
           <button type="button" className="button-secondary mt-3 w-fit" onClick={addCondition} disabled={conditions.length >= 5}>Add condition</button>
           {conditions.length >= 5 ? <p className="shop-copy">A mandate carries at most five conditions.</p> : null}
         </fieldset>
-        <div>
-          <h3 className="text-sm font-semibold text-ink">Your mandate</h3>
-          <pre data-testid="mandate-text" className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-canvas p-3 text-xs">{renderedMandate}</pre>
-          <p className="shop-copy">FairPool stores a SHA-256 of these mandate fields — your selected pools, cap, expiry and conditions — with the delegation. This preview is for reading. Editing any field means you ratify again.</p>
-        </div>
-        <label className="settings-pool-option">
-          <input type="checkbox" checked={ratified} onChange={(event) => setRatified(event.target.checked)} />
-          I ratify this mandate. The agent acts only inside it, and I approve every payment myself.
-        </label>
-        <button type="submit" className="button-primary w-fit" disabled={busy || pools.length === 0}>
-          {busy ? "Creating…" : "Create delegation"}
-        </button>
-      </form>
+        </div> : null}
+        {reviewReady ? <section className="agent-review" aria-labelledby="agent-review-title"><div className="agent-section-heading"><h3 id="agent-review-title">Review agent access</h3>{!fieldsOpen ? <button type="button" className="shop-quiet-button" onClick={() => setFieldsOpen(true)}>Edit limits and pools</button> : null}</div>
+          <div data-testid="mandate-text" className="agent-mandate-text">{renderedMandate}</div>
+          <p className="agent-reassurance"><Icon name="shield" />This mandate authorizes no payment. A human approves every charge.</p>
+          {conditions.length ? <p className="shop-copy">Custom instructions are advisory. FairPool enforces your pool scope, per-entry cap, expiry and revocation.</p> : null}
+          <details className="agent-technical"><summary>How this approval is recorded</summary><p className="shop-copy">FairPool stores a SHA-256 of the selected pools, cap, expiry and conditions. Editing any field means approving the mandate again.</p></details>
+          <label className="settings-pool-option"><input type="checkbox" checked={ratified} onChange={(event) => setRatified(event.target.checked)} />I approve this mandate and will approve every payment myself.</label>
+          <button type="submit" className="button-primary w-fit" disabled={busy || pools.length === 0}>{busy ? "Connecting…" : authorization ? "Approve connection" : "Create delegation"}</button>
+        </section> : null}
+      </form> : null}
     </section>
   );
 }

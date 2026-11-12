@@ -26,6 +26,10 @@ function reasonOf(payload: Record<string, unknown>): string | null {
  */
 function describeNotification(kind: string, payload: Record<string, unknown>): string {
   switch (kind) {
+    case "demand.pool_proposed":
+      return `A pool for ${typeof payload.title === "string" ? payload.title : "a product you follow"} was proposed. An operator will review it before publication.`;
+    case "demand.pool_open":
+      return `A pool for ${typeof payload.title === "string" ? payload.title : "a product you follow"} was published. Check Interests in My Pools for its opening and join separately.`;
     case "lot.awarded":
       return "Your bid won a lot. Checkout opens when the pool reaches its award step.";
     case "lot.cancelled":

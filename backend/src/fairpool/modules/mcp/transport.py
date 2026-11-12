@@ -63,7 +63,9 @@ class MCPApp:
             return
         bearer = _bearer(scope)
         if bearer is None:
-            await _send_json(send, 401, _error_body("DELEGATION_INVALID", _INVALID_MESSAGE))
+            await _send_json(
+                send, 401, _error_body("DELEGATION_INVALID", _INVALID_MESSAGE), self._challenge()
+            )
             return
         body = b""
         if method == "POST":
@@ -75,7 +77,9 @@ class MCPApp:
         try:
             await self._authenticate(bearer)
         except ApplicationError:
-            await _send_json(send, 401, _error_body("DELEGATION_INVALID", _INVALID_MESSAGE))
+            await _send_json(
+                send, 401, _error_body("DELEGATION_INVALID", _INVALID_MESSAGE), self._challenge()
+            )
             return
         if method == "POST":
             await self._post(body, bearer, send)
@@ -83,6 +87,16 @@ class MCPApp:
             await self._stream(send, receive)
         else:
             await _send_json(send, 405, _error_body("VALIDATION_ERROR", "Use POST or GET."))
+
+    def _challenge(self) -> list[tuple[bytes, bytes]]:
+        """CR-17 / RFC 9728: tell a client where to discover the authorization server.
+
+        Without this header a compliant MCP client cannot offer a connect flow and
+        the buyer is left pasting a token by hand.
+        """
+        base = self.settings.public_base_url.rstrip("/")
+        value = f'Bearer resource_metadata="{base}/.well-known/oauth-protected-resource"'
+        return [(b"www-authenticate", value.encode())]
 
     def _session_factory(self) -> async_sessionmaker[AsyncSession]:
         """The app's one factory, created lazily exactly as ``api/deps.py`` does.
@@ -101,7 +115,7 @@ class MCPApp:
         return factory
 
     async def _authenticate(self, bearer: str) -> AgentPrincipal:
-        """Resolve the token on the app's factory; authentication writes nothing."""
+        """Resolve the token on the app's factory; the row's last use is stamped there."""
         async with self._session_factory()() as session:
             auth = PostgresDelegationAuth(
                 clock=self.clock, hmac_key=self.settings.hmac_key.get_secret_value()
@@ -187,9 +201,13 @@ async def _read_body(receive: Any, *, limit: int) -> bytes | None:
             return b"".join(chunks)
 
 
-async def _send_json(send: Any, status: int, payload: Any) -> None:
+async def _send_json(
+    send: Any, status: int, payload: Any, extra_headers: list[tuple[bytes, bytes]] | None = None
+) -> None:
     body = b"" if payload is None else json.dumps(payload).encode()
     headers = [(b"content-type", JSON), (b"content-length", str(len(body)).encode())]
+    if extra_headers:
+        headers.extend(extra_headers)
     await send({"type": "http.response.start", "status": status, "headers": headers})
     await send({"type": "http.response.body", "body": body})
 

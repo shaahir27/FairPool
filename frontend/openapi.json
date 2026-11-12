@@ -1345,6 +1345,18 @@
             "title": "Max Cap Cents",
             "type": "integer"
           },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "scope": {
             "$ref": "#/components/schemas/DelegationScope"
           }
@@ -1369,9 +1381,43 @@
             "title": "Id",
             "type": "string"
           },
+          "key_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Prefix"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
           "max_cap_cents": {
             "title": "Max Cap Cents",
             "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "revoked_at": {
             "anyOf": [
@@ -1499,9 +1545,43 @@
             "title": "Id",
             "type": "string"
           },
+          "key_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Prefix"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
           "max_cap_cents": {
             "title": "Max Cap Cents",
             "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           },
           "revoked_at": {
             "anyOf": [
@@ -1589,6 +1669,262 @@
           "country_code"
         ],
         "title": "DeliveryAddress",
+        "type": "object"
+      },
+      "DemandClusterView": {
+        "properties": {
+          "bundle_contents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bundle Contents",
+            "type": "array"
+          },
+          "cluster_key": {
+            "title": "Cluster Key",
+            "type": "string"
+          },
+          "condition": {
+            "title": "Condition",
+            "type": "string"
+          },
+          "interested": {
+            "title": "Interested",
+            "type": "integer"
+          },
+          "product_key": {
+            "title": "Product Key",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          }
+        },
+        "required": [
+          "cluster_key",
+          "title",
+          "product_key",
+          "condition",
+          "bundle_contents",
+          "regions",
+          "interested",
+          "threshold",
+          "status"
+        ],
+        "title": "DemandClusterView",
+        "type": "object"
+      },
+      "DemandProposalView": {
+        "properties": {
+          "cluster_key": {
+            "title": "Cluster Key",
+            "type": "string"
+          },
+          "interested": {
+            "title": "Interested",
+            "type": "integer"
+          },
+          "pool_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Id"
+          },
+          "proposed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed At"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cluster_key",
+          "title",
+          "status",
+          "regions",
+          "interested",
+          "threshold"
+        ],
+        "title": "DemandProposalView",
+        "type": "object"
+      },
+      "DemandSignalRequest": {
+        "additionalProperties": false,
+        "description": "CR-17 / FR-DM-01: the canonical fields the buyer confirmed, and nothing else.\n\nNo cap, no free-text message and no address: a signal is interest in a product,\nnot a request to buy one.",
+        "properties": {
+          "bundle_contents": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Bundle Contents",
+            "type": "array"
+          },
+          "condition": {
+            "enum": [
+              "NEW",
+              "REFURBISHED",
+              "OPEN_BOX"
+            ],
+            "title": "Condition",
+            "type": "string"
+          },
+          "product_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Product Key",
+            "type": "string"
+          },
+          "region": {
+            "pattern": "^[A-Z]{2}$",
+            "title": "Region",
+            "type": "string"
+          },
+          "source": {
+            "default": "intake",
+            "enum": [
+              "intake",
+              "discover"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          }
+        },
+        "required": [
+          "product_key",
+          "condition",
+          "bundle_contents",
+          "region"
+        ],
+        "title": "DemandSignalRequest",
+        "type": "object"
+      },
+      "DemandSignalView": {
+        "properties": {
+          "cluster_key": {
+            "title": "Cluster Key",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "interested": {
+            "title": "Interested",
+            "type": "integer"
+          },
+          "pool_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pool Id"
+          },
+          "signal_id": {
+            "format": "uuid",
+            "title": "Signal Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "threshold": {
+            "title": "Threshold",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signal_id",
+          "cluster_key",
+          "title",
+          "status",
+          "interested",
+          "threshold",
+          "expires_at"
+        ],
+        "title": "DemandSignalView",
         "type": "object"
       },
       "EntryCreateRequest": {
@@ -2171,6 +2507,139 @@
           "min_seats"
         ],
         "title": "LotSize",
+        "type": "object"
+      },
+      "MandateProposal": {
+        "description": "A proposal, never a token. ``source`` says whether the model or the form wrote it.",
+        "properties": {
+          "ambiguities": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ambiguities",
+            "type": "array"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "clarifying_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarifying Question"
+          },
+          "conditions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "max_cap_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cap Cents"
+          },
+          "pool_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Pool Ids",
+            "type": "array"
+          },
+          "reserved": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reserved",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "ai",
+              "manual"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "pool_ids"
+        ],
+        "title": "MandateProposal",
+        "type": "object"
+      },
+      "MandateProposalRequest": {
+        "additionalProperties": false,
+        "description": "CR-17: the buyer's words plus the pools they are considering (ai-schemas.md 9).",
+        "properties": {
+          "max_cap_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Cap Cents"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "pool_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Pool Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "MandateProposalRequest",
         "type": "object"
       },
       "ManifestItem": {
@@ -5279,6 +5748,189 @@
         "summary": "Admin Audit Export"
       }
     },
+    "/api/v1/admin/demand-proposals": {
+      "get": {
+        "operationId": "demand_proposals_list",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DemandProposalView"
+                  },
+                  "title": "Response Demand Proposals List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Demand Proposals List"
+      }
+    },
+    "/api/v1/admin/demand-proposals/{cluster_key}/publish": {
+      "post": {
+        "operationId": "demand_proposal_publish",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cluster_key",
+            "required": true,
+            "schema": {
+              "title": "Cluster Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Demand Proposal Publish",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Demand Proposal Publish"
+      }
+    },
+    "/api/v1/admin/demand-proposals/{cluster_key}/reject": {
+      "post": {
+        "operationId": "demand_proposal_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cluster_key",
+            "required": true,
+            "schema": {
+              "title": "Cluster Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Demand Proposal Reject",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Demand Proposal Reject"
+      }
+    },
     "/api/v1/admin/lots/{lot_id}": {
       "get": {
         "operationId": "admin_lot_get",
@@ -6461,6 +7113,52 @@
         "summary": "Checkout Return"
       }
     },
+    "/api/v1/demand-clusters": {
+      "get": {
+        "operationId": "demand_clusters_forming",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DemandClusterView"
+                  },
+                  "title": "Response Demand Clusters Forming",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Demand Clusters Forming"
+      }
+    },
     "/api/v1/entries/{entry_id}/status": {
       "get": {
         "operationId": "entry_status",
@@ -7382,6 +8080,179 @@
         "summary": "Delegations Delete"
       }
     },
+    "/api/v1/me/demand-signals": {
+      "get": {
+        "operationId": "demand_signal_list",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DemandSignalView"
+                  },
+                  "title": "Response Demand Signal List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Demand Signal List"
+      },
+      "post": {
+        "operationId": "demand_signal_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandSignalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandSignalView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Demand Signal Create"
+      }
+    },
+    "/api/v1/me/demand-signals/{signal_id}": {
+      "delete": {
+        "operationId": "demand_signal_cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "signal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Signal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Demand Signal Cancel"
+      }
+    },
     "/api/v1/me/entries": {
       "get": {
         "operationId": "me_entries",
@@ -7431,6 +8302,68 @@
           }
         ],
         "summary": "Me Entries"
+      }
+    },
+    "/api/v1/me/mandate-proposal": {
+      "post": {
+        "description": "Propose a mandate from the buyer's words; the buyer still ratifies it (FR-AI-06).\n\nThis mints nothing. The card it returns is edited and hashed in the browser and\ncomes back through ``delegations_create``, which recomputes that hash.",
+        "operationId": "mandate_proposal",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MandateProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MandateProposal"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Mandate Proposal"
       }
     },
     "/api/v1/me/notifications": {

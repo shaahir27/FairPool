@@ -227,6 +227,14 @@ class PayPalLink(Base):
 
 class Delegation(Base):
     __tablename__ = "delegations"
+    __table_args__ = (
+        Index(
+            "uq_delegations_key_prefix",
+            "key_prefix",
+            unique=True,
+            postgresql_where=text("key_prefix IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -237,6 +245,54 @@ class Delegation(Base):
     max_cap_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # CR-17: the connection identity merchant keys already carry. Nullable so a token
+    # minted before this migration keeps working and stays listable.
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    key_prefix: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    oauth_client_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("agent_oauth_clients.client_id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
+class AgentOAuthClient(Base):
+    """A registered MCP client (CR-17, RFC 7591). Public clients: no secret is issued."""
+
+    __tablename__ = "agent_oauth_clients"
+
+    client_id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    redirect_uris: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
+class AgentOAuthCode(Base):
+    """One authorization code, stored only as its HMAC and usable exactly once.
+
+    The ratified mandate travels in ``scope`` so the token minted at exchange is the
+    one the buyer approved in the browser, never a wider one (CR-14 binding, CR-17).
+    """
+
+    __tablename__ = "agent_oauth_codes"
+
+    code_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    client_id: Mapped[str] = mapped_column(
+        Text, ForeignKey("agent_oauth_clients.client_id"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    redirect_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    code_challenge: Mapped[str] = mapped_column(Text, nullable=False)
+    scope: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    max_cap_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

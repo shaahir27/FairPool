@@ -124,6 +124,8 @@ Search is **retrieval**, not AI judgement, and never a gate for requirements (R3
 
 Added by CR-14 (owner authorized 2026-11-07, FR-AI-06). Numbered last so sections 2 to 8 keep their existing numbers and every cross-reference to them stays valid.
 
+CR-17 exposes `POST /api/v1/me/mandate-proposal` to the signed-in buyer (api.md §4.4). It returns an editable proposal or the manual form and mints nothing. An empty pool selection triggers ordinary public OPEN-pool retrieval from the buyer’s intent, with at most five candidates; the buyer need not search and select pools by hand. Its candidate category is the product key; category proposals resolve to explicit supplied pool IDs with a null delegation category, so the ordinary pool-scoped token can use them without gaining access to any future pool.
+
 Input: `message`, the accepted INTAKE proposal from section 2, `candidates` (the same at most 5 open pools, each with its template bounds and `timeline`), and `history`.
 
 ```json

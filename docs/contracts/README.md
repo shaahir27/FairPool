@@ -27,6 +27,70 @@ No payment, fairness, account-verification or agent permission changes are inclu
 
 ## Rules
 
+### CR-17: The buyer still connects an agent by hand, and demand that has no pool simply dies (owner authorized 2026-11-12)
+
+Two product gaps, both raised by the owner after reading the shipped Agent settings screen.
+
+First, connecting an agent means writing a mandate by hand, copying a bearer token once, and
+pasting it into a local client's configuration. The app is not where the connection happens;
+it is where a secret is printed. Every comparable product connects an account from inside the
+product, and the MCP authorization specification exists precisely so a client can do that:
+meet a 401, discover the authorization server, open the buyer's browser, consent, receive a
+token. Our `/mcp` answered with a bare 401, so no compliant client could offer that flow.
+Two smaller gaps sit underneath it: a delegation had no name, no public prefix and no last-used
+time, so the buyer could not tell one connected agent from another (merchant keys already had
+all three); and the AI mandate proposal that `ai-schemas.md` §9 and FR-AI-06 contract was
+reachable only from an owner-run gate, while the screen said "AI-proposed mandates are not
+available in this build".
+
+Second, every pool is operator-created. A buyer who searches for something nobody has pooled
+gets a manual form and a dead end, and their interest is not recorded against them at all —
+`ai_runs` has no `user_id`, and `intake_proposals.pool_id` is NOT NULL. So the product cannot
+notice that five people want the same thing, cannot form a pool from that, and cannot tell the
+five people it happened. The idea's whole premise is making scattered demand visible as a
+group; today the scattering is invisible to us.
+
+The change is additive and keeps every invariant that made the first nine phases auditable.
+
+- **Agent connections.** `delegations` gains `name`, `key_prefix`, `last_used_at` and
+  `oauth_client_id` (migration 0008, all nullable, so existing tokens keep working).
+  `last_used_at` is stamped on successful authentication and committed by `require_agent`,
+  which reverses the earlier "authentication writes nothing" rule for delegations only.
+  `POST /api/v1/me/mandate-proposal` wires the existing `parse_mandate` adapter to the buyer:
+  it proposes, the server stamps the reserved acts and refuses a wider scope or a raised cap,
+  and any failure answers with the manual form. It mints nothing — the CR-14 ratification
+  binding is unchanged and still guards the only mint path.
+- **OAuth 2.1 for `/mcp`.** New `agent_oauth_clients` and `agent_oauth_codes` tables, the two
+  well-known metadata documents, dynamic registration, an authorize endpoint that validates
+  before it redirects, a session-and-CSRF consent decision that re-verifies the ratification
+  hash, a PKCE S256 token exchange, and RFC 7009 revocation. The access token **is** a
+  delegation minted from the mandate the buyer ratified in the browser, so there is one
+  revocation path, one cap/scope enforcement path and no second authority model. `/mcp` now
+  sends `WWW-Authenticate` with the resource-metadata URL on every 401.
+- **Demand formation.** New `demand_signals` and `demand_clusters` tables. A signal is written
+  only when the buyer explicitly consents, and stores canonical product fields plus a region —
+  never a cap, a raw message or an address. The cluster key is a deterministic hash of the
+  normalized product, condition, variant and sorted bundle, so a similarity score never decides
+  membership. A new `demand.sweep` job counts distinct active signals and, at the published
+  `DEMAND_THRESHOLD`, creates a **DRAFT** pool through the ordinary `PoolService`. An operator
+  publishes or rejects it through the ordinary publication path, so a demand-formed pool has
+  the same frozen rules, beacon, seed, commitments and audit chain as any other. Holders are
+  notified in-app in the same transaction (I10, FR-UI-09).
+
+What this deliberately does **not** do: no refresh tokens, no client secrets, no token
+introspection, no automatic publication, no email or push, no merchant-facing view of pre-pool
+demand, and no indexing of buyer interest. INT-1 is unchanged — search still indexes only public
+pool and lot documents — and INT-10 records that the demand registry is a private Postgres
+registry, not a search index. Stop-and-ask conditions remain advisory (Q-2026-11-08-39); this
+CR does not close that gap.
+
+Contracts amended: `api.md` §2 (15 routes), §4.4 (connection identity, mandate proposal), new
+§4.7 (agent OAuth) and §4.8 (demand formation); `db-schema.md` (four tables, four columns);
+`domain-ports.md` §5 (`demand.sweep`); `state-machines.md` (demand cluster); `config-and-errors.md`
+(`DEMAND_THRESHOLD`, `DEMAND_SIGNAL_TTL_DAYS`, and the RFC 6749 error bodies); `ai-schemas.md` §9
+(the buyer-facing route); `product-spec.md` (FR-AG-04, FR-AG-05, FR-DM-01 to FR-DM-06);
+`decisions.md` (INT-10). Migration 0008. No PayPal call is added anywhere.
+
 ### CR-14: The agent surface has authority but no instrument, and has never met a model caller (owner authorized 2026-11-07)
 
 FR-AG-01, FR-IG-02 and FR-IG-04 already give an AI client a scoped delegation token, an

@@ -25,7 +25,7 @@ export function workspaceRole(path: string): string | null {
   const section = path.split(/[/?#]/)[1] ?? "";
   if (section === "ops") return "admin";
   if (section === "merchant") return "merchant";
-  return ["discover", "my-pools", "orders", "pools", "settings", "offers"].includes(section) ? "buyer" : null;
+  return ["discover", "my-pools", "orders", "pools", "settings", "offers", "agents"].includes(section) ? "buyer" : null;
 }
 
 /**

@@ -17,6 +17,7 @@ import {
 } from "../../shared";
 import { prefetchBuyer } from "../prefetch";
 import { rememberPendingRequest } from "../drafts";
+import { DemandConsent, FormingDemand } from "../Demand";
 
 type PoolSummary = ApiComponents["schemas"]["PoolSummary"];
 type ConfirmationCard = ApiComponents["schemas"]["ConfirmationCard"];
@@ -53,6 +54,7 @@ export function DiscoverPage() {
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState<{ code: string; message: string } | null>(null);
   const [manualPool, setManualPool] = useState("");
+  const [demandConsent, setDemandConsent] = useState(false);
 
   const catalogue = useApiRead("/api/v1/pools?status=OPEN&sort=trending&limit=100",
     (signal) => api.GET("/api/v1/pools", {signal, params: { query: { status: "OPEN", sort: "trending", limit: 100 } }}), {staleTime: 60_000});
@@ -78,6 +80,7 @@ export function DiscoverPage() {
       }
       setSessionId(data.session_id);
       setTurn(data);
+      setDemandConsent(false);
       if (data.status !== "NO_MATCH") setMessage("");
     } catch {
       setNotice({ code: "REQUEST_FAILED", message: "Check your connection and try again." });
@@ -219,6 +222,7 @@ export function DiscoverPage() {
         )}
         <p className="catalogue-footnote">Have something in mind already? <Link to="/my-pools">Visit My Pools <Icon name="arrow" /></Link></p>
       </div>
+      <FormingDemand />
       <section className="discovery-assistance" aria-labelledby="request-heading">
         <div className="request-introduction">
         <h2 id="request-heading">Make a request</h2>
@@ -268,6 +272,7 @@ export function DiscoverPage() {
           </div>
         ) : null}
 
+        {turn?.status === "NO_MATCH" ? <div className="mt-5">{demandConsent ? <DemandConsent source="intake" onClose={() => setDemandConsent(false)} /> : <button type="button" className="button-secondary" onClick={() => setDemandConsent(true)}>Notify me when a pool forms</button>}</div> : null}
         {turn && !card ? (
           <div className="mt-5">
             {turn.clarifying_question ? (

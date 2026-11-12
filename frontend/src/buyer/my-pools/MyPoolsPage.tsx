@@ -1,3 +1,4 @@
+import { Interests } from "../Demand";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, useApiRead, type ApiComponents, envelope, formatCents, formatDateTime, honestyKinds, HonestyLabels, Icon, Notice, ProductArt, RecordFilters, StatusPill, statusStyle } from "../../shared";
@@ -59,6 +60,7 @@ export function MyPoolsPage() {
         {visible.length === 0 ? <div className="pool-list-empty"><Icon name={search ? "search" : "layers"} /><h2>{search ? "No matching pools" : view === "past" ? "No past entries" : "No current pools"}</h2><p>{search ? "Try another product or pool name." : view === "past" ? "Withdrawn entries and completed offers will appear here." : "Your completed entries are in Past entries. You can also browse a new pool."}</p>{search ? <button className="button-secondary" type="button" onClick={() => setQuery("")}>Clear search</button> : <Link className="button-secondary" to="/discover">Browse pools</Link>}</div>
           : <ul className="pool-entry-feed" aria-label={view === "current" ? "Current pool entries" : "Past pool entries"}>{visible.map((entry) => <EntryCard key={entry.entry_id} entry={entry} />)}</ul>}
       </>}
+    <Interests />
   </section>;
 }
 

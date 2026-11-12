@@ -71,4 +71,5 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
             yield session
         finally:
             await session.close()
-            await transaction.rollback()
+            if transaction.is_active:
+                await transaction.rollback()

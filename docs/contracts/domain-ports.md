@@ -237,6 +237,7 @@ One table is the source of truth. Handlers are registered by kind in `worker.py`
 | shipments.submit | A | lot_id | lot:{lot_id} | shipments:{lot_id} | merchant shipments endpoint | Submit pending trackers to PayPal through the adapter (when `SHIPMENT_TRACKING_ENABLED`) |
 | search.index | B | doc_kind, doc_id | search:{doc_kind}:{doc_id} | search:{doc_kind}:{doc_id} | pool publish, lot creation or status change, admin reindex | Upsert or delete one public document in the search backend |
 | reconciler.sweep | A | none | reconciler | reconciler | cron every `RECONCILER_INTERVAL_S` | Heal stale states, age guard |
+| demand.sweep | B | none | demand | demand | cron every `RECONCILER_INTERVAL_S` | CR-17: propose a DRAFT pool for each demand cluster that reached its published threshold |
 
 Runner rules: claim with `FOR UPDATE SKIP LOCKED` where `status = 'PENDING' AND run_at <= now()`; honour `concurrency_key`; retry failures with backoff 2, 4, 8 up to `max_attempts` then mark FAILED and raise an alert; a handler is idempotent and re-checks deadlines against the database clock when it runs (I15). Timers are job rows with `run_at`; there are no in-memory timers.
 

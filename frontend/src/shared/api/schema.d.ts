@@ -111,6 +111,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/demand-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Demand Proposals List */
+        get: operations["demand_proposals_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/demand-proposals/{cluster_key}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Demand Proposal Publish */
+        post: operations["demand_proposal_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/demand-proposals/{cluster_key}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Demand Proposal Reject */
+        post: operations["demand_proposal_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/lots/{lot_id}": {
         parameters: {
             query?: never;
@@ -507,6 +558,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/demand-clusters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Demand Clusters Forming */
+        get: operations["demand_clusters_forming"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entries/{entry_id}/status": {
         parameters: {
             query?: never;
@@ -717,6 +785,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/demand-signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Demand Signal List */
+        get: operations["demand_signal_list"];
+        put?: never;
+        /** Demand Signal Create */
+        post: operations["demand_signal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/demand-signals/{signal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Demand Signal Cancel */
+        delete: operations["demand_signal_cancel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/entries": {
         parameters: {
             query?: never;
@@ -728,6 +831,29 @@ export interface paths {
         get: operations["me_entries"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/mandate-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mandate Proposal
+         * @description Propose a mandate from the buyer's words; the buyer still ratifies it (FR-AI-06).
+         *
+         *     This mints nothing. The card it returns is edited and hashed in the browser and
+         *     comes back through ``delegations_create``, which recomputes that hash.
+         */
+        post: operations["mandate_proposal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2006,6 +2132,8 @@ export interface components {
             expires_at: string;
             /** Max Cap Cents */
             max_cap_cents: number;
+            /** Name */
+            name?: string | null;
             scope: components["schemas"]["DelegationScope"];
         };
         /** DelegationCreated */
@@ -2020,8 +2148,14 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Key Prefix */
+            key_prefix?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
             /** Max Cap Cents */
             max_cap_cents: number;
+            /** Name */
+            name?: string | null;
             /** Revoked At */
             revoked_at?: string | null;
             /** Scope */
@@ -2063,8 +2197,14 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Key Prefix */
+            key_prefix?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
             /** Max Cap Cents */
             max_cap_cents: number;
+            /** Name */
+            name?: string | null;
             /** Revoked At */
             revoked_at?: string | null;
             /** Scope */
@@ -2091,6 +2231,101 @@ export interface components {
             postal_code: string;
             /** Region */
             region: string;
+        };
+        /** DemandClusterView */
+        DemandClusterView: {
+            /** Bundle Contents */
+            bundle_contents: string[];
+            /** Cluster Key */
+            cluster_key: string;
+            /** Condition */
+            condition: string;
+            /** Interested */
+            interested: number;
+            /** Product Key */
+            product_key: string;
+            /** Regions */
+            regions: string[];
+            /** Status */
+            status: string;
+            /** Threshold */
+            threshold: number;
+            /** Title */
+            title: string;
+            /** Variant */
+            variant?: string | null;
+        };
+        /** DemandProposalView */
+        DemandProposalView: {
+            /** Cluster Key */
+            cluster_key: string;
+            /** Interested */
+            interested: number;
+            /** Pool Id */
+            pool_id?: string | null;
+            /** Proposed At */
+            proposed_at?: string | null;
+            /** Regions */
+            regions: string[];
+            /** Status */
+            status: string;
+            /** Threshold */
+            threshold: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * DemandSignalRequest
+         * @description CR-17 / FR-DM-01: the canonical fields the buyer confirmed, and nothing else.
+         *
+         *     No cap, no free-text message and no address: a signal is interest in a product,
+         *     not a request to buy one.
+         */
+        DemandSignalRequest: {
+            /** Bundle Contents */
+            bundle_contents: string[];
+            /**
+             * Condition
+             * @enum {string}
+             */
+            condition: "NEW" | "REFURBISHED" | "OPEN_BOX";
+            /** Product Key */
+            product_key: string;
+            /** Region */
+            region: string;
+            /**
+             * Source
+             * @default intake
+             * @enum {string}
+             */
+            source: "intake" | "discover";
+            /** Variant */
+            variant?: string | null;
+        };
+        /** DemandSignalView */
+        DemandSignalView: {
+            /** Cluster Key */
+            cluster_key: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Interested */
+            interested: number;
+            /** Pool Id */
+            pool_id?: string | null;
+            /**
+             * Signal Id
+             * Format: uuid
+             */
+            signal_id: string;
+            /** Status */
+            status: string;
+            /** Threshold */
+            threshold: number;
+            /** Title */
+            title: string;
         };
         /** EntryCreateRequest */
         EntryCreateRequest: {
@@ -2315,6 +2550,49 @@ export interface components {
             min_seats: number;
             /** Seats */
             seats: number;
+        };
+        /**
+         * MandateProposal
+         * @description A proposal, never a token. ``source`` says whether the model or the form wrote it.
+         */
+        MandateProposal: {
+            /** Ambiguities */
+            ambiguities?: {
+                [key: string]: unknown;
+            }[];
+            /** Category */
+            category?: string | null;
+            /** Clarifying Question */
+            clarifying_question?: string | null;
+            /** Conditions */
+            conditions?: {
+                [key: string]: unknown;
+            }[];
+            /** Expires At */
+            expires_at?: string | null;
+            /** Max Cap Cents */
+            max_cap_cents?: number | null;
+            /** Pool Ids */
+            pool_ids: string[];
+            /** Reserved */
+            reserved?: string[];
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "ai" | "manual";
+        };
+        /**
+         * MandateProposalRequest
+         * @description CR-17: the buyer's words plus the pools they are considering (ai-schemas.md 9).
+         */
+        MandateProposalRequest: {
+            /** Max Cap Cents */
+            max_cap_cents?: number | null;
+            /** Message */
+            message: string;
+            /** Pool Ids */
+            pool_ids?: string[];
         };
         /** ManifestItem */
         ManifestItem: {
@@ -3601,6 +3879,107 @@ export interface operations {
             };
         };
     };
+    demand_proposals_list: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandProposalView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demand_proposal_publish: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                cluster_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demand_proposal_reject: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                cluster_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_lot_get: {
         parameters: {
             query?: never;
@@ -4292,6 +4671,37 @@ export interface operations {
             };
         };
     };
+    demand_clusters_forming: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandClusterView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     entry_status: {
         parameters: {
             query?: never;
@@ -4800,6 +5210,105 @@ export interface operations {
             };
         };
     };
+    demand_signal_list: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandSignalView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demand_signal_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DemandSignalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemandSignalView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    demand_signal_cancel: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                signal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     me_entries: {
         parameters: {
             query?: never;
@@ -4818,6 +5327,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeEntryList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mandate_proposal: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MandateProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MandateProposal"];
                 };
             };
             /** @description Validation Error */

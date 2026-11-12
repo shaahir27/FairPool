@@ -59,6 +59,8 @@ Owner is who maintains the code that reads it. Secrets are marked S and never ap
 | `MCP_ENABLED` | `true` | B | | Mount the FairPool MCP server at `/mcp` |
 | `MERCHANT_API_ENABLED` | `true` | B | | Mount the Merchant Agent API at `/merchant-api/v1` |
 | `ZAPIER_BRIDGE` | `off` | B | | Documentation switch only (`off` or `managed`); no code reads it |
+| `DEMAND_THRESHOLD` | `5` | B | | Published formation threshold (CR-17): the distinct active, unexpired consented signals a cluster needs before `demand.sweep` proposes a DRAFT pool; 2 to 1000, stored on the cluster at creation |
+| `DEMAND_SIGNAL_TTL_DAYS` | `30` | B | | Signal lifetime in days (CR-17), added to the database clock at consent; past `expires_at` a signal no longer counts toward a threshold; 1 to 365 |
 | `AI_ENABLED` | `true` | B | | When false, intake uses the manual form and quotes go to ops review |
 | `GEMINI_API_KEY` | empty | B | S | Gemini API key |
 | `AI_MODEL_PARSE` | `gemini-3.5-flash-lite` | B | | Model for INTAKE, QUOTE, RECONCILE (verify the name in Google's Gemini docs) |
@@ -114,6 +116,8 @@ Two different things stop a duplicate join and both are required: the `Idempoten
 ## 4. Error codes
 
 Response shape in `api.md`. Codes are UPPER_SNAKE.
+
+The CR-17 OAuth endpoints (`/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`) answer with RFC 6749 error bodies (`invalid_grant`, `invalid_redirect_uri`, `invalid_client`, `invalid_request`, `unsupported_response_type`, `unsupported_grant_type`, `server_error`) instead of these codes, so no application code is added for them; every other CR-17 route uses the codes below.
 
 | Code | HTTP | Meaning |
 |---|---|---|

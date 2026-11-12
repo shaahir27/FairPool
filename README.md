@@ -94,16 +94,28 @@ You can use FairPool yourself in the browser, write a client against the HTTP AP
 |---|---|---|
 | Browser | Someone browsing, joining, approving an offer or managing orders | Sign in to the app; session cookie and CSRF protection |
 | Buyer HTTP API | A script, custom integration or agent that can make HTTP calls | `/agent/v1` with a buyer delegation token |
-| Buyer MCP | An AI assistant with Streamable HTTP and private bearer-header support | `/mcp` with that same buyer delegation token |
+| Buyer MCP | An AI assistant with Streamable HTTP and OAuth support | `/mcp`: browser consent with PKCE S256; the access token is the same buyer delegation (manual bearer fallback available) |
 | Merchant HTTP API / SDK | A merchant's own client or pricing bot | `/merchant-api/v1` with a scoped merchant API key |
 
 ### First, give a buyer client limited permission
 
-Sign in as a buyer and open **Agent settings** (`/settings/agents`). Select the pools the client may use, set its maximum price and expiry, review any stop-and-ask conditions, and ratify the mandate before creating access. Copy the token when it is shown: FairPool stores its HMAC, so it cannot show you the original again. You can revoke it from the same screen.
+CR-17 adds browser-based agent connections and consented demand formation. On November 12, the owner authorized upgrading the configured Supabase schema from `0007` to `0008`. All 39 existing pools, including their scheduled dates, matched before and after the upgrade; no reset or reseeding was run. The new demand registry starts empty until buyers explicitly record interest. The application requires schema `0008`; `/ready` checks that its code and database revisions agree.
+
+Sign in as a buyer and open **Agent settings** (`/settings/agents`) → **Connect an agent**. Add the shown MCP URL in a compatible client and choose Connect there. Its unauthenticated request discovers FairPool’s authorization server, registers a public client, and opens the browser consent page. Review the registered client name and redirect URI, describe the product, budget and time limit, review the automatically matched pools and proposed cap and expiry, then ratify the mandate and approve or deny. PKCE S256 binds the single-use code to the client; no token copying is needed. Tokens expire without refresh, and reconnecting requires consent again.
+
+Connections show a name, public prefix, active/expired/revoked status and last-used time. Revoke from the same screen. **Propose with AI** finds public open candidate pools from your intent and prepares an editable mandate; you can also choose pools yourself. The short review shows the permissions before approval. Detailed fields and the manual token path stay behind optional controls, and an unavailable or refused proposal opens the manual editor. It authorizes no payment. For a client without OAuth, use the labelled **Manual token fallback**: select scope, set cap and expiry, ratify, and store the once-shown token securely. FairPool stores only its HMAC.
 
 A buyer token is different from your FairPool password, a merchant API key and a PayPal credential. Put it in your client's private connection settings or secret store, never in a prompt, repository, screenshot or shared transcript. Both buyer interfaces enforce the token's owner, pool/category scope, cap, expiry and revocation. A scoped token cannot read or withdraw an entry outside its allowed pools.
 
 **Custom stop-and-ask conditions are advisory in this build.** They are validated and included in the ratified mandate, but the agent endpoints do not evaluate them. An assistant that ignores a condition is still bounded by the enforced scope, cap and expiry. Do not rely on a condition to stop a join; narrow or revoke the token instead. This gap is tracked as **Q-2026-11-08-39** in [progress](docs/progress.md).
+
+### When no pool matches
+
+After an intake no-match, choose **Notify me when a pool forms**, confirm the canonical product, condition, variant, bundle and delivery region, and explicitly consent. Declining records nothing. **Discover → Forming demand** shows only product fields and aggregate interest counts. Signals are private PostgreSQL records; they carry no budget, raw message or address and are never indexed in search.
+
+At the published threshold (five distinct active buyers by default), `demand.sweep` proposes one **DRAFT** pool through the ordinary pool service. An operator reviews it under **Ops → Demand proposals** and publishes or rejects it. Publication is never automatic. Holders receive in-app notifications when it is proposed and published; publication schedules the normal opening, and they still join separately. **My Pools → Interests** lists active interests and lets the buyer cancel. The default signal lifetime is 30 days; renewed consent can renew an expired signal.
+
+For synthetic local demo signals, set `DEMO_SEED_DEMAND=1` when explicitly running `tools/demo_seed.py`. With the default threshold, it adds one proposed draft and one cluster just below threshold using demo buyers; repeated runs reuse their signals. This flag does not publish a pool and does not add a PayPal call.
 
 ### Participate directly through the buyer API
 
@@ -143,7 +155,7 @@ The amount is your maximum delivered price, not a quoted pool price. Supply exac
 
 ### Participate through an MCP-connected assistant
 
-Configure a **Streamable HTTP** MCP connection to `https://fairpool-api.onrender.com/mcp` (or your local API origin plus `/mcp`). Set its private `Authorization` header to `Bearer` followed by your buyer delegation token. Let the MCP client perform initialization and tool discovery. Client configuration formats differ; an assistant that cannot send a private custom bearer header cannot use this connection as documented. FairPool does not provide an OAuth sign-in flow for MCP clients.
+FairPool supports **Streamable HTTP** MCP with browser-based OAuth consent: add `https://fairpool-api.onrender.com/mcp` (or `http://localhost:8000/mcp` locally) to a compatible client and follow **Connect an agent** above. For clients without OAuth, the **Manual token fallback** supplies a buyer delegation token for a private `Authorization: Bearer` header. Let the client perform initialization and tool discovery, and keep the token out of prompts and logs.
 
 This is **FairPool's MCP server**, which manages buyer participation. It is separate from the optional read-only PayPal MCP used for merchant payment inspection.
 
@@ -213,7 +225,7 @@ Google Gemini, through `google-genai`, helps people prepare those instructions a
 | Buyer intake | Extracts product, delivery needs and maximum price; proposes a match or clarification | Schema validation, pool rules and the buyer's confirmation |
 | Merchant quote parsing | Extracts structured fields from a pasted quote | Merchant review and the deterministic bid rules |
 | Offer reconciliation | Flags product or requirement mismatches, with explanations | Deterministic eligibility checks; a blocking flag can withhold an offer for correction |
-| Delegation mandate | Proposes an agent's pool scope, ceiling, expiry and stop-and-ask conditions | Buyer edits and ratifies it; scope, cap and expiry are enforced; custom conditions remain advisory |
+| Delegation mandate | The buyer-facing Propose with AI action prepares pool scope, ceiling, expiry and stop-and-ask conditions; failures return the manual editor | Buyer edits and ratifies the fields before OAuth consent or manual token creation; scope, cap, expiry and revocation are enforced; custom conditions remain advisory |
 | Simulation text | Produces varied rehearsal messages | Isolated simulation machinery; never a real payment |
 
 AI output uses closed JSON schemas. Invalid output is retried once, then the user falls back to a manual form. Inputs are treated as untrusted data. AI cannot qualify, accept or change a bid, choose a winner, or move money. No FairPool AI-callable surface can create a PayPal order, authorize, capture, void or refund. Search indexes public pool and lot documents, never buyer requests, caps or personal data.

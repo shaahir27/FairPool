@@ -33,6 +33,10 @@ logger = logging.getLogger("fairpool.worker")
 #: concurrency key and the same dedupe key, so ticks coalesce instead of piling up.
 RECONCILER_KIND: Final[str] = "reconciler.sweep"
 RECONCILER_KEY: Final[str] = "reconciler"
+#: CR-17: demand formation rides the same cron, with its own keys so a pending sweep
+#: coalesces independently of the payment reconciler.
+DEMAND_KIND: Final[str] = "demand.sweep"
+DEMAND_KEY: Final[str] = "demand"
 
 
 def install_signal_handlers(stop_event: threading.Event) -> None:
@@ -58,12 +62,20 @@ async def reconciler_tick(session_factory: async_sessionmaker[AsyncSession]) -> 
     ``reconciler`` concurrency key.
     """
     async with session_factory.begin() as session:
-        job_id = await PostgresJobQueue().enqueue(
+        queue = PostgresJobQueue()
+        job_id = await queue.enqueue(
             session,
             RECONCILER_KIND,
             {},
             concurrency_key=RECONCILER_KEY,
             dedupe_key=RECONCILER_KEY,
+        )
+        await queue.enqueue(
+            session,
+            DEMAND_KIND,
+            {},
+            concurrency_key=DEMAND_KEY,
+            dedupe_key=DEMAND_KEY,
         )
     if job_id is not None:
         # Once per enqueue; ids only, because the sweep's payload is empty by contract.

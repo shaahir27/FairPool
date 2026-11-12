@@ -34,6 +34,17 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 | FR-IN-07 | Pools are operator-defined templates; a confirmed request is matched to an open pool of the same product, variant and condition | GAP (D2) |
 | FR-IN-08 | A manual structured form produces the same confirmed request when AI is unavailable or unresolved | DESIGN 8.2 |
 
+### Demand-formed pools (CR-17)
+
+| ID | Requirement | Source |
+|---|---|---|
+| FR-DM-01 | When intake finds no matching pool, a buyer may explicitly consent to be notified when a pool forms for that product; the signal stores only the canonical product fields the buyer confirmed and a delivery region, never a cap, a raw message or an address | CR-17 |
+| FR-DM-02 | A cluster key is derived deterministically from the confirmed product, condition, variant and sorted bundle contents; a similarity score never decides membership | INT-1, CR-17 |
+| FR-DM-03 | A published threshold of distinct active signals causes a DRAFT pool to be proposed through the normal pool service; one cluster yields at most one pool | CR-17 |
+| FR-DM-04 | An operator publishes or rejects the proposal; publication uses the normal frozen-rules, beacon and job path, so a demand-formed pool is auditable exactly like an operator-created one | CR-17 |
+| FR-DM-05 | The buyers who signalled are notified in-app when a pool is proposed and when it opens; no email, SMS or push is sent (FR-UI-09 still holds) | CR-17 |
+| FR-DM-06 | A public forming-demand view shows aggregate counts and product fields only, never a buyer identity, cap or message; a buyer can list and cancel their own signals | INT-10, CR-17 |
+
 ### Fixed window and auditable selection (idea section 3)
 
 | ID | Requirement | Source |
@@ -110,6 +121,8 @@ In the tags below, `IDEA n` is the n-th stage of the idea text's section 5 (How 
 | FR-AG-01 | Documented agent API: list and search pools, create entry (idempotent), list own entries or read one entry's status, withdraw entry; delegation tokens scoped by pool or category, maximum cap and expiry; also reachable through the FairPool MCP server and the Zapier managed-mode bridge | IDEA 3, DESIGN 13, INT-2, INT-3 |
 | FR-AG-02 | The agent API has no payment endpoint; humans approve payments on PayPal. In vault mode an agent can submit the confirmed request, but the entry needs the buyer to open the returned `vault_action_url`, accept the consent text and approve saving PayPal; until then the entry is not eligible | DESIGN 13 |
 | FR-AG-03 | An agent-populated market run drives the real buyer and merchant agent surfaces with model-driven participants plus an adaptive adversary, over a pool whose payments use the fake router (I12), and publishes a measured report: sealed bids submitted, R1 to R9 rejections by code, awards made, mandate breaches attempted and refused, and PayPal writes originating from any AI-callable surface, which must be zero. Everything simulated is labelled and the run never reaches PayPal (FR-AI-03) | INT-3, INT-9, CR-14 |
+| FR-AG-04 | A buyer connects an AI client from the app through OAuth 2.1 (PKCE S256, dynamic client registration, browser consent) instead of pasting a token. The access token is an ordinary delegation minted from the mandate the buyer ratified, so scope, cap, expiry and revocation are enforced by the existing agent path (FR-AG-01, FR-AG-02) and no payment tool exists | INT-3, CR-17 |
+| FR-AG-05 | The buyer's connected agents are listed by name with a public key prefix, status and last-used time, and can be revoked from the same screen | CR-17 |
 | FR-AD-01 | Public audit page: rules and rules hash, commitments list and root, beacon round and value, lot boundaries, award summary, and a verify-my-place check | DESIGN 9, 15 |
 | FR-AD-02 | Hash-chained, append-only audit log with published checkpoints | DESIGN 5 |
 | FR-OP-01 | Ops console: lot state view, dead-letter webhooks, reconciler runs, mock-failure toggles for the demo, lot abort, audit export | DESIGN 15 |
@@ -195,6 +208,8 @@ The idea text is `docs/fairpool-idea.md`. This table walks its statements in ord
 | Final total including shipping and tax never exceeds the cap; a changed total needs new approval | SAME | FR-IN-05 | I3, F13 |
 | Fixed published window; every eligible request before close is considered; arrival time gives no priority | SAME | FR-SL-01, FR-SL-02 | T03B01, trigger `trg_entry_insert_window` |
 | AI agents can submit requests through a documented API with the same fields and limits; an agent for an enrolled account is not a separate buyer | SAME | FR-SL-03, FR-AG-01 | T07A05 |
+| Compatible MCP clients connect through browser consent with PKCE S256; the token is a revocable buyer delegation, and a mandate authorizes no payment | SAME | FR-AG-04, FR-AG-05, FR-AI-06 | CR-17, T10A05 |
+| Explicitly consented product interest can reach a published distinct-buyer threshold and propose a draft pool; an operator must publish it, and holders are notified in-app | SAME | FR-DM-01 to FR-DM-06, FR-UI-09 | CR-17, T10B03 |
 | The agent lane is reachable through MCP clients | EXTENDED | FR-IG-02, FR-IG-03 | INT-2, INT-3; no payment tools (I1, I2) |
 | Publish the allocation rule before opening; record the entries included at the cutoff; ordered waitlist | SAME | FR-SL-04, FR-SL-05 | T02B02, T03B04, T04A05 |
 | A hash alone does not prove completeness; a future proof needs a seed FairPool cannot choose after seeing entries and must protect personal data; describe selection as auditable | EXTENDED | FR-SL-06, FR-SL-07 | beacon, commitments and receipts are built now; the wording stays "auditable" (I13) |

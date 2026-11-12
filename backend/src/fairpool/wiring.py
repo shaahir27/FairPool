@@ -75,6 +75,7 @@ IMPLEMENTED_JOB_KINDS: Final[frozenset[str]] = frozenset(
         "webhook.process",
         "shipments.submit",
         "sim.run",
+        "demand.sweep",
     }
 )
 
@@ -377,6 +378,23 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     except Exception:  # noqa: BLE001 - AI off is the normal demo configuration
         sim = SimRunHandler()
 
+    from fairpool.modules.demand.service import DemandService
+    from fairpool.modules.notify.service import PostgresNotifier
+
+    demand = DemandService(
+        clock=clock,
+        audit=PostgresAuditLog(),
+        notifier=PostgresNotifier(),
+        pools=pools,
+        jobs=jobs,
+        threshold=settings.demand_threshold,
+        signal_ttl_days=settings.demand_signal_ttl_days,
+    )
+
+    async def demand_sweep(session: Any, payload: Any) -> None:
+        """CR-17: propose a draft pool for every cluster at its published threshold."""
+        await demand.sweep(session)
+
     handlers = {
         "pool.open": pools.open,
         "pool.close": close.close,
@@ -403,6 +421,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "webhook.process": webhooks.process,
         "shipments.submit": tracking.submit,
         "sim.run": sim.run,
+        "demand.sweep": demand_sweep,
     }
     # I12: a hosted worker may share its database with offline seeded lots.
     from fairpool.infra.jobs import JobHandler

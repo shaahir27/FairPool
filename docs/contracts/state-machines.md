@@ -147,6 +147,22 @@ bid:
 
 `SEATED` and `WAITLISTED` are set at allocation. WAITLISTED to SEATED happens only inside `AllocationReadService.next_candidates` (N12). SEATED to PRICED_OUT happens only inside `lot.award` when the entry's cap is below its total. PRICED_OUT is final and creates a vacancy filled by the same refill rule.
 
+## Demand cluster (CR-17)
+
+`demand_clusters.status` is a CHECK-constrained text column, not one of the five PostgreSQL enums the machines above load, so its whitelist is written here as a table rather than as a sixth YAML block: `domain/states.py` and `test_state_machines_contract.py` still cover exactly the five machines above. The same rule applies (I10): a pair not listed here is illegal, and every listed transition runs in one transaction with its audit row, its pool write and its notifications.
+
+| From | To | Trigger | Guard | Effects |
+|---|---|---|---|---|
+| COLLECTING | PROPOSED | job:demand.sweep | distinct active, unexpired signals >= the cluster's stored `threshold`; a DRAFT pool was created through the ordinary `PoolService.create`; `pool_id` set (UNIQUE, so one cluster yields at most one pool) | audit, notify |
+| PROPOSED | POOLED | admin.publish | the cluster's draft pool exists and is published through the Pool machine (PS-01); `pooled_at` set | audit, notify |
+| PROPOSED | REJECTED | admin.reject | the draft pool is cancelled through the Pool machine (PS-08) | audit |
+
+Terminal: POOLED, REJECTED and EXPIRED. A cluster never leaves a terminal state, and a second sweep proposes nothing for a cluster already PROPOSED. EXPIRED is admitted by the column's CHECK constraint but no CR-17 handler writes it: it is reserved, and reaching it needs a further change request rather than an improvised status write.
+
+Audit actions are `demand.proposed` (actor `system`), `demand.published` and `demand.rejected` (the operator), each written in the same transaction as the status change. Buyer consent and cancellation are recorded as `demand.signal` and `demand.cancelled` on the cluster; they are not cluster transitions.
+
+The pool itself uses the existing Pool machine **unchanged**. A demand-formed pool is created DRAFT, published by PS-01 with the same frozen rules, beacon announcement and `pool.open` / `pool.close` jobs, and cancelled by PS-08 like any other draft; nothing about its fairness path is special-cased. Notifications (`demand.pool_proposed`, `demand.pool_open`) are in-app only (FR-UI-09, FR-DM-05).
+
 ## Test obligations
 
 - Every transition above has a unit test for its success path and one for each guard that can fail.

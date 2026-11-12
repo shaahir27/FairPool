@@ -122,6 +122,11 @@ class Settings(BaseSettings):
     merchant_api_enabled: bool = True
     zapier_bridge: Literal["off", "managed"] = "off"
 
+    # CR-17: the published formation rule. A cluster needs this many distinct active
+    # signals before the sweep proposes a DRAFT pool; a human still publishes it.
+    demand_threshold: int = Field(default=5, ge=2, le=1000)
+    demand_signal_ttl_days: int = Field(default=30, ge=1, le=365)
+
     ai_enabled: bool = True
     gemini_api_key: SecretStr = SecretStr("")
     ai_model_parse: str = "gemini-3.5-flash-lite"

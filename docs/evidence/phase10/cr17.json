@@ -1,0 +1,128 @@
+{
+  "change_request": "CR-17",
+  "date": "2026-11-12",
+  "status": "local acceptance verified; owner authorized release on 2026-11-12; live release results are checked against the pushed commit",
+  "tasks": [
+    "T10A05",
+    "T10B03"
+  ],
+  "make_verify": {
+    "exit_code": 0,
+    "backend_summary": "1448 passed, 1 skipped, 50 deselected, 1 warning in 522.17s (0:08:42)",
+    "domain_coverage_percent": 94.62,
+    "frontend_summary": "376 passed (36 files); fresh release run",
+    "docs_errors": 0,
+    "docs_warnings": 1,
+    "docs_warning": "Existing progress.md /api/v1/nope example is not an endpoint."
+  },
+  "migration_check": "No new upgrade operations detected.",
+  "api_snapshot": "frontend/openapi.json matches create_app().openapi(); generated browser types match; OAuth endpoints excluded intentionally",
+  "browser": {
+    "build": "production Vite build, served by local FastAPI",
+    "database": "disposable loopback fairpool_cr17_ui_final_test",
+    "provider": "labelled scripted AI for successful mandate proposal and provider-failure fallback; no live Gemini",
+    "workflow_checks": [
+      "connection wizard and responsive settings",
+      "AI outage returns editable manual mandate",
+      "browser OAuth approval, PKCE exchange and scoped agent read",
+      "named connection, last-used timestamp and immediate revoke",
+      "browser OAuth denial returns access_denied without a code",
+      "declining demand consent records nothing",
+      "consented canonical demand signal and public forming cards",
+      "no-match intake offers independent explicit consent",
+      "Interests list and cancellation",
+      "in-app demand notification sentences",
+      "operator publishes and rejects through real API",
+      "publication notifies the holder and exposes the pool link"
+    ],
+    "workflow_passed": 12,
+    "viewports": [
+      1440,
+      768,
+      390
+    ],
+    "final_screenshots": 24,
+    "visual_failures": 0,
+    "visual_warnings": 70,
+    "js_exceptions": 0,
+    "horizontal_overflow": false,
+    "local_artifacts": ".tmp/cr17-ui/"
+  },
+  "retained_visual_warnings": {
+    "small-title": "App titles remain 25\u201330px, within the app-screen rules; the inherited marketing-title heuristic expects a larger hero.",
+    "heavy-borders": "Existing blue brand boundaries and form control contrast are retained; scope does not replace the application theme.",
+    "mixed-font-headline": "The existing FairPool wordmark deliberately mixes its established brand type.",
+    "micro-label": "The established SANDBOX honesty label remains visible in the operator shell.",
+    "icon-chips": "Existing product illustrations in catalogue cards remain; no decorative icon tiles were added.",
+    "hero-void": "The operator queue sizes to the real two proposals rather than filling spare canvas with invented data."
+  },
+  "security": {
+    "working_diff_and_untracked_source_scan": "gitleaks stdin --redact: exit 0, no leaks",
+    "history_scan": "make verify gitleaks: no leaks",
+    "import_boundary_violations": 0,
+    "paypal_adapter_files_changed": false,
+    "new_paypal_calls": false,
+    "git_publish_actions": false
+  },
+  "limits": [
+    "The original make verify/browser run used disposable loopback databases and scripted AI; live PayPal and live Gemini were not exercised. The subsequent owner-authorized Supabase schema update is recorded separately below.",
+    "Custom mandate conditions remain advisory; ordinary scope, per-entry cap, expiry and revocation are enforced.",
+    "The pre-existing Elastic parity case is skipped because ELASTICSEARCH_URL is absent.",
+    "Owner-only credential rotation, live approval clicks, deployment/repo visibility, demo recording and submission remain owner work."
+  ],
+  "graphify": "AST-only update executed; graphify-out remains ignored and untracked; Markdown semantics were not refreshed.",
+  "hosted_schema_update": {
+    "date": "2026-11-12",
+    "authorization": "Owner explicitly requested updating configured Supabase; preserve two months of seed data",
+    "revision_before": "0007",
+    "revision_after": "0008",
+    "tables_verified": [
+      "agent_oauth_clients",
+      "agent_oauth_codes",
+      "demand_clusters",
+      "demand_signals"
+    ],
+    "delegation_columns_verified": [
+      "key_prefix",
+      "last_used_at",
+      "name",
+      "oauth_client_id"
+    ],
+    "rls_verified": {
+      "agent_oauth_codes": true,
+      "demand_signals": true
+    },
+    "existing_table_row_counts_unchanged": false,
+    "pool_content_and_dates_unchanged": true,
+    "seed_run": false,
+    "reset_run": false,
+    "pool_count_before_and_after": 39,
+    "row_count_note": "Aggregate counts across all tables were not stable during inspection. Concurrent operational activity was observed: 21 reconciler.sweep job insertions in the preceding 15 minutes. Per-table before counts were not retained, so all differences cannot be attributed. The migration contains no INSERT, UPDATE, DELETE, or seed call against existing data; the complete seeded pool content and date checksum matched before and after.",
+    "local_api_verification": {
+      "direct_demand_status": 200,
+      "frontend_proxy_demand_status": 200,
+      "demand_response": "JSON array; empty registry (not reseeded)",
+      "stale_api_restarted": true,
+      "hosted_app_deployed": false,
+      "readiness": {
+        "http_status": 200,
+        "database": "ok",
+        "migrations": "ok"
+      }
+    },
+    "hosted_application": {
+      "deployed": false,
+      "readiness_http_status": 503,
+      "database": "ok",
+      "migrations": "pending",
+      "reason": "Still-deployed code expects revision 0007; matching CR-17 code must be deployed. No commit or push authorized.",
+      "observation_phase": "Before the owner authorized the CR-17 application release; this records the old application readiness result."
+    }
+  },
+  "release_authorization": {
+    "date": "2026-11-12",
+    "owner_command": "push and verify ci and live render deploy",
+    "pre_push_make_verify_exit": 0,
+    "test_database": "fresh disposable loopback fairpool_cr17_release_test; Supabase was not used for tests"
+  }
+}

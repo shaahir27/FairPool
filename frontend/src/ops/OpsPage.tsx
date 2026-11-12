@@ -8,9 +8,11 @@ import { LotPanel } from "./LotPanel";
 import { AuditExportPanel, MockTogglesPanel, ReconcilerPanel } from "./OpsTools";
 import { failureOf, type AlertRow } from "./api";
 import "./ops.css";
+import { DemandProposalsPanel } from "./DemandProposalsPanel";
 
 const OPS_TABS: readonly AreaTab[] = [
   { to: "/ops", label: "Overview", end: true },
+  { to: "/ops/demand", label: "Demand proposals", end: false },
   { to: "/ops/lots", label: "Lots", end: false },
   { to: "/ops/recovery", label: "Recovery", end: false },
   { to: "/ops/audit", label: "Audit trail", end: false },
@@ -18,6 +20,7 @@ const OPS_TABS: readonly AreaTab[] = [
 const OPS_UTILITIES = [{ to: "/ops/sandbox", label: "Sandbox controls" }];
 const VIEWS: Record<string, { title: string; description: string }> = {
   "/ops": { title: "Ops console", description: "The alerts that need your attention, and the lots behind them." },
+  "/ops/demand": { title: "Demand proposals", description: "Turn consented buyer interest into reviewed, auditable pools." },
   "/ops/lots": { title: "Lot operations", description: "Inspect a lot's state and payment configuration. Abort only when intervention is needed." },
   "/ops/recovery": { title: "Recovery", description: "Review failed webhook events and re-queue stale order checks." },
   "/ops/audit": { title: "Audit trail", description: "Export the recorded checkpoints for review outside FairPool." },
@@ -42,7 +45,7 @@ export function OpsPage() {
   const known = alerts !== null && !error;
 
   return <AreaLayout workspace="Ops console" tabs={OPS_TABS} utilityLinks={OPS_UTILITIES}>
-    <div className="ops-page" data-ui="admin">
+    <div className="ops-page" data-ui={path === "/ops/demand" ? undefined : "admin"}>
       <header className="ops-heading"><h1>{view.title}</h1><p>{view.description}</p></header>
 
       {path === "/ops" && <>
@@ -63,6 +66,7 @@ export function OpsPage() {
         </div>
       </>}
 
+      {path === "/ops/demand" && <DemandProposalsPanel />}
       {path === "/ops/lots" && <div className="ops-lot-layout"><LotPanel key={params.get("lot_id")} alertLots={alertLots} initialLotId={params.get("lot_id") ?? undefined} /></div>}
       {path === "/ops/recovery" && <div className="ops-recovery-grid"><DeadLettersPanel /><ReconcilerPanel /></div>}
       {path === "/ops/audit" && <div className="ops-audit-layout"><AuditExportPanel /></div>}

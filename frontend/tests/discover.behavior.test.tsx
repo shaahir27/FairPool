@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const transport = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock("../src/shared/api/client", () => ({
-  api: { GET: transport.get, POST: transport.post },
+  api: { GET: (path: string, ...args: unknown[]) => path === "/api/v1/demand-clusters" ? Promise.resolve({data: []}) : transport.get(path, ...args), POST: transport.post },
   API_BASE_URL: "http://localhost:8000",
 }));
 

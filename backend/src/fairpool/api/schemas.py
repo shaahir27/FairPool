@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fairpool.domain.pool_config import PoolInput
 
@@ -150,9 +150,22 @@ class DelegationScope(StrictModel):
 
 
 class DelegationCreateRequest(StrictModel):
+    #: CR-17: the buyer's label for this connected agent. Optional so a client that
+    #: posts only a scope keeps working; a blank label is refused rather than stored.
+    name: str | None = Field(default=None, max_length=120)
     scope: DelegationScope
     max_cap_cents: int = Field(ge=0)
     expires_at: datetime
+
+    @field_validator("name")
+    @classmethod
+    def trimmed_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Name must not be blank")
+        return stripped
 
 
 class DelegationView(ResponseModel):
@@ -161,6 +174,9 @@ class DelegationView(ResponseModel):
     max_cap_cents: int
     expires_at: datetime
     revoked_at: datetime | None = None
+    name: str | None = None
+    key_prefix: str | None = None
+    last_used_at: datetime | None = None
 
 
 class DelegationCreated(DelegationView):
@@ -169,6 +185,111 @@ class DelegationCreated(DelegationView):
 
 class DelegationList(ResponseModel):
     items: list[DelegationView]
+
+
+class MandateProposalRequest(StrictModel):
+    """CR-17: the buyer's words plus the pools they are considering (ai-schemas.md 9)."""
+
+    message: str = Field(min_length=1, max_length=2000)
+    pool_ids: list[UUID] = Field(default_factory=list, max_length=5)
+    max_cap_cents: int | None = Field(default=None, ge=0)
+
+
+class MandateProposal(ResponseModel):
+    """A proposal, never a token. ``source`` says whether the model or the form wrote it."""
+
+    source: Literal["ai", "manual"]
+    pool_ids: list[UUID]
+    category: str | None = None
+    max_cap_cents: int | None = None
+    expires_at: datetime | None = None
+    conditions: list[dict[str, Any]] = Field(default_factory=list)
+    reserved: list[str] = Field(default_factory=list)
+    ambiguities: list[dict[str, Any]] = Field(default_factory=list)
+    clarifying_question: str | None = None
+
+
+class OAuthClientRegisterRequest(StrictModel):
+    """CR-17 / RFC 7591: a public MCP client registering itself."""
+
+    client_name: str = Field(min_length=1, max_length=120)
+    redirect_uris: list[str] = Field(min_length=1, max_length=5)
+
+
+class OAuthClientRegistered(ResponseModel):
+    client_id: str
+    client_name: str
+    redirect_uris: list[str]
+    token_endpoint_auth_method: str = "none"
+
+
+class OAuthDecisionRequest(StrictModel):
+    """The authorization request plus the mandate the buyer ratified in the browser."""
+
+    response_type: Literal["code"] = "code"
+    client_id: str = Field(min_length=1, max_length=80)
+    redirect_uri: str = Field(min_length=1, max_length=2000)
+    state: str = Field(min_length=1, max_length=500)
+    code_challenge: str = Field(min_length=1, max_length=200)
+    code_challenge_method: Literal["S256"] = "S256"
+    approved: bool = True
+    scope: DelegationScope | None = None
+    max_cap_cents: int | None = Field(default=None, ge=0)
+    expires_at: datetime | None = None
+
+
+class OAuthDecisionResponse(ResponseModel):
+    redirect_to: str
+
+
+class DemandSignalRequest(StrictModel):
+    """CR-17 / FR-DM-01: the canonical fields the buyer confirmed, and nothing else.
+
+    No cap, no free-text message and no address: a signal is interest in a product,
+    not a request to buy one.
+    """
+
+    product_key: str = Field(min_length=1, max_length=200)
+    condition: Literal["NEW", "REFURBISHED", "OPEN_BOX"]
+    variant: str | None = Field(default=None, max_length=200)
+    bundle_contents: list[str] = Field(min_length=1, max_length=30)
+    region: str = Field(pattern=r"^[A-Z]{2}$")
+    source: Literal["intake", "discover"] = "intake"
+
+
+class DemandSignalView(ResponseModel):
+    signal_id: UUID
+    cluster_key: str
+    title: str
+    status: str
+    pool_id: UUID | None = None
+    interested: int
+    threshold: int
+    expires_at: datetime
+
+
+class DemandClusterView(ResponseModel):
+    cluster_key: str
+    title: str
+    product_key: str
+    condition: str
+    variant: str | None = None
+    bundle_contents: list[str]
+    regions: list[str]
+    interested: int
+    threshold: int
+    status: str
+
+
+class DemandProposalView(ResponseModel):
+    cluster_key: str
+    title: str
+    status: str
+    pool_id: UUID | None = None
+    regions: list[str]
+    interested: int
+    threshold: int
+    proposed_at: datetime | None = None
 
 
 class PayPalLoginStartResponse(ResponseModel):

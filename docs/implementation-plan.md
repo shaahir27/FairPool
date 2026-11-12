@@ -47,7 +47,7 @@ A gate passes only when its integration test passes, `make gate-check GATE=ig-<n
 | IG-7 | `ig-7` | PH7 | T07A01, T07A02, T07A03, T07A04, T07B01, T07A05, T07B03, T07A06, T07B05, T07X01 |
 | IG-8 | `ig-8` | PH8 | T08A01, T08A02, T08A03, T08A04, T08A05, T08A06, T08B01, T08B02, T08B03, T08B04, T08B05 |
 | IG-9 | `ig-9` | PH9 | T09A01, T09A02, T09A03, T09A04, T09A05, T09A06, T09B01, T09B02, T09B03, T09B04, T09B05, T09B06, T09X01, T09X02 |
-| IG-10 | `ig-10` | PH10 | T10A01, T10A02, T10A03, T10A04, T10B01, T10B02, T10X01, T10X02 |
+| IG-10 | `ig-10` | PH10 | T10A01, T10A02, T10A03, T10A04, T10A05, T10B01, T10B02, T10B03, T10X01, T10X02 |
 | IG-11 | `ig-11` | PH11 | T11X01, T11X02 |
 
 Integration tests in one line each (full text in `docs/testing-strategy.md` section 3):
@@ -83,11 +83,13 @@ Sizes are agent-assisted person-days: S = 0.25, M = 0.5, L = 1, XL = 1.5. Each m
 | PH7 | 2 | 4.75 (238%) | 2.50 (125%) |
 | PH8 | 2 | 3.50 (175%) | 3.50 (175%) |
 | PH9 | 1 | 4.00 (400%) | 4.75 (475%) |
-| PH10 | 2 | 2.50 (125%) | 2.00 (100%) |
+| PH10 | 2 | 3.50 (175%) | 3.00 (150%) |
 | PH11 | 1 | 0.38 (38%) | 0.38 (38%) |
-| **Total** | 22 | **37.38 (170%)** | **23.63 (107%)** |
+| **Total** | 22 | **38.38 (174%)** | **24.63 (112%)** |
 
-**What this means, stated plainly.** With the Phase 4 onward reassignment and no scope removed, the full plan estimates 37.375 person-days for A and 23.625 for B against 22 planned working days each. For PH4 through PH11 alone, the estimated loads are 29.875 and 16.125 person-days respectively. Member A is the critical capacity constraint; reassess the schedule using actual progress rather than claiming the original balanced estimates still apply.
+**What this means, stated plainly.** With the Phase 4 onward reassignment and no scope removed, the full plan estimates 38.375 person-days for A and 24.625 for B against 22 planned working days each. For PH4 through PH11 alone, the estimated loads are 30.875 and 17.125 person-days respectively. Member A is the critical capacity constraint; reassess the schedule using actual progress rather than claiming the original balanced estimates still apply.
+
+**PH10 estimate, re-stated on Nov 12, 2026.** CR-17 adds T10A05 (A, L) and T10B03 (B, L) after IG-9's feature freeze, on the owner's explicit authorization recorded in `contracts/README.md`. The freeze is therefore reopened for these two tasks only; everything else in PH10 remains rehearsal and release work. Recomputed, PH10 is 3.50 person-days for A and 3.00 for B against two planned days — 175% and 150%. Nothing has been cut to pay for it, and the deadline has not moved: if either task cannot reach its acceptance before submission, the owner defers it whole and the README drops the claim rather than shipping a half-built surface. Both tasks are additive to the money path: neither adds a PayPal call, a payment tool or a new authority model.
 
 **PH9 estimate, re-stated on Nov 7, 2026.** The 3.00 and 3.75 figures above were stale before this change: they predated T09A05 and T09B05, both added to PH9 on 2026-11-07 without the table being recomputed. CR-14 then adds T09A06 (A, M) and T09B06 (B, M). Recomputed from the task sizes with both shared tasks counting half to each member, PH9 is 4.00 person-days for A and 4.75 for B against one planned day — 400% and 475%, the worst ratio in the plan. Nothing has been cut to pay for it. The owner chooses from the section 4 candidates and writes the choice down; the honest reading is that PH9 cannot be completed as scoped in one day by either member, and that CR-14's two tasks are the first candidates to defer because the phase's verification debt (T09A01, T09A02, T09B02, T09B03) is what IG-9 actually exists to close.
 
@@ -123,13 +125,14 @@ Candidates for the owner's decision (none is applied): (1) T09A04 top-up after F
 |---|---|---|---|
 | INT-1 Elastic | Hybrid search for intake candidates, demand board and agents; advisory similarity | S8 | T02B04, T03B02, T07B05, T09B02 |
 | INT-2 Zapier MCP | Managed-mode bridge to the Agent API | S9 | T08B03, T08B05 |
-| INT-3 FairPool MCP | Four-tool MCP server | none | T07B03 |
+| INT-3 FairPool MCP | Four-tool MCP server; OAuth 2.1 connect flow | none | T07B03, T10A05 |
 | INT-4 APIMatic | Plugin at development time; Merchant SDKs and portal | S11 | T00A01, T03B05, T10A04 |
 | INT-5 Agent Toolkit | Not in the payment path; development plugin only | none | T00A01 |
 | INT-6 PayPal MCP | Read-only verification, manifest, verification endpoint | S10 | T03A04, T08A01, T08A04 |
 | INT-7 JS SDK v6 | Popup approval with redirect fallback | S13 | T02B05, T07A01 |
 | INT-8 Shipment tracking | Tracker submission after shipping | S12 | T03A05, T08A01 |
 | INT-9 Merchant Agent API | Ten-operation key-authenticated API | none | T01B01, T06A07, T07A06, T08A03, T08B02 |
+| INT-10 Private demand registry | Consented signals and deterministic clusters in Postgres; never a search index | none | T10B03 |
 
 ## 6. Requirement coverage
 
@@ -139,15 +142,17 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 |---|---|
 | FR-AD-01 | T00B01, T03B04, T04A06, T09B01 |
 | FR-AD-02 | T01A02 |
-| FR-AG-01 | T07A05, T07B03 |
-| FR-AG-02 | T07A05 |
+| FR-AG-01 | T07A05, T07B03, T10A05 |
+| FR-AG-02 | T07A05, T10A05 |
 | FR-AG-03 | T09A06 |
+| FR-AG-04 | T10A05 |
+| FR-AG-05 | T10A05 |
 | FR-AI-01 | T02B03, T04B01 |
 | FR-AI-02 | T06A05 |
 | FR-AI-03 | T08B04, T09A06 |
 | FR-AI-04 | T06B01 |
 | FR-AI-05 | T09B02 |
-| FR-AI-06 | T09B06 |
+| FR-AI-06 | T09B06, T10A05 |
 | FR-AU-01 | T05A06, T06A06 |
 | FR-AU-02 | T05A04, T06B01 |
 | FR-AU-03 | T05A06, T05A04 |
@@ -160,6 +165,12 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-CK-03 | T03A02, T07A02 |
 | FR-CK-04 | T03A01, T06A03 |
 | FR-CK-05 | T04A02, T05A01 |
+| FR-DM-01 | T10B03 |
+| FR-DM-02 | T10B03 |
+| FR-DM-03 | T10B03 |
+| FR-DM-04 | T10B03 |
+| FR-DM-05 | T10B03 |
+| FR-DM-06 | T10B03 |
 | FR-FN-01 | T02A02, T04A02, T05A01 |
 | FR-FN-02 | T04A03, T06A01, T07X01 |
 | FR-FN-03 | T06A02 |
@@ -227,7 +238,7 @@ Every FR in `docs/product-spec.md` is covered by at least one task (checked by `
 | FR-UI-06 | T08A01, T08A02 |
 | FR-UI-07 | T06A07, T08B02 |
 | FR-UI-08 | T01B03, T09B04, T09B05 |
-| FR-UI-09 | T09B05 |
+| FR-UI-09 | T09B05, T10B03 |
 
 ## 7. Sizing and conventions
 
@@ -1333,8 +1344,10 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 | T10A02 | A | M | T09A03 | Repository cleanup and compliance |
 | T10A03 | A | M | T09X01 | Devpost text |
 | T10A04 | A | M | T08A03 | Merchant SDKs and developer portal |
+| T10A05 | A | L | T07A05, T07B03, T09B06 | CR-17: agent connections, OAuth 2.1 consent and AI mandate proposal (FR-AG-04, FR-AG-05) |
 | T10B01 | B | M | T10X01 | Fixes from rehearsal 1 (product, UI, agent lane) |
 | T10B02 | B | L | T10X02 | Demo video |
+| T10B03 | B | L | T02B02, T03B01, T09B05 | CR-17: demand signals, cluster threshold and operator-formed pools (FR-DM-01 to FR-DM-06) |
 | T10X01 | AB | M | T09X01, T09X02 | Rehearsal 1 |
 | T10X02 | AB | M | T10A01, T10B01 | Rehearsal 2 clean run |
 
@@ -1374,6 +1387,16 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 - **Tests that prove it:** SDK smoke script.
 - **Requirements and invariants:** FR-IG-05.
 
+### T10A05: Agent connections, OAuth 2.1 consent and AI mandate proposal (CR-17)
+
+- **Owner:** Member A. **Size:** L (1 day). **Phase:** PH10. **Merge gate:** IG-10. **Depends on:** T07A05, T07B03, T09B06.
+- **Read first:** contracts/README.md CR-17; api.md §4.4 and §4.7; db-schema.md (`delegations`, `agent_oauth_clients`, `agent_oauth_codes`); ai-schemas.md §9; product-spec.md FR-AG-04, FR-AG-05.
+- **Create or change:** `backend/migrations/versions/0008_agent_connections_demand.py` (shared with T10B03), `modules/identity/delegations.py` (name, prefix, `mark_used`), `modules/identity/agent_oauth.py`, `modules/identity/mandate_proposal.py`, `api/routers/agent_oauth.py`, `api/routers/agent.py`, `api/deps.py`, `modules/mcp/transport.py` (the `WWW-Authenticate` challenge), the Connections section of `AgentSettingsPage` and the `/agents/authorize` consent page in `frontend/src/**`.
+- **Acceptance:** A compliant MCP client that meets a 401 on `/mcp` can discover the authorization server from `WWW-Authenticate`, register dynamically, open the buyer's browser, and receive a token without the buyer copying anything. The consent screen shows the client name, the requested redirect, the ratified mandate as text and the plain statement that no payment is authorized; the buyer must confirm, and the server re-verifies the CR-14 ratification hash before it issues a code. PKCE S256 is required, a code is single-use and expires, an unsafe redirect URI is refused at registration, and every grant failure answers one `invalid_grant`. The access token is an ordinary delegation: the same cap, scope, expiry and revocation path as a hand-minted one, and no payment tool exists. The buyer's connections list by name with a public prefix, status and last-used time, and revoke from the same screen; revoking through either path invalidates the token. `POST /api/v1/me/mandate-proposal` proposes a mandate the buyer can edit, never raises a stated cap, never widens scope beyond the candidate pools, stamps the reserved acts server-side, and falls back to the manual form on any AI failure. The screen no longer claims AI-proposed mandates are unavailable. The owner’s 2026-11-12 usability follow-up makes the default page a concise connections view, keeps manual fields behind explicit controls, and lets empty pool selection trigger public OPEN-pool retrieval before proposing; matched pools and limits still require buyer review and ratification.
+- **Tests that prove it:** `test_agent_oauth.py` (metadata, registration, unsafe redirect, consent, PKCE failure, code reuse, expiry, revocation, and that the minted token is a delegation the Agent API accepts); `test_agent_connections.py` (name validation, prefix uniqueness, last-used stamping, revoke); `test_mandate_proposal.py` (raised cap refused, out-of-scope pool refused, reserved acts stamped, AI outage falls back); `test_mcp_contract.py` (the 401 challenge on POST and GET).
+- **Requirements and invariants:** FR-AG-04, FR-AG-05, FR-AG-01, FR-AG-02, FR-AI-06, I1, I2, I14, rule 5, rule 22, rule 25.
+- **Contract:** CR-17. Migration 0008 adds four nullable `delegations` columns and two OAuth tables; existing tokens keep working. `last_used_at` reverses the earlier "authentication writes nothing" rule for delegations only, and the stamp is committed by `require_agent` rather than inside `from_token`, because the MCP transport authenticates on its own session before re-entering the Agent API in-process. No refresh token, no client secret, no introspection endpoint, and no PayPal call anywhere in the flow.
+
 ### T10B01: Fixes from rehearsal 1 (product, UI, agent lane)
 
 - **Owner:** Member B. **Size:** M (0.5 day). **Phase:** PH10. **Merge gate:** IG-10. **Depends on:** T10X01.
@@ -1391,6 +1414,16 @@ addresses.behavior.test.tsx and checkout.behavior.test.tsx. Future agent work re
 - **Acceptance:** Under 3:00, public on YouTube, follows the storyboard, no trademarks or music, generic products and labels visible.
 - **Tests that prove it:** checks in demo-and-submission.md §7.
 - **Requirements and invariants:** FR-HK-04, FR-HK-06.
+
+### T10B03: Demand signals, cluster threshold and operator-formed pools (CR-17)
+
+- **Owner:** Member B. **Size:** L (1 day). **Phase:** PH10. **Merge gate:** IG-10. **Depends on:** T02B02, T03B01, T09B05.
+- **Read first:** contracts/README.md CR-17; api.md §4.8; db-schema.md (`demand_signals`, `demand_clusters`); domain-ports.md §5 (`demand.sweep`); state-machines.md (demand cluster); product-spec.md FR-DM-01 to FR-DM-06; decisions.md INT-10.
+- **Create or change:** `backend/migrations/versions/0008_agent_connections_demand.py` (shared with T10A05), `domain/demand.py`, `modules/demand/service.py`, `api/routers/demand.py`, `worker.py` and `wiring.py` (the `demand.sweep` kind), `config.py` (`DEMAND_THRESHOLD`, `DEMAND_SIGNAL_TTL_DAYS`), the forming-demand cards and consent CTA in Discover and intake, the Interests list in My Pools, and the proposal queue in the ops console.
+- **Acceptance:** A buyer whose intake finds no match is offered an explicit "notify me" consent; declining records nothing, and consenting stores only the confirmed canonical product fields and a delivery region — never a cap, a raw message or an address. The cluster key is a deterministic hash of normalized product, condition, variant and sorted bundle, so two buyers describing the same thing land in one cluster and a similarity score never decides membership. `demand.sweep` counts distinct active, unexpired signals and, at the published threshold, creates one DRAFT pool through the ordinary `PoolService`; a cluster yields at most one pool, and a second sweep is a no-op. An operator publishes or rejects the proposal, and publication runs the normal frozen-rules, beacon, seed and job path, so the pool is auditable exactly like an operator-created one. Every holder is notified in-app when the pool is proposed and when it opens, in the same transaction as the state change; nothing is emailed, texted or pushed. The public forming-demand view shows aggregate counts and product fields only — no buyer identity, cap or message — and a buyer can list and cancel their own signals, after which they no longer count toward a threshold.
+- **Tests that prove it:** `test_demand_domain.py` (normalization, key stability across phrasing and bundle order, refusal of an empty product or unknown condition); `test_demand_formation.py` (consent required, distinct-holder counting, expiry, cancellation, threshold reached once, draft created through the pool service, operator publish and reject, notification rows for every holder, public view leaks no identity, owner-scoped interests).
+- **Requirements and invariants:** FR-DM-01, FR-DM-02, FR-DM-03, FR-DM-04, FR-DM-05, FR-DM-06, FR-UI-09, I10, I15, INT-1, INT-10.
+- **Contract:** CR-17. Migration 0008 adds the two demand tables with row-level security on `demand_signals` and a partial unique index on one active signal per buyer per cluster. `demand.sweep` is registered in both `IMPLEMENTED_JOB_KINDS` and the handler map, and in domain-ports.md §5. The cluster lifecycle is documented as a table in state-machines.md, not a sixth YAML machine, because it is not one of the five ordering enums. Publication is never automatic: the sweep proposes, a human publishes.
 
 ### T10X01: Rehearsal 1
 

@@ -39,6 +39,21 @@ Columns: method, path, owner, auth, one-line purpose. Keep this table machine-pa
 | POST | /api/v1/me/delegations | B | session | Create agent delegation, token shown once |
 | GET | /api/v1/me/delegations | B | session | List delegations |
 | DELETE | /api/v1/me/delegations/{delegation_id} | B | session | Revoke delegation |
+| POST | /api/v1/me/mandate-proposal | B | session | CR-17: propose a mandate from the buyer's words; mints nothing |
+| POST | /api/v1/me/demand-signals | B | session | CR-17: consent to be notified when a pool forms for this product |
+| GET | /api/v1/me/demand-signals | B | session | CR-17: my active demand signals |
+| DELETE | /api/v1/me/demand-signals/{signal_id} | B | session | CR-17: cancel my demand signal |
+| GET | /api/v1/demand-clusters | B | public | CR-17: forming demand, aggregate counts only |
+| GET | /api/v1/admin/demand-proposals | B | admin | CR-17: demand-formed pool proposals |
+| POST | /api/v1/admin/demand-proposals/{cluster_key}/publish | B | admin | CR-17: publish the proposed pool |
+| POST | /api/v1/admin/demand-proposals/{cluster_key}/reject | B | admin | CR-17: reject the proposal and cancel its draft |
+| GET | /.well-known/oauth-protected-resource | B | public | CR-17: RFC 9728 metadata for the `/mcp` resource |
+| GET | /.well-known/oauth-authorization-server | B | public | CR-17: RFC 8414 authorization server metadata |
+| POST | /oauth/register | B | public | CR-17: RFC 7591 dynamic client registration |
+| GET | /oauth/authorize | B | public | CR-17: validate the request, then redirect to FairPool consent |
+| POST | /oauth/authorize/decision | B | session | CR-17: the buyer's ratified consent; issues a single-use code |
+| POST | /oauth/token | B | public | CR-17: PKCE code exchange; mints a delegation |
+| POST | /oauth/revoke | B | public | CR-17: RFC 7009 revocation of a delegation token |
 | GET | /api/v1/pools | B | public | List and search pools (`q`, `status`, `sort=trending`) |
 | GET | /api/v1/pools/{pool_id} | B | public | Pool detail and timeline |
 | GET | /api/v1/pools/{pool_id}/rules | B | public | `{rules_document, rules_hash}` envelope containing the published rules and their hash |
@@ -470,6 +485,8 @@ Rules: `Authorization: Bearer fpm_<prefix>_<secret>`; wrong or revoked key is `4
 - `GET /agent/v1/entries` returns the caller's entries: `[{"entry_id", "pool_id", "entry_status", "allocation": {...}, "offer": {...}|null, "checkout_url": "<FRONTEND_BASE_URL>/offers/<buyer_order_id>"|null}]`. `checkout_url` is for the human, who approves payment on PayPal.
 - `POST /agent/v1/entries/withdraw` body `{"entry_id": "uuid"}`.
 - Route order: register `/agent/v1/entries/withdraw` before `/agent/v1/entries/{entry_id}`.
+- **CR-17 connection identity.** `POST /api/v1/me/delegations` accepts an optional `name` (1-120 characters after trimming; blank is `422`). The created and listed views add `name`, `key_prefix` (the token's public 8 hex characters) and `last_used_at`, all nullable so a delegation minted before migration 0008 still lists and still works. `last_used_at` is stamped from the database clock on every successful agent authentication and committed by `require_agent`; a refused token never stamps it. This reverses the earlier "authentication writes nothing" rule for delegations only — the write is one column, no audit row, and it is what lets the buyer see which connected agents are in use.
+- **CR-17 mandate proposal.** `POST /api/v1/me/mandate-proposal` body `{"message": string 1-2000, "pool_ids": [uuid] max 5, "max_cap_cents": int|null}` returns `{"source": "ai"|"manual", "pool_ids", "category", "max_cap_cents", "expires_at", "conditions", "reserved", "ambiguities", "clarifying_question"}`. It mints nothing: the buyer edits the card, hashes it and posts it to `POST /api/v1/me/delegations` as before. The server supplies the candidates from the named pools (public `LIVE_SANDBOX` rows only, never DRAFT or CANCELLED). If `pool_ids` is omitted or empty, it uses the existing search service to retrieve at most five public OPEN pools from `message`, preserving retrieval ranking; no buyer data is indexed. It stamps `reserved: ["payment_approval"]` itself, and refuses a scope outside those candidates or a cap above `max_cap_cents`. A proposed product category must match a supplied candidate and is resolved to explicit candidate pool IDs with `category: null` on the buyer card; this cannot grant access to future or unselected pools, and uses the existing pool-scoped enforcement path. Any provider failure, schema failure or refusal answers `source: "manual"` with the buyer's own values rather than an error (FR-AI-06, T09B06 acceptance). A stated day becomes `23:59:59Z` of that day. Every attempt is recorded in `ai_runs` by the adapter.
 
 ### 4.5 FairPool MCP server (INT-3, FR-IG-02)
 
@@ -496,6 +513,37 @@ Documentation contract (nothing in our code reads Zapier): a Zapier MCP server i
 | fairpool_withdraw_entry | POST `/agent/v1/entries/withdraw` | body: `entry_id` |
 
 Rules: no PayPal app and no other app is added to the server; managed mode only (the default mode lets the agent discover and enable actions itself); the delegation token has a low `max_cap_cents` and a short expiry; the token is never pasted into prompts or committed.
+
+### 4.7 Agent OAuth 2.1 (CR-17, FR-AG-04)
+
+The buyer connects an AI client from the app instead of pasting a token. `/mcp` answers an unauthenticated request with `401` and `WWW-Authenticate: Bearer resource_metadata="{PUBLIC_BASE_URL}/.well-known/oauth-protected-resource"`, which is how a compliant MCP client discovers this flow.
+
+Scope of the implementation, deliberately narrow: **public clients only** (no client secret), **authorization-code grant only**, **PKCE S256 only**, **no refresh token** (an expired delegation means consenting again), and no introspection endpoint. The access token is an ordinary `fpd_` delegation, so there is one revocation path and one cap/scope enforcement path; nothing here adds an authority model.
+
+| Endpoint | Behaviour |
+|---|---|
+| `GET /.well-known/oauth-protected-resource` | `resource` = `{PUBLIC_BASE_URL}/mcp`, `authorization_servers` = `[{PUBLIC_BASE_URL}]`, `bearer_methods_supported` = `["header"]` |
+| `GET /.well-known/oauth-authorization-server` | issuer and the four endpoint URLs, `code_challenge_methods_supported: ["S256"]`, `token_endpoint_auth_methods_supported: ["none"]` |
+| `POST /oauth/register` | `{"client_name", "redirect_uris"}` (1-5) → `201 {"client_id": "fpc_<32 hex>", "client_name", "redirect_uris", "token_endpoint_auth_method": "none"}`. One shared rate window (`RATE_LIMIT_ENABLED`). |
+| `GET /oauth/authorize` | Validates `response_type=code`, the registered client, the exact `redirect_uri`, a non-empty `state` and `code_challenge_method=S256`, then `302` to `{FRONTEND_BASE_URL}/agents/authorize` carrying the same parameters. An invalid request is `400` JSON here — never a redirect to an unvalidated URI. With `Accept: application/json`, the same validation returns `200 {"client_name", "redirect_uri"}` for the consent screen, using the registered name, without redirecting. |
+| `POST /oauth/authorize/decision` | Session + CSRF. The authorization request plus `approved` (default true) and the ratified mandate (`scope`, `max_cap_cents`, `expires_at`, required for approval). A denial (`approved: false`) revalidates the client and redirect and returns `{"redirect_to"}` carrying `error=access_denied` and the original state; it issues no code and needs no mandate. Recomputes the CR-14 ratification hash and refuses a mismatch. Stores a single-use code (HMAC only, 600 s TTL) and returns `{"redirect_to"}` = the registered URI with `code` and `state`. |
+| `POST /oauth/token` | Form-encoded `grant_type=authorization_code`, `code`, `redirect_uri`, `client_id`, `code_verifier`. Verifies the code is unconsumed, unexpired, bound to this client and redirect, and that `BASE64URL(SHA256(verifier))` equals the challenge; marks it consumed and mints the delegation from the stored mandate. Returns `{"access_token", "token_type": "Bearer", "expires_in", "scope": "pools entries"}`. |
+| `POST /oauth/revoke` | Form-encoded `token`. Revokes that delegation. An unknown or already-revoked token is still `200` (RFC 7009). |
+
+Redirect URIs: `https` anywhere, `http` only on loopback (`localhost`, `127.0.0.1`, `::1`), or a native custom scheme; `javascript`, `data`, `file`, `blob`, `vbscript` and `about` are refused, as is any URI with a fragment. Errors use the RFC 6749 body `{"error", "error_description"}` at `400`, not the application envelope; every token-endpoint refusal is the same `invalid_grant` so a probe cannot distinguish an unknown code from a replayed one (I11). No endpoint here creates a PayPal order or moves money (I1, I2, rule 22).
+
+### 4.8 Demand formation (CR-17, FR-DM-01 to FR-DM-06)
+
+A buyer who could not find a pool may consent to be told when one forms. The signal is interest, not an entry: it stores canonical product fields and a delivery region, and never a cap, a raw message or an address.
+
+- `POST /api/v1/me/demand-signals` body `{"product_key", "condition": "NEW|REFURBISHED|OPEN_BOX", "variant"?, "bundle_contents": [1-30 strings], "region": "^[A-Z]{2}$", "source": "intake|discover"}` → `201` with the buyer's view of the signal. A repeat ask from the same buyer for the same cluster returns the existing row; renewed consent after expiry renews its TTL, with a new consent audit row. Invalid fields that normalize to an empty product or bundle are validation errors. Concurrent first signals serialize by cluster key. Rate limited per user.
+- `GET /api/v1/me/demand-signals` → the caller's active, unexpired signals with the cluster's current count. `DELETE /api/v1/me/demand-signals/{signal_id}` cancels one; another buyer's id is `404`.
+- `GET /api/v1/demand-clusters?limit=` → public forming demand: `cluster_key`, `title`, `product_key`, `condition`, `variant`, `bundle_contents`, `regions`, `interested`, `threshold`, `status`. **Aggregate counts only** — no buyer identity, cap or message. Clusters in `COLLECTING`, `PROPOSED` and `POOLED` are listed.
+- The cluster key is `SHA-256` of the canonical JSON of `{bundle (sorted, normalized), condition, product_key (normalized), variant (normalized)}`; normalization casefolds and collapses every non-alphanumeric run to one space. A similarity score never computes it (INT-1, INT-10).
+- `demand.sweep` (cron, concurrency and dedupe key `demand`) counts **distinct** active, unexpired signals per `COLLECTING` cluster. At the cluster's stored `threshold` (`DEMAND_THRESHOLD`, default 5) it creates a **DRAFT** pool through the ordinary `PoolService.create`, sets `PROPOSED`, and notifies every holder in the same transaction. One cluster yields at most one pool (`demand_clusters.pool_id` is UNIQUE); a second sweep proposes nothing.
+- A demand-formed pool uses published defaults, identical for every cluster: one `US` zone carrying the collected regions, one lot with `seats = max(distinct, threshold)` and `min_seats = threshold`, `delivery_sla_days` 7, `min_return_days` 14, `require_paypal_link` true, entry window opening one hour after the sweep and closing seven days later, `fund_by` fourteen days after close, and the `prodlike` timing profile. Its `created_by` is a bookkeeping system row that cannot sign in and never participates.
+- `GET /api/v1/admin/demand-proposals` lists `PROPOSED`, `POOLED` and `REJECTED` clusters. `POST .../{cluster_key}/publish` publishes the draft through the ordinary `PoolService.publish` (frozen rules, beacon, `pool.open`/`pool.close`/`search.index` jobs), sets `POOLED` and notifies holders with `demand.pool_open`. `POST .../{cluster_key}/reject` cancels the draft and sets `REJECTED`. Both are admin-only and write their audit row in the same transaction (I10).
+- Notification kinds `demand.pool_proposed` and `demand.pool_open` are in-app only (FR-UI-09); their payload carries `cluster_key`, `title`, `pool_id`, `interested` and `threshold`.
 
 ## CR-7: owner-requested delivery address book and signup prefill
 

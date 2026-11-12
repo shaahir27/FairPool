@@ -165,7 +165,7 @@ Evidence tags: **V#** verified in the Sandbox report or checklist. **P#** docume
 |---|---|---|
 | DEP-1 to DEP-4 | Departures from the idea text approved by the owner | `docs/decisions.md` |
 | BD-nn | Build decisions (tooling, versions) | `docs/decisions.md` |
-| INT-1 to INT-9 | Integration decisions (Elastic, Zapier MCP, FairPool MCP, APIMatic, Agent Toolkit, PayPal MCP, JS SDK v6, shipment tracking, Merchant Agent API) | `docs/decisions.md` |
+| INT-1 to INT-10 | Integration decisions (Elastic, Zapier MCP, FairPool MCP, APIMatic, Agent Toolkit, PayPal MCP, JS SDK v6, shipment tracking, Merchant Agent API, demand registry) | `docs/decisions.md` |
 | FR-xx-nn | Functional requirements | `docs/product-spec.md` |
 | N1 to N14 | Contract notes (ambiguities resolved in the contracts) | `docs/contracts/README.md` |
 | PS-nn, LS-nn, BO-nn, BS-nn, ES-nn | Pool, lot, buyer-order, bid and entry transitions | `docs/contracts/state-machines.md` |
@@ -175,3 +175,6 @@ Evidence tags: **V#** verified in the Sandbox report or checklist. **P#** docume
 | IG-0 to IG-11 | Integration gates (merge gates, one per phase) | `docs/implementation-plan.md` |
 | IT-0 to IT-11 | Integration acceptance tests, one per gate | `docs/testing-strategy.md` |
 | PT-nn | Property tests | `docs/testing-strategy.md` |
+| CR-nn | Contract change requests, for example CR-17 | `docs/contracts/README.md` |
+| Migration nnnn | Numbered schema migrations, for example 0008 | `docs/contracts/db-schema.md` |
+| resource.verb | Job kinds, for example demand.sweep | `docs/contracts/domain-ports.md` section 5 |

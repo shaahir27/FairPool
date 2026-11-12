@@ -14,6 +14,7 @@ const RegisterPage = lazy(() => import("./buyer/signup").then((m) => ({ default:
 const SignupConnectedPage = lazy(() => import("./buyer/signup").then((m) => ({ default: m.SignupConnectedPage })));
 const SignupDetailsPage = lazy(() => import("./buyer/signup").then((m) => ({ default: m.SignupDetailsPage })));
 const AddressesPage = lazy(() => import("./buyer/AddressesPage").then((m) => ({ default: m.AddressesPage })));
+const AgentAuthorizePage = lazy(() => import("./buyer/AgentAuthorizePage").then((m) => ({default: m.AgentAuthorizePage})));
 const AgentSettingsPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.AgentSettingsPage })));
 const BuyerOrderPage = lazy(() => import("./buyer/pages").then((m) => ({ default: m.BuyerOrderPage })));
 const MyPoolsPage = lazy(() => import("./buyer/my-pools/MyPoolsPage").then((m) => ({ default: m.MyPoolsPage })));
@@ -91,6 +92,7 @@ export function AppRoutes() {
         <Route path="/pools/:poolId" element={<PoolPage />} />
         <Route path="/settings/paypal" element={<PayPalSettingsPage />} />
         <Route path="/settings/addresses" element={<AddressesPage />} />
+        <Route path="/agents/authorize" element={<AgentAuthorizePage />} />
         <Route path="/settings/agents" element={<AgentSettingsPage />} />
       </Route>
 

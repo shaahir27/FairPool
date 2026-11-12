@@ -25,6 +25,50 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it("starts with connections and a single setup action, keeping manual fields out of the way", async () => {
+  transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [] : {items: []}}));
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  expect(await screen.findByRole("heading", {name: "Agent connections"})).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Connect an agent"})).toBeEnabled();
+  expect(screen.queryByLabelText("Maximum per entry (USD)")).toBeNull();
+  expect(screen.queryByRole("button", {name: "Create delegation"})).toBeNull();
+  expect(screen.getByRole("button", {name: "Set up manually"})).toBeEnabled();
+});
+
+it("prepares access from intent without asking the buyer to search pools or accept an unstated default cap", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: id, title: "Monitor pool"}] : {items: []}}));
+  transport.post.mockResolvedValue({data: {source: "ai", pool_ids: [id], category: null, max_cap_cents: 100000, expires_at: "2099-01-01T23:59:59Z", conditions: [], reserved: ["payment_approval"], clarifying_question: null}});
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", {name: "Set up manually"}));
+  expect(screen.queryByRole("checkbox", {name: "Monitor pool"})).toBeNull();
+  fireEvent.change(screen.getByLabelText("Describe your mandate"), {target: {value: "Find a monitor under $1000 until 1 January 2099"}});
+  fireEvent.click(screen.getByRole("button", {name: "Propose with AI"}));
+  await waitFor(() => expect(transport.post).toHaveBeenCalledWith("/api/v1/me/mandate-proposal", {body: {message: "Find a monitor under $1000 until 1 January 2099", pool_ids: [], max_cap_cents: null}}));
+  expect(await screen.findByTestId("mandate-text")).toHaveTextContent("Monitor pool");
+  expect(screen.getByTestId("mandate-text")).toHaveTextContent("1000.00");
+  expect(screen.getByRole("checkbox", {name: /I approve this mandate/})).not.toBeChecked();
+  expect(transport.post.mock.calls.every(([path]) => path === "/api/v1/me/mandate-proposal")).toBe(true);
+});
+
+it("hydrates an automatically matched pool outside the initial catalogue before review", async () => {
+  transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [] : path === "/api/v1/pools/{pool_id}" ? {pool_id: "matched", title: "January dock pool", status: "OPEN"} : {items: []}}));
+  transport.post.mockResolvedValue({data: {source: "ai", pool_ids: ["matched"], category: null, max_cap_cents: 10000, expires_at: "2099-01-01T23:59:59Z", conditions: []}});
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", {name: "Set up manually"}));
+  fireEvent.change(screen.getByLabelText("Describe your mandate"), {target: {value: "Find a dock under $100"}});
+  fireEvent.click(screen.getByRole("button", {name: "Propose with AI"}));
+  expect(await screen.findByTestId("mandate-text")).toHaveTextContent("January dock pool");
+  expect(transport.get).toHaveBeenCalledWith("/api/v1/pools/{pool_id}", {params: {path: {pool_id: "matched"}}});
+  expect(screen.getByRole("button", {name: "Create delegation"})).toBeEnabled();
+});
+
+function showManual() {
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", {name: "Set up manually"}));
+  fireEvent.click(screen.getByRole("button", {name: "Choose fields myself"}));
+}
+
 it("shows the PayPal link state and revokes it after a confirmation", async () => {
   transport.get.mockResolvedValue({ data: { paypal_linked: true } });
   transport.delete.mockResolvedValue({ data: { paypal_linked: false } });
@@ -196,7 +240,7 @@ it("includes pools beyond the default page when choosing an agent scope", async 
       ? pools.slice(0, init?.params?.query?.limit ?? 20)
       : { items: [] },
   }));
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
   expect(await screen.findByRole("checkbox", { name: /January dock pool/ })).toBeInTheDocument();
 });
 
@@ -216,11 +260,11 @@ it("creates a scoped delegation, shows the token once and lists it", async () =>
     return Promise.resolve({ data: {} });
   });
   transport.post.mockResolvedValue({ data: { token: "fpd_abc_secret", id: "33333333-3333-4333-8333-333333333333" } });
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   const checkbox = await screen.findByRole("checkbox", { name: /Demo monitor pool/ });
   fireEvent.click(checkbox);
-  fireEvent.click(screen.getByRole("checkbox", { name: /I ratify this mandate/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /I approve this mandate/ }));
   fireEvent.click(screen.getByRole("button", { name: "Create delegation" }));
 
   await waitFor(() => expect(transport.post).toHaveBeenCalledWith("/api/v1/me/delegations", {
@@ -228,7 +272,7 @@ it("creates a scoped delegation, shows the token once and lists it", async () =>
   }));
   expect(await screen.findByText("Copy this token now. It is shown once.")).toBeInTheDocument();
   expect(screen.getByText("fpd_abc_secret")).toBeInTheDocument();
-  const list = screen.getByRole("heading", { name: "Your delegations" }).parentElement!;
+  const list = screen.getByRole("heading", { name: "Connections" }).closest<HTMLElement>(".settings-delegations")!;
   expect(within(list).getByText(/1 pool/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name: "Hide token"}));
   expect(screen.queryByText("fpd_abc_secret")).toBeNull();
@@ -245,7 +289,7 @@ it("lists every open pool instead of silently cutting the list", async () => {
       })),
     });
   });
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   expect(await screen.findByRole("checkbox", { name: "Pool 8" })).toBeInTheDocument();
   const poolChoices = within(screen.getByRole("group", { name: "Pools this delegation may use" }));
@@ -261,7 +305,7 @@ it("shows a real error and a retry when the open pools cannot be loaded", async 
     }
     return Promise.resolve({ data: [{ pool_id: "pool-one", title: "Demo pool", status: "OPEN" }] });
   });
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   expect(await screen.findByText(/The open pools could not be loaded/)).toBeInTheDocument();
   expect(screen.queryByText("No open pools right now.")).not.toBeInTheDocument();
@@ -281,7 +325,7 @@ it("revokes a delegation after a confirmation", async () => {
     revoked_at: null,
   }] } });
   transport.delete.mockResolvedValue({ data: { items: [] } });
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   fireEvent.click(await screen.findByRole("button", { name: "Revoke" }));
   expect(transport.delete).not.toHaveBeenCalled();
@@ -299,7 +343,7 @@ it("refuses to create a delegation with no pool selected", async () => {
     }
     return Promise.resolve({ data: { items: [] } });
   });
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   const create = await screen.findByRole("button", {name: "Create delegation"});
   await waitFor(() => expect(create).toBeEnabled());
@@ -310,7 +354,7 @@ it("refuses to create a delegation with no pool selected", async () => {
 
 it("refuses scientific notation for a delegation's USD cap", async () => {
   transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: "pool-one", title: "Test pool"}] : {items: []}}));
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
   fireEvent.click(await screen.findByRole("checkbox", {name: "Test pool"}));
   fireEvent.change(screen.getByLabelText("Maximum per entry (USD)"), {target: {value: "1e3"}});
   fireEvent.click(screen.getByRole("button", {name: "Create delegation"}));
@@ -320,14 +364,14 @@ it("refuses scientific notation for a delegation's USD cap", async () => {
 
 it("requires an explicit ratification before any delegation token is requested", async () => {
   transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: "pool-one", title: "Test pool"}] : {items: []}}));
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   fireEvent.click(await screen.findByRole("checkbox", {name: "Test pool"}));
   fireEvent.click(screen.getByRole("button", {name: "Create delegation"}));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/ratify the mandate/);
   expect(transport.post).not.toHaveBeenCalled();
-  expect(screen.getByText(/not available in this build/)).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Propose with AI"})).toBeInTheDocument();
 });
 
 it("renders the mandate for reading and hashes the canonical mandate fields with the token", async () => {
@@ -338,7 +382,7 @@ it("renders the mandate for reading and hashes the canonical mandate fields with
     return Promise.resolve({ data: {} });
   });
   transport.post.mockResolvedValue({ data: { token: "fpd_abc_secret", id: "33333333-3333-4333-8333-333333333333" } });
-  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  showManual();
 
   fireEvent.click(await screen.findByRole("checkbox", { name: /Demo monitor pool/ }));
   fireEvent.change(screen.getByLabelText("Expires (UTC)"), { target: { value: "2026-12-01T00:00" } });
@@ -349,7 +393,7 @@ it("renders the mandate for reading and hashes the canonical mandate fields with
   expect(rendered).toContain("If the price is above USD 520");
   expect(rendered).toContain("This mandate approves no payment.");
 
-  fireEvent.click(screen.getByRole("checkbox", { name: /I ratify this mandate/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /I approve this mandate/ }));
   fireEvent.click(screen.getByRole("button", { name: "Create delegation" }));
 
   // The canonical payload: sorted keys, compact JSON, the UTC millisecond expiry and
@@ -389,4 +433,52 @@ it("updates the sidebar's connection state only after the server confirms revoca
   expect(within(rail).getByText("PayPal account linked")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name: "Confirm revoke link"}));
   expect(await within(rail).findByText("No PayPal account linked yet")).toBeInTheDocument();
+});
+
+
+it("identifies named connections by public prefix and last use", async () => {
+  transport.get.mockImplementation(async (path: string) => ({data: path === '/api/v1/pools' ? [] : {items: [{id: 'connected', name: 'Research assistant', key_prefix: '1234abcd', last_used_at: '2026-11-12T10:00:00Z', scope: {pool_ids: []}, max_cap_cents: 50000, expires_at: '2099-01-01T00:00:00Z', revoked_at: null}]}}));
+  showManual();
+  expect(await screen.findByText('Research assistant')).toBeInTheDocument();
+  expect(screen.getByText('1234abcd')).toBeInTheDocument();
+  expect(screen.getByText('Active')).toBeInTheDocument();
+  expect(screen.getByText(/Last used:/)).not.toHaveTextContent('Never');
+  fireEvent.click(screen.getByRole('button', {name: 'Connect an agent'}));
+  expect(screen.getByLabelText('MCP server URL')).toHaveValue('http://localhost:8000/mcp');
+});
+
+it.each(['manual', 'outage'])("keeps the editable manual mandate when AI returns %s", async (source) => {
+  transport.get.mockImplementation(async (path: string) => ({data: path === '/api/v1/pools' ? [{pool_id: 'pool-one', title: 'Monitor pool'}] : {items: []}}));
+  transport.post.mockImplementation(async () => {if(source === 'outage') throw new Error('offline'); return {data: {source: 'manual', pool_ids: ['pool-one'], conditions: [], max_cap_cents: 60000}};});
+  showManual();
+  fireEvent.click(await screen.findByRole('checkbox', {name: 'Monitor pool'}));
+  fireEvent.change(screen.getByLabelText('Describe your mandate'), {target: {value: 'Find a monitor under $600'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Propose with AI'}));
+  expect(await screen.findByText(/Write or edit the mandate below/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Maximum per entry (USD)')).toHaveValue('600');
+  expect(screen.getByRole('checkbox', {name: /I approve this mandate/})).not.toBeChecked();
+});
+
+it("loads an AI proposal into editable fields and requires ratification of the new cap", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  transport.get.mockImplementation(async (path: string) => ({data: path === "/api/v1/pools" ? [{pool_id: id, title: "Monitor pool"}] : {items: []}}));
+  transport.post.mockImplementation(async (path: string) => ({data: path === "/api/v1/me/mandate-proposal" ? {
+    source: "ai", pool_ids: [id], category: null, max_cap_cents: 52000, expires_at: "2099-01-01T23:59:59Z",
+    conditions: [{predicate: "PRICE_ABOVE", params: {amount: "500.00"}, action: "REASK"}],
+    reserved: ["payment_approval"], ambiguities: [], clarifying_question: null,
+  } : {token: "test-only-token"}}));
+  showManual();
+  fireEvent.click(await screen.findByRole("checkbox", {name: "Monitor pool"}));
+  fireEvent.change(screen.getByLabelText("Connection name"), {target: {value: "Research assistant"}});
+  fireEvent.click(screen.getByRole("checkbox", {name: /I approve this mandate/}));
+  fireEvent.change(screen.getByLabelText("Describe your mandate"), {target: {value: "Cap at $520, ask above $500"}});
+  fireEvent.click(screen.getByRole("button", {name: "Propose with AI"}));
+  await screen.findByText(/AI proposed the mandate below/);
+  fireEvent.click(screen.getByRole("button", {name: "Edit limits and pools"}));
+  expect(screen.getByLabelText("Condition 1 amount (USD)")).toHaveValue("500.00");
+  expect(screen.getByRole("checkbox", {name: /I approve this mandate/})).not.toBeChecked();
+  fireEvent.change(screen.getByLabelText("Maximum per entry (USD)"), {target: {value: "510"}});
+  fireEvent.click(screen.getByRole("checkbox", {name: /I approve this mandate/}));
+  fireEvent.click(screen.getByRole("button", {name: "Create delegation"}));
+  await waitFor(() => expect(transport.post).toHaveBeenCalledWith("/api/v1/me/delegations", {body: expect.objectContaining({name: "Research assistant", max_cap_cents: 51000, scope: expect.objectContaining({pool_ids: [id], category: null})})}));
 });

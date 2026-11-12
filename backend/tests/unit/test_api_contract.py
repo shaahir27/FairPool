@@ -29,6 +29,8 @@ B_MODULES = {
     "merchant",
     "merchant_keys",
     "agent",
+    "agent_oauth",
+    "demand",
     "admin_pools",
     "admin_sim",
     "notifications",
@@ -55,7 +57,7 @@ def collect(modules: list[object]) -> dict[tuple[str, str], str]:
 
 def test_parent_and_merchant_route_sets_match_the_contract():
     rows = contract_rows()
-    assert len(rows) == 102
+    assert len(rows) == 117
     parent_expected = {
         (method, path)
         for method, path, _, _ in rows
@@ -64,7 +66,7 @@ def test_parent_and_merchant_route_sets_match_the_contract():
     merchant_expected = {
         (method, path) for method, path, _, _ in rows if path.startswith("/merchant-api/v1")
     }
-    assert len(parent_expected) == 90
+    assert len(parent_expected) == 105
     assert len(merchant_expected) == 10
 
     parent_modules = [health, *ROUTERS]
@@ -113,4 +115,4 @@ def test_app_openapi_contains_all_parent_operations():
         for method in item
         if method.upper() in METHODS
     ]
-    assert len(operations) == 90
+    assert len(operations) == 98

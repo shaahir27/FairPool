@@ -132,14 +132,17 @@ async def require_agent(
 
     Every refusal is ``DELEGATION_INVALID`` at 401: an absent header, a malformed
     token, an unknown hash, an expired row and a revoked row are not distinguished
-    (I11). Authentication writes nothing, so unlike the merchant-key path there is
-    no ``last_used_at`` to commit here.
+    (I11). A token that resolves stamps ``last_used_at`` (CR-17), and that write is
+    committed here so it survives the request, exactly as the merchant-key path does.
     """
     settings = request.app.state.settings
     if credentials is None or settings is None:
         raise ApplicationError("DELEGATION_INVALID")
     auth = PostgresDelegationAuth(clock=DbClock(), hmac_key=settings.hmac_key.get_secret_value())
-    return await auth.from_token(db, credentials.credentials)
+    principal = await auth.from_token(db, credentials.credentials)
+    await auth.mark_used(db, delegation_id=principal.delegation_id)
+    await db.commit()
+    return principal
 
 
 def _merchant_key_bucket(bearer_value: str) -> str:

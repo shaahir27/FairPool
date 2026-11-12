@@ -115,3 +115,20 @@
 .ops-lot-identity { padding-block: 4px 8px; }
 .ops-lot-identity h3 { font-size: 21px; font-weight: 650; line-height: 1.5; letter-spacing: -.02em; }
 .ops-lot-identity p { margin-top: 8px; font-size: 14px; color: rgb(var(--color-muted)); }
+
+.ops-demand-list { margin-top: 20px; }
+.ops-demand-record { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 24px 0; border-top: 1px solid rgb(var(--color-line)); }
+.ops-demand-record > div:last-child { grid-column: 1 / -1; }
+.ops-demand-record > span[title] { align-self: start; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.ops-workspace-shell:has(.ops-demand-panel) button { box-shadow: none; }
+.ops-workspace-shell:has(.ops-demand-panel) .sidebar-demo { font-size: 12px; }
+.ops-workspace-shell:has(.ops-demand-panel) .honesty-labels { font-size: 11px; }
+@media (max-width: 1100px) {
+  .ops-workspace-shell:has(.ops-demand-panel) .mobile-primary-navigation { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ops-demand-record { grid-template-columns: minmax(0, 1fr); }
+  .ops-demand-record > span[title] { justify-self: start; }
+}
+
+.ops-workspace-shell:has(.ops-demand-panel) .account-nav-link { box-shadow: none; }

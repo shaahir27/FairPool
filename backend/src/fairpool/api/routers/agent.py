@@ -16,17 +16,22 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Security
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.api import schemas
 from fairpool.api.deps import database_session, require_agent, require_session
 from fairpool.api.routers.entries import _join_service, _settings
+from fairpool.api.routers.intake import _ai
 from fairpool.api.routers.pools import _search_service
+from fairpool.db.models.catalog import Pool
+from fairpool.db.models.enums import PoolMode, PoolStatus
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.idempotency import PostgresIdempotencyStore
 from fairpool.modules.agentapi.service import AgentService
 from fairpool.modules.identity.delegations import AgentPrincipal, DelegationService
+from fairpool.modules.identity.mandate_proposal import MandateProposalService
 from fairpool.modules.identity.service import Principal
 from fairpool.modules.intake.manual import ManualIntakeService
 
@@ -77,6 +82,7 @@ async def delegations_create(
         scope=payload.scope.model_dump(mode="json"),
         max_cap_cents=payload.max_cap_cents,
         expires_at=payload.expires_at,
+        name=payload.name,
     )
     await db.commit()
     return schemas.DelegationCreated(
@@ -85,6 +91,9 @@ async def delegations_create(
         max_cap_cents=row.max_cap_cents,
         expires_at=row.expires_at,
         revoked_at=row.revoked_at,
+        name=row.name,
+        key_prefix=row.key_prefix,
+        last_used_at=row.last_used_at,
         token=token,
     )
 
@@ -108,6 +117,9 @@ async def delegations_list(
                 max_cap_cents=row.max_cap_cents,
                 expires_at=row.expires_at,
                 revoked_at=row.revoked_at,
+                name=row.name,
+                key_prefix=row.key_prefix,
+                last_used_at=row.last_used_at,
             )
             for row in rows
         ]
@@ -127,6 +139,59 @@ async def delegations_delete(
     """Revoke; another buyer's delegation id answers 404 like an unknown one."""
     await _delegations(request).revoke(db, user_id=principal.user_id, delegation_id=delegation_id)
     await db.commit()
+
+
+@router.post(
+    "/api/v1/me/mandate-proposal",
+    response_model=schemas.MandateProposal,
+    operation_id="mandate_proposal",
+)
+async def mandate_proposal(
+    payload: schemas.MandateProposalRequest,
+    request: Request,
+    principal: Annotated[Principal, Security(require_session)],
+    db: Annotated[AsyncSession, Depends(database_session)],
+) -> schemas.MandateProposal:
+    """Propose a mandate from the buyer's words; the buyer still ratifies it (FR-AI-06).
+
+    This mints nothing. The card it returns is edited and hashed in the browser and
+    comes back through ``delegations_create``, which recomputes that hash.
+    """
+    pools: list[Pool] = []
+    if payload.pool_ids:
+        rows = await db.scalars(
+            select(Pool).where(
+                Pool.id.in_(payload.pool_ids),
+                Pool.mode == PoolMode.LIVE_SANDBOX,
+                Pool.status.not_in([PoolStatus.DRAFT, PoolStatus.CANCELLED]),
+            )
+        )
+        by_id = {row.id: row for row in rows}
+        pools = [by_id[pool_id] for pool_id in payload.pool_ids if pool_id in by_id]
+    else:
+        from fairpool.api.routers.pools import _search_service
+
+        hits = await _search_service(request).search(
+            db, q=payload.message, kinds=["pool"], status=["OPEN"], limit=5
+        )
+        ids = [UUID(hit.doc_id) for hit in hits]
+        rows = await db.scalars(
+            select(Pool).where(
+                Pool.id.in_(ids), Pool.mode == PoolMode.LIVE_SANDBOX, Pool.status == PoolStatus.OPEN
+            )
+        )
+        by_id = {row.id: row for row in rows}
+        pools = [by_id[pool_id] for pool_id in ids if pool_id in by_id]
+    service = MandateProposalService(ai=_ai(request, _settings(request)))
+    card = await service.propose(
+        db,
+        message=payload.message,
+        pools=pools,
+        max_cap_cents=payload.max_cap_cents,
+    )
+    # The adapter writes one ai_runs row per attempt inside this session (ai-schemas 1.5).
+    await db.commit()
+    return schemas.MandateProposal(**card)
 
 
 # --------------------------------------------------------------- agent API

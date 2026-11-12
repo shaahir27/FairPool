@@ -97,7 +97,17 @@ async def test_create_shows_the_token_once_and_stores_only_its_hmac(
     body = await create_delegation(
         client, csrf, scope={"pool_ids": [], "category": "monitors"}, max_cap_cents=75000
     )
-    assert set(body) == {"id", "scope", "max_cap_cents", "expires_at", "revoked_at", "token"}
+    assert set(body) == {
+        "id",
+        "scope",
+        "max_cap_cents",
+        "expires_at",
+        "revoked_at",
+        "name",
+        "key_prefix",
+        "last_used_at",
+        "token",
+    }
     assert TOKEN_SHAPE.match(body["token"]), body["token"]
     assert body["scope"] == {"pool_ids": [], "category": "monitors"}
     assert body["max_cap_cents"] == 75000

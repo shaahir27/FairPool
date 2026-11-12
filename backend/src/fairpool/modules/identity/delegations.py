@@ -13,10 +13,12 @@ index probe per call; every refusal (malformed, unknown, expired, revoked) is
 the same ``401 DELEGATION_INVALID`` so the difference never answers a probe
 (I11).
 
-Nothing here writes during authentication: an agent token is not a session and
-has no ``last_used_at`` to stamp. ``PostgresDelegationAuth.from_token`` reads
-the row, compares the database clock against ``expires_at`` (I15) and returns
-the principal the route enforces scope and cap against.
+Authentication itself only reads. CR-17 adds one write on the HTTP path:
+``require_agent`` calls ``mark_used`` and commits it, so the buyer can see which
+connected agents are actually in use, exactly as merchant keys do. A refused token
+never reaches it. ``PostgresDelegationAuth.from_token`` reads the row, compares the
+database clock against ``expires_at`` (I15) and returns the principal the route
+enforces scope and cap against.
 """
 
 from __future__ import annotations
@@ -61,10 +63,11 @@ def hash_token(hmac_key: str, token: str) -> str:
     return hmac_lib.new(hmac_key.encode(), token.encode(), hashlib.sha256).hexdigest()
 
 
-def _new_token() -> str:
+def _new_token() -> tuple[str, str]:
+    """``(public prefix, full token)``: the prefix is what the connection list shows."""
     prefix = secrets.token_hex(PREFIX_CHARS // 2)
     secret = secrets.token_urlsafe(SECRET_BYTES)[:43]
-    return f"{TOKEN_PREFIX}_{prefix}_{secret}"
+    return prefix, f"{TOKEN_PREFIX}_{prefix}_{secret}"
 
 
 class DelegationService:
@@ -83,11 +86,15 @@ class DelegationService:
         scope: dict[str, Any],
         max_cap_cents: int,
         expires_at: datetime,
+        name: str | None = None,
+        oauth_client_id: str | None = None,
     ) -> tuple[Delegation, str]:
         """Issue a token once, alongside the row that holds only its hash."""
         if max_cap_cents < 0 or expires_at.tzinfo is None:
             # An absolute instant is required (api.md section 1); a naive value would
             # depend on the server's local zone, which I15 forbids.
+            raise ApplicationError("VALIDATION_ERROR")
+        if name is not None and (not name.strip() or len(name) > 120):
             raise ApplicationError("VALIDATION_ERROR")
         normalized: dict[str, Any] = {
             "pool_ids": [str(pool_id) for pool_id in scope.get("pool_ids", [])],
@@ -106,32 +113,41 @@ class DelegationService:
         # as a claim nothing checked.
         if scope.get("mandate_version") is not None or scope.get("ratification_sha256") is not None:
             verify_ratification(scope, max_cap_cents=max_cap_cents, expires_at=expires_at)
-        token = _new_token()
-        row = Delegation(
-            id=uuid4(),
-            user_id=user_id,
-            token_hash=hash_token(self.hmac_key, token),
-            scope=normalized,
-            max_cap_cents=max_cap_cents,
-            expires_at=expires_at,
-        )
-        session.add(row)
-        await session.flush()
-        await self.audit.append(
-            session,
-            actor=str(user_id),
-            action="delegation.created",
-            subject_type="delegation",
-            subject_id=str(row.id),
-            payload={
-                "scope": normalized,
-                "max_cap_cents": max_cap_cents,
-                "expires_at": expires_at.isoformat(),
-            },
-        )
-        # The token never reaches the audit payload or the log (rule 25).
-        logger.info("delegation created user_id=%s delegation_id=%s", user_id, row.id)
-        return row, token
+        for _attempt in range(3):
+            prefix, token = _new_token()
+            if await session.scalar(select(Delegation.id).where(Delegation.key_prefix == prefix)):
+                continue
+            row = Delegation(
+                id=uuid4(),
+                user_id=user_id,
+                token_hash=hash_token(self.hmac_key, token),
+                scope=normalized,
+                max_cap_cents=max_cap_cents,
+                expires_at=expires_at,
+                name=name.strip() if name else None,
+                key_prefix=prefix,
+                oauth_client_id=oauth_client_id,
+            )
+            session.add(row)
+            await session.flush()
+            await self.audit.append(
+                session,
+                actor=str(user_id),
+                action="delegation.created",
+                subject_type="delegation",
+                subject_id=str(row.id),
+                payload={
+                    "scope": normalized,
+                    "max_cap_cents": max_cap_cents,
+                    "expires_at": expires_at.isoformat(),
+                    "name": row.name,
+                    "key_prefix": prefix,
+                },
+            )
+            # The token never reaches the audit payload or the log (rule 25).
+            logger.info("delegation created user_id=%s delegation_id=%s", user_id, row.id)
+            return row, token
+        raise ApplicationError("INTERNAL_ERROR")
 
     async def list(self, session: AsyncSession, *, user_id: UUID) -> list[Delegation]:
         return list(
@@ -197,6 +213,18 @@ class PostgresDelegationAuth:
             max_cap_cents=row.max_cap_cents,
             expires_at=row.expires_at,
         )
+
+    async def mark_used(self, session: AsyncSession, *, delegation_id: UUID) -> None:
+        """CR-17: stamp one use, from the database clock, in the caller's transaction.
+
+        Kept out of ``from_token`` on purpose: the MCP transport authenticates on its
+        own session and then re-enters the Agent API in-process, so a write there would
+        hold a row lock the inner call needs and deadlock against itself.
+        """
+        row = await session.scalar(select(Delegation).where(Delegation.id == delegation_id))
+        if row is not None:
+            row.last_used_at = await self.clock.db_now(session)
+            await session.flush()
 
 
 def _looks_like_token(bearer: str) -> bool:

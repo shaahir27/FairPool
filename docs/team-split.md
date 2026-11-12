@@ -113,8 +113,8 @@ flowchart TB
   B9 --> G9
   G9 -.-> X9
   subgraph PH10["PH10 Rehearsals and release candidate"]
-    A10["Member A<br/>T10A01 T10A02 T10A03 T10A04"]
-    B10["Member B<br/>T10B01 T10B02"]
+    A10["Member A<br/>T10A01 T10A02 T10A03 T10A04 T10A05"]
+    B10["Member B<br/>T10B01 T10B02 T10B03"]
     X10["Both<br/>T10X01 T10X02"]
   end
   G10{{"IG-10 merge gate<br/>IT-10"}}
@@ -174,8 +174,8 @@ PH9  A: T09A01 T09A02 T09A03 T09A04 T09A05 T09A06
      B: T09B01 T09B02 T09B03 T09B04 T09B05 T09B06
      both: T09X01 T09X02
      ==== IG-9 merge gate, IT-9 ====
-PH10 A: T10A01 T10A02 T10A03 T10A04
-     B: T10B01 T10B02
+PH10 A: T10A01 T10A02 T10A03 T10A04 T10A05
+     B: T10B01 T10B02 T10B03
      both: T10X01 T10X02
      ==== IG-10 merge gate, IT-10 ====
 PH11 A: none
@@ -307,9 +307,9 @@ Merge gate IG-9; test IT-9. Load: Member A 3.00 of 1 days, Member B 3.75 of 1 da
 
 | Member A lane | Member B lane | Both |
 |---|---|---|
-| T10A01 (M) Fixes from rehearsal 1 (payments, ops, fulfillment)<br/>T10A02 (M) Repository cleanup and compliance<br/>T10A03 (M) Devpost text<br/>T10A04 (M) Merchant SDKs and developer portal | T10B01 (M) Fixes from rehearsal 1 (product, UI, agent lane)<br/>T10B02 (L) Demo video | T10X01 (M) Rehearsal 1<br/>T10X02 (M) Rehearsal 2 clean run |
+| T10A01 (M) Fixes from rehearsal 1 (payments, ops, fulfillment)<br/>T10A02 (M) Repository cleanup and compliance<br/>T10A03 (M) Devpost text<br/>T10A04 (M) Merchant SDKs and developer portal<br/>T10A05 (L) Agent connections, OAuth and mandate proposal (CR-17) | T10B01 (M) Fixes from rehearsal 1 (product, UI, agent lane)<br/>T10B02 (L) Demo video<br/>T10B03 (L) Demand formation (CR-17) | T10X01 (M) Rehearsal 1<br/>T10X02 (M) Rehearsal 2 clean run |
 
-Merge gate IG-10; test IT-10. Load: Member A 2.50 of 2 days, Member B 2.00 of 2 days.
+Merge gate IG-10; test IT-10. Load: Member A 3.50 of 2 days, Member B 3.00 of 2 days. CR-17 reopens the IG-9 freeze for T10A05 and T10B03 only (2026-11-12).
 
 ### PH11: Submission
 
@@ -460,10 +460,11 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | 61 | T10A02 Repository cleanup and compliance | M | PH10 | IG-10 | T09A03 |
 | 62 | T10A03 Devpost text | M | PH10 | IG-10 | T09X01 |
 | 63 | T10A04 Merchant SDKs and developer portal | M | PH10 | IG-10 | T08A03 |
-| 64 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
-| 65 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
-| 66 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
-| 67 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
+| 64 | T10A05 Agent connections, OAuth and mandate proposal (CR-17) | L | PH10 | IG-10 | T07A05, T07B03, T09B06 |
+| 65 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
+| 66 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
+| 67 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
+| 68 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
 
 ### Member B
 
@@ -510,7 +511,8 @@ Contracts are frozen at `contracts-v1`. A change request (issue template `contra
 | 39 | T09X02 Feature freeze and IT-3 (both members) | M | PH9 | IG-9 | T07X01 |
 | 40 | T10B01 Fixes from rehearsal 1 (product, UI, agent lane) | M | PH10 | IG-10 | T10X01 |
 | 41 | T10B02 Demo video | L | PH10 | IG-10 | T10X02 |
-| 42 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
-| 43 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
-| 44 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
-| 45 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |
+| 42 | T10B03 Demand formation (CR-17) | L | PH10 | IG-10 | T02B02, T03B01, T09B05 |
+| 43 | T10X01 Rehearsal 1 (both members) | M | PH10 | IG-10 | T09X01, T09X02 |
+| 44 | T10X02 Rehearsal 2 clean run (both members) | M | PH10 | IG-10 | T10A01, T10B01 |
+| 45 | T11X01 Final checks and submit (both members) | M | PH11 | IG-11 | T10X02, T10A02, T10A03, T10A04, T10B02 |
+| 46 | T11X02 Post-submit verification (both members) | S | PH11 | IG-11 | T11X01 |

@@ -21,8 +21,11 @@ from .checkout import (
     Shipment,
     WebhookEvent,
 )
+from .demand import DemandCluster, DemandSignal
 from .enums import ENUM_TYPES
 from .identity import (
+    AgentOAuthClient,
+    AgentOAuthCode,
     Delegation,
     OAuthState,
     PayPalLink,
@@ -38,6 +41,8 @@ from .pools import Allocation, Lot
 
 __all__ = [
     "UserAddress",
+    "AgentOAuthClient",
+    "AgentOAuthCode",
     "AiRun",
     "Allocation",
     "AuditLog",
@@ -49,6 +54,8 @@ __all__ = [
     "CatalogProduct",
     "ConfirmedRequest",
     "Delegation",
+    "DemandCluster",
+    "DemandSignal",
     "ENUM_TYPES",
     "EntryReceipt",
     "IdempotencyKey",

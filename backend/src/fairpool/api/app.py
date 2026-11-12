@@ -26,8 +26,10 @@ from fairpool.api.routers import (
     admin_pools,
     admin_sim,
     agent,
+    agent_oauth,
     auth,
     checkout,
+    demand,
     entries,
     health,
     intake,
@@ -108,6 +110,8 @@ ROUTERS = (
     admin_ops,
     merchant_fulfillment,
     notifications,
+    agent_oauth,
+    demand,
 )
 
 

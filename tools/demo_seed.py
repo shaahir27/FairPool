@@ -1191,6 +1191,28 @@ async def summary(session: Any, pools: dict[str, Any]) -> list[dict[str, Any]]:
     return [dict(row._mapping) for row in rows]
 
 
+async def seed_demand(session: Any, *, service: Any) -> int:
+    """CR-17: explicit demo consent leaves one draft and one collecting cluster."""
+    if os.environ.get("DEMO_SEED_DEMAND") != "1":
+        return 0
+    for product, bundle, count in (
+        ("adjustable-desk-lamp", ["lamp", "power cable"], service.threshold),
+        ("desktop-webcam", ["webcam", "usb cable"], service.threshold - 1),
+    ):
+        for email in BUYER_EMAILS[:count]:
+            await service.signal(
+                session,
+                user_id=await user_id_of(session, email),
+                product_key=product,
+                condition="NEW",
+                variant=None,
+                bundle_contents=bundle,
+                region="NY",
+                source="discover",
+            )
+    return int(await service.sweep(session))
+
+
 async def main() -> int:
     load_env()
     # Local by default; DEMO_SEED_HOSTED=1 is the explicit opt-in for the hosted demo
@@ -1224,10 +1246,13 @@ async def main() -> int:
     from fairpool.infra.audit import PostgresAuditLog
     from fairpool.infra.clock import DbClock
     from fairpool.infra.idempotency import PostgresIdempotencyStore
+    from fairpool.infra.jobs import PostgresJobQueue
+    from fairpool.modules.demand.service import DemandService
     from fairpool.modules.identity.service import IdentityService
     from fairpool.modules.intake.pipeline import IntakeService
     from fairpool.modules.intake.run_log import PostgresAiRunLogger
     from fairpool.modules.merchants.profile import MerchantProfileService
+    from fairpool.modules.notify.service import PostgresNotifier
     from fairpool.modules.pools.join import JoinService
     from fairpool.modules.search.service import build_search_service
     from fairpool.wiring import checkout_services, pool_service, worker_handlers
@@ -1352,6 +1377,18 @@ async def main() -> int:
                 )
                 discovery = await seed_discovery(
                     session, pools=pool_service(config), joins=joins, admin_id=admin_id
+                )
+                await seed_demand(
+                    session,
+                    service=DemandService(
+                        clock=DbClock(),
+                        audit=PostgresAuditLog(),
+                        notifier=PostgresNotifier(),
+                        pools=pool_service(config),
+                        jobs=PostgresJobQueue(),
+                        threshold=config.demand_threshold,
+                        signal_ttl_days=config.demand_signal_ttl_days,
+                    ),
                 )
             except ApplicationError as error:
                 raise SystemExit(f"demo seed refused a transition: {error.code}") from None

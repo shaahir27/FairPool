@@ -114,8 +114,8 @@ def plain(value: Any) -> Any:
 
 
 def test_contract_has_variable_count() -> None:
-    assert len(contract_defaults()) == 64
-    assert len(Settings.model_fields) == 64 + len(CONTRACT_ADDITIONS)
+    assert len(contract_defaults()) == 66
+    assert len(Settings.model_fields) == 66 + len(CONTRACT_ADDITIONS)
 
 
 def test_csv_env_values_are_parsed(monkeypatch: pytest.MonkeyPatch) -> None:

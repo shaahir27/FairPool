@@ -164,6 +164,10 @@ async def test_initialize_list_and_one_tool_call_through_the_parent_app(
         pools = json.loads(result["content"][0]["text"])
         assert [item["pool_id"] for item in pools] == [str(pool_id)]
     finally:
+        # CR-17: committing a savepoint keeps locks in the fixture's outer transaction.
+        connection = await db_session.connection()
+        await db_session.rollback()
+        await connection.rollback()
         await forget(db_engine, user_id)
 
 
@@ -339,7 +343,9 @@ async def test_market_buyer_really_enters_through_mcp(
         await market.money()
         assert sum(row["count"] for row in market.report["money"]["entries_by_surface"]) == 1
     finally:
+        connection = await db_session.connection()
         await db_session.rollback()
+        await connection.rollback()
         await forget(db_engine, user_id)
 
 
