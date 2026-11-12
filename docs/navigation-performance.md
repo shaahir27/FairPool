@@ -141,21 +141,33 @@ on activity ([pausing docs](https://supabase.com/docs/guides/platform/free-proje
 so the daily pings remove the only data-side way this demo could go quiet in January or
 February.
 
-The workflow stays **disabled while the repository is private**. A scheduled job on a
-private repository bills at least one minute per run, so a 10-minute cadence is about
-4,320 minutes a month against the 2,000 free GitHub Actions minutes and would exhaust the
-quota and block CI. Enabling it is part of the flip, recorded as a request in
-[progress.md](progress.md):
+The workflow was kept **disabled while the repository was private**. A scheduled job on
+a private repository bills at least one minute per run: an unwindowed 10-minute cadence
+is about 4,320 minutes per 30-day month against 2,000 free GitHub Actions minutes. Even
+the 20-hour window is about 3,600 minutes, so either would exhaust the quota and block
+CI. The repository was made public and the workflow enabled on **2026-11-12**, recorded
+in [progress.md](progress.md). This is the command used, also available for re-enabling:
 
 ```powershell
-gh workflow enable keep-warm.yml      # the same change that makes the repository public
+gh workflow enable keep-warm.yml
 ```
 
 After enabling, the success line is a scheduled run whose log shows `/health -> HTTP 200`
 and `/ready -> HTTP 200`, and a `/health` request that returns in well under a second.
-The free instance hours meter in the Render dashboard is read at the same time as the
-submission QA checks; if it approaches 750, the window narrows rather than the demo going
-dark.
+
+**Enablement verified 2026-11-12:** the repository is public and Keep warm is active.
+Manual run [43274377129](https://github.com/shaahir27/FairPool/actions/runs/43274377129)
+passed with `/health -> HTTP 200 after 0s` and `/ready -> HTTP 200 after 1s`.
+The logged-out app probe returned HTTP 200 in 0.29s; the open-pools endpoint returned
+HTTP 200 with 20 pools. At **18:25 UTC on 2026-11-12**, over 30 minutes after enablement,
+the automatic-run list was still empty and the workflow state was rechecked as `active`.
+A manual run is separate evidence: the successful `event: schedule` criterion remains
+unverified. No replacement pinger or local task was added. GitHub documents that
+scheduled runs can be delayed or dropped under load; this observation does not establish
+the cause of the missing run.
+
+- **60-day activity check:** GitHub disables public-repository schedules after 60 days without repository activity; a push resets the inactivity clock. If the repository stays quiet after 2026-11-12, check in early January, before **2027-01-11**, and re-enable with the command above if disabled ([GitHub schedule rules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)).
+- **Render hours meter:** read the workspace's shared meter during submission QA. The 20-hour window uses about 600 of 750 hours per 30-day month (620 in a 31-day month), with other traffic able to consume more; near 750, narrow the `3-22` UTC hour field in `*/10 3-22 * * *`, retain the 10-minute interval, and never switch to 24/7 on the free plan or add a second free service.
 
 Limits stated honestly: GitHub's scheduler can delay or skip a scheduled run under load,
 which only costs warmth, not availability. A ping cannot make a warm read faster than the
@@ -182,3 +194,10 @@ pass for that state. Independent read-only review found no remaining blocker aft
 and profile-initialization fixes. No browser timing or pixel-level approval is claimed.
 
 Network-mode reference: https://tanstack.com/query/latest/docs/framework/react/guides/network-mode
+
+**Keep-warm follow-up, 2026-11-12:** `make verify` exited 0 on an isolated loopback
+test database: 1,452 backend tests passed (one existing live-Elastic check skipped),
+376 frontend tests passed, and domain coverage was 94.62%. Documentation validation
+exited 0 with one existing endpoint warning. This follow-up changes only this document
+and the two keep-warm request records in `progress.md`; it does not complete the
+remaining submission QA or change the workflow, hosting configuration or application.
