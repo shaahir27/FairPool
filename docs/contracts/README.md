@@ -27,6 +27,31 @@ No payment, fairness, account-verification or agent permission changes are inclu
 
 ## Rules
 
+### CR-18: Late review must not strand an unpublished demand draft (owner requested 2026-11-12)
+
+The owner requested correcting the CR-17 case where a demand draft's provisional
+opening passes before an operator reviews it. This is a correction to T10B03;
+there is no new endpoint, table, payment action or automatic publication.
+
+The sweep still proposes the ordinary DRAFT pool. On operator publication, lock
+both its cluster and pool, and require that the pool is still DRAFT. Read the
+database wall clock after those locks. If its provisional opening is at or before
+that time, replace only the entry opening, closing and template funding date:
+open one hour after that database time, close seven days after opening, and set
+`fund_by` fourteen days after close. Preserve the product, lot plan and remaining
+timing settings. A draft with a future opening keeps its existing schedule.
+
+The ordinary publication path then freezes the refreshed rules, announces the
+beacon and schedules jobs from the refreshed dates. The existing
+`demand.published` audit fact includes nullable `rescheduled_from` with the prior
+opening, closing and funding date. These writes, publication, jobs and notifications
+remain in one transaction. Published, cancelled and other non-DRAFT pools are
+refused without changing their dates or rule hash.
+
+Acceptance is covered by the delayed-publication cases (at the provisional opening,
+two hours later and 25 days later), preservation of a still-future draft schedule,
+and refusal to change an already-published pool in `test_demand_formation.py`.
+
 ### CR-17: The buyer still connects an agent by hand, and demand that has no pool simply dies (owner authorized 2026-11-12)
 
 Two product gaps, both raised by the owner after reading the shipped Agent settings screen.

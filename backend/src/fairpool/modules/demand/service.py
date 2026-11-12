@@ -13,7 +13,7 @@ the transition they describe (I10). A signal carries no cap, no message and no a
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fairpool.db.models.catalog import Pool
 from fairpool.db.models.demand import DemandCluster, DemandSignal
+from fairpool.db.models.enums import PoolStatus
 from fairpool.domain.demand import cluster_key, cluster_title
 from fairpool.domain.errors import ApplicationError
 from fairpool.domain.pool_config import (
@@ -310,10 +311,15 @@ class DemandService:
         )
         return actor
 
-    def _pool_input(self, cluster: DemandCluster, *, now: Any, distinct: int) -> PoolInput:
-        """Published defaults for a demand-formed pool, identical for every cluster."""
+    @staticmethod
+    def _entry_dates(now: datetime) -> tuple[datetime, datetime, str]:
         opens = now + timedelta(hours=1)
         closes = opens + timedelta(days=7)
+        return opens, closes, (closes + timedelta(days=14)).date().isoformat()
+
+    def _pool_input(self, cluster: DemandCluster, *, now: datetime, distinct: int) -> PoolInput:
+        """Published defaults for a demand-formed pool, identical for every cluster."""
+        opens, closes, fund_by = self._entry_dates(now)
         regions = sorted(set(cluster.regions)) or ["NY"]
         return PoolInput(
             title=cluster.title,
@@ -326,7 +332,7 @@ class DemandService:
                 currency="USD",
                 bundle_contents=cluster.features["bundle"],
                 delivery_sla_days=7,
-                fund_by=(closes + timedelta(days=14)).date().isoformat(),
+                fund_by=fund_by,
                 min_return_days=14,
                 zones=[Zone(zone_id="US", label="United States", regions=regions)],
             ),
@@ -416,8 +422,31 @@ class DemandService:
         cluster = await self._cluster(session, cluster_key)
         if cluster.status != "PROPOSED" or cluster.pool_id is None:
             raise ApplicationError("ORDER_STATE_INVALID")
+        draft = await session.scalar(
+            select(Pool).where(Pool.id == cluster.pool_id).with_for_update()
+        )
+        if draft is None:
+            raise ApplicationError("NOT_FOUND")
+        if draft.status != PoolStatus.DRAFT:
+            raise ApplicationError("ORDER_STATE_INVALID")
+        # CR-18 / I15: only a mutable draft may move; read time after both locks.
+        now = await self.clock.db_wall_now(session)
+        previous_dates: dict[str, Any] | None = None
+        if datetime.fromisoformat(draft.timeline["open_at"]) <= now:
+            previous_dates = {
+                "open_at": draft.timeline["open_at"],
+                "close_at": draft.timeline["close_at"],
+                "fund_by": draft.template["fund_by"],
+            }
+            opens, closes, fund_by = self._entry_dates(now)
+            draft.timeline = {
+                **draft.timeline,
+                "open_at": opens.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                "close_at": closes.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            }
+            draft.template = {**draft.template, "fund_by": fund_by}
+            await session.flush()
         pool = await self.pools.publish(session, cluster.pool_id, actor_id=actor_id)
-        now = await self.clock.db_now(session)
         cluster.status = "POOLED"
         cluster.pooled_at = now
         await session.flush()
@@ -427,7 +456,7 @@ class DemandService:
             action="demand.published",
             subject_type="demand_cluster",
             subject_id=cluster.cluster_key,
-            payload={"pool_id": str(pool.id)},
+            payload={"pool_id": str(pool.id), "rescheduled_from": previous_dates},
         )
         await self._notify(
             session,

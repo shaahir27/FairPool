@@ -8,6 +8,8 @@ public forming-demand view carries no buyer identity, cap or message.
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -15,12 +17,17 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from fairpool.db.models.catalog import Pool
 from fairpool.domain.demand import cluster_key
+from fairpool.domain.errors import ApplicationError
+from fairpool.domain.hashing import rules_hash
+from fairpool.fakes.clock import FakeClock
 from fairpool.infra.audit import PostgresAuditLog
 from fairpool.infra.clock import DbClock
 from fairpool.infra.jobs import PostgresJobQueue
 from fairpool.modules.demand.service import DemandService
 from fairpool.modules.notify.service import PostgresNotifier
+from fairpool.modules.pools.service import rules_document
 from fairpool.wiring import pool_service
 from tests.integration.test_join_receipts import settings_for
 
@@ -183,14 +190,23 @@ async def test_a_second_sweep_never_creates_a_second_pool(db_session: AsyncSessi
 
 async def test_publishing_opens_the_pool_and_notifies_the_holders(db_session: AsyncSession) -> None:
     svc = service()
+    clock = FakeClock(await DbClock().db_now(db_session))
+    svc.clock = svc.pools.clock = clock
     admin = await buyer(db_session, "admin")
     for label in ("x", "y", "z"):
         await ask(db_session, svc, await buyer(db_session, label))
     await svc.sweep(db_session)
     key = (await svc.forming(db_session))[0]["cluster_key"]
+    draft = await db_session.get(Pool, (await svc.proposals(db_session))[0]["pool_id"])
+    assert draft is not None
+    original_timeline = deepcopy(draft.timeline)
+    original_fund_by = draft.template["fund_by"]
+    clock.advance(30 * 60)
 
     pool = await svc.publish(db_session, cluster_key=key, actor_id=admin)
     assert str(pool.status) == "PUBLISHED"
+    assert pool.timeline == original_timeline
+    assert pool.template["fund_by"] == original_fund_by
     assert pool.rules_hash and len(pool.rules_hash) == 64
     jobs = await db_session.execute(text("SELECT kind FROM jobs ORDER BY kind"))
     assert {row[0] for row in jobs} >= {"pool.open", "pool.close", "search.index"}
@@ -202,6 +218,84 @@ async def test_publishing_opens_the_pool_and_notifies_the_holders(db_session: As
         {"key": cluster_key(**FIELDS)},
     )
     assert {row[0] for row in kinds} == {"demand.pool_proposed", "demand.pool_open"}
+
+
+@pytest.mark.parametrize(
+    "review_delay", [timedelta(hours=1), timedelta(hours=2), timedelta(days=25)]
+)
+async def test_delayed_publication_refreshes_the_unpublished_schedule_and_frozen_rules(
+    db_session: AsyncSession, review_delay: timedelta
+) -> None:
+    svc = service()
+    clock = FakeClock(await DbClock().db_now(db_session))
+    svc.clock = svc.pools.clock = clock
+    admin = await buyer(db_session, "late-review")
+    for label in ("x", "y", "z"):
+        await ask(db_session, svc, await buyer(db_session, label))
+    await svc.sweep(db_session)
+    proposal = (await svc.proposals(db_session))[0]
+    draft = await db_session.get(Pool, proposal["pool_id"])
+    assert draft is not None
+    original_template = deepcopy(draft.template)
+    original_lots = deepcopy(draft.lot_plan)
+    previous_dates = {
+        "open_at": draft.timeline["open_at"],
+        "close_at": draft.timeline["close_at"],
+        "fund_by": draft.template["fund_by"],
+    }
+    clock.advance(review_delay.total_seconds())
+
+    pool = await svc.publish(db_session, cluster_key=proposal["cluster_key"], actor_id=admin)
+
+    expected_open = clock.now + timedelta(hours=1)
+    expected_close = clock.now + timedelta(days=7, hours=1)
+    assert pool.id == draft.id and str(pool.status) == "PUBLISHED"
+    assert datetime.fromisoformat(pool.timeline["open_at"]) == expected_open
+    assert datetime.fromisoformat(pool.timeline["close_at"]) == expected_close
+    assert pool.template["fund_by"] == (clock.now + timedelta(days=21, hours=1)).date().isoformat()
+    assert pool.template == {**original_template, "fund_by": pool.template["fund_by"]}
+    assert pool.lot_plan == original_lots
+    assert pool.rules_hash == rules_hash(rules_document(pool))
+    scheduled = dict(
+        (
+            await db_session.execute(
+                text("SELECT kind, run_at FROM jobs WHERE payload->>'pool_id' = :id"),
+                {"id": str(pool.id)},
+            )
+        ).all()
+    )
+    assert scheduled["pool.open"] == expected_open
+    assert scheduled["pool.close"] == expected_close
+    published = await db_session.scalar(
+        text(
+            "SELECT payload FROM audit_log WHERE action = 'demand.published' AND subject_id = :key"
+        ),
+        {"key": proposal["cluster_key"]},
+    )
+    assert published is not None
+    assert published["rescheduled_from"] == previous_dates
+
+
+async def test_delayed_demand_publication_never_changes_an_already_published_pool(
+    db_session: AsyncSession,
+) -> None:
+    svc = service()
+    clock = FakeClock(await DbClock().db_now(db_session))
+    svc.clock = svc.pools.clock = clock
+    admin = await buyer(db_session, "already-published")
+    for label in ("x", "y", "z"):
+        await ask(db_session, svc, await buyer(db_session, label))
+    await svc.sweep(db_session)
+    proposal = (await svc.proposals(db_session))[0]
+    pool = await svc.pools.publish(db_session, proposal["pool_id"], actor_id=admin)
+    original = deepcopy((pool.timeline, pool.template, pool.rules_hash))
+    clock.advance(25 * 24 * 60 * 60)
+
+    with pytest.raises(ApplicationError) as refused:
+        await svc.publish(db_session, cluster_key=proposal["cluster_key"], actor_id=admin)
+
+    assert refused.value.code == "ORDER_STATE_INVALID"
+    assert (pool.timeline, pool.template, pool.rules_hash) == original
 
 
 async def test_rejecting_closes_the_cluster_without_a_pool(db_session: AsyncSession) -> None:
