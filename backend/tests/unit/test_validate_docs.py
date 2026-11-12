@@ -45,6 +45,7 @@ def test_agent_api_merges_before_same_phase_mcp(tmp_path: Path) -> None:
     docs = tmp_path / "docs"
     shutil.copytree(REPO_ROOT / "docs", docs)
     # Keep valid repository links intact while testing the plan dependency rule.
+    shutil.copyfile(REPO_ROOT / "README.md", tmp_path / "README.md")
     shutil.copytree(REPO_ROOT / "frontend/src", tmp_path / "frontend/src")
     shutil.copytree(
         REPO_ROOT / "tools", tmp_path / "tools", ignore=shutil.ignore_patterns("__pycache__")

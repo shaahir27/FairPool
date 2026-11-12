@@ -28,6 +28,8 @@ Documentation follow-up checks passed: all ten existing README/disclosure/bluepr
 
 Raw evaluation inspection found one additional precision issue in the external review's proposed "Model calls" heading: the report has 320 case results but 354 attempt records (286 single-attempt cases and 34 retried cases). The README labels the table "Case evaluations" and states both counts, so final clean-result totals do not imply that every initial model attempt passed.
 
+The documentation CI follow-up exposed an incomplete test snapshot: `test_agent_api_merges_before_same_phase_mcp` copied docs, frontend sources and tools but omitted the root README now linked by the runbook. The same broken-link failure was reproduced locally before copying README into that fixture. The production validator and its dependency/link assertions remain unchanged; all 13 documentation/disclosure/blueprint/layout tests now pass, including missing-file and invalid-dependency negative cases. Ruff/format and real-document validation pass (two existing endpoint warnings).
+
 ## README and repository cleanup follow-up (T09X01 / T10A02)
 
 **DONE ? 2026-11-10.** Owner-requested rewrite for first-time readers and judges on `a/T09X01-readme-and-repository-cleanup`. The root README now explains the product, buyer/merchant journey, individual-approval payment mode, AI boundaries and measured evaluation, public audit limits, reproducible local configuration, local versus hosted databases, worker, demo seeding, generated SDKs, tests and deployment limitations. Official Devpost requirements/rules were checked directly; the owner supplied the live URL, requested a YouTube placeholder and will make the repository public before submission. No visibility or deployment setting changed.
