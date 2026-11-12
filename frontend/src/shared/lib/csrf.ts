@@ -1,8 +1,8 @@
 /**
  * CSRF for every mutating call (deps.py rejects one without it).
  *
- * The token comes from `POST /auth/login` and lives in memory plus
- * `sessionStorage`, so a reload keeps working but a closed tab does not.
+ * Login supplies the token; authenticated GET /me restores it in a new tab.
+ * Memory plus sessionStorage keeps it tab-scoped and supports reloads.
  */
 const STORAGE_KEY = "fairpool.csrf";
 

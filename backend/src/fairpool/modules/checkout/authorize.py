@@ -55,6 +55,7 @@ from fairpool.domain.payments import (
 from fairpool.domain.states import MACHINES
 from fairpool.infra.metrics import get_counters
 from fairpool.modules.checkout.engine import CheckoutEngine, TransitionRequest
+from fairpool.modules.checkout.routing import require_payment_router
 from fairpool.modules.checkout.shipping import ShippingCipher
 from fairpool.ports import (
     AllocationReadService,
@@ -178,6 +179,7 @@ class CheckoutAuthorizeHandlers:
         order = await session.scalar(select(BuyerOrder).where(BuyerOrder.id == buyer_order_id))
         if order is None:
             raise ApplicationError("NOT_FOUND")
+        await require_payment_router(session, lot_id=order.lot_id, router_name=self.router.name)
         if str(order.status) != str(BuyerOrderStatus.OFFERED):
             # Already created (or past it): hand back the stored provider order so a
             # repeated approval popup is harmless (N9).
@@ -278,6 +280,7 @@ class CheckoutAuthorizeHandlers:
         order = await session.scalar(select(BuyerOrder).where(BuyerOrder.id == buyer_order_id))
         if order is None:
             raise ApplicationError("NOT_FOUND")
+        await require_payment_router(session, lot_id=order.lot_id, router_name=self.router.name)
         if str(order.status) != str(BuyerOrderStatus.ORDER_CREATED):
             # A retry after approval/rejection/expiry has nothing left to decide.
             return {"buyer_order_id": str(buyer_order_id), "status": str(order.status)}
@@ -414,6 +417,7 @@ class CheckoutAuthorizeHandlers:
         order = await session.scalar(select(BuyerOrder).where(BuyerOrder.id == buyer_order_id))
         if order is None:
             raise ApplicationError("NOT_FOUND")
+        await require_payment_router(session, lot_id=order.lot_id, router_name=self.router.name)
         record = await self._latest_record(session, buyer_order_id)
         if record is None:
             raise ApplicationError("INTEGRITY_ERROR")

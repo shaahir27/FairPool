@@ -33,7 +33,7 @@ from fairpool.domain.payments import PaymentError, PayPalCapture, PayPalOrder
 from fairpool.fakes.payments import FakePayPalGateway
 from fairpool.modules.checkout.shipping import ShippingCipher
 from fairpool.modules.fulfillment import csv as fulfillment_csv
-from fairpool.wiring import worker_handlers
+from fairpool.wiring import checkout_services, worker_handlers
 from tests.integration.test_bid_sealing import bidding_world, lot_with_deadline, structured
 from tests.integration.test_join_receipts import settings_for
 from tests.integration.test_merchant_api_keys import merchant
@@ -473,7 +473,9 @@ async def test_shipment_rows_are_per_row_and_recorded_once(
 
     # The registered handler fills the tracker columns through the adapter and a
     # failure is recorded on the row rather than raised.
-    handler = worker_handlers(SETTINGS)["shipments.submit"]
+    surface = checkout_services(SETTINGS)
+    surface.router.name = "single_seller"
+    handler = worker_handlers(SETTINGS, checkout=surface)["shipments.submit"]
     await handler(db_session, {"lot_id": str(lot_id)})
     status = await db_session.scalar(
         text("SELECT paypal_tracker_status FROM shipments WHERE lot_id = :lot"), {"lot": lot_id}
@@ -555,7 +557,9 @@ async def test_a_failed_tracker_row_is_retried_by_the_next_resubmission(
     await client.post(f"{API}/{lot_id}/shipments", headers={"X-CSRF-Token": csrf}, json=payload)
     assert await queued() == 1, "a lost enqueue is restored by the next submission"
 
-    handler = worker_handlers(SETTINGS)["shipments.submit"]
+    surface = checkout_services(SETTINGS)
+    surface.router.name = "single_seller"
+    handler = worker_handlers(SETTINGS, checkout=surface)["shipments.submit"]
     await handler(db_session, {"lot_id": str(lot_id)})
     retried = await db_session.scalar(
         text("SELECT paypal_tracker_status FROM shipments WHERE lot_id = :lot"), {"lot": lot_id}
@@ -648,6 +652,29 @@ async def test_the_manifest_lists_captures_only_and_never_the_buyer(
 
 
 # ----------------------------------------------------------- verification
+
+
+async def test_simulated_verification_never_calls_paypal(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    _csrf, merchant_id = await console_merchant(client, db_session, "sim-verify@example.test")
+    awarded = await build_awarded_world(db_session, merchant_id)
+    await db_session.execute(
+        text("UPDATE lots SET payment_router = 'fake' WHERE id = :lot"),
+        {"lot": awarded.world.lot_id},
+    )
+    gateway = CountingGateway()
+    seed_gateway(gateway, awarded)
+    client._transport.app.state.fulfillment_gateway = gateway  # type: ignore[attr-defined]
+
+    response = await client.get(f"{API}/{awarded.world.lot_id}/verification")
+
+    assert response.status_code == 403, response.text
+    assert response.json()["error"]["code"] == "FEATURE_DISABLED"
+    assert "simulated" in response.json()["error"]["message"].lower()
+    assert gateway.get_order_calls == 0
+    manifest = await client.get(f"{API}/{awarded.world.lot_id}/verification-manifest")
+    assert manifest.status_code == 200
 
 
 async def test_verification_uses_read_only_gets_and_charges_the_provider_budget(

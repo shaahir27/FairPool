@@ -254,6 +254,8 @@ async def test_answering_the_date_question_completes_the_proposal(db_session: As
     [
         ({"condition": "REFURBISHED"}, "NEW"),
         ({"delivery": {"region": "ZZ"}}, "pool covers"),
+        ({"delivery": {"region": "New Yorkshire"}}, "pool covers"),
+        ({"delivery": {"region": "California"}}, "pool covers"),
         ({"max_total": {"amount": "600.00", "currency": "EUR"}}, "USD"),
         ({"max_total": {"amount": None, "currency": None}}, "most you will pay"),
         ({"firm_requirements": ["matte screen"]}, "does not offer"),
@@ -273,6 +275,32 @@ async def test_each_deviation_becomes_one_question(
     assert answer["status"] == "NEEDS_CLARIFICATION"
     assert fragment in str(answer["clarifying_question"])
     assert logger.calls[-1].ok is True
+
+
+@pytest.mark.parametrize(
+    ("region", "expected"),
+    [("New York", "NY"), ("new jersey", "NJ"), ("Pennsylvania", "PA"), (" ny ", "NY")],
+)
+async def test_served_state_names_reach_the_same_confirmation_as_codes(
+    db_session: AsyncSession, region: str, expected: str
+) -> None:
+    pool_id = await open_pool(db_session)
+    user_id = await buyer(db_session, "state-name")
+    intake, _ = service(
+        ConstantFakeAI(proposal(pool_id, delivery={"region": region})), pool_id=pool_id
+    )
+
+    answer = await intake.propose(
+        db_session,
+        user_id=user_id,
+        message=f"A new monitor delivered to {region} under $600",
+        pool_id_override=pool_id,
+    )
+
+    assert answer["status"] == "READY_TO_CONFIRM", answer
+    assert answer["confirmation_card"]["delivery"]["region"] == expected
+    assert answer["confirmation_card"]["max_total_cents"] == 60000
+    assert await count(db_session, "confirmed_requests", "user_id = :u", u=user_id) == 0
 
 
 async def test_a_pool_outside_the_candidates_is_no_match(db_session: AsyncSession) -> None:

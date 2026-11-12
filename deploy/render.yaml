@@ -4,9 +4,9 @@ services:
   # this file provisions no Render Postgres. A separate static site would put the page
   # on another site than the API, and a *.onrender.com cross-site cookie is dropped
   # (DEP: the page and the API share one origin). Free web services sleep after 15
-  # minutes and there is no free background worker. Restore the worker and paid
-  # instances before 2026-11-20 (BD-05); superseded for this submission, which runs the
-  # free plan with the keep-warm schedule (see docs/decisions.md BD-05).
+  # minutes and there is no free background-worker instance. The API and queue
+  # worker share this instance under fairpool.serve; both pause while it sleeps.
+  # Paid separate instances remain the production recommendation (BD-05).
   - type: web
     name: fairpool-api
     runtime: docker
@@ -14,6 +14,7 @@ services:
     region: oregon
     dockerfilePath: ./deploy/Dockerfile.api
     dockerContext: .
+    dockerCommand: python -m fairpool.serve
     healthCheckPath: /health
     envVars:
       - fromGroup: common
@@ -129,7 +130,8 @@ envVarGroups:
   - name: search
     envVars:
       - key: SEARCH_BACKEND
-        value: elastic
+        # Current demo uses the supported fallback: the Elastic key rejects index writes.
+        value: postgres
       - key: ELASTIC_INFERENCE_ID
         value: .jina-embeddings-v5-text-small
       - key: ELASTIC_INDEX_PREFIX

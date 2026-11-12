@@ -275,9 +275,13 @@ async def auth_logout(
 @router.get("/api/v1/me", response_model=schemas.MeResponse, operation_id="me_get")
 async def me_get(
     request: Request,
+    response: Response,
     principal: Annotated[Principal, Security(require_session)],
     db: AsyncSession = Depends(database_session),
 ):
+    # A new tab keeps the HttpOnly cookie but loses login's tab-scoped CSRF token.
+    response.headers["X-CSRF-Token"] = await identity_service(request).csrf_token(db, principal)
+    response.headers["Cache-Control"] = "no-store"
     return await identity_service(request).me(db, principal)
 
 

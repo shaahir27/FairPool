@@ -151,6 +151,7 @@ def create_app(
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=["X-CSRF-Token"],
         )
 
     app.add_middleware(SecurityHeadersMiddleware)

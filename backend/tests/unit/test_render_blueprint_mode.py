@@ -48,6 +48,16 @@ def test_blueprint_states_the_vault_save_limit() -> None:
     assert blueprint_vars()["VAULT_REAL_SAVE_ENABLED"] == "false"
 
 
+def test_free_web_service_starts_the_worker_with_the_api() -> None:
+    blueprint = BLUEPRINT.read_text(encoding="utf-8")
+    assert "dockerCommand: python -m fairpool.serve" in blueprint
+    assert "plan: free" in blueprint
+    dockerfile = (ROOT / "deploy/Dockerfile.api").read_text(encoding="utf-8")
+    assert 'CMD ["python", "-m", "fairpool.serve"]' in dockerfile
+    compose = (ROOT / "deploy/docker-compose.yml").read_text(encoding="utf-8")
+    assert "command:" in compose and "exec uvicorn fairpool.main:app" in compose
+
+
 def test_ai_cannot_be_switched_on_without_the_provider_key() -> None:
     # config.py refuses to start with AI_ENABLED=true and no GEMINI_API_KEY, which
     # would take down the whole public URL a judge opens.

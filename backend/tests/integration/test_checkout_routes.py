@@ -28,6 +28,7 @@ from fairpool.api.app import create_app
 from fairpool.api.deps import database_session
 from fairpool.api.routers.checkout import HOLD_NOTICE, VAULT_NOTICE
 from fairpool.fakes.payments import FAKE_APPROVE_URL
+from fairpool.wiring import checkout_services
 from tests.integration.test_join_receipts import login, settings_for
 from tests.integration.test_open_checkout import build_world, open_handler
 
@@ -47,6 +48,10 @@ SHIPPING = {
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app(settings_for())
+    surface = checkout_services(settings_for())
+    # Exercise the frozen stand-in-seller route using an offline provider double.
+    surface.router.name = "single_seller"
+    app.state.checkout_services = surface
 
     async def session() -> AsyncIterator[AsyncSession]:
         yield db_session

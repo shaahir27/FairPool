@@ -163,6 +163,7 @@ export function FulfillmentPage() {
   const selectedLot = awarded.find((lot) => lot.lotId === selected) ?? null;
   const lotStatus = selectedLot?.progress?.status ?? null;
   const lotLabels = honestyKinds(selectedLot?.progress?.labels);
+  const simulated = lotLabels.includes("simulated");
   const chosenRows = (rows ?? []).filter((row) => chosen.includes(row.buyer_order_id));
   const overBatch = chosenRows.length > MAX_SHIPMENTS;
 
@@ -261,7 +262,7 @@ export function FulfillmentPage() {
   }
 
   async function verifyPayments(): Promise<void> {
-    if (!selected || busy) return;
+    if (!selected || busy || simulated) return;
     setBusy("verify");
     setNotice(null);
     setVerification(null);
@@ -705,9 +706,9 @@ export function FulfillmentPage() {
             <section className="shop-panel shop-panel-pad" aria-labelledby="ff-verify-title">
               <h2 id="ff-verify-title">Verify the money</h2>
               <p className="shop-copy mt-1">
-                The manifest lists the PayPal order and capture IDs, amounts and capture times; it
-                carries no buyer names or addresses. Verification runs a live read of every order
-                on PayPal and changes nothing.
+                {simulated
+                  ? "These are simulated payments for the demo. Their order and capture references do not exist on PayPal, so live verification is unavailable. You can still download the manifest to inspect the demo records; do not use its references with PayPal."
+                  : "The manifest lists the PayPal order and capture IDs, amounts and capture times; it carries no buyer names or addresses. Verification runs a live read of every order on PayPal and changes nothing."}
               </p>
               <div className="ff-toolbar">
                 <button
@@ -722,16 +723,16 @@ export function FulfillmentPage() {
                 <button
                   type="button"
                   className="button-secondary"
-                  disabled={busy !== null}
+                  disabled={busy !== null || simulated}
                   onClick={() => void verifyPayments()}
                 >
                   <Icon name="shield" />
                   {busy === "verify" ? "Checking with PayPal…" : "Verify payments"}
                 </button>
               </div>
-              <p className="merchant-help">
+              {!simulated ? <p className="merchant-help">
                 Verification makes live PayPal reads and is limited to 10 checks a minute.
-              </p>
+              </p> : null}
 
               {manifest ? (
                 <div className="ff-verify-result">

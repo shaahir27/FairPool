@@ -1,6 +1,6 @@
 import createClient from "openapi-fetch";
 
-import { getCsrfToken } from "../lib/csrf";
+import { getCsrfToken, setCsrfToken } from "../lib/csrf";
 import { resetSessionCache } from "../lib/session";
 
 import { refreshReads } from "./reads";
@@ -40,7 +40,11 @@ api.use({
 // A 401 mid-session means the cookie died or was revoked: drop the cached answer so
 // the next gated route re-asks /me instead of rendering a screen every call fails.
 api.use({
-  onResponse({ response }) {
+  onResponse({ request, response }) {
+    if (response.ok && request.method === "GET" && new URL(request.url).pathname === "/api/v1/me") {
+      const token = response.headers.get("X-CSRF-Token");
+      if (token) setCsrfToken(token);
+    }
     if (response.status === 401) resetSessionCache("out");
     return response;
   },

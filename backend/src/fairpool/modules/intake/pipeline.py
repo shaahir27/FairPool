@@ -87,6 +87,12 @@ _STATUS_READY: Final[str] = "READY_TO_CONFIRM"
 _STATUS_ASK: Final[str] = "NEEDS_CLARIFICATION"
 _STATUS_NONE: Final[str] = "NO_MATCH"
 
+_SERVED_STATE_NAMES: Final[dict[str, str]] = {
+    "new york": "NY",
+    "new jersey": "NJ",
+    "pennsylvania": "PA",
+}
+
 
 def _text(value: object, *, limit: int = 4000) -> str | None:
     """A model-supplied string, or ``None``: an untrusted field is never coerced."""
@@ -222,6 +228,13 @@ class IntakeService:
             return self._reply(sid, _STATUS_NONE, MANUAL_FORM_INSTRUCTION)
 
         template = {**pool.template, "pool_id": str(pool.id)}
+        delivery = proposal.get("delivery")
+        region = _text(delivery.get("region")) if isinstance(delivery, dict) else None
+        if region is not None:
+            canonical_region = _SERVED_STATE_NAMES.get(region.casefold(), region.upper())
+            # ai-schemas.md 2.5: a name alias cannot widen the frozen delivery zones.
+            if canonical_region in _zone_regions(template):
+                proposal = {**proposal, "delivery": {"region": canonical_region}}
         question = self._question(proposal, template) or self._model_question(proposal)
         if question is not None:
             self._remember(key, message, question)

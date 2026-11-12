@@ -142,6 +142,7 @@ describe("the buyer workspace shell", () => {
     fireEvent.click(within(rail).getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(transport.post).toHaveBeenCalled());
     expect(transport.post.mock.calls[0]?.[0]).toBe("/api/v1/auth/logout");
+    expect(transport.get.mock.calls.filter(([path]) => path === "/api/v1/me")).toHaveLength(2);
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(sessionStorage.getItem("fairpool.csrf")).toBeNull();
   });

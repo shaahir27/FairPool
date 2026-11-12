@@ -135,6 +135,19 @@ class IdentityService:
             {"now": await self.clock.db_now(session), "id": principal.session_id},
         )
 
+    async def csrf_token(self, session: AsyncSession, principal: Principal) -> str:
+        now = await self.clock.db_now(session)
+        token = await session.scalar(
+            text(
+                "SELECT csrf_token FROM sessions WHERE id=:id AND user_id=:user_id "
+                "AND revoked_at IS NULL AND expires_at>:now"
+            ),
+            {"id": principal.session_id, "user_id": principal.user_id, "now": now},
+        )
+        if not isinstance(token, str):
+            raise ApplicationError("UNAUTHENTICATED")
+        return token
+
     async def me(self, session: AsyncSession, principal: Principal) -> dict[str, Any]:
         row = (
             (

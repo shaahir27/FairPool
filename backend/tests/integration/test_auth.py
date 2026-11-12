@@ -39,7 +39,11 @@ async def test_auth_http_cookie_csrf_roles_logout_and_public_buyer_only(db_sessi
             and "Max-Age=86400" in cookie
         )
         csrf = response.json()["csrf_token"]
-        assert (await client.get("/api/v1/me")).json()["role"] == "buyer"
+        me = await client.get("/api/v1/me", headers={"Origin": "http://localhost:5173"})
+        assert me.json()["role"] == "buyer"
+        assert me.headers.get("X-CSRF-Token") == csrf
+        assert me.headers.get("Cache-Control") == "no-store"
+        assert "x-csrf-token" in me.headers.get("Access-Control-Expose-Headers", "").lower()
         assert (
             await client.post("/api/v1/admin/pools", json={}, headers={"X-CSRF-Token": csrf})
         ).status_code == 403
@@ -50,7 +54,9 @@ async def test_auth_http_cookie_csrf_roles_logout_and_public_buyer_only(db_sessi
         assert (
             await client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
         ).status_code == 200
-        assert (await client.get("/api/v1/me")).status_code == 401
+        signed_out = await client.get("/api/v1/me")
+        assert signed_out.status_code == 401
+        assert "X-CSRF-Token" not in signed_out.headers
 
 
 async def test_auth_rate_limit_applies_to_invalid_requests(db_session):

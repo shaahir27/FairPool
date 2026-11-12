@@ -885,8 +885,11 @@
 .buyer-workspace .pool-entry-section { scroll-margin-top: 24px; }
 .buyer-workspace .pool-entry-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 22px 24px 0; }
 .buyer-workspace .pool-entry-heading h2 { font-size: 18px; font-weight: 600; }
+.buyer-workspace .pool-entry-section .offer-ready-card { margin-top: 0; }
 .buyer-workspace .pool-entry-section .allocation-card { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .buyer-workspace .pool-entry-section .allocation-card .font-semibold.text-sm { font-size: 24px; letter-spacing: -.025em; }
+.buyer-workspace .pool-entry-section .offer-ready-card + .allocation-card { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgb(var(--color-line)); }
+.buyer-workspace .pool-entry-section .offer-ready-card + .allocation-card .font-semibold.text-sm { font-size: 16px; letter-spacing: normal; }
 .buyer-workspace .pool-entry-section .allocation-card .shop-copy { margin-top: 12px; font-size: 15px; line-height: 1.65; max-width: 60ch; }
 .buyer-workspace .pool-entry-section .order-disclosures { margin-top: 0; gap: 8px 16px; }
 .buyer-workspace .pool-dossier-column { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; align-items: start; }

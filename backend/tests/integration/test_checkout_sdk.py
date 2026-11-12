@@ -30,6 +30,7 @@ from fairpool.domain.errors import ApplicationError
 from fairpool.domain.payments import PaymentError
 from fairpool.modules.checkout import sdk as sdk_module
 from fairpool.modules.checkout.sdk import SdkService
+from fairpool.wiring import checkout_services
 from tests.integration.test_checkout_routes import (
     SHIPPING,
     order_for,
@@ -42,7 +43,12 @@ pytestmark = pytest.mark.integration
 
 
 def app_for(db_session: AsyncSession, **overrides: Any):
-    app = create_app(settings_for(**overrides))
+    settings = settings_for(**overrides)
+    app = create_app(settings)
+    if settings.payment_router == "fake":
+        surface = checkout_services(settings)
+        surface.router.name = "single_seller"
+        app.state.checkout_services = surface
 
     async def session() -> AsyncIterator[AsyncSession]:
         yield db_session

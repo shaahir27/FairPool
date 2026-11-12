@@ -139,6 +139,13 @@ class FulfillmentService:
         self, session: AsyncSession, *, lot_id: UUID, merchant_id: UUID
     ) -> dict[str, Any]:
         awarded = await self.awarded_lot(session, lot_id=lot_id, merchant_id=merchant_id)
+        # I12: demo references must never reach the app's sandbox gateway.
+        if str(awarded.lot.payment_router) == "fake":
+            raise ApplicationError(
+                "FEATURE_DISABLED",
+                "These are simulated payments. "
+                "Live PayPal verification is unavailable for this lot.",
+            )
         return await verification_module.verify_lot(
             session,
             awarded=awarded,

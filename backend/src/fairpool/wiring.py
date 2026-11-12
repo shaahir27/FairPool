@@ -14,6 +14,7 @@ like a feature (``domain-ports.md`` section 5, CR-3).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import wraps
 from typing import TYPE_CHECKING, Any, Final
 from uuid import UUID
 
@@ -364,7 +365,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
 
     async def settle_order(session: Any, buyer_order_id: UUID) -> None:
         """A webhook's "read this again": the resolve handler, which owns the GET."""
-        await reconciler.resolve(session, {"buyer_order_id": str(buyer_order_id)})
+        await handlers["order.resolve"](session, {"buyer_order_id": str(buyer_order_id)})
 
     async def approve_order(session: Any, buyer_order_id: UUID) -> None:
         """``CHECKOUT.ORDER.APPROVED``: the same FR-CK-05 checks the return URL runs."""
@@ -376,7 +377,7 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
     except Exception:  # noqa: BLE001 - AI off is the normal demo configuration
         sim = SimRunHandler()
 
-    return {
+    handlers = {
         "pool.open": pools.open,
         "pool.close": close.close,
         "pool.seed": seed.seed,
@@ -403,6 +404,47 @@ def worker_handlers(settings: Settings, checkout: CheckoutServices | None = None
         "shipments.submit": tracking.submit,
         "sim.run": sim.run,
     }
+    # I12: a hosted worker may share its database with offline seeded lots.
+    from fairpool.infra.jobs import JobHandler
+
+    def isolated(handler: JobHandler) -> JobHandler:
+        @wraps(handler)
+        async def run(session: Any, payload: dict[str, Any]) -> None:
+            from sqlalchemy import select
+
+            from fairpool.db.models.checkout import BuyerOrder
+            from fairpool.modules.checkout.routing import require_payment_router
+
+            lot_id = payload.get("lot_id")
+            if payload.get("buyer_order_id"):
+                lot_id = await session.scalar(
+                    select(BuyerOrder.lot_id).where(
+                        BuyerOrder.id == UUID(str(payload["buyer_order_id"]))
+                    )
+                )
+            if lot_id is not None:
+                await require_payment_router(
+                    session, lot_id=UUID(str(lot_id)), router_name=surface.router.name
+                )
+            await handler(session, payload)
+
+        return run
+
+    for kind in (
+        "order.vault_charge",
+        "order.authorize",
+        "order.capture",
+        "capture.poll",
+        "lot.try_fund",
+        "lot.finalize_close",
+        "lot.finalize_fail",
+        "void.run",
+        "refund.run",
+        "order.resolve",
+        "shipments.submit",
+    ):
+        handlers[kind] = isolated(handlers[kind])
+    return handlers
 
 
 def ai_client(settings: Settings):

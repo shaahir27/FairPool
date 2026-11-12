@@ -98,6 +98,107 @@ class MismatchAuthorizeGateway(FakePayPalGateway):
 # --------------------------------------------------------------- F1 and BO-01
 
 
+@pytest.mark.parametrize("stage", ["continue", "approved", "authorize"])
+async def test_simulated_lot_never_uses_a_network_router(
+    db_session: AsyncSession, stage: str
+) -> None:
+    from unittest.mock import AsyncMock
+
+    world = await build_world(db_session, router_name="fake", seats=1, seated=1, waitlisted=0)
+    (order_id,) = await open_offers(world)
+    router = make_router()
+    router.name = "fake"
+    handler = authorize_handler(world, router)
+    if stage != "continue":
+        await handler.continue_order(db_session, buyer_order_id=order_id)
+    if stage == "authorize":
+        await handler.approved(db_session, buyer_order_id=order_id)
+    router.name = "single_seller"
+    router.gateway.create_order = AsyncMock(side_effect=AssertionError("unexpected provider call"))
+    router.gateway.get_order = AsyncMock(side_effect=AssertionError("unexpected provider call"))
+    router.gateway.authorize_order = AsyncMock(
+        side_effect=AssertionError("unexpected provider call")
+    )
+
+    with pytest.raises(ApplicationError) as caught:
+        if stage == "continue":
+            await handler.continue_order(db_session, buyer_order_id=order_id)
+        elif stage == "approved":
+            await handler.approved(db_session, buyer_order_id=order_id)
+        else:
+            await handler.authorize(db_session, {"buyer_order_id": str(order_id)})
+    assert caught.value.code == "FEATURE_DISABLED"
+    router.gateway.create_order.assert_not_called()
+    router.gateway.get_order.assert_not_called()
+    router.gateway.authorize_order.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "order.authorize",
+        "order.capture",
+        "capture.poll",
+        "order.resolve",
+        "void.run",
+        "refund.run",
+        "shipments.submit",
+        "lot.try_fund",
+    ],
+)
+async def test_network_worker_refuses_simulated_payment_jobs(
+    db_session: AsyncSession, kind: str
+) -> None:
+    from fairpool.wiring import worker_handlers
+    from tests.integration.test_join_receipts import settings_for
+
+    world = await build_world(db_session, router_name="fake", seats=1, seated=1, waitlisted=0)
+    (order_id,) = await open_offers(world)
+    settings = settings_for().model_copy(update={"payment_router": "single_seller"})
+    handler = worker_handlers(settings)[kind]
+    with pytest.raises(ApplicationError) as caught:
+        await handler(db_session, {"buyer_order_id": str(order_id), "lot_id": str(world.lot_id)})
+    assert caught.value.code == "FEATURE_DISABLED"
+
+
+async def test_real_router_stamp_can_authorize_through_the_worker_with_a_fake_gateway(
+    db_session: AsyncSession,
+) -> None:
+    from fairpool.wiring import checkout_services, worker_handlers
+    from tests.integration.test_join_receipts import settings_for
+
+    world = await build_world(db_session, seats=1, seated=1, waitlisted=0)
+    (order_id,) = await open_offers(world)
+    router = make_router()
+    router.name = "single_seller"
+    handler = authorize_handler(world, router)
+    await handler.continue_order(db_session, buyer_order_id=order_id)
+    await handler.approved(db_session, buyer_order_id=order_id)
+    settings = settings_for()
+    surface = checkout_services(settings)
+    surface.router.name = "single_seller"
+    surface.authorize = handler
+
+    await worker_handlers(settings, checkout=surface)["order.authorize"](
+        db_session, {"buyer_order_id": str(order_id)}
+    )
+
+    assert await order_status(db_session, order_id) == "AUTHORIZED"
+
+
+async def test_offline_worker_refuses_real_stamped_payment_jobs(db_session: AsyncSession) -> None:
+    from fairpool.wiring import worker_handlers
+    from tests.integration.test_join_receipts import settings_for
+
+    world = await build_world(db_session, seats=1, seated=1, waitlisted=0)
+    (order_id,) = await open_offers(world)
+    settings = settings_for().model_copy(update={"payment_router": "fake"})
+    handler = worker_handlers(settings)["order.authorize"]
+    with pytest.raises(ApplicationError) as caught:
+        await handler(db_session, {"buyer_order_id": str(order_id)})
+    assert caught.value.code == "ORDER_STATE_INVALID"
+
+
 async def test_f1_continue_creates_the_order_under_the_attempt_key(
     db_session: AsyncSession,
 ) -> None:

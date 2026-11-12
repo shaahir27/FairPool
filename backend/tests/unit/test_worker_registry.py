@@ -14,6 +14,7 @@ evidence that work happened. So this test proves three things at once:
 from __future__ import annotations
 
 import re
+from inspect import unwrap
 from pathlib import Path
 
 from fairpool.modules.auction.handlers import LotAuctionHandlers
@@ -87,7 +88,7 @@ def test_every_registered_handler_is_a_real_callable() -> None:
     for kind, handler in handlers.items():
         assert callable(handler), kind
     for kind, owner in OWNERS.items():
-        handler = handlers[kind]
+        handler = unwrap(handlers[kind])
         assert getattr(handler, "__self__", None) is not None, kind
         assert isinstance(handler.__self__, owner), kind
 

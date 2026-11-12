@@ -30,6 +30,18 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Thi
 - **Read the code.** See [PayPal](#how-paypal-is-used), [AI](#how-ai-is-used), [architecture](#architecture) and [verification](#tests-and-verification).
 - **Connect an agent or API client.** Start with [ways to participate](#ways-to-participate-browser-api-or-mcp), then [APIs and generated SDKs](#apis-and-generated-sdks).
 
+## Why we're building this
+
+Imagine you want one monitor. A merchant could offer a better unit price for a larger order, but you cannot commit to buying twenty. Nineteen other people may want the same thing; their demand is scattered across searches, shopping carts and messages. There is no shared order for the merchant to price, and nobody wants the job of collecting everyone's money.
+
+The merchant has the opposite problem: stock and a possible bulk price, but little certainty about how many buyers will actually follow through. An expression of interest is different from an order the merchant can fulfil. FairPool gathers compatible requests into published pools, then lets merchants compete for clearly defined lots with product, delivery and return requirements. Each buyer keeps their own price ceiling and approves their own final total.
+
+Scarce products add a race to click. In a first-come release, a faster connection, an automated checkout or repeated accounts can take places before other buyers have a chance. FairPool collects entries during a fixed window and ranks eligible entries after closing under published rules. Joining earlier gives no priority. Signed receipts and the public audit help buyers check their own inclusion and the published result. Duplicate control operates at account level; it does not establish one person per account or eliminate bots.
+
+There is also a payment coordination problem. Buyers need to know what happens if the group falls short; merchants need completed payments before shipping. FairPool separates joining, approval, authorization and capture. Joining costs nothing, approval is for a specific offer, and a lot becomes funded only after enough captures complete. If funding fails, the workflow releases holds and refunds captures. At the implementation level, approvals, expiry jobs and payment retries can race with one another. Locked seat checks, database deadlines and idempotent payment requests keep those concurrent actions within the same published rules.
+
+That is the idea: make individual demand visible as a group, give merchants a concrete order to bid for, and keep each buyer's consent and payment traceable through the outcome. The [idea document](docs/fairpool-idea.md) explains the original problem and the design in more depth.
+
 ## How it works
 
 Let's follow a purchase from the first request to the final outcome. You'll see two terms throughout the app: a **pool** is the group of people interested in a product; a **lot** is a fulfilment group within that pool. Each lot has its own bid, minimum and outcome.
@@ -59,9 +71,16 @@ Open **[fairpool-api.onrender.com](https://fairpool-api.onrender.com/)**. The fr
 
 A useful first tour is **Discover → View pool → Your entry / product requirements → Public audit**, then **My Pools → offer or order status**. The discovery cards distinguish recorded demand, capacity and the merchant minimum; an open pool has no awarded price yet.
 
-Existing demo users sign in with their FairPool credentials. The seeded buyer is `demo-buyer-1@fairpool.test`; its password is supplied privately by the operator, never in this repository. New-buyer registration goes through PayPal connection and depends on the configured Sandbox login app. A PayPal connection identifies an account; it does not grant payment permission.
+Use either public demo login below on the [Sign in page](https://fairpool-api.onrender.com/login). Choose the merchant sign-in option for the merchant workspace. These are shared FairPool test accounts with seeded activity; changes are visible to other reviewers.
 
-To approve a payment, use a **US PayPal Sandbox personal buyer account**, not your real PayPal login. Create test accounts through the [PayPal developer dashboard](https://developer.paypal.com/dashboard/). Seeded historical orders illustrate states; they are not evidence that those particular orders reached PayPal. Follow an available live offer for an actual Sandbox approval.
+| Workspace | FairPool email | Public demo password |
+|---|---|---|
+| Buyer | `demo-buyer-1@fairpool.test` | `FairPool-demo-US-2026!` |
+| Merchant | `demo-merchant@fairpool.test` | `FairPool-demo-US-2026!` |
+
+**Creating an account or trying checkout? Use a US-based PayPal Sandbox personal buyer account.** FairPool's demo is configured for **US payers and USD** (`ALLOWED_PAYER_COUNTRIES=US`); an account from another country will fail its payer-country check. In the [PayPal developer dashboard](https://developer.paypal.com/dashboard/), create a Sandbox **Personal** account with **United States** as its country, then use that account's Sandbox email and password when PayPal opens. The FairPool logins above are separate from PayPal credentials. Never enter your real PayPal login into this demo.
+
+New-buyer registration goes through PayPal connection and depends on the configured Sandbox login app. Connecting identifies an account; approving a payment is a separate step. Seeded historical orders illustrate states; they are not evidence that those particular orders reached PayPal. Follow an available live offer for an actual Sandbox approval.
 
 ## Ways to participate: browser, API or MCP
 
@@ -362,6 +381,15 @@ The default seed target is the loopback **`fairpool`** database derived from `TE
 
 A repeat run reuses its own records and refreshes interactive windows; it does not extend already-published discovery windows. Old seed data may therefore need a deliberate reset for a fresh rehearsal. `make demo-reset` is destructive: inspect [the reset tool](tools/demo_reset.py) before using it. Hosted seeding requires the explicit `DEMO_SEED_HOSTED=1` opt-in and is not part of local setup. Do not run a worker pointed at the hosted database just to explore the code.
 
+To add a longer demo calendar after the base accounts exist, preview it and then append it:
+
+```bash
+python tools/demo_calendar.py --dry-run
+python tools/demo_calendar.py
+```
+
+This adds 24 discovery pools across 12 generic products over the next two calendar months, plus four short entry windows that lead into merchant bidding. Entries have varied US delivery regions and price limits, signed receipts, complete product bundles and 30-day return requirements. Buyer 6 remains available for fresh joins in the regular calendar. The tool creates no payment orders, changes no account passwords and leaves existing published rules and financial history intact. Repeating the same day's calendar reuses its pools and entries. Like the base seeder, it defaults to loopback; an operator must explicitly set `DEMO_SEED_HOSTED=1` to target the configured hosted database, and should inspect the dry run first.
+
 ## Architecture
 
 Once you've tried the app, this is where to look under the hood.
@@ -418,7 +446,7 @@ Read the first view from the clients down to the workflows, then use the second 
 
 There is also a browser-to-PayPal approval step outside the server diagram: the SDK opens a popup (or uses the redirect fallback) for the buyer to approve. That does not move authorization or capture logic into the browser. Server-side code verifies the approved order and performs authorization, capture, void or refund through the adapter. Verified webhook hints, when enabled, return through the API and prompt a server-side GET. AI proposes fields; it has no payment tools. Search retrieves public demand and never decides whether a buyer or bid qualifies.
 
-**What actually runs where:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL, but has **no worker**. Its current profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
+**What actually runs where:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL, and the deployment configuration now starts the API and worker together through `python -m fairpool.serve`. This startup fix still needs deployment to the existing service. Its profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
 
 The wiring lives in [wiring.py](backend/src/fairpool/wiring.py); [worker.py](backend/src/fairpool/worker.py) owns job execution and the reconciliation schedule. [The app factory](backend/src/fairpool/api/app.py) mounts the application API, merchant sub-app, MCP endpoint and built frontend.
 
@@ -487,14 +515,14 @@ Run provider suites only after reading [the testing strategy](docs/testing-strat
 
 ## Hosting and troubleshooting
 
-The [Render blueprint](deploy/render.yaml) builds the frontend into the API image and serves both on one origin, backed by Supabase. The free hosted configuration has **no background worker**: do not expect deadlines and reconciliation to progress as they do in a local stack with the worker running. Operator-triggered processing is required. A keep-warm workflow exists, but is intended to be enabled after the repository becomes public; cold starts remain possible.
+The [Render blueprint](deploy/render.yaml) builds the frontend into the API image and serves both on one origin, backed by Supabase. The API image starts a supervised worker beside the web process, so due jobs and reconciliation can run while the service is awake. If either process exits, the supervisor stops its sibling and exits so the container can restart. Both processes pause when the free instance sleeps; deadlines still use the database clock, so expired windows are rechecked after waking. A keep-warm workflow exists, but is intended to be enabled after the repository becomes public; cold starts remain possible. The current demo selects PostgreSQL retrieval against Supabase because the configured Elastic key rejects index writes; the Elastic adapter remains available when its permissions are restored.
 
 | Symptom | Check |
 |---|---|
 | Startup rejects settings | Fill the required `.env` values and generate valid keys. Select `authorize_capture` explicitly |
 | No products in discovery | Seed the local database; only open pools appear. Check that the API and seeder target the same database |
 | Find matches fails or asks for manual input | Check Gemini key, model access and quota. An exported environment variable overrides `.env`; restart the API after changing it. The manual path remains available |
-| Pool or offer never progresses | Run the worker against your local app database and check stored deadlines; the hosted free service has no worker |
+| Pool or offer never progresses | Run the worker against your local app database and check stored deadlines; check that the deployed API image starts `fairpool.serve` and its worker; the free service pauses both processes while asleep |
 | PayPal reports an invalid client/return URL | Confirm Sandbox app credentials and exact registered return URLs; signup and account linking use different callbacks |
 | Sign-in disappears | Keep frontend/API on the documented same origin in deployment; use Vite's proxy locally |
 | Tests reject the database | Set `TEST_DATABASE_URL` to a loopback database ending in `_test`; run the provisioning helper |
@@ -508,7 +536,7 @@ Before you rely on a demo result, here's what this build can and cannot show. Th
 - **Individual approval is the demonstrated payment flow.** Real PayPal saved-permission setup is not shipped (`VAULT_REAL_SAVE_ENABLED=false`). Fake vault tests do not establish a live save-and-charge experience.
 - **Join rate limiting is per API process**, not a global distributed limit; adding API processes can multiply the effective allowance.
 - **Funding and refunds are asynchronous.** A pending capture is not payment, and requesting a refund is not the same as observing it complete. The app reports recorded states.
-- **Hosted webhook processing is disabled; the free deployment has no worker.** Local worker-driven and live Sandbox evidence should not be mistaken for unattended hosted operation.
+- **Hosted webhook processing is disabled.** The shared API/worker startup fix is prepared for deployment. Even after deployment, a sleeping free instance cannot process jobs until it wakes; a keep-warm request is not a guarantee of continuous operation.
 - **AI and search need their configured providers.** Local AI preflight passed after the key replacement on November 10; the recorded stale Windows user variable and hosted-key follow-up still need operator attention. See [progress](docs/progress.md).
 - **The final rehearsal and video are still in progress.** Generated SDKs exist; the APIMatic portal does not. Repository visibility will be changed to public by the owner before submission.
 

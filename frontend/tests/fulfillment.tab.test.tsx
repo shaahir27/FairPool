@@ -142,14 +142,14 @@ function progress(lotId: string, status: string) {
   };
 }
 
-function server(options: { fulfillment?: unknown; lotStatus?: string } = {}) {
+function server(options: { fulfillment?: unknown; lotStatus?: string; simulated?: boolean } = {}) {
   transport.get.mockImplementation((path: string, init?: GetInit) => {
     const lotId = init?.params?.path?.lot_id ?? "";
     if (path === "/api/v1/merchant/bids") return Promise.resolve({ data: bids });
     if (path === "/api/v1/merchant/lots/{lot_id}/progress") {
       const status =
         options.lotStatus ?? (lotId === "lot-funded" ? "FUNDED" : "FUNDING");
-      return Promise.resolve({ data: progress(lotId, status) });
+      return Promise.resolve({ data: { ...progress(lotId, status), labels: options.simulated ? ["SANDBOX", "SIMULATED"] : ["SANDBOX"] } });
     }
     if (path === "/api/v1/merchant/lots/{lot_id}/fulfillment") {
       return Promise.resolve(options.fulfillment ?? { data: rows });
@@ -360,6 +360,18 @@ describe("Fulfillment tab", () => {
       await screen.findByText(/Verification manifest downloaded: 1 captured order, \$790\.00 USD expected/),
     ).toBeInTheDocument();
     expect(await screen.findByText(manifest.how_to_verify)).toBeInTheDocument();
+  });
+
+  it("explains simulated payments and prevents a live PayPal verification", async () => {
+    server({ simulated: true });
+    show();
+    await screen.findByRole("heading", { name: "Captured orders" });
+    expect(screen.getByRole("button", { name: "Verify payments" })).toBeDisabled();
+    expect(screen.getByText(/These are simulated payments/)).toBeInTheDocument();
+    expect(screen.queryByText(/Verification makes live PayPal reads/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Verify payments" }));
+    expect(transport.get.mock.calls.some(([path]) => path === "/api/v1/merchant/lots/{lot_id}/verification")).toBe(false);
+    expect(screen.getByRole("button", { name: "Verification manifest" })).toBeEnabled();
   });
 
   it("verifies payments against PayPal and shows each match and mismatch", async () => {

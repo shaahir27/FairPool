@@ -42,10 +42,18 @@ function SignOut({ className = "account-nav-link account-signout" }: { className
     setBusy(true);
     setFailed(false);
     try {
-      const { error } = await api.POST("/api/v1/auth/logout");
-      if (error) {
+      // Another tab may have replaced the cookie since this tab last checked /me.
+      const { response } = await api.GET("/api/v1/me");
+      if (!response.ok && response.status !== 401) {
         setFailed(true);
         return;
+      }
+      if (response.ok) {
+        const { error } = await api.POST("/api/v1/auth/logout");
+        if (error) {
+          setFailed(true);
+          return;
+        }
       }
       setCsrfToken(null);
       resetSessionCache("out");

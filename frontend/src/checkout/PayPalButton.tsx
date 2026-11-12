@@ -230,6 +230,7 @@ export function PayPalButton({
     if (failure || !data?.paypal_order_id) {
       const detail = codeOf(failure);
       setError(detail);
+      if (detail.code === "OFFER_EXPIRED" || detail.code === "ORDER_STATE_INVALID") onRefresh();
       throw new Error(detail.code);
     }
     return { orderId: data.paypal_order_id };

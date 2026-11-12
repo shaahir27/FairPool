@@ -153,6 +153,15 @@ describe("the PayPal SDK v6 button", () => {
     await waitFor(() => expect(started).toEqual({ presentationMode: "auto", orderId: "PAYPAL-ORDER-1" }));
   });
 
+  it.each(["OFFER_EXPIRED", "ORDER_STATE_INVALID"])("refreshes a closed offer after %s without retrying checkout", async (code) => {
+    transport.post.mockResolvedValue({error: {error: {code, message: "This offer is no longer available."}}});
+    const view = await show();
+    fireEvent.click(await paypalElement());
+    await waitFor(() => expect(view.onRefresh).toHaveBeenCalledTimes(1));
+    expect(transport.post).toHaveBeenCalledTimes(1);
+    expect(started).toBeNull();
+  });
+
   it("sends only paypal_order_id on approve and reloads the offer", async () => {
     const view = await show();
     fireEvent.click(await paypalElement());

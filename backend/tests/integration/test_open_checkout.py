@@ -75,7 +75,7 @@ class FakeRouter:
 
     gateway: FakePayPalGateway
     seller: Payee
-    name: str = "fake"
+    name: str = "single_seller"
 
     def payee_for(self, award: Any, payee_ref: PayeeRef) -> Payee:
         return self.seller

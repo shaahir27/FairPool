@@ -38,9 +38,10 @@ account roles, passwords and attestations.
 from __future__ import annotations
 
 import asyncio
+import calendar
 import os
 import sys
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "backend" / "src"))
 
+from fairpool.domain.pool_config import PoolInput  # noqa: E402
 from fairpool.fakes.payments import FakePayPalGateway  # noqa: E402
 
 #: Fixed namespace: ids derived from a label are stable across runs.
@@ -289,7 +291,7 @@ def pool_input(spec: dict[str, Any], *, now: datetime | None = None) -> Any:
             currency="USD",
             bundle_contents=spec["bundle"],
             delivery_sla_days=7,
-            fund_by="2026-11-30",
+            fund_by=(now + timedelta(days=21)).date().isoformat(),
             min_return_days=30,
             zones=[Zone(zone_id="US-EAST", label="US East", regions=["NY", "NJ", "PA"])],
         ),
@@ -412,6 +414,179 @@ async def seed_discovery(session: Any, *, pools: Any, joins: Any, admin_id: UUID
             if outcome.status_code != 201:
                 raise SystemExit("discovery demo join refused")
     return result
+
+
+@dataclass(frozen=True)
+class CalendarPlan:
+    payload: PoolInput
+    buyer_indexes: tuple[int, ...]
+    cap_cents: int
+    merchant_example: bool = False
+
+
+def calendar_plans(now: datetime) -> list[CalendarPlan]:
+    """Twenty-four join windows over two calendar months and four merchant examples."""
+    month_index = now.month + 1
+    year, month = now.year + month_index // 12, month_index % 12 + 1
+    horizon = now.date().replace(
+        year=year, month=month, day=min(now.day, calendar.monthrange(year, month)[1])
+    )
+    products = DISCOVERY_SPECS + [
+        (
+            "Height-adjustable standing desk",
+            "desk-standing",
+            "Walnut · 120 cm",
+            ["desk top", "frame", "hardware"],
+            0,
+            65_000,
+        ),
+        (
+            "Ergonomic office chair",
+            "chair-ergonomic",
+            "Charcoal · adjustable lumbar support",
+            ["chair", "lumbar support", "assembly guide"],
+            0,
+            42_000,
+        ),
+        (
+            "1080p USB webcam",
+            "webcam-1080p",
+            "Black · privacy shutter",
+            ["webcam", "mount", "usb cable"],
+            0,
+            9_000,
+        ),
+        (
+            "Portable solid-state drive",
+            "ssd-portable",
+            "1 TB · graphite",
+            ["drive", "usb-c cable", "carry sleeve"],
+            0,
+            16_000,
+        ),
+        (
+            "Everyday laptop backpack",
+            "backpack-laptop",
+            "Slate · 20 L",
+            ["backpack", "rain cover"],
+            0,
+            11_000,
+        ),
+        (
+            "Compact air purifier",
+            "air-purifier",
+            "White · small room",
+            ["purifier", "filter", "power cable"],
+            0,
+            24_000,
+        ),
+    ]
+    result: list[CalendarPlan] = []
+    for index in range(28):
+        immediate = index >= 24
+        product_index = [0, 5, 6, 7][index - 24] if immediate else index % 12
+        title, key, variant, bundle, _buyers, cap = products[product_index]
+        days = max(2, (index + 1) * (horizon - now.date()).days // 24)
+        closes = now + (timedelta(minutes=8) if immediate else timedelta(days=days))
+        name = (
+            f"{title} · merchant demo {now.date().isoformat()}"
+            if immediate
+            else f"{title} · closes {closes.date().isoformat()}"
+        )
+        payload = pool_input(
+            {
+                "title": name,
+                "product_key": key,
+                "bundle": bundle,
+                "lots": [{"seats": 4 if immediate else 8, "min_seats": 2 if immediate else 3}],
+                "bid_window_s": 7 * 86400,
+                "offer_window_s": 4 * 3600,
+                "fund_deadline_s": 12 * 3600,
+            },
+            now=now,
+        )
+        payload.template.title = title
+        payload.template.variant = variant
+        payload.template.fund_by = (closes + timedelta(days=9)).date().isoformat()
+        payload.timeline.open_at = now + timedelta(milliseconds=100)
+        payload.timeline.close_at = closes
+        # Revalidate after assigning dates: published rules must be internally consistent.
+        payload = PoolInput.model_validate(payload.model_dump())
+        indexes = (
+            tuple(range(6)) if immediate else tuple((index + n) % 5 for n in range(1 + index % 5))
+        )
+        result.append(CalendarPlan(payload, indexes, cap, immediate))
+    return result
+
+
+async def seed_calendar_pool(
+    session: Any,
+    *,
+    plan: CalendarPlan,
+    pools: Any,
+    joins: Any,
+    admin_id: UUID,
+    buyers: list[UUID],
+) -> Any:
+    """Append a published demo pool and signed entries; never rewrite history or pay."""
+    from fairpool.db.models.catalog import Pool, PoolEntry
+    from fairpool.modules.intake.manual import ManualIntakeService
+
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"demo:calendar:{admin_id}:{plan.payload.title}"},
+    )
+    found = await find_pool(session, title=plan.payload.title, admin_id=admin_id)
+    if found is None:
+        payload = plan.payload.model_copy(deep=True)
+        now = await pools.clock.db_now(session)
+        payload.timeline.open_at = now + timedelta(milliseconds=100)
+        if plan.merchant_example:
+            payload.timeline.close_at = now + timedelta(minutes=8)
+            payload.template.fund_by = (now + timedelta(days=10)).date().isoformat()
+        payload = PoolInput.model_validate(payload.model_dump())
+        pool = await pools.create(session, actor_id=admin_id, payload=payload)
+        await pools.publish(session, pool.id, actor_id=admin_id)
+        wall = await pools.clock.db_wall_now(session)
+        if wall < payload.timeline.open_at:
+            await asyncio.sleep((payload.timeline.open_at - wall).total_seconds())
+        await pools.open(session, {"pool_id": str(pool.id)})
+    else:
+        pool = await session.get(Pool, found)
+    if pool is None or str(pool.status) != "OPEN":
+        return pool
+    manual = ManualIntakeService(pools.audit)
+    required_by = (
+        (datetime.fromisoformat(pool.template["fund_by"]) + timedelta(days=10)).date().isoformat()
+    )
+    for index in plan.buyer_indexes:
+        buyer = buyers[index]
+        if await session.scalar(
+            select(PoolEntry.id).where(PoolEntry.pool_id == pool.id, PoolEntry.user_id == buyer)
+        ):
+            continue
+        request = await manual.confirm(
+            session,
+            user_id=buyer,
+            pool_id=pool.id,
+            payload={
+                "delivery": {"region": ("NY", "NJ", "PA")[index % 3]},
+                "required_by": required_by,
+                "max_total_cents": plan.cap_cents * (80 + 10 * index) // 100,
+                "firm": [],
+                "preferences": [],
+            },
+        )
+        outcome = await joins.join(
+            session,
+            pool_id=pool.id,
+            user_id=buyer,
+            confirmed_request_id=request.id,
+            idempotency_key=f"demo:calendar:{pool.id}:{buyer}",
+        )
+        if outcome.status_code != 201:
+            raise SystemExit("calendar entry refused; transaction rolled back")
+    return pool
 
 
 async def settle_pool(session: Any, handlers: dict[str, Any], pool_id: UUID) -> None:

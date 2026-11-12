@@ -115,7 +115,12 @@ function OfferDetails({ offer, onRefresh, onChanged }: { offer: Offer; onRefresh
       const { data, error: failure } = await api.POST("/api/v1/offers/{buyer_order_id}/continue", {
         params: { path: { buyer_order_id: offer.buyer_order_id } }, body: { shipping: address },
       });
-      if (failure || !data) { setError(codeOf(failure)); return; }
+      if (failure || !data) {
+        const detail = codeOf(failure);
+        setError(detail);
+        if (detail.code === "OFFER_EXPIRED" || detail.code === "ORDER_STATE_INVALID") onRefresh();
+        return;
+      }
       // I14, INT-7: never log the approval URL; no amount leaves the browser.
       window.location.assign(data.approve_url);
     } catch { setError({ code: "REQUEST_FAILED", message: "Check your connection and try again." }); }

@@ -32,3 +32,29 @@ it("retains edited delivery fields when an SDK-triggered offer refresh fails", a
   expect(screen.getByRole("button", { name: "Retry offer" })).toBeEnabled();
   expect(transport.post).not.toHaveBeenCalled();
 });
+
+it("replaces stale checkout controls with the expired offer after a state conflict", async () => {
+  let expired = false;
+  const offer = {
+    buyer_order_id: "offer-expired", status: "OFFERED", pool_id: "pool-one",
+    merchant: {display_name: "Demo Merchant"}, product: {title: "Monitor", condition: "NEW", bundle_contents: ["Monitor"]},
+    terms: {delivery_sla_days: 7, returns_days: 30},
+    totals: {item_cents: 10000, shipping_cents: 0, tax_cents: 0, total_cents: 10000, cap_cents: 20000},
+    offer_expires_at: "2026-11-10T10:15:00Z", server_now: "2026-11-10T10:00:00Z",
+    notices: {hold: "Approval places a hold.", lots_may_differ: "Lots may differ.", fallback: null},
+  };
+  transport.get.mockImplementation(async (path: string) => path.endsWith("/addresses")
+    ? {data: {addresses: [{id: "address-one", is_default: true, address: {name: "Demo Buyer", line1: "1 Test Street", city: "Test City", region: "NY", postal_code: "10001", country_code: "US"}}]}}
+    : path.endsWith("/config") ? {data: {approval_ui: "redirect"}}
+    : {data: {...offer, status: expired ? "EXPIRED" : "OFFERED"}});
+  transport.post.mockImplementation(async () => {
+    expired = true;
+    return {error: {error: {code: "ORDER_STATE_INVALID", message: "The offer is no longer available."}}};
+  });
+  render(<MemoryRouter future={{v7_startTransition: true, v7_relativeSplatPath: true}}><OfferCheckout buyerOrderId="offer-expired" /></MemoryRouter>);
+  await screen.findByDisplayValue("Demo Buyer");
+  fireEvent.click(await screen.findByRole("button", {name: "Continue to PayPal"}));
+  expect(await screen.findByRole("heading", {name: "This offer can no longer be approved."})).toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Continue to PayPal"})).toBeNull();
+  expect(transport.post).toHaveBeenCalledTimes(1);
+});

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { onlineManager } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
 import { api, readClient, prefetchRead, resetSessionCache, useApiRead } from "../src/shared";
+import { getCsrfToken, setCsrfToken } from "../src/shared/lib/csrf";
 
 type Item = { title: string };
 type Load = (signal: AbortSignal) => Promise<{data?: Item; error?: unknown}>;
@@ -12,6 +13,24 @@ function View({ resource, load }: { resource: string; load: Load }) {
     <button onClick={() => void result.refetch()}>Refresh</button></>;
 }
 afterEach(() => { vi.unstubAllGlobals(); onlineManager.setOnline(true); });
+
+it.each([null, "previous-session-token"])("recovers CSRF from the authenticated session check when the tab has %s", async (previous) => {
+  setCsrfToken(previous);
+  await api.GET("/api/v1/me", {fetch: async () => Response.json({}, {headers: {"X-CSRF-Token": "current-session-token"}})});
+  let sentToken: string | null = null;
+  await api.POST("/api/v1/auth/logout", {fetch: async (request) => {
+    sentToken = (request as Request).headers.get("X-CSRF-Token");
+    return Response.json({});
+  }});
+  expect(sentToken).toBe("current-session-token");
+  setCsrfToken(null);
+});
+
+it("does not adopt a CSRF header from an unauthenticated response", async () => {
+  setCsrfToken(null);
+  await api.GET("/api/v1/me", {fetch: async () => Response.json({}, {status: 401, headers: {"X-CSRF-Token": "untrusted-token"}})});
+  expect(getCsrfToken()).toBeNull();
+});
 
 it.each(["buyer", "merchant", "admin"])("retains %s records on return without another fresh read", async (role) => {
   const load = vi.fn<Load>().mockResolvedValue({data: {title: `${role} records`}});
