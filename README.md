@@ -9,7 +9,7 @@
 
 # A guide to FairPool
 
-Hi! Welcome to FairPool. This guide explains what we're building, takes you through the app, and helps you run it yourself. If you're new here, start with the idea below; the setup commands are a little further down.
+Hi! Welcome to FairPool. This guide explains the idea, takes you through the app, and helps you run it yourself. If you're new here, start below; the setup commands are a little further down.
 
 **Group buying where merchants compete for the group.**
 
@@ -21,7 +21,7 @@ Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/). Thi
 
 **[Open FairPool](https://fairpool-api.onrender.com/)** · [Source](https://github.com/shaahir27/FairPool) · [Product idea](docs/fairpool-idea.md) · [Technical docs](docs/00-index.md)
 
-**Demo video:** YouTube link coming after the final recording. <!-- Replace with the public YouTube URL before submission. -->
+**Demo video:** [Watch the FairPool walkthrough on YouTube](https://www.youtube.com/watch?v=fwvTbB2_Rmk).
 
 ## Start here
 
@@ -62,7 +62,7 @@ For example, several buyers may want the same monitor but set different price li
 
 Start with the buyer journey. You can explore the other workspaces once the pool, offer and order screens make sense.
 
-Open **[fairpool-api.onrender.com](https://fairpool-api.onrender.com/)**. The frontend and API share this origin so sign-in works with first-party cookies. The old separate static preview is not the app URL. A free Render instance may need time to wake after inactivity.
+Open **[fairpool-api.onrender.com](https://fairpool-api.onrender.com/)**. The frontend and API share this origin so sign-in works with first-party cookies. A free Render instance may need time to wake after inactivity.
 
 | Workspace | What to explore |
 |---|---|
@@ -84,7 +84,7 @@ Use the buyer or merchant sign-in link below for the workspace you want to explo
 
 New-buyer registration goes through PayPal connection and depends on the configured Sandbox login app. Connecting identifies an account; approving a payment is a separate step. Seeded historical orders illustrate states; they are not evidence that those particular orders reached PayPal. Follow an available live offer for an actual Sandbox approval.
 
-The hosted data was refreshed on **November 12, 2026**, with discovery windows through **January 12, 2027**: varied product bundles and delivery regions, signed entries, seated and waitlisted examples, and confirmed bids from two demo merchants. Existing simulated funded/refunded history remains available too. In the merchant workspace, start with **Demand Board → Active Bids**; in the buyer workspace, try **Discover → My Pools → Orders**. These are seeded examples, rather than evidence of customer demand or merchant stock.
+The hosted demo includes discovery windows through **January 12, 2027**, varied product bundles and delivery regions, signed entries, seated and waitlisted examples, and confirmed bids from two demo merchants. Simulated funded/refunded history is available too. These are seeded examples, rather than evidence of customer demand or merchant stock.
 
 ## Ways to participate: browser, API or MCP
 
@@ -99,15 +99,13 @@ You can use FairPool yourself in the browser, write a client against the HTTP AP
 
 ### First, give a buyer client limited permission
 
-CR-17 adds browser-based agent connections and consented demand formation. On November 12, the owner authorized upgrading the configured Supabase schema from `0007` to `0008`. All 39 existing pools, including their scheduled dates, matched before and after the upgrade; no reset or reseeding was run. The new demand registry starts empty until buyers explicitly record interest. The application requires schema `0008`; `/ready` checks that its code and database revisions agree.
-
 Sign in as a buyer and open **Agent settings** (`/settings/agents`) → **Connect an agent**. Add the shown MCP URL in a compatible client and choose Connect there. Its unauthenticated request discovers FairPool’s authorization server, registers a public client, and opens the browser consent page. Review the registered client name and redirect URI, describe the product, budget and time limit, review the automatically matched pools and proposed cap and expiry, then ratify the mandate and approve or deny. PKCE S256 binds the single-use code to the client; no token copying is needed. Tokens expire without refresh, and reconnecting requires consent again.
 
 Connections show a name, public prefix, active/expired/revoked status and last-used time. Revoke from the same screen. **Propose with AI** finds public open candidate pools from your intent and prepares an editable mandate; you can also choose pools yourself. The short review shows the permissions before approval. Detailed fields and the manual token path stay behind optional controls, and an unavailable or refused proposal opens the manual editor. It authorizes no payment. For a client without OAuth, use the labelled **Manual token fallback**: select scope, set cap and expiry, ratify, and store the once-shown token securely. FairPool stores only its HMAC.
 
 A buyer token is different from your FairPool password, a merchant API key and a PayPal credential. Put it in your client's private connection settings or secret store, never in a prompt, repository, screenshot or shared transcript. Both buyer interfaces enforce the token's owner, pool/category scope, cap, expiry and revocation. A scoped token cannot read or withdraw an entry outside its allowed pools.
 
-**Custom stop-and-ask conditions are advisory in this build.** They are validated and included in the ratified mandate, but the agent endpoints do not evaluate them. An assistant that ignores a condition is still bounded by the enforced scope, cap and expiry. Do not rely on a condition to stop a join; narrow or revoke the token instead. This gap is tracked as **Q-2026-11-08-39** in [progress](docs/progress.md).
+**Custom stop-and-ask conditions are advisory in this build.** They are validated and included in the ratified mandate, but the agent endpoints do not evaluate them. An assistant that ignores a condition is still bounded by the enforced scope, cap and expiry. Do not rely on a condition to stop a join; narrow or revoke the token instead.
 
 ### When no pool matches
 
@@ -190,13 +188,13 @@ A merchant creates scoped keys in **Developer API** in the merchant workspace. U
 
 The ten merchant operations cover finding lots, submitting/reading bids, funding progress, fulfilment, shipments and read-only verification. Bid submission is `PUT /merchant-api/v1/lots/{lot_id}/bid`, requires an `Idempotency-Key`, and requires `confirmed: true`: the bot's structured submission is its confirmation. Merchant ownership, scopes and the same sealed-bid rules still apply. See the [operation and scope table](docs/contracts/api.md#43-merchant-agent-api-int-9-fr-ig-04) and [SDK quickstart](sdk/README.md).
 
-### What has been checked, and what remains open
+### Client compatibility
 
 Focused tests exercise delegation ownership/revocation/expiry, scope and cap enforcement, exact money parsing, idempotent joins/withdrawals, merchant-key permissions, sealed bid access and the mounted MCP handshake/tool calls. They use an isolated database and fake providers; they do not establish compatibility with every AI client or demonstrate a real payment.
 
-One implementation gap remains documented as **Q-2026-11-04-35** in [progress](docs/progress.md): the contract calls for the official MCP Python SDK, while the current endpoint uses a custom JSON-RPC/SSE transport shim because of the recorded mount/lifespan issue. Its four-tool path is tested, but this is not a claim of complete MCP protocol/client compatibility. Use a Streamable HTTP client with private bearer headers and verify its connection before relying on it. The Zapier managed write bridge remains off; it is not an alternative working payment or join route.
+The MCP endpoint uses a custom JSON-RPC/SSE transport. Use a client with Streamable HTTP and OAuth support, or a private bearer header for the manual token path, and verify its connection before relying on it. The four-tool path is tested; compatibility with every MCP client is not guaranteed. The managed Zapier write bridge is disabled (`ZAPIER_BRIDGE=off`); use FairPool MCP for buyer participation.
 
-A second contract mismatch is tracked as **Q-2026-11-10-41**: the MCP tool advertises `required_by` as optional, but the shared API currently requires a delivery date. Always include it, as the examples above do. No delivery date is invented on your behalf.
+Always include `required_by` in entry requests, including MCP calls, as the examples above do. Although the MCP tool marks it optional, the shared entry API requires a delivery date. No delivery date is invented on your behalf.
 
 ## How PayPal is used
 
@@ -210,7 +208,7 @@ PayPal is part of the group-funding workflow, rather than a payment button added
 
 The current integration uses **one stand-in Sandbox seller** (`PAYMENT_ROUTER=single_seller`). The app lacks marketplace partner access, so the winning merchant's identity is shown while payments go to that configured seller. Checkout and operations screens disclose this fallback. Platform fees and multi-seller settlement are unavailable.
 
-Real Sandbox evidence includes authorization/void, capture/refund, SDK popup approval and funding flows. Start with [Phase 5](docs/evidence/phase5/README.md), [Phase 7](docs/evidence/phase7/) and the [current rehearsal record](docs/evidence/phase10/rehearsal_1.json). Those records distinguish executed provider calls, deterministic tests and owner decisions. A refund restores FairPool's captured-minus-refunded ledger; this is not a claim about PayPal processing fees or a fee-inclusive account balance.
+Real Sandbox evidence includes authorization/void, capture/refund, SDK popup approval and funding flows. Start with [Phase 5](docs/evidence/phase5/README.md), [Phase 7](docs/evidence/phase7/) and the [end-to-end rehearsal evidence](docs/evidence/phase10/rehearsal_1.json). Those records distinguish executed provider calls, deterministic tests and configuration decisions. A refund restores FairPool's captured-minus-refunded ledger; this is not a claim about PayPal processing fees or a fee-inclusive account balance.
 
 The [webhook evidence](docs/evidence/phase6/webhook_delivery.json) records genuine Sandbox deliveries, including void and refund events. One completed-capture delivery passed the provider-signature contract test. Processing remained disabled during that run; reconciliation and timers drove the payment workflow.
 
@@ -251,7 +249,7 @@ Injection and quoted-instruction cases: **32/32 clean** across the two runs. Rec
 
 Separate [live mandate checks](docs/evidence/phase9/live_mandate.json) passed three cases, including an injected instruction: outputs were schema-valid, caps were not raised, and scope stayed within the supplied candidates. A [live quote-to-bid check](docs/evidence/phase9/live_bid.json) used Gemini to parse a quote, then submitted it through the Merchant Agent API and received a sealed-bid receipt. These are recorded checks, not guarantees about every future model response.
 
-The [agent-market boundary report](docs/evidence/phase9/agent_market.json) is **SIMULATED**, using FakeAI and the fake payment router. Across six boundary attempts it recorded zero observed breaches and zero PayPal writes from AI-callable surfaces. Invalid credentials, excessive caps, insufficient key scope, sealed-bid access and oversized messages were rejected; injected merchant notes were stored as data and flagged for review. A [November 10 participation check](docs/evidence/phase9/agent_participation_followup.json) corrects a false-positive in the older checker: that older report does not establish a successful buyer join. The corrected checker verifies actual buyer/merchant tool results and fails its exit status when participation fails. These measurements are separate from live-model and live-payment evidence.
+The [agent-market boundary report](docs/evidence/phase9/agent_market.json) is **SIMULATED**, using FakeAI and the fake payment router. Across six boundary attempts it recorded zero observed breaches and zero PayPal writes from AI-callable surfaces. Invalid credentials, excessive caps, insufficient key scope, sealed-bid access and oversized messages were rejected; injected merchant notes were stored as data and flagged for review. A separate [participation check](docs/evidence/phase9/agent_participation_followup.json) verifies actual buyer/merchant tool results and fails its exit status when participation fails. The boundary report alone does not establish a successful buyer join. These measurements are separate from live-model and live-payment evidence.
 
 The [10,000-entry simulation](docs/evidence/phase8/sim_10k.json) measured **5,386 ms** against its 10,000 ms bound on local PostgreSQL. Its timed path uses bulk database writes and Python ranking, with no AI calls, job execution or payments. This is an isolated simulation benchmark, not hosted checkout throughput. Running it requires the maintainer-only operator API; the recorded report is available without an operator login.
 
@@ -314,7 +312,7 @@ FRONTEND_BASE_URL=http://localhost:5173
 CORS_ORIGINS=http://localhost:5173
 ```
 
-**Set `PAYMENT_MODE=authorize_capture` explicitly.** The template/code default is `vault_charge`, whose real saved-permission flow is not shipped. Changing the setting does not change the mode already stamped into an awarded lot.
+**Set `PAYMENT_MODE=authorize_capture` explicitly.** The template/code default is `vault_charge`, but real saved-payment permission setup is disabled. Changing the setting does not change the mode already stamped into an awarded lot.
 
 Fill these required values too:
 
@@ -476,7 +474,7 @@ Read the first view from the clients down to the workflows, then use the second 
 
 There is also a browser-to-PayPal approval step outside the server diagram: the SDK opens a popup (or uses the redirect fallback) for the buyer to approve. That does not move authorization or capture logic into the browser. Server-side code verifies the approved order and performs authorization, capture, void or refund through the adapter. Verified webhook hints, when enabled, return through the API and prompt a server-side GET. AI proposes fields; it has no payment tools. Search retrieves public demand and never decides whether a buyer or bid qualifies.
 
-**What actually runs where:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL. The API and worker run together through `python -m fairpool.serve` while the web instance is awake. Its profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
+**Deployment:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL. The API and worker run together through `python -m fairpool.serve` while the web instance is awake. Its profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
 
 The wiring lives in [wiring.py](backend/src/fairpool/wiring.py); [worker.py](backend/src/fairpool/worker.py) owns job execution and the reconciliation schedule. [The app factory](backend/src/fairpool/api/app.py) mounts the application API, merchant sub-app, MCP endpoint and built frontend.
 
@@ -502,7 +500,7 @@ Money is stored as integer cents. Deadlines use the database clock. State change
 - **Application API:** `/api/v1`; generated browser types come from [frontend/openapi.json](frontend/openapi.json).
 - **Buyer Agent API:** scoped, revocable delegation tokens for pool discovery and entry management. FairPool's Streamable HTTP MCP endpoint is `/mcp`. Agents have no payment tools.
 - **Merchant Agent API:** ten operations under `/merchant-api/v1`, with scoped API keys, sealed-bid rules and idempotency. Local interactive docs: `http://localhost:8000/merchant-api/v1/docs`.
-- **Generated clients:** [Python and TypeScript SDKs](sdk/README.md), generated with APIMatic from [the Merchant OpenAPI document](sdk/merchant-openapi.json). Do not edit generated clients by hand. APIMatic's hosted developer portal generation is still blocked; no portal is claimed.
+- **Generated clients:** [Python and TypeScript SDKs](sdk/README.md), generated with APIMatic from [the Merchant OpenAPI document](sdk/merchant-openapi.json). Generation instructions and SDK source are included under `sdk/`. Do not edit generated clients by hand.
 
 ### Tools and sponsor integrations
 
@@ -510,10 +508,10 @@ Money is stored as integer cents. Deadlines use the database clock. State change
 |---|---|
 | PayPal | Sandbox Orders, SDK approval, payment lifecycle, identity, tracking and read-only verification |
 | Google Gemini | Structured proposals for intake, quotes, reconciliation, mandates and simulation text; requires a working key and model access |
-| Elastic | Public demand retrieval and advisory product similarity require an active project and suitable key permissions, or a local Elastic service. The current demo uses PostgreSQL retrieval after index writes returned 403; no current trial/billing status is assumed |
-| APIMatic | Merchant clients were generated with trial/plan access and are committed for use without the generation service. Regeneration requires account/plan access; hosted portal generation remains blocked. ContextMatic supplied separate development-time PayPal API context |
+| Elastic | Optional public demand retrieval and advisory product similarity; requires a configured Elastic service and suitable permissions. The hosted demo uses PostgreSQL retrieval |
+| APIMatic | Generated Merchant API clients in Python and TypeScript. SDK source is included; regeneration requires APIMatic account/plan access. ContextMatic supplied separate development-time PayPal API context |
 | PayPal AI Toolkit / read-only PayPal MCP | Development guidance and optional merchant inspection; neither runs in the backend payment path |
-| Zapier MCP | Managed-mode testing used a Pro trial recorded as ending November 11, 2026. GET worked; write tools could not send a valid body. `ZAPIER_BRIDGE=off`, so the demo does not depend on that trial; use FairPool MCP |
+| Zapier MCP | Managed-mode GET requests were tested, but write tools could not supply the required body. The bridge is disabled (`ZAPIER_BRIDGE=off`); use FairPool MCP for buyer participation |
 | Render / Supabase | Hosted app and PostgreSQL, respectively |
 | GitHub Actions | CI and an optional keep-warm workflow |
 
@@ -545,7 +543,7 @@ Run provider suites only after reading [the testing strategy](docs/testing-strat
 
 ## Hosting and troubleshooting
 
-The [Render blueprint](deploy/render.yaml) builds the frontend into the API image and serves both on one origin, backed by Supabase. The API image starts a supervised worker beside the web process, so due jobs and reconciliation can run while the service is awake. If either process exits, the supervisor stops its sibling and exits so the container can restart. Both processes pause when the free instance sleeps; deadlines still use the database clock, so expired windows are rechecked after waking. A keep-warm workflow exists, but is intended to be enabled after the repository becomes public; cold starts remain possible. The current demo selects PostgreSQL retrieval against Supabase because the configured Elastic key rejects index writes; the Elastic adapter remains available when its permissions are restored.
+The [Render blueprint](deploy/render.yaml) builds the frontend into the API image and serves both on one origin, backed by Supabase. The API image starts a supervised worker beside the web process, so due jobs and reconciliation can run while the service is awake. If either process exits, the supervisor stops its sibling and exits so the container can restart. Both processes pause when the free instance sleeps; deadlines still use the database clock, so expired windows are rechecked after waking. Free hosting can produce cold starts, and keep-warm requests do not guarantee continuous processing. The hosted demo uses PostgreSQL retrieval against Supabase; Elasticsearch is an optional provider that requires its own configuration and permissions.
 
 | Symptom | Check |
 |---|---|
@@ -563,25 +561,20 @@ The [Render blueprint](deploy/render.yaml) builds the frontend into the API imag
 Before you rely on a demo result, here's what this build can and cannot show. The labels in the app matter: a seeded example, a simulation and a real Sandbox call are different kinds of evidence.
 
 - **Sandbox, US payers, USD, one unit per entry.** No production checkout, platform fee, multi-seller settlement or India-domestic payment support.
-- **Individual approval is the demonstrated payment flow.** Real PayPal saved-permission setup is not shipped (`VAULT_REAL_SAVE_ENABLED=false`). Fake vault tests do not establish a live save-and-charge experience.
+- **Individual approval is required.** The hosted demo uses `authorize_capture`; real PayPal saved-payment permission setup is disabled (`VAULT_REAL_SAVE_ENABLED=false`). Fake vault tests do not establish a live save-and-charge experience.
 - **Join rate limiting is per API process**, not a global distributed limit; adding API processes can multiply the effective allowance.
-- **Custom mandate conditions are advisory.** Scope, cap, expiry and revocation are enforced, but agent endpoints do not evaluate stop-and-ask predicates (Q-2026-11-08-39).
+- **Custom mandate conditions are advisory.** Scope, cap, expiry and revocation are enforced, but agent endpoints do not evaluate stop-and-ask predicates.
 - **Funding and refunds are asynchronous.** A pending capture is not payment, and requesting a refund is not the same as observing it complete. The app reports recorded states.
 - **Hosted webhook processing is disabled.** The API and worker run together while the free instance is awake. A sleeping instance cannot process jobs until it wakes; a keep-warm request is not a guarantee of continuous operation.
-- **AI needs its configured provider.** Hosted intake returned a confirmation card in the November 12 smoke check; individual responses can still need clarification or manual entry. Search currently uses the supported PostgreSQL fallback because the configured Elastic key rejects index writes. See [progress](docs/progress.md).
-- **The final rehearsal and video are still in progress.** Generated SDKs exist; the APIMatic portal does not. Repository visibility will be changed to public by the owner before submission.
+- **AI needs its configured provider.** Parsing requires a working Gemini key, accessible model and available quota. Individual requests may need clarification or manual entry. The hosted demo uses PostgreSQL retrieval.
 
 **We do not claim:** guaranteed savings, wholesale pricing, production readiness, merchant settlement, "one person, one entry", or that a simulated market proves real buyer conversion. The allocation and account-control limits are described above.
-
-Next steps are to finish and record the end-to-end rehearsal, verify hosted provider configuration, and complete the public submission. Longer-term work includes approved marketplace onboarding/settlement and a verified saved-payment flow; these are future work, not features of this build.
 
 ## Documentation and contribution
 
 Start with [the docs index](docs/00-index.md). The [idea](docs/fairpool-idea.md) explains why the product exists; [requirements](docs/product-spec.md) define its scope; [contracts](docs/contracts/README.md) define API/state/data behavior; [decisions](docs/decisions.md) explain approved departures; [progress](docs/progress.md) records outstanding work. The [demo and submission runbook](docs/demo-and-submission.md) holds the recording plan.
 
 For contributors, read [AGENTS.md](AGENTS.md) and [team ownership](docs/team-split.md) before changing code. Keep secrets out of source, logs, screenshots and issues. Use a disposable test database, preserve payment boundaries, and document contract changes before implementing them.
-
-The [official hackathon requirements](https://paypalaihackathon.devpost.com/#requirements) call for a working PayPal-and-AI project, usable setup instructions or a hosted build, tool-use disclosure, a public licensed repository and a public YouTube demo under three minutes. This README documents the build; the final video link above and Devpost submission remain to be completed. The owner will make the repository public before submission.
 
 ## License
 
