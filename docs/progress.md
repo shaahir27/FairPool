@@ -26,6 +26,8 @@ The owner's additional read-only README review was checked against current code 
 
 Documentation follow-up checks passed: all ten existing README/disclosure/blueprint/layout tests, relative links and logo assets, and the documentation validator (zero errors, two existing endpoint warnings). A private Render/local configuration comparison reconfirmed the exact shared Supabase connection, matching PostgreSQL search selection, isolated loopback test database and separate local recording connection. No full application-suite rerun is claimed for the wording-only follow-up; final-head CI is checked after publication.
 
+Raw evaluation inspection found one additional precision issue in the external review's proposed "Model calls" heading: the report has 320 case results but 354 attempt records (286 single-attempt cases and 34 retried cases). The README labels the table "Case evaluations" and states both counts, so final clean-result totals do not imply that every initial model attempt passed.
+
 ## README and repository cleanup follow-up (T09X01 / T10A02)
 
 **DONE ? 2026-11-10.** Owner-requested rewrite for first-time readers and judges on `a/T09X01-readme-and-repository-cleanup`. The root README now explains the product, buyer/merchant journey, individual-approval payment mode, AI boundaries and measured evaluation, public audit limits, reproducible local configuration, local versus hosted databases, worker, demo seeding, generated SDKs, tests and deployment limitations. Official Devpost requirements/rules were checked directly; the owner supplied the live URL, requested a YouTube placeholder and will make the repository public before submission. No visibility or deployment setting changed.

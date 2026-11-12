@@ -224,8 +224,10 @@ Grounding checks reject unsupported amounts, dates and quoted terms. The adapter
 
 These are results on a fixed labelled corpus, **not a promise of accuracy on new requests**. “Clean” measures the evaluation's structural/guardrail checks; it does not mean a proposal needs no human review.
 
+The table counts 320 case evaluations across two runs of 160 labelled cases. The report records 354 model attempts including retries; the clean totals describe the final evaluated results.
+
 <!-- eval-table-start -->
-| Task | Model calls | Clean | Field accuracy | Cases left for review |
+| Task | Case evaluations | Clean | Field accuracy | Cases left for review |
 |---|---|---|---|---|
 | INTAKE | 100 | 100/100 | 100.0% | 0 |
 | QUOTE | 60 | 60/60 | 100.0% | 0 |
