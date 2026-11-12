@@ -186,6 +186,20 @@ it("offers a retry when the PayPal link state cannot be loaded", async () => {
   expect(await screen.findByText("A PayPal account is linked.")).toBeInTheDocument();
 });
 
+it("includes pools beyond the default page when choosing an agent scope", async () => {
+  const pools = Array.from({ length: 21 }, (_, index) => ({
+    pool_id: `scope-${index}`, title: index === 20 ? "January dock pool" : `Earlier pool ${index}`,
+    status: "OPEN",
+  }));
+  transport.get.mockImplementation((path, init) => Promise.resolve({
+    data: path === "/api/v1/pools"
+      ? pools.slice(0, init?.params?.query?.limit ?? 20)
+      : { items: [] },
+  }));
+  render(<MemoryRouter><AgentSettingsPage /></MemoryRouter>);
+  expect(await screen.findByRole("checkbox", { name: /January dock pool/ })).toBeInTheDocument();
+});
+
 it("creates a scoped delegation, shows the token once and lists it", async () => {
   const pool = { pool_id: "11111111-1111-4111-8111-111111111111", title: "Demo monitor pool" };
   transport.get.mockImplementation((path: string) => {

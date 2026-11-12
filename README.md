@@ -71,16 +71,18 @@ Open **[fairpool-api.onrender.com](https://fairpool-api.onrender.com/)**. The fr
 
 A useful first tour is **Discover → View pool → Your entry / product requirements → Public audit**, then **My Pools → offer or order status**. The discovery cards distinguish recorded demand, capacity and the merchant minimum; an open pool has no awarded price yet.
 
-Use either public demo login below on the [Sign in page](https://fairpool-api.onrender.com/login). Choose the merchant sign-in option for the merchant workspace. These are shared FairPool test accounts with seeded activity; changes are visible to other reviewers.
+Use the buyer or merchant sign-in link below for the workspace you want to explore. These are shared FairPool test accounts with seeded activity; changes are visible to other reviewers.
 
 | Workspace | FairPool email | Public demo password |
 |---|---|---|
-| Buyer | `demo-buyer-1@fairpool.test` | `FairPool-demo-US-2026!` |
-| Merchant | `demo-merchant@fairpool.test` | `FairPool-demo-US-2026!` |
+| [Buyer sign in](https://fairpool-api.onrender.com/login) | `demo-buyer-1@fairpool.test` | `FairPool-demo-US-2026!` |
+| [Merchant sign in](https://fairpool-api.onrender.com/login?role=merchant) | `demo-merchant@fairpool.test` | `FairPool-demo-US-2026!` |
 
 **Creating an account or trying checkout? Use a US-based PayPal Sandbox personal buyer account.** FairPool's demo is configured for **US payers and USD** (`ALLOWED_PAYER_COUNTRIES=US`); an account from another country will fail its payer-country check. In the [PayPal developer dashboard](https://developer.paypal.com/dashboard/), create a Sandbox **Personal** account with **United States** as its country, then use that account's Sandbox email and password when PayPal opens. The FairPool logins above are separate from PayPal credentials. Never enter your real PayPal login into this demo.
 
 New-buyer registration goes through PayPal connection and depends on the configured Sandbox login app. Connecting identifies an account; approving a payment is a separate step. Seeded historical orders illustrate states; they are not evidence that those particular orders reached PayPal. Follow an available live offer for an actual Sandbox approval.
+
+The hosted data was refreshed on **November 12, 2026**, with discovery windows through **January 12, 2027**: varied product bundles and delivery regions, signed entries, seated and waitlisted examples, and confirmed bids from two demo merchants. Existing simulated funded/refunded history remains available too. In the merchant workspace, start with **Demand Board → Active Bids**; in the buyer workspace, try **Discover → My Pools → Orders**. These are seeded examples, rather than evidence of customer demand or merchant stock.
 
 ## Ways to participate: browser, API or MCP
 
@@ -446,7 +448,7 @@ Read the first view from the clients down to the workflows, then use the second 
 
 There is also a browser-to-PayPal approval step outside the server diagram: the SDK opens a popup (or uses the redirect fallback) for the buyer to approve. That does not move authorization or capture logic into the browser. Server-side code verifies the approved order and performs authorization, capture, void or refund through the adapter. Verified webhook hints, when enabled, return through the API and prompt a server-side GET. AI proposes fields; it has no payment tools. Search retrieves public demand and never decides whether a buyer or bid qualifies.
 
-**What actually runs where:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL, and the deployment configuration now starts the API and worker together through `python -m fairpool.serve`. This startup fix still needs deployment to the existing service. Its profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
+**What actually runs where:** local development uses the API, Vite and a separate worker; Compose supplies the API, built UI and worker. The free Render deployment bundles the built React UI into the API service and uses Supabase PostgreSQL. The API and worker run together through `python -m fairpool.serve` while the web instance is awake. Its profile uses individual approval, one stand-in seller, a demo seed and disabled webhook processing. The diagram shows the implemented architecture, including configurable providers; it does not mean every optional path is enabled on the hosted demo.
 
 The wiring lives in [wiring.py](backend/src/fairpool/wiring.py); [worker.py](backend/src/fairpool/worker.py) owns job execution and the reconciliation schedule. [The app factory](backend/src/fairpool/api/app.py) mounts the application API, merchant sub-app, MCP endpoint and built frontend.
 
@@ -536,8 +538,8 @@ Before you rely on a demo result, here's what this build can and cannot show. Th
 - **Individual approval is the demonstrated payment flow.** Real PayPal saved-permission setup is not shipped (`VAULT_REAL_SAVE_ENABLED=false`). Fake vault tests do not establish a live save-and-charge experience.
 - **Join rate limiting is per API process**, not a global distributed limit; adding API processes can multiply the effective allowance.
 - **Funding and refunds are asynchronous.** A pending capture is not payment, and requesting a refund is not the same as observing it complete. The app reports recorded states.
-- **Hosted webhook processing is disabled.** The shared API/worker startup fix is prepared for deployment. Even after deployment, a sleeping free instance cannot process jobs until it wakes; a keep-warm request is not a guarantee of continuous operation.
-- **AI and search need their configured providers.** Local AI preflight passed after the key replacement on November 10; the recorded stale Windows user variable and hosted-key follow-up still need operator attention. See [progress](docs/progress.md).
+- **Hosted webhook processing is disabled.** The API and worker run together while the free instance is awake. A sleeping instance cannot process jobs until it wakes; a keep-warm request is not a guarantee of continuous operation.
+- **AI needs its configured provider.** Hosted intake returned a confirmation card in the November 12 smoke check; individual responses can still need clarification or manual entry. Search currently uses the supported PostgreSQL fallback because the configured Elastic key rejects index writes. See [progress](docs/progress.md).
 - **The final rehearsal and video are still in progress.** Generated SDKs exist; the APIMatic portal does not. Repository visibility will be changed to public by the owner before submission.
 
 **We do not claim:** guaranteed savings, wholesale pricing, production readiness, merchant settlement, "one person, one entry", or that a simulated market proves real buyer conversion. The allocation and account-control limits are described above.

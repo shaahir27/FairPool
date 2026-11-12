@@ -54,8 +54,8 @@ export function DiscoverPage() {
   const [notice, setNotice] = useState<{ code: string; message: string } | null>(null);
   const [manualPool, setManualPool] = useState("");
 
-  const catalogue = useApiRead("/api/v1/pools?status=OPEN&sort=trending",
-    (signal) => api.GET("/api/v1/pools", {signal, params: { query: { status: "OPEN", sort: "trending" } }}), {staleTime: 60_000});
+  const catalogue = useApiRead("/api/v1/pools?status=OPEN&sort=trending&limit=100",
+    (signal) => api.GET("/api/v1/pools", {signal, params: { query: { status: "OPEN", sort: "trending", limit: 100 } }}), {staleTime: 60_000});
   const pools = catalogue.data ?? [];
   const poolsLoading = catalogue.isPending;
   const poolsError = catalogue.error ? "We couldn’t load the open pools. Try again." : "";

@@ -399,7 +399,7 @@ export function AgentSettingsPage() {
   const [revokeBusy, setRevokeBusy] = useState(false);
   const [tokenMessage, setTokenMessage] = useState("");
   const accessRead = useApiRead("/api/v1/me/delegations", (signal) => api.GET("/api/v1/me/delegations", {signal}));
-  const poolsRead = useApiRead("/api/v1/pools?status=OPEN", (signal) => api.GET("/api/v1/pools", {signal, params: {query: {status: "OPEN"}}}), {staleTime: 60_000});
+  const poolsRead = useApiRead("/api/v1/pools?status=OPEN&limit=100", (signal) => api.GET("/api/v1/pools", {signal, params: {query: {status: "OPEN", limit: 100}}}), {staleTime: 60_000});
   const items: Delegation[] | null = accessRead.data?.items ?? null;
   const pools = useMemo(
     () => (Array.isArray(poolsRead.data) ? poolsRead.data : []),

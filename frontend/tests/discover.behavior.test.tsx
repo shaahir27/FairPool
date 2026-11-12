@@ -83,6 +83,22 @@ beforeEach(() => {
 });
 
 describe("Discover and Join", () => {
+  it("keeps later pools searchable when the catalogue exceeds the API default page", async () => {
+    const rows = Array.from({ length: 21 }, (_, index) => pool({
+      pool_id: `calendar-${index}`,
+      title: index === 20 ? "January desktop dock" : `November pool ${index}`,
+    }));
+    transport.get.mockImplementation((_path, init) => Promise.resolve({
+      data: rows.slice(0, init?.params?.query?.limit ?? 20),
+    }));
+    show();
+    await screen.findByRole("heading", { name: "November pool 0" });
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search open pools" }), {
+      target: { value: "January" },
+    });
+    expect(await screen.findByRole("heading", { name: "January desktop dock" })).toBeInTheDocument();
+  });
+
   it("prefills an example and focuses the request so the buyer can finish it", async () => {
     show();
     fireEvent.click(await screen.findByRole("button", { name: "Monitor under $600" }));
