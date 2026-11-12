@@ -159,8 +159,12 @@ and `/ready -> HTTP 200`, and a `/health` request that returns in well under a s
 Manual run [43274377129](https://github.com/shaahir27/FairPool/actions/runs/43274377129)
 passed with `/health -> HTTP 200 after 0s` and `/ready -> HTTP 200 after 1s`.
 The logged-out app probe returned HTTP 200 in 0.29s; the open-pools endpoint returned
-HTTP 200 with 20 pools. A manual run is separate from automatic-schedule evidence;
-the first successful `event: schedule` run is still being checked in this follow-up.
+HTTP 200 with 20 pools. At **18:25 UTC on 2026-11-12**, over 30 minutes after enablement,
+the automatic-run list was still empty and the workflow state was rechecked as `active`.
+A manual run is separate evidence: the successful `event: schedule` criterion remains
+unverified. No replacement pinger or local task was added. GitHub documents that
+scheduled runs can be delayed or dropped under load; this observation does not establish
+the cause of the missing run.
 
 - **60-day activity check:** GitHub disables public-repository schedules after 60 days without repository activity; a push resets the inactivity clock. If the repository stays quiet after 2026-11-12, check in early January, before **2027-01-11**, and re-enable with the command above if disabled ([GitHub schedule rules](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)).
 - **Render hours meter:** read the workspace's shared meter during submission QA. The 20-hour window uses about 600 of 750 hours per 30-day month (620 in a 31-day month), with other traffic able to consume more; near 750, narrow the `3-22` UTC hour field in `*/10 3-22 * * *`, retain the 10-minute interval, and never switch to 24/7 on the free plan or add a second free service.
