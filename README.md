@@ -36,6 +36,8 @@ Imagine you want one monitor. A merchant could offer a better unit price for a l
 
 The merchant has the opposite problem: stock and a possible bulk price, but little certainty about how many buyers will actually follow through. An expression of interest is different from an order the merchant can fulfil. FairPool gathers compatible requests into published pools, then lets merchants compete for clearly defined lots with product, delivery and return requirements. Each buyer keeps their own price ceiling and approves their own final total.
 
+Those requests and merchant quotes usually arrive as ordinary messages. AI helps turn them into terms people can review. A buyer who wants an assistant to participate also needs a clear permission: which pools it can use, how much it can commit, and when that access ends.
+
 Scarce products add a race to click. In a first-come release, a faster connection, an automated checkout or repeated accounts can take places before other buyers have a chance. FairPool collects entries during a fixed window and ranks eligible entries after closing under published rules. Joining earlier gives no priority. Signed receipts and the public audit help buyers check their own inclusion and the published result. Duplicate control operates at account level; it does not establish one person per account or eliminate bots.
 
 There is also a payment coordination problem. Buyers need to know what happens if the group falls short; merchants need completed payments before shipping. FairPool separates joining, approval, authorization and capture. Joining costs nothing, approval is for a specific offer, and a lot becomes funded only after enough captures complete. If funding fails, the workflow releases holds and refunds captures. At the implementation level, approvals, expiry jobs and payment retries can race with one another. Locked seat checks, database deadlines and idempotent payment requests keep those concurrent actions within the same published rules.
@@ -66,7 +68,7 @@ Open **[fairpool-api.onrender.com](https://fairpool-api.onrender.com/)**. The fr
 |---|---|
 | Buyer | Discover and Join, a pool's product and entry details, My Pools, offer review, Orders, saved addresses and agent permissions |
 | Merchant | Demand Board, sealed quote submission, Active Bids, funding progress, fulfilment, verification and API keys |
-| Operator | Pool creation, lot progress, job/reconciliation controls, alerts and audit exports |
+| Operator (maintainer-only) | Pool creation, lot progress, job/reconciliation controls, alerts and audit exports; no public operator login |
 | Public audit | Published rules, entry commitments, draw/lot evidence, tamper checks and the buyer's receipt checker |
 
 A useful first tour is **Discover → View pool → Your entry / product requirements → Public audit**, then **My Pools → offer or order status**. The discovery cards distinguish recorded demand, capacity and the merchant minimum; an open pool has no awarded price yet.
@@ -100,6 +102,8 @@ You can use FairPool yourself in the browser, write a client against the HTTP AP
 Sign in as a buyer and open **Agent settings** (`/settings/agents`). Select the pools the client may use, set its maximum price and expiry, review any stop-and-ask conditions, and ratify the mandate before creating access. Copy the token when it is shown: FairPool stores its HMAC, so it cannot show you the original again. You can revoke it from the same screen.
 
 A buyer token is different from your FairPool password, a merchant API key and a PayPal credential. Put it in your client's private connection settings or secret store, never in a prompt, repository, screenshot or shared transcript. Both buyer interfaces enforce the token's owner, pool/category scope, cap, expiry and revocation. A scoped token cannot read or withdraw an entry outside its allowed pools.
+
+**Custom stop-and-ask conditions are advisory in this build.** They are validated and included in the ratified mandate, but the agent endpoints do not evaluate them. An assistant that ignores a condition is still bounded by the enforced scope, cap and expiry. Do not rely on a condition to stop a join; narrow or revoke the token instead. This gap is tracked as **Q-2026-11-08-39** in [progress](docs/progress.md).
 
 ### Participate directly through the buyer API
 
@@ -196,26 +200,32 @@ The current integration uses **one stand-in Sandbox seller** (`PAYMENT_ROUTER=si
 
 Real Sandbox evidence includes authorization/void, capture/refund, SDK popup approval and funding flows. Start with [Phase 5](docs/evidence/phase5/README.md), [Phase 7](docs/evidence/phase7/) and the [current rehearsal record](docs/evidence/phase10/rehearsal_1.json). Those records distinguish executed provider calls, deterministic tests and owner decisions. A refund restores FairPool's captured-minus-refunded ledger; this is not a claim about PayPal processing fees or a fee-inclusive account balance.
 
+The [webhook evidence](docs/evidence/phase6/webhook_delivery.json) records genuine Sandbox deliveries, including void and refund events. One completed-capture delivery passed the provider-signature contract test. Processing remained disabled during that run; reconciliation and timers drove the payment workflow.
+
 ## How AI is used
 
-Google Gemini, through `google-genai`, turns conversational input into proposals that the rest of the application can validate:
+A buyer's assistant can find and join pools under a permission the buyer has reviewed. A merchant's pricing bot can submit sealed bids through the Merchant Agent API or generated SDKs. Both use the same rules as the browser: deterministic checks decide eligibility and awards, and the buyer still approves the PayPal payment.
+
+Google Gemini, through `google-genai`, helps people prepare those instructions and offers:
 
 | Task | What AI contributes | What decides the result |
 |---|---|---|
 | Buyer intake | Extracts product, delivery needs and maximum price; proposes a match or clarification | Schema validation, pool rules and the buyer's confirmation |
 | Merchant quote parsing | Extracts structured fields from a pasted quote | Merchant review and the deterministic bid rules |
 | Offer reconciliation | Flags product or requirement mismatches, with explanations | Deterministic eligibility checks; a blocking flag can withhold an offer for correction |
-| Delegation mandate | Proposes an agent's pool scope, ceiling, expiry and stop-and-ask conditions | Buyer edits and ratifies it; server-side scope/cap checks enforce it |
+| Delegation mandate | Proposes an agent's pool scope, ceiling, expiry and stop-and-ask conditions | Buyer edits and ratifies it; scope, cap and expiry are enforced; custom conditions remain advisory |
 | Simulation text | Produces varied rehearsal messages | Isolated simulation machinery; never a real payment |
 
 AI output uses closed JSON schemas. Invalid output is retried once, then the user falls back to a manual form. Inputs are treated as untrusted data. AI cannot qualify, accept or change a bid, choose a winner, or move money. No FairPool AI-callable surface can create a PayPal order, authorize, capture, void or refund. Search indexes public pool and lot documents, never buyer requests, caps or personal data.
+
+Grounding checks reject unsupported amounts, dates and quoted terms. The adapter's attempt records in `ai_runs` carry the task, model, prompt/schema version, input hash, output or error, latency and token counts, within the caller's transaction. The Elastic path also uses embeddings for public-demand retrieval and an advisory wrong-product check; a `LOW_SIMILARITY` warning never changes a bid's eligibility. The current hosted demo uses PostgreSQL retrieval.
 
 ### Recorded evaluation
 
 These are results on a fixed labelled corpus, **not a promise of accuracy on new requests**. “Clean” measures the evaluation's structural/guardrail checks; it does not mean a proposal needs no human review.
 
 <!-- eval-table-start -->
-| Task | Runs | Clean | Field accuracy | Cases left for review |
+| Task | Model calls | Clean | Field accuracy | Cases left for review |
 |---|---|---|---|---|
 | INTAKE | 100 | 100/100 | 100.0% | 0 |
 | QUOTE | 60 | 60/60 | 100.0% | 0 |
@@ -225,7 +235,11 @@ These are results on a fixed labelled corpus, **not a promise of accuracy on new
 Injection and quoted-instruction cases: **32/32 clean** across the two runs. Recorded model: `gemini-3.5-flash-lite`; prompt: `phase2-gemini-v10`; dataset fingerprint begins `02acc35721fe`. [Full results and outputs](docs/evidence/phase9/gemini.json).
 <!-- eval-table-end -->
 
-The [agent-market boundary report](docs/evidence/phase9/agent_market.json) is a **SIMULATED** run using FakeAI and the fake payment router. Its refusal counts describe observed attempts, not a security guarantee. They are separate from the live-model and live-payment evidence. A [November 10 participation check](docs/evidence/phase9/agent_participation_followup.json) corrects a false-positive in the rehearsal checker: the older report does not establish that its buyer successfully joined. The corrected checker verifies actual tool results and fails its exit status when participation fails.
+Separate [live mandate checks](docs/evidence/phase9/live_mandate.json) passed three cases, including an injected instruction: outputs were schema-valid, caps were not raised, and scope stayed within the supplied candidates. A [live quote-to-bid check](docs/evidence/phase9/live_bid.json) used Gemini to parse a quote, then submitted it through the Merchant Agent API and received a sealed-bid receipt. These are recorded checks, not guarantees about every future model response.
+
+The [agent-market boundary report](docs/evidence/phase9/agent_market.json) is **SIMULATED**, using FakeAI and the fake payment router. Across six boundary attempts it recorded zero observed breaches and zero PayPal writes from AI-callable surfaces. Invalid credentials, excessive caps, insufficient key scope, sealed-bid access and oversized messages were rejected; injected merchant notes were stored as data and flagged for review. A [November 10 participation check](docs/evidence/phase9/agent_participation_followup.json) corrects a false-positive in the older checker: that older report does not establish a successful buyer join. The corrected checker verifies actual buyer/merchant tool results and fails its exit status when participation fails. These measurements are separate from live-model and live-payment evidence.
+
+The [10,000-entry simulation](docs/evidence/phase8/sim_10k.json) measured **5,386 ms** against its 10,000 ms bound on local PostgreSQL. Its timed path uses bulk database writes and Python ranking, with no AI calls, job execution or payments. This is an isolated simulation benchmark, not hosted checkout throughput. Running it requires the maintainer-only operator API; the recorded report is available without an operator login.
 
 ## Allocation and public audit
 
@@ -482,10 +496,10 @@ Money is stored as integer cents. Deadlines use the database clock. State change
 |---|---|
 | PayPal | Sandbox Orders, SDK approval, payment lifecycle, identity, tracking and read-only verification |
 | Google Gemini | Structured proposals for intake, quotes, reconciliation, mandates and simulation text; requires a working key and model access |
-| Elastic | Public demand retrieval and advisory product similarity; PostgreSQL fallback keeps retrieval available |
-| APIMatic | Generated merchant clients; ContextMatic supplied development-time PayPal API context. Regeneration depends on APIMatic account/plan access |
+| Elastic | Public demand retrieval and advisory product similarity require an active project and suitable key permissions, or a local Elastic service. The current demo uses PostgreSQL retrieval after index writes returned 403; no current trial/billing status is assumed |
+| APIMatic | Merchant clients were generated with trial/plan access and are committed for use without the generation service. Regeneration requires account/plan access; hosted portal generation remains blocked. ContextMatic supplied separate development-time PayPal API context |
 | PayPal AI Toolkit / read-only PayPal MCP | Development guidance and optional merchant inspection; neither runs in the backend payment path |
-| Zapier MCP | Trialled managed-mode integration. The recorded GET tool worked, but write tools could not send a valid body; `ZAPIER_BRIDGE=off`. Use FairPool MCP instead |
+| Zapier MCP | Managed-mode testing used a Pro trial recorded as ending November 11, 2026. GET worked; write tools could not send a valid body. `ZAPIER_BRIDGE=off`, so the demo does not depend on that trial; use FairPool MCP |
 | Render / Supabase | Hosted app and PostgreSQL, respectively |
 | GitHub Actions | CI and an optional keep-warm workflow |
 
@@ -537,6 +551,7 @@ Before you rely on a demo result, here's what this build can and cannot show. Th
 - **Sandbox, US payers, USD, one unit per entry.** No production checkout, platform fee, multi-seller settlement or India-domestic payment support.
 - **Individual approval is the demonstrated payment flow.** Real PayPal saved-permission setup is not shipped (`VAULT_REAL_SAVE_ENABLED=false`). Fake vault tests do not establish a live save-and-charge experience.
 - **Join rate limiting is per API process**, not a global distributed limit; adding API processes can multiply the effective allowance.
+- **Custom mandate conditions are advisory.** Scope, cap, expiry and revocation are enforced, but agent endpoints do not evaluate stop-and-ask predicates (Q-2026-11-08-39).
 - **Funding and refunds are asynchronous.** A pending capture is not payment, and requesting a refund is not the same as observing it complete. The app reports recorded states.
 - **Hosted webhook processing is disabled.** The API and worker run together while the free instance is awake. A sleeping instance cannot process jobs until it wakes; a keep-warm request is not a guarantee of continuous operation.
 - **AI needs its configured provider.** Hosted intake returned a confirmation card in the November 12 smoke check; individual responses can still need clarification or manual entry. Search currently uses the supported PostgreSQL fallback because the configured Elastic key rejects index writes. See [progress](docs/progress.md).

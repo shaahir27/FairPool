@@ -47,14 +47,14 @@ If S9 (Zapier) did not pass, the second beat uses the FairPool MCP server and sa
 
 ## 4. Rehearsal procedure
 
-1. `make demo-reset`, then `make demo-seed` (admin, merchants, catalog, one pool template, sandbox buyer references). On the hosted app, confirm `PAYMENT_MODE` first: the mode is stamped on each lot at award and never changes, so lots seeded before a mode change keep the old stamp and show the old notice. Reset and re-seed after every mode change, then check `GET /api/v1/checkout/config` and the ops lot panel agree with the blueprint.
-2. Check each external dependency before recording: Gemini key and model names present in the Render `ai` group if `AI_ENABLED=true` (the code refuses to start otherwise, which would take the judges' URL down), APIMatic trial active (started in PH3), Elastic project active, Sandbox buyers funded, webhook listener registered (if S5 passed). The Zapier bridge is off — S9 recorded its managed-mode write tools as unusable — so nothing depends on it.
+1. Use `make demo-reset` and `make demo-seed` only against a disposable loopback demo database. Local and Render now share Supabase, whose existing signed/payment history must be preserved; use the [append-only calendar instructions](../README.md#demo-data) for that database. Confirm `GET /api/v1/checkout/config` and the ops lot panel agree with the blueprint. Payment mode and routing are frozen at award: use a fresh correctly configured pool after a mode change, without relabelling historical lots.
+2. Check the configured Gemini key/model access, funded US Sandbox buyers and current payment settings. The hosted release uses PostgreSQL retrieval, so Elastic access is needed only when demonstrating the Elastic path. Committed SDKs run without APIMatic generation access; check trial/plan access if regenerating them. Webhook processing remains disabled in the hosted blueprint. The Zapier bridge is off after S9's managed-mode write failures, so the demo does not depend on its trial.
 3. Run the storyboard end to end twice (task T10X01 then T10X02). The second run must complete with no manual database intervention.
 4. Record screens at 1080p, speak over the capture, no music. Upload to YouTube as public. Open the link while logged out.
 
 ### Recording runbook (T10B02)
 
-Pre-flight, in order, from the repository root. Every command must succeed before recording starts:
+This reset-based pre-flight is for a **disposable loopback database only**, from the repository root. For the shared Supabase demo, preserve existing history and use the append-only procedure above. Every applicable command must succeed before recording starts:
 
 1. `make demo-reset` prints the before counts and `after: 0 rows across counted tables`.
 2. `make demo-seed` rebuilds the five-lot scenario; `python tools/demo_seed_check.py` prints `ALL CHECKS PASSED`.
@@ -94,7 +94,7 @@ Project name and tagline; description (features, who it is for, why it matters);
 6. All switches in `docs/decisions.md` section 4 are filled and match the deployed environment.
 7. Sponsor trials were active during recording; the README states which parts depend on a trial or plan.
 8. Submission saved in PH11; a screenshot of the submission page is stored by the owner.
-9. Hosting stays up through judging on the recorded $0 plan: the free Render web service and the free Supabase project are kept awake by `.github/workflows/keep-warm.yml` (10-minute cadence, 03:00-22:00 UTC, inside the 750 free instance hours and ahead of the 7-day Supabase pause), and the hosted URL is re-opened logged out once a week until the winners are announced. Residual risks are stated in the README: a cold start after up to 15 idle minutes outside the window, and no worker, so the reconciler sweep is admin-triggered. BD-05's paid-plan rule is recorded as superseded for this submission.
+9. Hosting uses the recorded $0 setup: a free Render web service and Supabase project. `.github/workflows/keep-warm.yml` has a 10-minute cadence, 03:00-22:00 UTC, and is intended to be enabled after the repository becomes public; it is not an uptime guarantee. Re-open the hosted URL logged out once a week until winners are announced. The API image supervises its API and worker together; jobs and reconciliation run while the service is awake and pause when it sleeps. Database-clock deadlines are rechecked after waking. State cold-start/sleep risks in the README. BD-05's paid-plan rule is recorded as superseded for this submission.
 10. Judge access: the README says how a judge approves a payment (a Sandbox personal buyer account they create, or a dedicated demo buyer whose login is given only through Devpost's private testing-instructions field if it offers one). Sandbox buyer passwords never appear in the repository, README or video; change any password that was ever shown on screen.
 
 ## 8. After submission (task T11X02)
